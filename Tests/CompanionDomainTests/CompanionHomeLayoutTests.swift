@@ -20,6 +20,48 @@ private func entries(_ projects: [(String, [CompanionAgent])]) -> [CompanionProj
 
 private func key(_ project: String) -> String { CompanionProjectOrdering.key(.init(hostID: "mac", projectID: project)) }
 
+struct CompanionHomeSummaryTests {
+    @Test func attentionGrammarIncludesZeroOneAndMany() {
+        let hosts = entries([("p1", [agent("busy", .working), agent("done", .completed)])]).map(\.host)
+        for (count, label) in [(0, "0 need you"), (1, "1 needs you"), (2, "2 need you")] {
+            let summary = CompanionHomeSummary(hosts: hosts, needsYou: count)
+            #expect(summary.workingLabel == "1 working")
+            #expect(summary.attentionLabel == label)
+            #expect(summary.connectionLabel == nil)
+        }
+    }
+
+    @Test func connectionCountAppearsAtThreeDesktopsAndOnlyCountsConnected() {
+        var hosts = (0..<5).map { CompanionHost(id: "\($0)", name: "Mac \($0)", endpoint: "", connection: .connected, projects: []) }
+        #expect(CompanionHomeSummary(hosts: Array(hosts.prefix(2)), needsYou: 0).connectionLabel == nil)
+        #expect(CompanionHomeSummary(hosts: Array(hosts.prefix(3)), needsYou: 0).connectionLabel == "3 of 3 desktops connected")
+        hosts[3].connection = .reconnecting
+        hosts[4].connection = .offline
+        #expect(CompanionHomeSummary(hosts: hosts, needsYou: 0).connectionLabel == "3 of 5 desktops connected")
+        hosts[2].connection = .synchronizing
+        #expect(CompanionHomeSummary(hosts: hosts, needsYou: 0).connectionLabel == "2 of 5 desktops connected")
+    }
+
+    @MainActor @Test func summaryFollowsAgentAndConnectionReports() {
+        let store = CompanionStore(service: CompanionPreviewService())
+        var hosts = CompanionPreviewService.hosts(now: now)
+        store.apply(.hosts(hosts))
+        let original = CompanionHomeSummary(hosts: store.hosts, needsYou: store.needsYouCount)
+        #expect(original.working == 1 && original.needsYou == 1)
+        for project in hosts[0].projects.indices {
+            for agent in hosts[0].projects[project].agents.indices where hosts[0].projects[project].agents[agent].status == .working {
+                hosts[0].projects[project].agents[agent].status = .approval
+            }
+        }
+        store.apply(.hosts(hosts))
+        let changed = CompanionHomeSummary(hosts: store.hosts, needsYou: store.needsYouCount)
+        #expect(changed.working == 0 && changed.attentionLabel == "2 need you")
+        hosts[0].connection = .offline
+        store.apply(.hosts(hosts))
+        #expect(CompanionHomeSummary(hosts: store.hosts, needsYou: store.needsYouCount).needsYou == 0)
+    }
+}
+
 /// Project activity as Home computes it: the newest agent activity in the project.
 private func layout(_ entries: [CompanionProjectEntry], sort: CompanionProjectSort = .recent, rule: CompanionIdleRule = .init(),
                     hold: CompanionListHold? = nil) -> CompanionHomeLayout {

@@ -1,6 +1,26 @@
 import Foundation
 import ClubhouseTransport
 
+/// The live counts in Home's scrolling summary header. Attention keeps the Needs you badge's request count.
+struct CompanionHomeSummary: Equatable, Sendable {
+    var working: Int
+    var needsYou: Int
+    var connected: Int
+    var desktops: Int
+
+    init(hosts: [CompanionHost], needsYou: Int) {
+        working = hosts.flatMap(\.allAgents).filter { $0.status == .working }.count
+        self.needsYou = needsYou
+        connected = hosts.filter(\.connection.canOperate).count
+        desktops = hosts.count
+    }
+
+    var workingLabel: String { "\(working) working" }
+    var attentionLabel: String { "\(needsYou) \(needsYou == 1 ? "needs" : "need") you" }
+    var connectionLabel: String? { desktops >= 3 ? "\(connected) of \(desktops) desktops connected" : nil }
+    var accessibilityLabel: String { ([workingLabel, attentionLabel] + [connectionLabel].compactMap { $0 }).joined(separator: ", ") }
+}
+
 /// The desktop sidebar's idle rule (Clubhouse `projectActivity.ts`), applied on this phone only.
 /// A project is idle when it's unpinned, no agent in it is awake, and it has had no activity for
 /// `days` days. A project marked inactive is idle at once, until it is marked active, though an awake

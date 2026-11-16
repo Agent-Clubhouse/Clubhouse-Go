@@ -30,6 +30,8 @@ Catppuccin Latte, Catppuccin Mocha and accessibility XXXL. The two DEBUG theme f
 `--companion-preview-theme-latte` / `--companion-preview-theme-mocha` put fixed desktop color payloads
 through the existing host theme mapping; they do not add a production theme registry.
 
+Home's first scrolling content row keeps its live Working and Needs you counts under the native large title, with secondary labels, semantic dots and singular/plural attention grammar. The header is neither pinned nor in the toolbar; no duplicate native subtitle is used. Three or more desktops add the connected/total count. `CompanionHomeSubtitleUITests` changes agent and connection reports through DEBUG preview Settings, then captures light, dark, Latte, Mocha and accessibility XXXL with five desktops. Acceptance requires readable complete summary lines at XXXL, below the navigation bar and above the tab bar without clipping or hyphenation; simulator screenshots must confirm it. The same class checks live updates after Settings dismissal, scrolling away, tabs and relaunch. The offline banner's separate XXXL layout belongs to #435.
+
 Saved Access uses the desktop's `access.version >= 1` contract and its per-CLI choices, labels and descriptions.
 Agent rows suppress saved Access only when it matches a known default; unknown defaults keep their badges.
 `CompanionAgentRowTests` covers this rule, host disambiguation, the single-state status line, existing-read

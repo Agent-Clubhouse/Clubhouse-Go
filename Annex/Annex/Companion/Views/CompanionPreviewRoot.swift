@@ -99,6 +99,12 @@ struct CompanionPreviewRoot: View {
                                 Button("Report projects linked") { reportProjectLinks(linked: true) }
                             }
                         }
+                        if ProcessInfo.processInfo.arguments.contains("--companion-preview-home-summary-controls") {
+                            Section("Preview Home counts") {
+                                Button("Report two requests and no working agents") { reportHomeCounts() }
+                                Button("Report Studio offline") { report(connection: .offline) }
+                            }
+                        }
                         CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
@@ -128,6 +134,20 @@ struct CompanionPreviewRoot: View {
         var hosts = store.hosts
         for index in hosts.indices {
             hosts[index].projectLinks = linked ? CompanionPreviewService.previewProjectLinks : .init(projectLinks: [])
+        }
+        store.apply(.hosts(hosts))
+    }
+
+    private func reportHomeCounts() {
+        var hosts = store.hosts
+        for host in hosts.indices {
+            for project in hosts[host].projects.indices {
+                for agent in hosts[host].projects[project].agents.indices {
+                    if hosts[host].projects[project].agents[agent].status == .working {
+                        hosts[host].projects[project].agents[agent].status = .approval
+                    }
+                }
+            }
         }
         store.apply(.hosts(hosts))
     }

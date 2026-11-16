@@ -314,6 +314,7 @@ struct CompanionHomeView: View {
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.companionSendFeedback) private var sendFeedback
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var multipleHosts: Bool { store.hosts.count > 1 }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
@@ -323,6 +324,15 @@ struct CompanionHomeView: View {
 
     var body: some View {
         List {
+            if !store.hosts.isEmpty {
+                summary
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .listRowBackground(CompanionCardBackground())
+                    .listRowSeparator(.hidden)
+                    .accessibilityIdentifier("home-summary")
+                    .accessibilityAddTraits(.isHeader)
+            }
             if isPreview { CompanionPreviewLabel().listRowBackground(Color.clear) }
             if store.hosts.isEmpty {
                 ContentUnavailableView {
@@ -334,7 +344,6 @@ struct CompanionHomeView: View {
                 }
                 .listRowBackground(Color.clear)
             } else {
-                summary
                 ForEach(store.hosts.filter { $0.canLinkProjects && $0.projectLinksError != nil }) { host in
                     Label(host.projectLinksError ?? "", systemImage: "exclamationmark.triangle")
                         .foregroundStyle(Color(palette.warning))
@@ -390,17 +399,19 @@ struct CompanionHomeView: View {
         }
     }
 
-    private var summary: some View {
-        let working = store.allAgents.filter { $0.status == .working }.count
-        return HStack(spacing: 14) {
-            Label("\(working) working", systemImage: "circle.fill").foregroundStyle(Color(palette.tint))
-            Label("\(store.needsYouCount) need you", systemImage: "circle.fill").foregroundStyle(Color(palette.warning))
-        }
-        .labelStyle(CompanionDotLabelStyle())
-        .font(.subheadline)
-        .listRowBackground(Color.clear)
-        .listRowInsets(EdgeInsets(top: 0, leading: 20, bottom: 0, trailing: 20))
-        .accessibilityElement(children: .combine)
+    /// The first scrolling content row: the native title slot cannot fit the full summary at XXXL.
+    private var summary: Text {
+        let counts = CompanionHomeSummary(hosts: store.hosts, needsYou: store.needsYouCount)
+        let workingDot = Text("●").font(.caption2).foregroundColor(Color(palette.success))
+        let attentionDot = Text("●").font(.caption2).foregroundColor(Color(palette.warning))
+        let working = Text(counts.workingLabel).foregroundColor(Color(palette.secondaryLabel))
+        let attention = Text(counts.attentionLabel).foregroundColor(Color(palette.secondaryLabel))
+        let separator = dynamicTypeSize.isAccessibilitySize ? "\n" : " · "
+        let status = Text("\(workingDot) \(working)\(separator)\(attentionDot) \(attention)")
+        let text = counts.connectionLabel.map {
+            Text("\(status)\n\(Text($0).foregroundColor(Color(palette.secondaryLabel)))")
+        } ?? status
+        return text.font(.subheadline).accessibilityLabel(counts.accessibilityLabel)
     }
 
     private func offlineCard(_ host: CompanionHost) -> some View {
@@ -685,15 +696,6 @@ extension CompanionHomeView {
         .buttonStyle(.plain)
         .accessibilityLabel("Open \(entry.project.name)")
         .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
-    }
-}
-
-private struct CompanionDotLabelStyle: LabelStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        HStack(spacing: 5) {
-            configuration.icon.font(.system(size: 7))
-            configuration.title.foregroundStyle(.secondary)
-        }
     }
 }
 
