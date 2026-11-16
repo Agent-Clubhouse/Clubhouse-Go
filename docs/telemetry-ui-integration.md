@@ -102,11 +102,11 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionContentView.swift:175](../Annex/Annex/Companion/Views/CompanionContentView.swift#L175) | Follow-up owner to assign | `Button("Copy image", systemImage: "doc.on.doc") { UIPasteboard.general.image = image }` |
 | [ ] | [CompanionContentView.swift:194](../Annex/Annex/Companion/Views/CompanionContentView.swift#L194) | Follow-up owner to assign | `Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }` |
 | [ ] | [CompanionContentView.swift:208](../Annex/Annex/Companion/Views/CompanionContentView.swift#L208) | Follow-up owner to assign | `.toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: close).accessibilityIdentifier("companion-preview-done") } }` |
-| [ ] | [CompanionConversationComposer.swift:129](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L129) | Chat lane / follow-up owner | `Button { confirmCancel = true } label: {` |
-| [ ] | [CompanionConversationComposer.swift:143](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L143) | Chat lane / follow-up owner | `Button(action: sendMessage) {` |
-| [ ] | [CompanionConversationComposer.swift:181](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L181) | Chat lane / follow-up owner | `Button("Switch to \(level.label)") { Task { await store.setLevel(level, target: target) } }` |
-| [ ] | [CompanionConversationComposer.swift:266](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L266) | Chat lane / follow-up owner | `Button(action: dismissKeyboard) {` |
-| [ ] | [CompanionConversationComposer.swift:663](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L663) | Chat lane / follow-up owner | `Button("Close", action: close)` |
+| [ ] | [CompanionConversationComposer.swift:130](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L130) | Chat lane / follow-up owner | `Button { confirmCancel = true } label: {` |
+| [ ] | [CompanionConversationComposer.swift:144](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L144) | Chat lane / follow-up owner | `Button(action: sendMessage) {` |
+| [ ] | [CompanionConversationComposer.swift:182](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L182) | Chat lane / follow-up owner | `Button("Switch to \(level.label)") { Task { await store.setLevel(level, target: target) } }` |
+| [ ] | [CompanionConversationComposer.swift:272](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L272) | Chat lane / follow-up owner | `Button(action: dismissKeyboard) {` |
+| [ ] | [CompanionConversationComposer.swift:672](../Annex/Annex/Companion/Views/CompanionConversationComposer.swift#L672) | Chat lane / follow-up owner | `Button("Close", action: close)` |
 | [ ] | [CompanionConversationGrantRequests.swift:110](../Annex/Annex/Companion/Views/CompanionConversationGrantRequests.swift#L110) | Chat lane / follow-up owner | `Button("Close") { showsReview = false }` |
 | [ ] | [CompanionConversationGrantRequests.swift:131](../Annex/Annex/Companion/Views/CompanionConversationGrantRequests.swift#L131) | Chat lane / follow-up owner | `Button { showsReview = true } label: {` |
 | [ ] | [CompanionConversationHeader.swift:35](../Annex/Annex/Companion/Views/CompanionConversationHeader.swift#L35) | Chat lane / follow-up owner | `Button { isExpanded.toggle() } label: {` |
@@ -300,32 +300,34 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionRootView.swift:1338](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1338) | Root lane | `NavigationLink {` |
 | [ ] | [CompanionRootView.swift:1366](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1366) | Root lane | `NavigationLink(value: agent.id) {` |
 | [ ] | [CompanionSlashMenuView.swift:34](../Annex/Annex/Companion/Views/CompanionSlashMenuView.swift#L34) | Chat lane / follow-up owner | `Button { pick(command) } label: {` |
-| [ ] | [CompanionSpawnSheet.swift:34](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L34) | Managed-create lane | `Button("Cancel", systemImage: "xmark") { dismiss() }.disabled(store.spawnInProgress \|\| store.createInProgress)` |
-| [ ] | [CompanionSpawnSheet.swift:42](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L42) | Managed-create lane | `Button("Continue with a new task") {` |
-| [ ] | [CompanionSpawnSheet.swift:48](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L48) | Managed-create lane | `Button("Create another agent") { store.acknowledgeReviewedCreate() }` |
-| [ ] | [CompanionSpawnSheet.swift:51](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L51) | Managed-create lane | `Button("Use \(pendingAccess?.label ?? "elevated Access")", role: .destructive) {` |
-| [ ] | [CompanionSpawnSheet.swift:55](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L55) | Managed-create lane | `Button("Cancel", role: .cancel) { pendingAccess = nil }` |
-| [ ] | [CompanionSpawnSheet.swift:91](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L91) | Managed-create lane | `Picker("Kind", selection: $kind) {` |
-| [ ] | [CompanionSpawnSheet.swift:115](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L115) | Managed-create lane | `Picker("Runs on", selection: $provider) {` |
-| [ ] | [CompanionSpawnSheet.swift:153](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L153) | Managed-create lane | `Button { showOptions.toggle() } label: {` |
-| [ ] | [CompanionSpawnSheet.swift:164](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L164) | Managed-create lane | `Menu {` |
-| [ ] | [CompanionSpawnSheet.swift:165](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L165) | Managed-create lane | `Picker("Project", selection: Binding(get: { selectedEntry?.id }, set: { if let id = $0 { selectEntry(id) } })) {` |
-| [ ] | [CompanionSpawnSheet.swift:190](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L190) | Managed-create lane | `Picker("Machine", selection: $project) {` |
-| [ ] | [CompanionSpawnSheet.swift:214](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L214) | Managed-create lane | `Button {` |
-| [ ] | [CompanionSpawnSheet.swift:236](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L236) | Managed-create lane | `Button("Check previous request") { Task { if await store.checkSpawnOutcome() { dismiss() } } }` |
-| [ ] | [CompanionSpawnSheet.swift:238](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L238) | Managed-create lane | `Button("View agents") { dismiss() }` |
-| [ ] | [CompanionSpawnSheet.swift:239](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L239) | Managed-create lane | `Button("I've checked the agents") { confirmReviewedSpawn = true }` |
-| [ ] | [CompanionSpawnSheet.swift:332](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L332) | Managed-create lane | `Button("Try again") { Task { await loadOptions() } }` |
-| [ ] | [CompanionSpawnSheet.swift:355](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L355) | Managed-create lane | `Button("Randomize name", systemImage: "shuffle") { durable.name = CompanionAgentName.random() }` |
-| [ ] | [CompanionSpawnSheet.swift:370](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L370) | Managed-create lane | `Picker("Runs on", selection: $durable.orchestrator) {` |
-| [ ] | [CompanionSpawnSheet.swift:384](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L384) | Managed-create lane | `Picker("Model", selection: $durable.model) {` |
-| [ ] | [CompanionSpawnSheet.swift:398](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L398) | Managed-create lane | `Toggle("Orchestrate", isOn: $durable.orchestrate)` |
-| [ ] | [CompanionSpawnSheet.swift:408](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L408) | Managed-create lane | `Toggle("Own worktree and branch", isOn: $durable.useWorktree)` |
-| [ ] | [CompanionSpawnSheet.swift:420](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L420) | Managed-create lane | `Picker("Access", selection: Binding(get: { durable.access ?? options.defaultAccess }, set: { level in` |
-| [ ] | [CompanionSpawnSheet.swift:465](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L465) | Managed-create lane | `Toggle(isOn: Binding(get: { durable.mcpIDs.contains(server.id) },` |
-| [ ] | [CompanionSpawnSheet.swift:480](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L480) | Managed-create lane | `Button {` |
-| [ ] | [CompanionSpawnSheet.swift:508](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L508) | Managed-create lane | `Button("Check again") { Task { if await store.checkCreateOutcome() { dismiss() } } }` |
-| [ ] | [CompanionSpawnSheet.swift:510](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L510) | Managed-create lane | `Button("I've checked the agents") { confirmReviewedCreate = true }` |
+| [ ] | [CompanionSpawnSheet.swift:36](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L36) | Managed-create lane | `Button("Cancel", systemImage: "xmark") { dismiss() }.disabled(store.spawnInProgress \|\| store.createInProgress)` |
+| [ ] | [CompanionSpawnSheet.swift:44](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L44) | Managed-create lane | `Button("Continue with a new task") {` |
+| [ ] | [CompanionSpawnSheet.swift:50](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L50) | Managed-create lane | `Button("Create another agent") { store.acknowledgeReviewedCreate() }` |
+| [ ] | [CompanionSpawnSheet.swift:53](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L53) | Managed-create lane | `Button("Use \(pendingAccess?.label ?? "elevated Access")", role: .destructive) {` |
+| [ ] | [CompanionSpawnSheet.swift:57](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L57) | Managed-create lane | `Button("Cancel", role: .cancel) { pendingAccess = nil }` |
+| [ ] | [CompanionSpawnSheet.swift:94](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L94) | Managed-create lane | `Picker("Kind", selection: $kind) {` |
+| [ ] | [CompanionSpawnSheet.swift:118](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L118) | Managed-create lane | `choiceMenu("Runs on", value: providers.first { $0.id == provider }?.name ?? "Project default", selection: $provider) {` |
+| [ ] | [CompanionSpawnSheet.swift:157](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L157) | Managed-create lane | `Button { showOptions.toggle() } label: {` |
+| [ ] | [CompanionSpawnSheet.swift:167](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L167) | Managed-create lane | `Menu {` |
+| [ ] | [CompanionSpawnSheet.swift:168](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L168) | Managed-create lane | `Picker("Project", selection: Binding(get: { selectedEntry?.id }, set: { if let id = $0 { selectEntry(id) } })) {` |
+| [ ] | [CompanionSpawnSheet.swift:193](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L193) | Managed-create lane | `Picker("Machine", selection: $project) {` |
+| [ ] | [CompanionSpawnSheet.swift:217](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L217) | Managed-create lane | `Button {` |
+| [ ] | [CompanionSpawnSheet.swift:239](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L239) | Managed-create lane | `Button("Check previous request") { Task { if await store.checkSpawnOutcome() { dismiss() } } }` |
+| [ ] | [CompanionSpawnSheet.swift:241](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L241) | Managed-create lane | `Button("View agents") { dismiss() }` |
+| [ ] | [CompanionSpawnSheet.swift:242](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L242) | Managed-create lane | `Button("I've checked the agents") { confirmReviewedSpawn = true }` |
+| [ ] | [CompanionSpawnSheet.swift:338](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L338) | Managed-create lane | `Button("Try again") { Task { await loadOptions() } }` |
+| [ ] | [CompanionSpawnSheet.swift:387](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L387) | Managed-create lane | `Menu { Picker(label, selection: selection) { choices() } } label: { pickerRow(label, value: value) }` |
+| [ ] | [CompanionSpawnSheet.swift:429](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L429) | Managed-create lane | `choiceMenu("Runs on", value: options.options.orchestrator(durable.orchestrator)?.displayName ?? durable.orchestrator,` |
+| [ ] | [CompanionSpawnSheet.swift:443](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L443) | Managed-create lane | `choiceMenu("Model", value: models.first { $0.id == durable.model }?.label ?? durable.model, selection: $durable.model) {` |
+| [ ] | [CompanionSpawnSheet.swift:455](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L455) | Managed-create lane | `NavigationLink {` |
+| [ ] | [CompanionSpawnSheet.swift:476](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L476) | Managed-create lane | `Button("Randomize name", systemImage: "shuffle") { durable.name = CompanionAgentName.random() }` |
+| [ ] | [CompanionSpawnSheet.swift:486](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L486) | Managed-create lane | `choiceMenu("Access", value: current.map { level in` |
+| [ ] | [CompanionSpawnSheet.swift:522](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L522) | Managed-create lane | `Toggle("Own worktree and branch", isOn: $durable.useWorktree)` |
+| [ ] | [CompanionSpawnSheet.swift:532](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L532) | Managed-create lane | `Toggle("Can start helpers", isOn: $durable.orchestrate)` |
+| [ ] | [CompanionSpawnSheet.swift:541](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L541) | Managed-create lane | `Toggle(isOn: Binding(get: { durable.mcpIDs.contains(server.id) },` |
+| [ ] | [CompanionSpawnSheet.swift:561](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L561) | Managed-create lane | `Button {` |
+| [ ] | [CompanionSpawnSheet.swift:589](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L589) | Managed-create lane | `Button("Check again") { Task { if await store.checkCreateOutcome() { dismiss() } } }` |
+| [ ] | [CompanionSpawnSheet.swift:591](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L591) | Managed-create lane | `Button("I've checked the agents") { confirmReviewedCreate = true }` |
 | [ ] | [CompanionTerminalView.swift:66](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L66) | Follow-up owner to assign | `Button { dismiss() } label: {` |
 | [ ] | [CompanionTerminalView.swift:73](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L73) | Follow-up owner to assign | `Menu {` |
 | [ ] | [CompanionTerminalView.swift:74](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L74) | Follow-up owner to assign | `Button("Copy all", systemImage: "doc.on.doc") {` |
@@ -365,7 +367,7 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 - [ ] A dashboard query groups app.action logs by screen and control.
 - [ ] The last integration PR closes #433.
 
-The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the prepared #443 and managed-create surfaces. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
+The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the #443 and merged #455 surfaces. The managed-create checklist above includes the real Workspace navigation, the shared native `choiceMenu` wrapper and each semantic call site. Its future wrapper should receive an explicit closed control argument; do not derive a control from its displayed string or selected value. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
 
 The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
 
