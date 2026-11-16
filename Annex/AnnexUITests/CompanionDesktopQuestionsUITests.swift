@@ -20,10 +20,9 @@ import XCTest
             XCTAssertTrue(summary.label.contains("Answer them in Clubhouse on Studio Mac."), summary.label)
             let transcript = app.scrollViews["companion-transcript"]
             let show = app.buttons["companion-decision-show-in-chat"]
-            let next = app.buttons["companion-pinned-decision-next"]
             // Both original request identities must resolve to the one visible timeline row.
             for index in 1...2 {
-                XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request \(index) of 3")
+                XCTAssertEqual(show.value as? String, "\(index) of 3 waiting · Question")
                 XCTAssertTrue(show.isHittable)
                 show.tap()
                 XCTAssertTrue(waitFor(summary, NSPredicate { _, _ in
@@ -37,12 +36,12 @@ import XCTest
                         && summary.frame.minY < visible.maxY && summary.frame.maxY > top
                 }, timeout: 5), "Original request \(index) jumps to the grouped summary: \(summary.frame), \(transcript.frame)")
                 if index == 2 { capture(app, "\(name) later-member jump and grouped summary") }
-                next.tap()
+                swipeToNextQuestion(in: app)
             }
-            XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 3 of 3")
-            XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Which color?")
+            XCTAssertEqual(show.value as? String, "3 of 3 waiting · Question")
+            XCTAssertEqual(show.label, "Which color?")
             let close = app.buttons["companion-approval-review-close"]
-            waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+            waitAndTap(app.buttons["companion-decision-answer"], until: close, attempts: 1)
             XCTAssertTrue(close.isHittable)
             let review = app.scrollViews["companion-approval-review-scroll"]
             let nav = app.navigationBars["Review question"]
@@ -66,10 +65,21 @@ import XCTest
             // Opening, jumping, selecting and dismissing do not submit an answer.
             close.tap()
             XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-            XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 3 of 3")
+            XCTAssertEqual(show.value as? String, "3 of 3 waiting · Question")
             XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists)
             app.terminate()
         }
+    }
+
+    /// #448 replaces pager controls with a real horizontal, selection-only swipe.
+    private func swipeToNextQuestion(in app: XCUIApplication) {
+        let frame = app.buttons["companion-decision-show-in-chat"].frame
+        let start = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.minX + frame.width * 0.85, dy: frame.midY))
+        let distance = frame.width * 0.7
+        XCTAssertGreaterThan(distance, 44)
+        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: -distance, dy: 0)),
+                    withVelocity: .slow, thenHoldForDuration: 0.1)
     }
 
     private func capture(_ app: XCUIApplication, _ name: String) {

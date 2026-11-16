@@ -230,7 +230,7 @@ import XCTest
         let river = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         river.tap()
-        let review = app.buttons["companion-review-approval"]
+        let review = app.buttons["companion-decision-answer"]
         XCTAssertTrue(review.waitForExistence(timeout: 10))
         review.tap()
         let answer = app.descendants(matching: .any).matching(identifier: "Answer: Unicode answer").firstMatch

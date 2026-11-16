@@ -434,10 +434,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         XCTAssertEqual(composer.placeholderValue, "Message River… / for commands", "The placeholder names the agent and offers / commands, like the desktop")
 
-        let summary = app.staticTexts["companion-pinned-decision-summary"]
+        let summary = app.buttons["companion-decision-show-in-chat"]
         XCTAssertTrue(summary.waitForExistence(timeout: 5))
         XCTAssertEqual(summary.label, "Run xcodebuild", "The pinned summary names the oldest waiting request")
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 1 of 2")
+        XCTAssertEqual(summary.value as? String, "1 of 2 waiting · Bash")
         XCTAssertFalse(app.staticTexts["companion-chat-activity"].exists, "The pinned request replaces the redundant activity line")
         let context = app.buttons["companion-context-usage"]
         XCTAssertTrue(context.exists)
@@ -446,7 +446,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // Review retains the full card and scoped persistent action without duplicating transcript decisions.
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        openPinnedDecisionReview(in: app, until: close)
         let review = app.scrollViews["companion-approval-review-scroll"]
         let position = review.staticTexts.matching(identifier: "companion-approval-position").firstMatch
         XCTAssertTrue(position.exists, "Two waiting approvals must show their count")
@@ -775,7 +775,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // Always allow lives in the pinned request's full Review card and still requires confirmation.
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        openPinnedDecisionReview(in: app, until: close)
         let review = app.scrollViews["companion-approval-review-scroll"]
         let always = review.buttons["companion-approval-option-allow-always"]
         XCTAssertTrue(always.waitForExistence(timeout: 5))

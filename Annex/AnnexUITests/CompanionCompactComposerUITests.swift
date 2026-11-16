@@ -91,6 +91,19 @@ import XCTest
         if working { ids.insert("companion-interrupt", at: ids.count - 1) }
         if dismissButton { ids.append("companion-dismiss-keyboard") }
         if reviewButton {
+            let title = try XCTUnwrap(layout["companion-decision-show-in-chat"])
+            let tray = try XCTUnwrap(layout["companion-pinned-decision"])
+            XCTAssertTrue(pixelContains(region, title), "\(state): the title is not clipped by navigation or keyboard", file: file, line: line)
+            let footerViewport = region.intersection(layout["companion-grant-footer-scroll"] ?? region)
+            XCTAssertTrue(pixelContains(footerViewport, title), "\(state): the title is not clipped by its actual footer viewport", file: file, line: line)
+            XCTAssertTrue(pixelContains(tray, title), "\(state): the entire title stays in its card", file: file, line: line)
+            XCTAssertEqual(layout.values["companion-decision-show-in-chat"], "1 of 2 waiting · Bash",
+                           "\(state): compact metadata stays complete for VoiceOver", file: file, line: line)
+            if editing, let keyboardTop = layout.keyboardTop {
+                XCTAssertLessThanOrEqual(composerRegion.maxY, keyboardTop, "\(state): composer bottom stays above keyboard", file: file, line: line)
+                XCTAssertLessThanOrEqual(tray.maxY, keyboardTop, "\(state): tray bottom stays above keyboard", file: file, line: line)
+                print("AX_COMPACT_GEOMETRY state=\(state) title=\(title) tray=\(tray) composer=\(composerRegion) keyboardTop=\(keyboardTop)")
+            }
             let review = try XCTUnwrap(layout["companion-review-approval"])
             XCTAssertTrue(pixelContains(region, review), "\(state): approval review stays visible", file: file, line: line)
             XCTAssertLessThanOrEqual(review.maxY, composerRegion.minY, "\(state): review stays above the composer", file: file, line: line)

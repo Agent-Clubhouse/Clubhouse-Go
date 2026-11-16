@@ -246,8 +246,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     }
 
     private func answerSQLiteQuestion(_ app: XCUIApplication) {
-        // #392 makes transcript question options read-only; the actionable form belongs to Review request.
-        let review = app.buttons.matching(NSPredicate(format: "identifier == 'companion-review-approval' AND label BEGINSWITH 'Review question:'")).firstMatch
+        // #448 names the same read-only-to-actionable transition Answer. Static migration; live fixture not run here.
+        let review = app.buttons["companion-decision-answer"]
         XCTAssertTrue(review.waitForExistence(timeout: 30), "The structured question must arrive")
         let sheet = app.scrollViews["companion-approval-review-scroll"]
         waitAndTap(review, until: sheet, timeout: 30, attempts: 1)
@@ -435,10 +435,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
 
         send(app, "tool")
         // #392 moved persistent decisions out of transcript cards into Review request.
-        let review = app.buttons["companion-review-approval"]
+        let review = app.buttons["companion-decision-show-in-chat"]
         let always = app.buttons["companion-approval-option-allow_always"]
         XCTAssertTrue(review.waitForExistence(timeout: 30), "The fresh permission request must arrive before opening its review")
-        waitAndTap(review, until: app.scrollViews["companion-approval-review-scroll"], timeout: 30, attempts: 1)
+        openPinnedDecisionReview(in: app, until: app.scrollViews["companion-approval-review-scroll"])
         XCTAssertTrue(always.waitForExistence(timeout: 30), "Allow and don't ask again is offered for the CLI's suggested rule")
         scrollTo(always, in: app, maxSwipes: 3)
         always.tap()

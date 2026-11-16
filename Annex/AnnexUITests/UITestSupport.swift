@@ -391,5 +391,37 @@ class ReliableUITestCase: XCTestCase {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
+    /// #448 keeps full Review in the request title's native long-press menu.
+    /// The popup and the visible compact Review must have distinct, unique identifiers.
+    func openPinnedDecisionReview(in app: XCUIApplication, until destination: XCUIElement,
+                                  file: StaticString = #filePath, line: UInt = #line) {
+        let title = app.buttons["companion-decision-show-in-chat"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), file: file, line: line)
+        let requestTitle = title.label
+        let visibleReviewCount = app.buttons.matching(identifier: "companion-review-approval").count
+        XCTAssertLessThanOrEqual(visibleReviewCount, 1, "One visible Review control before opening the menu", file: file, line: line)
+        title.press(forDuration: 0.8)
+        let item = app.buttons["companion-decision-review-menu"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), file: file, line: line)
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-decision-review-menu").count, 1,
+                       "One native Review item", file: file, line: line)
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-review-approval").count, visibleReviewCount,
+                       "The separate compact Review ID remains unique with the menu open", file: file, line: line)
+        XCTAssertTrue(item.label.contains(requestTitle), "Review retains the selected request identity", file: file, line: line)
+        if app.frame.width > app.frame.height {
+            // iOS 26 may report the visible native popup item as not hittable in landscape.
+            XCTAssertTrue(waitFor(app, NSPredicate { _, _ in
+                item.exists && item.frame.width > 0 && self.pixelContains(app.frame, item.frame)
+            }, timeout: 5), "The native Review item fits onscreen before touching it", file: file, line: line)
+            let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            shot.name = "Landscape native Review menu before measured touch"; shot.lifetime = .keepAlways; add(shot)
+            let frame = item.frame
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+            XCTAssertTrue(destination.waitForExistence(timeout: 10), "Review opens after touching the menu item", file: file, line: line)
+        } else {
+            waitAndTap(item, until: destination, attempts: 1, file: file, line: line)
+        }
+    }
+
     private func failureMessage(_ message: String, default fallback: String) -> String { message.isEmpty ? fallback : message }
 }

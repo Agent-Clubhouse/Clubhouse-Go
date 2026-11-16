@@ -24,21 +24,7 @@ import Vision
                    withVelocity: .slow, thenHoldForDuration: 0.1)
     }
     private func openReview(_ app: XCUIApplication, until close: XCUIElement) {
-        summary(app).press(forDuration: 0.8)
-        let item = app.buttons["companion-review-approval"]
-        if app.frame.width > app.frame.height {
-            // iOS 26's native popup can report isHittable=false despite a fully visible row.
-            XCTAssertTrue(waitFor(app, NSPredicate { _, _ in
-                item.exists && item.frame.width > 0 && self.pixelContains(app.frame, item.frame)
-            }, timeout: 5), "The native Review menu item must fit onscreen before touching it")
-            capture(app, "AX5 landscape: native Review menu before measured touch")
-            let frame = item.frame
-            app.coordinate(withNormalizedOffset: .zero)
-                .withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
-            XCTAssertTrue(close.waitForExistence(timeout: 10), "Review must open after touching the native menu item")
-        } else {
-            waitAndTap(item, until: close, attempts: 1)
-        }
+        openPinnedDecisionReview(in: app, until: close)
     }
     private func awaitApproval(_ app: XCUIApplication) {
         XCTAssertTrue(element(app, "companion-pinned-decision").waitForExistence(timeout: 20))
@@ -152,6 +138,12 @@ import Vision
         assertPinned(app)
         let tray = element(app, "companion-pinned-decision")
         let expandedHeight = tray.frame.height
+        XCTAssertEqual(tray.value as? String, "Expanded request controls")
+        let roomyTitle = summary(app).frame
+        let roomyDeny = app.buttons["Deny"].frame
+        let roomyAllow = app.buttons["Allow once"].frame
+        let roomyIsSingleRow = pixelAligned(roomyTitle.midY) == pixelAligned(roomyDeny.midY)
+            && pixelAligned(roomyDeny.midY) == pixelAligned(roomyAllow.midY)
         XCTAssertTrue(app.buttons["Allow once"].exists && app.buttons["Deny"].exists, "Roomy reading retains expanded decisions")
         // #448 makes the request title itself the Chat action; Review also remains in its native menu.
         try assertVisibleLabel(summary(app), text: "Run preview build")
@@ -164,7 +156,19 @@ import Vision
         composer.typeText("Keep this draft")
         awaitApproval(app)
         assertPinned(app, keyboard: true)
-        XCTAssertLessThan(tray.frame.height, expandedHeight, "The keyboard uses the compact tray rather than compressing the draft")
+        // Equal height is legitimate only when the new roomy layout already fits one minimum-height row.
+        // Keep strict shrinkage everywhere else: an arbitrary equal-height/taller compact tray still fails.
+        if pixelAligned(tray.frame.height) == pixelAligned(expandedHeight) {
+            let singleRowFloor: CGFloat = 44 + 2 * 4 // minimum target plus the card's vertical insets
+            XCTAssertEqual(pixelAligned(expandedHeight), singleRowFloor)
+            XCTAssertEqual(pixelAligned(tray.frame.height), singleRowFloor)
+            XCTAssertTrue(roomyIsSingleRow, "Equality requires a genuinely single-row roomy layout")
+        } else {
+            XCTAssertLessThan(tray.frame.height, expandedHeight, "The keyboard uses the compact tray rather than compressing the draft")
+        }
+        XCTAssertEqual(tray.value as? String, "Compact request controls", "The actual compact policy must activate")
+        XCTAssertLessThanOrEqual(tray.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        XCTAssertLessThanOrEqual(element(app, "companion-composer-region").frame.maxY, app.keyboards.firstMatch.frame.minY)
         XCTAssertFalse(app.buttons["Allow once"].exists, "Keyboard-up decisions remain available through compact Review")
         XCTAssertFalse(app.buttons["Deny"].exists)
         let show = app.buttons["companion-decision-show-in-chat"]

@@ -36,7 +36,8 @@ import XCTest
         // activity footer. This fixture is waiting on Run xcodebuild, not working.
         let approval = app.staticTexts.matching(identifier: "companion-approval-title")
             .matching(NSPredicate(format: "label == %@", "Run xcodebuild")).firstMatch
-        let review = app.buttons["companion-review-approval"]
+        // #448 moves roomy Review to the actionable title's native menu and named AX action.
+        let review = app.buttons["companion-decision-show-in-chat"]
         XCTAssertTrue(approval.waitForExistence(timeout: 5))
         XCTAssertTrue(review.waitForExistence(timeout: 5))
         XCTAssertTrue(review.isHittable)
@@ -50,6 +51,12 @@ import XCTest
         assertMinimumTarget(context, "context usage")
         XCTAssertGreaterThan(review.frame.minY, identity.frame.maxY, "Approval review belongs above the composer")
         XCTAssertLessThanOrEqual(review.frame.maxY, element(app, "companion-composer").frame.minY)
+        let close = app.buttons["companion-approval-review-close"]
+        openPinnedDecisionReview(in: app, until: close)
+        waitAndTap(close, untilGone: close, attempts: 1)
+        XCTAssertEqual(review.label, "Run xcodebuild")
+        XCTAssertEqual(review.value as? String, "1 of 2 waiting · Bash")
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists, "Opening Review sends nothing")
         waitAndTap(identity, until: details)
         XCTAssertTrue(details.isHittable)
         waitAndTap(identity, untilGone: details)
