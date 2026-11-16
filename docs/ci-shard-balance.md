@@ -6,11 +6,11 @@ The seven-shard catchall timed out in all 13 completed audit runs. Eight whole-c
 
 Timing input: the 45-run audit in `.clubhouse/agents/qa-artifacts/go-ci-efficiency-audit-2026-11-16.md` (runs 43702476235–43804543773, November 15–16). Its UI logs supply first-attempt elapsed times, taking the median per method across available runs. Repeated attempts within a job do not count as independent samples. Renamed project-page and Needs-you methods retain the corresponding historical sample.
 
-The current inventory has **56 classes / 302 zero-argument test methods**, including managed-spawn coverage from #454. 218 methods have a matching historical sample. An unsampled method reserves **60 seconds**; known multi-appearance loops reserve 60 seconds per appearance or independently checked viewport. Live-only methods that skip in ordinary PR CI reserve one second for their existing guard, without changing that guard. Each shard adds five minutes for setup/results, and the hosted shard adds another five minutes. These are planning estimates, not guarantees or new gates.
+After main #489 adds its second Diagnostics method, the integrated inventory has **56 classes / 303 zero-argument test methods**, including managed-spawn coverage from #454. 218 methods have a matching historical sample. An unsampled method reserves **60 seconds**; known multi-appearance loops reserve 60 seconds per appearance or independently checked viewport. Live-only methods that skip in ordinary PR CI reserve one second for their existing guard, without changing that guard. Each shard adds five minutes for setup/results, and the hosted shard adds another five minutes. These are planning estimates, not guarantees or new gates.
 
 The multi-appearance budgets are: Home subtitle 5, offline banner 10 (5 appearances × Home/Needs you), permission portrait 4, Search 5, recovery banner 5, Unicode created-notice drafts 5, and Needs-you action cards 5. Landscape permission and Project info each launch once and use the ordinary 60-second unsampled budget.
 
-Eight shards estimate **40.6–41.1 minutes**, leaving about 14 minutes under the unchanged timeout. A ninth shard adds another setup job against a saturated 4–5-slot macOS pool; it is deferred until real measurements justify it. After the first PR CI run, record each actual job duration. Revisit nine shards if any exceeds about 48 minutes. CI contention, retries and newly added tests can exceed these estimates.
+The initial 302-method balance estimated 40.6–41.1 minutes; #489 adds one unsampled Diagnostics method (60 seconds) to Dispatcher/Terminal. Eight shards now estimate **40.6–41.6 minutes**, leaving about 14 minutes under the unchanged timeout. A ninth shard adds another setup job against a saturated 4–5-slot macOS pool; it is deferred until real measurements justify it. After the first PR CI run, record each actual job duration. Revisit nine shards if any exceeds about 48 minutes. CI contention, retries and newly added tests can exceed these estimates.
 
 ## Shard counts
 
@@ -19,7 +19,7 @@ Before and after use the same source inventory. Class counts in the old matrix o
 | Before shard | Classes touched | Methods |
 | --- | ---: | ---: |
 | UI tests (preview) | 3 | 25 |
-| UI tests (sheets, review, terminal) + unit tests | 5 | 19 |
+| UI tests (sheets, review, terminal) + unit tests | 5 | 20 |
 | UI tests (dispatcher, auto quota) | 3 | 32 |
 | UI tests (reading, input) | 10 | 34 |
 | UI tests (agents, keyboard) | 4 | 17 |
@@ -30,7 +30,7 @@ Before and after use the same source inventory. Class counts in the old matrix o
 | --- | ---: | ---: | ---: |
 | UI tests (preview, project pages) | 5 | 38 | 41.0 |
 | UI tests (feedback, needs you) | 6 | 39 | 40.7 |
-| UI tests (dispatcher, terminal) | 9 | 46 | 40.6 |
+| UI tests (dispatcher, terminal) | 9 | 47 | 41.6 |
 | UI tests (unicode, home) | 6 | 35 | 40.8 |
 | UI tests (search, permissions) | 7 | 22 | 40.9 |
 | UI tests (composer, sheets) | 7 | 33 | 41.1 |
@@ -93,7 +93,7 @@ The method count is unchanged in every row. Sampled is the number of methods wit
 | CompanionTerminalUITests | 8 → 8 | 8 | 304.0 | 2 | 3 |
 | CompanionUnicodeFocusUITests | 12 → 12 | 1 | 960.7 | 7 | 4 |
 | CompanionWakeFocusUITests | 3 → 3 | 0 | 180.0 | 7 | 6 |
-| DiagnosticSettingsTests | 1 → 1 | 1 | 24.3 | 2 | 3 |
+| DiagnosticSettingsTests | 2 → 2 | 1 | 84.3 | 2 | 3 |
 | FeedbackDiagnosticsWireUITests | 22 → 22 | 22 | 1171.7 | 6 | 2 |
 | FeedbackTriggersUITests | 8 → 8 | 8 | 244.5 | 1 | 5 |
 | FramebriarShakeDiagnosticsUITests | 2 → 2 | 2 | 78.3 | 6 | 1 |
