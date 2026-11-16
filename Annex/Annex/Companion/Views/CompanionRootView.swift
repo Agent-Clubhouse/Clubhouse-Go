@@ -17,6 +17,7 @@ struct CompanionRootView: View {
     }
     @State private var dispatcherLaunchPrompt: DispatcherLaunchPrompt?
     @State private var dispatcherLaunchChoice: String?
+    @State private var externalLaunchDismissal = false
     @State private var dispatcherComposerFocus: CompanionDispatcherComposerFocus?
     @State private var navigation: CompanionNavigation
     private struct SpawnLaunch: Identifiable {
@@ -91,26 +92,26 @@ struct CompanionRootView: View {
                                                    wake: { [store] target, choice in Task { await store.wake(target, choice) } }))
         .environment(\.companionOpenReview) { review = $0 }
         .environment(\.companionTerminal, .init(availability: { [store] in store.terminalAvailability($0) }, open: { terminal = $0 }))
-        .fullScreenCover(item: $terminal) { scope in
+        .fullScreenCover(item: $terminal, onDismiss: resumeDispatcherLaunch) { scope in
             CompanionTerminalScreenView(store: store, scope: scope)
                 .companionTheme(preferences.theme(forHost: scope.hostID, hosts: store.hosts))
         }
-        .fullScreenCover(item: $review) { launch in
+        .fullScreenCover(item: $review, onDismiss: resumeDispatcherLaunch) { launch in
             CompanionReviewView(store: store, launch: launch, theme: { [store, preferences] in preferences.theme(forHost: $0.hostID, hosts: store.hosts) }) { target in
                 review = nil
                 open(target)
             }
             .companionTheme(preferences.sharedTheme(hosts: store.hosts))
         }
-        .sheet(item: $spawnLaunch) { launch in
+        .sheet(item: $spawnLaunch, onDismiss: resumeDispatcherLaunch) { launch in
             CompanionSpawnSheet(store: store, initialProject: launch.project, initialHostID: launch.hostID)
                 .companionTheme(preferences.theme(forHost: launch.project.hostID, hosts: store.hosts))
         }
-        .sheet(item: $settingsTarget) { target in
+        .sheet(item: $settingsTarget, onDismiss: resumeDispatcherLaunch) { target in
             CompanionAgentSettingsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
-        .sheet(item: $detailsTarget) { target in
+        .sheet(item: $detailsTarget, onDismiss: resumeDispatcherLaunch) { target in
             CompanionAgentDetailsSheet(store: store, target: target)
                 .companionTheme(preferences.theme(forHost: target.hostID, hosts: store.hosts))
         }
@@ -124,7 +125,7 @@ struct CompanionRootView: View {
             CompanionDispatcherLaunchSheet(desktops: prompt.desktops) { hostID in
                 dispatcherLaunchChoice = hostID
                 dispatcherLaunchPrompt = nil
-                CompanionUIActions.record(.dispatcher, .selectDesktop)
+                CompanionUIActions.record(.selectDesktop, on: .dispatcher)
             }
             .companionTheme(preferences.sharedTheme(hosts: store.hosts))
         }
@@ -189,17 +190,34 @@ struct CompanionRootView: View {
 
     private func handleDispatcherLaunch() {
         guard let request = CompanionDispatcherLaunchInbox.shared.pending,
-              dispatcherLaunchPrompt == nil else { return }
+              dispatcherLaunchPrompt == nil, !externalLaunchDismissal else { return }
         let result = CompanionDispatcherLaunchResolution.resolve(desktops: navigation.dispatcherDesktops,
             pairedHostIDs: launchPairedIDs, restorationComplete: externalLaunchReady, hosts: store.hosts)
+        // Retain the handoff until the active presentation's onDismiss. Setting another
+        // sheet immediately would consume a request behind an already-presented controller.
+        guard result != .waiting else { return }
+        if spawnLaunch != nil || settingsTarget != nil || detailsTarget != nil || review != nil || terminal != nil {
+            externalLaunchDismissal = true
+            clearExternalLaunchPresentations()
+            return
+        }
         switch result {
         case .waiting: return
         case .open(let desktop): openExternalDispatcher(desktop.id)
         case .choose(let desktops): dispatcherLaunchPrompt = .init(id: request.id, desktops: desktops)
         case .unavailable: dispatcherLaunchPrompt = .init(id: request.id, desktops: [])
         }
-        CompanionUIActions.record(.dispatcher, .messageDispatcher)
+        CompanionUIActions.record(.messageDispatcher, on: .dispatcher)
         CompanionDispatcherLaunchInbox.shared.consume(request.id)
+    }
+
+    private func resumeDispatcherLaunch() {
+        externalLaunchDismissal = false
+        handleDispatcherLaunch()
+    }
+
+    private func clearExternalLaunchPresentations() {
+        spawnLaunch = nil; settingsTarget = nil; detailsTarget = nil; review = nil; terminal = nil
     }
 
     private func openExternalDispatcher(_ hostID: String) {
@@ -207,7 +225,7 @@ struct CompanionRootView: View {
         guard launchPairedIDs?.contains(hostID) == true,
               let desktop = navigation.dispatcherDesktops.first(where: { $0.id == hostID }),
               let target = desktop.target else { return }
-        spawnLaunch = nil; settingsTarget = nil; detailsTarget = nil; review = nil; terminal = nil
+        clearExternalLaunchPresentations()
         navigation.chooseDispatcher(hostID: hostID)
         navigation.select(.dispatcher)
         preferences.lastDispatcherHostID = hostID

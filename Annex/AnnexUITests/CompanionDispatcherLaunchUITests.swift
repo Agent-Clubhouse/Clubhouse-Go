@@ -50,6 +50,30 @@ import XCTest
         screenshot(app, "native-warm-action-draft-preserved")
     }
 
+    private func warmActionWhileSettingsIsPresented(multiple: Bool) {
+        var flags = ["--companion-preview"]
+        if multiple { flags += ["--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"] }
+        let app = launchApp(flags, attempts: 1)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollTo(river, in: app, maxSwipes: 6))
+        let settings = app.buttons["Agent settings"]
+        longPressUntilMenu(river, shows: settings, attempts: 1)
+        settings.tap()
+        let summary = element(app, "agent-settings-summary")
+        XCTAssertTrue(summary.waitForExistence(timeout: 10))
+        nativeAction()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+        XCTAssertTrue(summary.waitForNonExistence(timeout: 10), "The original sheet actually dismisses")
+        XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 10))
+        if multiple {
+            XCTAssertTrue(app.buttons["dispatcher-launch-choose-preview-laptop"].isHittable)
+            XCTAssertTrue(app.buttons["dispatcher-launch-choose-preview-studio"].isHittable)
+        } else { XCTAssertTrue(element(app, "dispatcher-launch-unavailable").exists) }
+        screenshot(app, multiple ? "warm-settings-to-chooser" : "warm-settings-to-guidance")
+    }
+    func testWarmManyDispatcherActionDismissesExistingSettingsBeforeChoosing() { warmActionWhileSettingsIsPresented(multiple: true) }
+    func testWarmZeroDispatcherActionDismissesExistingSettingsBeforeGuidance() { warmActionWhileSettingsIsPresented(multiple: false) }
+
     private func chooser(_ appearance: [String], name: String, colors: [String: String] = [:]) {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers",
                              "--companion-preview-named-dispatchers", cold] + appearance, environment: colors.isEmpty ? [:] : ["CLUBHOUSE_PREVIEW_THEME": String(decoding: try! JSONEncoder().encode(colors), as: UTF8.self)], attempts: 1)

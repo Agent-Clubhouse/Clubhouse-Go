@@ -19,39 +19,40 @@ struct CompanionDispatcherLaunchSheet: View {
     @Environment(\.dismiss) private var dismiss
     var body: some View {
         NavigationStack {
-            List {
-                if desktops.isEmpty {
-                    ContentUnavailableView("No Dispatcher available", systemImage: "point.3.connected.trianglepath.dotted",
-                        description: Text("Pair a desktop and enable its Dispatcher in Clubhouse, then try again."))
-                        .listRowBackground(Color.clear)
-                        .accessibilityIdentifier("dispatcher-launch-unavailable")
-                } else {
-                    Section("Choose a Dispatcher") {
-                        ForEach(desktops) { desktop in
-                            Button { choose(desktop.id) } label: {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text(desktop.displayName).font(.headline)
-                                    Text(desktop.name).font(.subheadline).foregroundStyle(.secondary)
-                                }
-                                .fixedSize(horizontal: false, vertical: true)
-                                .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-                            }
-                            .accessibilityLabel(desktop.accessibilityLabel)
-                            .accessibilityIdentifier("dispatcher-launch-choose-" + desktop.id)
-                        }
-                    }
-                }
+            List { content }
+                .navigationTitle("Message Dispatcher")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar { ToolbarItem(placement: .cancellationAction) { cancelButton } }
+        }
+    }
+    @ViewBuilder private var content: some View {
+        if desktops.isEmpty {
+            ContentUnavailableView("No Dispatcher available", systemImage: "point.3.connected.trianglepath.dotted",
+                description: Text("Pair a desktop and enable its Dispatcher in Clubhouse, then try again."))
+                .listRowBackground(Color.clear)
+                .accessibilityIdentifier("dispatcher-launch-unavailable")
+        } else {
+            Section("Choose a Dispatcher") {
+                ForEach(desktops) { desktop in choice(desktop) }
             }
-            .navigationTitle("Message Dispatcher")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") {
-                        CompanionUIActions.record(.dispatcher, .cancel)
-                        dismiss()
-                    }
-                }
+        }
+    }
+    private func choice(_ desktop: CompanionDispatcherDesktop) -> some View {
+        Button { choose(desktop.id) } label: {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(desktop.displayName).font(.headline)
+                Text(desktop.name).font(.subheadline).foregroundStyle(.secondary)
             }
+            .fixedSize(horizontal: false, vertical: true)
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+        }
+        .accessibilityLabel(desktop.accessibilityLabel)
+        .accessibilityIdentifier("dispatcher-launch-choose-" + desktop.id)
+    }
+    private var cancelButton: some View {
+        Button("Cancel", systemImage: "xmark") {
+            CompanionUIActions.record(.cancel, on: .dispatcher)
+            dismiss()
         }
     }
 }

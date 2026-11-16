@@ -248,6 +248,7 @@ struct CompanionAppRoot: View {
     /// Set once someone moves past the welcome screen; deleting the app shows it again.
     @AppStorage("companion.welcomeDone") private var welcomeDone = false
     @State private var showDemo = false
+    @State private var externalLaunchDismissal = false
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
 
@@ -270,7 +271,7 @@ struct CompanionAppRoot: View {
                                   settingsCapture.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
                               }, pairedHostIDs: runtime.restoredHostIDs,
                               externalLaunchReady: runtime.restoredHostIDs != nil && !runtime.isRestoring
-                                && settingsCapture == nil && !showPairing && !showDemo)
+                                && settingsCapture == nil && !showPairing && !showDemo && !externalLaunchDismissal)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
@@ -278,15 +279,16 @@ struct CompanionAppRoot: View {
                     .transition(.opacity)
             }
         }
-            .fullScreenCover(isPresented: $showDemo) {
+            .fullScreenCover(isPresented: $showDemo, onDismiss: { externalLaunchDismissal = false }) {
                 CompanionDemoView(onPair: { showDemo = false; welcomeDone = true; showPairing = true }, onClose: { showDemo = false })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
-            .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil }) {
+            .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil; externalLaunchDismissal = false }) {
                 CompanionPairingSheet(runtime: runtime, link: openedLink).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
             .onChange(of: CompanionDispatcherLaunchInbox.shared.pending, initial: true) { _, pending in
                 guard pending != nil else { return }
+                if settingsCapture != nil || showPairing || showDemo { externalLaunchDismissal = true }
                 $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil
                 showPairing = false
                 showDemo = false
@@ -297,7 +299,7 @@ struct CompanionAppRoot: View {
                 openedLink = link
                 showPairing = true
             }
-            .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
+            .sheet(item: $settingsCapture.releasingFeedbackScreenshot, onDismiss: { externalLaunchDismissal = false }) { capture in
                 CompanionSettingsSheet(runtime: runtime, initialCapture: capture, pair: { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }

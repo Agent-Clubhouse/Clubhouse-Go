@@ -35,6 +35,7 @@ enum CompanionDispatcherLaunchResolution: Equatable {
         let choices = desktops.filter { pairedHostIDs.contains($0.id) && $0.target != nil }
         let unresolved = pairedHostIDs.contains { id in
             guard let host = hosts.first(where: { $0.id == id }) else { return true }
+            if let dispatcher = host.dispatcher, dispatcher.isVisible && dispatcher.isLoading { return true }
             switch host.connection {
             case .connecting, .reconnecting, .synchronizing: return host.dispatcher == nil
             default: return false

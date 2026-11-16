@@ -12,6 +12,8 @@ import Testing
     @Test func coldRequestWaitsForRestorationAndUnknownReports() {
         let a = host("a"), b = host("b")
         let desktops = [CompanionDispatcherDesktop(host: a)!]
+        #expect(CompanionDispatcherLaunchResolution.resolve(desktops: desktops, pairedHostIDs: ["a"],
+            restorationComplete: false, hosts: [a]) == .waiting, "Known IDs do not bypass pairing restoration")
         #expect(CompanionDispatcherLaunchResolution.resolve(desktops: desktops, pairedHostIDs: nil,
             restorationComplete: false, hosts: [a]) == .waiting)
         #expect(CompanionDispatcherLaunchResolution.resolve(desktops: desktops, pairedHostIDs: ["a", "b"],
@@ -19,6 +21,22 @@ import Testing
         var connecting = b; connecting.dispatcher = nil; connecting.connection = .connecting
         #expect(CompanionDispatcherLaunchResolution.resolve(desktops: desktops, pairedHostIDs: ["a", "b"],
             restorationComplete: true, hosts: [a, connecting]) == .waiting)
+    }
+    @Test func enabledLoadingDispatcherWaitsForItsAgentBeforeResolvingOneOrMany() {
+        var a = host("a"); a.dispatcher?.agent = nil
+        let b = host("b"), db = CompanionDispatcherDesktop(host: b)!
+        #expect(a.dispatcher?.isLoading == true)
+        #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [CompanionDispatcherDesktop(host: a)!],
+            pairedHostIDs: ["a"], restorationComplete: true, hosts: [a]) == .waiting)
+        #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [CompanionDispatcherDesktop(host: a)!, db],
+            pairedHostIDs: ["a", "b"], restorationComplete: true, hosts: [a, b]) == .waiting,
+            "The ready desktop must not win before the other Dispatcher catalog arrives")
+        a = host("a")
+        let da = CompanionDispatcherDesktop(host: a)!
+        #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [da], pairedHostIDs: ["a"],
+            restorationComplete: true, hosts: [a]) == .open(da))
+        #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [da, db], pairedHostIDs: ["a", "b"],
+            restorationComplete: true, hosts: [a, b]) == .choose([da, db]))
     }
     @Test func zeroOneAndManyUseOnlyPairedReportedDispatchers() {
         let a = host("a"), b = host("b")
