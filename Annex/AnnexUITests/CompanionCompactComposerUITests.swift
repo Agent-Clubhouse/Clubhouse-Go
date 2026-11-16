@@ -62,12 +62,21 @@ import XCTest
 
     // MARK: Row assertions
 
+    private func captureGeometry(_ layout: Layout, state: String) {
+        let frames = layout.frames.keys.sorted().map { "\($0): \(layout.frames[$0]!)" }.joined(separator: "\n")
+        let attachment = XCTAttachment(string: "window: \(layout.window)\nnavigation: \(layout.navigation)\nkeyboard top: \(String(describing: layout.keyboardTop))\n\(frames)")
+        attachment.name = "Compact composer geometry \(state)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// The action row sits below the full-width draft, in order, with full targets and no overlaps.
     private func assertRow(_ app: XCUIApplication, working: Bool, state: String, editing: Bool = false,
                            dismissButton: Bool = false, reviewButton: Bool = false,
                            file: StaticString = #filePath, line: UInt = #line) throws {
         capture(app, state)
         let layout = try layout(app)
+        captureGeometry(layout, state: state)
         if editing { XCTAssertNotNil(layout.keyboardTop, "\(state): keyboard", file: file, line: line) }
         XCTAssertEqual(layout.counts["companion-composer"], 1, "\(state): one native draft field", file: file, line: line)
         let region = visibleRegion(layout)
@@ -96,7 +105,7 @@ import XCTest
             let aligned = pixelAligned(rect: frame)
             XCTAssertGreaterThanOrEqual(aligned.width, 44, "\(state): \(id) width \(frame)", file: file, line: line)
             XCTAssertGreaterThanOrEqual(aligned.height, 44, "\(state): \(id) height \(frame)", file: file, line: line)
-            XCTAssertTrue(pixelContains(composerRegion, frame), "\(state): \(id) stays in the composer: \(frame)", file: file, line: line)
+            XCTAssertTrue(pixelContains(composerRegion, frame), "\(state): \(id) stays in the composer: \(frame) in \(composerRegion), visible \(region)", file: file, line: line)
             XCTAssertLessThanOrEqual(pixelAligned(editor.maxY), aligned.minY, "\(state): \(id) stays below the draft", file: file, line: line)
             if let previous {
                 XCTAssertLessThanOrEqual(pixelAligned(previous.frame.maxX), aligned.minX,
@@ -112,8 +121,21 @@ import XCTest
 
     private func focus(_ composer: XCUIElement, in app: XCUIApplication) {
         composer.tap()
+        dismissQuickPathIntroductionIfPresent(in: app)
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"), "One tap focuses the draft")
+    }
+
+    /// A fresh isolated simulator can present this one-time system keyboard tutorial instead of the keys.
+    /// Do not treat any other missing keyboard as onboarding or change simulator keyboard settings.
+    private func dismissQuickPathIntroductionIfPresent(in app: XCUIApplication) {
+        let introduction = app.descendants(matching: .any).matching(identifier: "UIContinuousPathIntroductionView").firstMatch
+        if introduction.waitForExistence(timeout: 1) {
+            let proceed = introduction.buttons["Continue"]
+            XCTAssertTrue(proceed.waitForExistence(timeout: 3), "The exact QuickPath tutorial offers Continue")
+            proceed.tap()
+            XCTAssertTrue(introduction.waitForNonExistence(timeout: 3), "Continue dismisses only the QuickPath tutorial")
+        }
     }
 
     // MARK: Menus and confirmation
@@ -143,6 +165,7 @@ import XCTest
             app.collectionViews.count == 0 && app.buttons.matching(NSPredicate(format: "identifier IN %@", self.chatControlIDs)).count == 0
         }, timeout: 5)
         XCTAssertTrue(closed, "The chat-controls menu closes")
+        dismissQuickPathIntroductionIfPresent(in: app)
     }
 
     /// Cancels the Interrupt confirmation through its own Cancel button, scrolling the alert's actions at large sizes.
@@ -249,6 +272,11 @@ import XCTest
     }
 
     func testLargestTextWorkingAttachmentRowFits() throws {
+        // The captured equal-edge case must pass, while a real display-pixel overflow must fail.
+        let outer = CGRect(x: 16, y: 312, width: 370, height: 211.66668701171875)
+        let target = CGRect(x: 16, y: 479.66666666666663, width: 166.33333333333331, height: 44)
+        XCTAssertTrue(pixelContains(outer, target), "Equal pixel-rounded edges are contained")
+        XCTAssertFalse(pixelContains(outer, target.offsetBy(dx: 0, dy: 1 / max(UIScreen.main.scale, 1))), "A real one-pixel overflow fails")
         try workingRow(largestText: true)
     }
 
@@ -418,6 +446,8 @@ import XCTest
         func check(_ state: String, grows: Bool) throws {
             checkTimeLeft("checking the ordinary draft with \(state)")
             let snapshot = try layout(app)
+            captureGeometry(snapshot, state: "ordinary \(state) before growth check")
+            XCTAssertNotNil(snapshot["companion-pinned-decision"], "\(state): growth is measured with the decision still pinned")
             XCTAssertEqual(snapshot.values["companion-composer"], draft, state)
             let height = try XCTUnwrap(snapshot["companion-composer"], state).height
             if grows { XCTAssertGreaterThan(pixelAligned(height), pixelAligned(editorHeight), "\(state): the draft grows") }

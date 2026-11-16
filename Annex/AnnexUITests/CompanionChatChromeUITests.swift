@@ -59,11 +59,55 @@ import UIKit
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer)
+        XCTAssertFalse(app.keyboards.firstMatch.exists, "The initial roomy phase has the keyboard down")
+        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Roomy reading keeps inline decisions")
         focus(composer, in: app)
         composer.typeText("Keep this draft")
         let controls = app.buttons["companion-level-menu"]
         XCTAssertTrue(controls.label.contains("Chat controls"))
-        XCTAssertTrue(app.buttons["Deny"].exists && app.buttons["Allow once"].exists, "Approval stays pinned while editing")
+        // User-approved option A replaces #297's inline editing contract with compact Chat/Review.
+        let pinned = element(app, "companion-pinned-decision")
+        let summary = pinned.staticTexts["companion-pinned-decision-summary"]
+        let position = pinned.staticTexts["companion-pinned-decision-position"]
+        let chat = app.buttons["companion-decision-show-in-chat"]
+        let review = app.buttons["companion-review-approval"]
+        func assertCompactRequest() {
+            XCTAssertTrue(pinned.exists, "The approval remains pinned while editing")
+            XCTAssertEqual(summary.label, "Run xcodebuild")
+            XCTAssertEqual(position.label, "Request 1 of 2")
+            XCTAssertEqual(chat.label, "Show in chat")
+            XCTAssertEqual(review.label, "Review approval: Run xcodebuild, 1 of 2")
+            for action in [chat, review] {
+                XCTAssertTrue(action.isEnabled && action.isHittable, "Compact Chat/Review stays reachable")
+                assertMinimumTarget(action, action.label)
+            }
+            XCTAssertFalse(app.buttons["Deny"].exists, "Keyboard-up decisions are available through Review")
+            XCTAssertFalse(app.buttons["Allow once"].exists, "Keyboard-up decisions are available through Review")
+        }
+        assertCompactRequest()
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(review, until: close, attempts: 1)
+        let request = app.scrollViews["companion-approval-review-scroll"]
+        XCTAssertTrue(request.exists)
+        XCTAssertTrue(request.staticTexts["Run xcodebuild"].exists, "Review retains the request title")
+        XCTAssertEqual(request.staticTexts["companion-approval-position"].label, "Request 1 of 2")
+        XCTAssertTrue(request.staticTexts["Build the iOS application to verify the updated conversation layout."].exists,
+                      "Review retains the full request summary")
+        for label in ["Deny", "Allow once"] {
+            let decision = request.buttons[label]
+            for _ in 0..<8 {
+                if decision.exists && decision.isEnabled && decision.isHittable && pixelContains(request.frame.intersection(app.frame), decision.frame) { break }
+                request.swipeUp(velocity: .slow)
+            }
+            XCTAssertTrue(decision.exists && decision.isEnabled && decision.isHittable, "Review keeps \(label) reachable")
+            XCTAssertTrue(pixelContains(request.frame.intersection(app.frame), decision.frame), "The whole \(label) action is visible")
+        }
+        waitAndTap(close, untilGone: close, attempts: 1)
+        XCTAssertFalse(app.staticTexts["Preview only. This action does not contact a desktop."].exists, "Reviewing and closing sends nothing")
+        XCTAssertEqual(composer.value as? String, "Keep this draft", "Review preserves the draft")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5), "Review preserves the editing keyboard")
+        XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"), "Review preserves focus without refocusing")
+        assertCompactRequest()
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"])
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-full_access"])
         let fullAccess = app.buttons["companion-level-full_access"]

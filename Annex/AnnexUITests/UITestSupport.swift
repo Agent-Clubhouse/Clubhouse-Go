@@ -377,7 +377,13 @@ class ReliableUITestCase: XCTestCase {
 
     /// Whether `outer` contains `inner` once both are on the display's pixel grid.
     func pixelContains(_ outer: CGRect, _ inner: CGRect) -> Bool {
-        pixelAligned(rect: outer).contains(pixelAligned(rect: inner))
+        // Round each edge in the same way. Rounding origin and size separately, then adding
+        // them inside CGRect.contains, can put equal bottom edges on opposite sides of one ULP.
+        // Comparing rounded edges adds no tolerance: a real one-pixel overflow still fails.
+        pixelAligned(inner.minX) >= pixelAligned(outer.minX)
+            && pixelAligned(inner.minY) >= pixelAligned(outer.minY)
+            && pixelAligned(inner.maxX) <= pixelAligned(outer.maxX)
+            && pixelAligned(inner.maxY) <= pixelAligned(outer.maxY)
     }
 
     /// Waits for `predicate` to hold for `element`, for at most `timeout` seconds.

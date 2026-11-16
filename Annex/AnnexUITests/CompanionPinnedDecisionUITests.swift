@@ -1,4 +1,5 @@
 import XCTest
+import Vision
 
 @MainActor final class CompanionPinnedDecisionUITests: ReliableUITestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
@@ -20,6 +21,14 @@ import XCTest
     private func capture(_ app: XCUIApplication, _ name: String) {
         let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
+    private func assertVisibleLabel(_ button: XCUIElement, text: String) throws {
+        let image = try XCTUnwrap(button.screenshot().image.cgImage)
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        try VNImageRequestHandler(cgImage: image).perform([request])
+        let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
+        XCTAssertTrue(lines.contains(text), "The visible action label is whole: \(text), OCR \(lines)")
+    }
     private func assertPinned(_ app: XCUIApplication, keyboard: Bool = false) {
         let tray = element(app, "companion-pinned-decision")
         let composer = element(app, "companion-composer-region")
@@ -33,6 +42,7 @@ import XCTest
             XCTAssertEqual(app.buttons.matching(identifier: id).count, 1, "Only the fitting action layout is exposed")
             let button = app.buttons[id]
             XCTAssertTrue(button.isHittable, id)
+            // This tray's controls retain >=44pt targets in both expanded and compact layouts.
             assertMinimumTarget(button, id)
         }
     }
@@ -96,14 +106,31 @@ import XCTest
         capture(app, "Show in chat: original request and pinned decisions")
     }
 
-    func testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones() {
+    func testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones() throws {
         let app = openRiver()
+        awaitApproval(app)
+        assertPinned(app)
+        let tray = element(app, "companion-pinned-decision")
+        let expandedHeight = tray.frame.height
+        XCTAssertTrue(app.buttons["Allow once"].exists && app.buttons["Deny"].exists, "Roomy reading retains expanded decisions")
+        try assertVisibleLabel(app.buttons["companion-decision-show-in-chat"], text: "Show in chat")
+        try assertVisibleLabel(app.buttons["companion-review-approval"], text: "Review request")
+        capture(app, "Roomy expanded tray before keyboard")
         let composer = element(app, "companion-composer")
         composer.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         composer.typeText("Keep this draft")
         awaitApproval(app)
         assertPinned(app, keyboard: true)
+        XCTAssertLessThan(tray.frame.height, expandedHeight, "The keyboard uses the compact tray rather than compressing the draft")
+        XCTAssertFalse(app.buttons["Allow once"].exists, "Keyboard-up decisions remain available through compact Review")
+        XCTAssertFalse(app.buttons["Deny"].exists)
+        let show = app.buttons["companion-decision-show-in-chat"]
+        let review = app.buttons["companion-review-approval"]
+        XCTAssertEqual(show.label, "Show in chat", "Compact visible text keeps the full AX meaning")
+        XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
+        try assertVisibleLabel(show, text: "Chat")
+        try assertVisibleLabel(review, text: "Review")
         if app.frame.width < 390 {
             XCTAssertFalse(app.buttons["Allow once"].exists, "Small phones use compact Review while the keyboard is up")
             XCTAssertFalse(app.buttons["Deny"].exists)
@@ -111,6 +138,20 @@ import XCTest
         XCTAssertEqual(composer.value as? String, "Keep this draft")
         XCTAssertTrue((app.scrollViews["companion-transcript"].value as? String)?.hasPrefix("Following: 1; pauses: 0") == true)
         capture(app, "Small phone: pending approval above composer and keyboard")
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(review, until: close, attempts: 1)
+        XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].exists)
+        let viewport = app.scrollViews["companion-approval-review-scroll"]
+        for label in ["Allow once", "Deny"] {
+            let decision = viewport.buttons[label]
+            XCTAssertTrue(scrollTo(decision, in: app, maxSwipes: 8))
+            XCTAssertTrue(decision.isEnabled && decision.isHittable)
+            // Full-card Review buttons have a pre-existing smaller standard-size target.
+            // This regression checks reachability here; >=44pt is asserted on the compact tray above.
+        }
+        waitAndTap(close, untilGone: close, attempts: 1)
+        XCTAssertEqual(composer.value as? String, "Keep this draft")
+        awaitApproval(app)
     }
 
     func testLandscapeAndAX5KeepCompactReviewContextAndPagerReachable() {
