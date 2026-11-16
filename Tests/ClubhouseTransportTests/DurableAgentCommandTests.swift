@@ -211,3 +211,71 @@ private let envelope: Set<String> = ["version", "commandId", "epoch", "type"]
     #expect(!AnnexAgentUpdate(agentID: "a1", orchestration: .clearAll).isEmpty)
     #expect(try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestration: .clearAll)))["orchestration"] == nil)
 }
+
+@Test func managedCreateEncodesOnlyItsSelectionAndProviderOverrides() throws {
+    for selection: AnnexAgentCreate.ManagedSelection in [.blank, .template("user-lead")] {
+        let value = try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", orchestrator: "claude-code", model: "default",
+                                             freeAgentMode: false, useWorktree: false, mcpIDs: [], branchName: "", branchFrom: "", folderName: "",
+                                             orchestration: .init(orchestrate: .set(false)), access: "ask", managedSelection: selection)))
+        let selector = selection == .blank ? "blank" : "templateId"
+        #expect(keys(value) == envelope.union(["projectId", "name", "color", "orchestrator", "model", "managed", selector]))
+        #expect(value["managed"] == .bool(true))
+        #expect(value["model"] == .string("default"), "Provider default is an explicit override")
+    }
+    let plain = try decoded(.create(.init(projectID: "p", name: "n", color: "indigo", useWorktree: false, managedSelection: .plain)))
+    #expect(plain["managed"] == .bool(false) && plain["useWorktree"] == .bool(false))
+}
+
+@Test func managedCapabilityIsAdditiveAndRequiresDurableCreation() throws {
+    for (extra, supported) in [("", false), (#","managedCreate":{"version":0}"#, false),
+                               (#","managedCreate":{"version":1}"#, true), (#","managedCreate":"yes""#, false)] {
+        let caps = try JSONDecoder().decode(AnnexCapabilities.self, from: Data(capabilities(commands: ["agent.create"], extra: durableFeatures + extra).utf8))
+        #expect(caps.supportsManagedCreate == supported)
+        #expect(caps.supportsAgentCreate, "Plain creation remains available")
+    }
+    let missingCreate = try JSONDecoder().decode(AnnexCapabilities.self, from: Data(capabilities(commands: [], extra: #","managedCreate":{"version":1}"#).utf8))
+    #expect(!missingCreate.supportsManagedCreate)
+}
+
+@Test func managedCreateIsRefusedLocallyWithoutTheCapability() async throws {
+    let io = RouteIO([capabilities(commands: ["agent.create"], extra: durableFeatures)])
+    let transport = try await transport(io)
+    _ = try await transport.read(.capabilities)
+    await #expect(throws: AnnexTransportError.unsupportedCapability("managedCreate")) {
+        try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .create(.init(projectID: "p", name: "n", color: "indigo", managedSelection: .blank))))
+    }
+    #expect(await io.requests.count == 1)
+}
+
+@Test func allThirtySevenCreateFixtureReceiptsDecode() throws {
+    let cases = try AnnexContract.cases("commands/agent.create.json")
+    #expect(cases.count == 37)
+    for item in cases {
+        let body = try #require(item["response"]?["body"])
+        let receipt = try body.decode(AnnexCommandReceipt.self)
+        if receipt.status == .completed {
+            #expect(receipt.result?["agentId"]?.string != nil)
+            if item["request"]?["managed"] == .bool(true) {
+                #expect(item["response"]?["status"] == .integer(200))
+                #expect(receipt.result?["state"] == .string("sleeping"))
+            }
+        } else {
+            #expect(receipt.error?.code != nil)
+        }
+    }
+}
+
+@Test func changingManagedSelectionWithTheSameCommandIDConflicts() async throws {
+    let io = RouteIO([capabilities(commands: ["agent.create"], extra: durableFeatures + #","managedCreate":{"version":1}"#),
+                      #"{"version":1,"commandId":"same","epoch":"epoch1","status":"completed","result":{"agentId":"a","state":"sleeping"}}"#])
+    let transport = try await transport(io)
+    _ = try await transport.read(.capabilities)
+    let original = AnnexCommand(commandID: "same", epoch: "epoch1", kind: .create(.init(projectID: "p", name: "n", color: "indigo", managedSelection: .blank)))
+    _ = try await transport.execute(original)
+    for selection: AnnexAgentCreate.ManagedSelection in [.plain, .template("first"), .template("second")] {
+        await #expect(throws: AnnexTransportError.duplicateCommandConflict) {
+            try await transport.execute(AnnexCommand(commandID: "same", epoch: "epoch1", kind: .create(.init(projectID: "p", name: "n", color: "indigo", managedSelection: selection))))
+        }
+    }
+    #expect(await io.requests.count == 2, "Changed selections never become a second create")
+}

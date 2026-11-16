@@ -45,6 +45,7 @@ import Testing
         #expect(caps.grantRequests == .init(version: 1, snapshotField: "grantRequests", answers: ["allow_once", "allow_lasting", "decline"], commands: ["grant.answer"]))
         #expect(Set(caps.grantRequests?.answers ?? []) == Set(AnnexCommand.GrantAnswer.allCases.map(\.rawValue)))
         #expect(caps.supportsAgentCreate && caps.supportsAgentSettings && caps.supportsModelSwitch && caps.supportsLevelSwitch)
+        #expect(caps.supportsManagedCreate && caps.managedCreate?.version == 1 && caps.createOptions?.version == 1)
         #expect(caps.supportsPersistentApprovals && caps.supportsFreeAgentMode && caps.supportsHelperRequests)
         #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
         #expect(caps.supportsSlashCommands && caps.slashCommands?.version == 1)
@@ -267,7 +268,8 @@ import Testing
             return .create(.init(projectID: p, name: name, color: color, orchestrator: s("orchestrator"), model: s("model"),
                                  freeAgentMode: b("freeAgentMode"), useWorktree: b("useWorktree"), mcpIDs: strings("mcpIds"),
                                  branchName: s("branchName"), branchFrom: s("branchFrom"), folderName: s("folderName"),
-                                 orchestration: orchestration(r["orchestration"]), access: s("access")))
+                                 orchestration: orchestration(r["orchestration"]), access: s("access"),
+                                 managedSelection: b("managed") == true ? (b("blank") == true ? .blank : s("templateId").map(AnnexAgentCreate.ManagedSelection.template)) : (b("managed") == false ? .plain : nil)))
         case "agent.update":
             guard let a = s("agentId") else { return nil }
             func clearable(_ key: String) -> AnnexAgentUpdate.Clearable? { switch r[key] { case .string(let v)?: .set(v); case .null?: .clear; default: nil } }
@@ -329,7 +331,7 @@ import Testing
     /// `agent.update` and `agent.create` fields the desktop retired and the phone no longer sends.
     static let retiredUpdateFields = ["persona", "clubhouseMode"]
 
-    /// One of every command with every optional field the phone can send.
+    /// Every command with optional fields, including both managed-create selections.
     static func maximalCommands() -> [AnnexCommand] {
         let kinds: [AnnexCommand.Kind] = [
             .send(agentID: "a", sessionID: "s", text: "t", delivery: .queued, attachmentIDs: ["i"]),
@@ -344,6 +346,8 @@ import Testing
             .spawn(projectID: "p", prompt: "p", model: "m", orchestrator: "o"),
             .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "m", freeAgentMode: true, useWorktree: true,
                           mcpIDs: ["x"], branchName: "b", branchFrom: "main", folderName: "f", orchestration: .init(orchestrate: .set(true)))),
+            .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "default", managedSelection: .blank)),
+            .create(.init(projectID: "p", name: "n", color: "c", orchestrator: "o", model: "default", managedSelection: .template("t"))),
             .update(.init(agentID: "a", name: "n", color: "c", emoji: .clear, orchestrator: "o", model: "m", contextWindow: .clear, runtime: .chat,
                           freeAgentMode: true, idleSleep: .minutes(30), orchestration: .init(maxHelpers: .clear))),
             .setProjectPinned(projectID: "p", pinned: true),

@@ -165,7 +165,7 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
             v["projectId"] = .string(project); v["prompt"] = .string(prompt)
             if let model { v["model"] = .string(model) }; if let orchestrator { v["orchestrator"] = .string(orchestrator) }
         case .create(let create):
-            if let access = create.access, !Self.permissionLevels.contains(access) { throw AnnexTransportError.malformedResponse }
+            if !create.isManaged, let access = create.access, !Self.permissionLevels.contains(access) { throw AnnexTransportError.malformedResponse }
             v.merge(create.fields) { _, new in new }
         case .update(let update):
             // The desktop refuses an update that changes nothing.
@@ -278,6 +278,14 @@ nonisolated public struct AnnexOrchestrationPatch: Sendable, Equatable {
 /// `freeAgentMode` is retained for recorded legacy requests, not used as a fallback for saved Access.
 /// There is no persona: personas were retired on the desktop (Clubhouse #2901), which refuses one (409 `managed_agent`).
 nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
+    /// Nil preserves the original plain command. `.plain` explicitly sends `managed: false`.
+    public enum ManagedSelection: Sendable, Equatable {
+        case plain, blank, template(String)
+    }
+    public var managedSelection: ManagedSelection?
+    public var isManaged: Bool {
+        switch managedSelection { case .blank?, .template?: true; default: false }
+    }
     public var projectID: String
     public var name: String
     /// A colour id from the create options, such as `indigo`.
@@ -297,16 +305,26 @@ nonisolated public struct AnnexAgentCreate: Sendable, Equatable {
     public var orchestration: AnnexOrchestrationPatch?
     public init(projectID: String, name: String, color: String, orchestrator: String? = nil, model: String? = nil,
                 freeAgentMode: Bool? = nil, useWorktree: Bool? = nil, mcpIDs: [String]? = nil, branchName: String? = nil, branchFrom: String? = nil,
-                folderName: String? = nil, orchestration: AnnexOrchestrationPatch? = nil, access: String? = nil) {
+                folderName: String? = nil, orchestration: AnnexOrchestrationPatch? = nil, access: String? = nil,
+                managedSelection: ManagedSelection? = nil) {
         self.projectID = projectID; self.name = name; self.color = color; self.orchestrator = orchestrator; self.model = model
         self.freeAgentMode = freeAgentMode; self.useWorktree = useWorktree; self.mcpIDs = mcpIDs
         self.branchName = branchName; self.branchFrom = branchFrom; self.folderName = folderName; self.orchestration = orchestration
         self.access = access
+        self.managedSelection = managedSelection
     }
     var fields: [String: AnnexJSON] {
         var v: [String: AnnexJSON] = ["projectId": .string(projectID), "name": .string(name), "color": .string(color)]
         if let orchestrator { v["orchestrator"] = .string(orchestrator) }
         if let model { v["model"] = .string(model) }
+        // Managed agents get workspace, tools and Access from the desktop service. Even false/empty
+        // plain fields are forbidden, so this path cannot put them on the wire.
+        switch managedSelection {
+        case .blank?: v["managed"] = .bool(true); v["blank"] = .bool(true); return v
+        case .template(let id)?: v["managed"] = .bool(true); v["templateId"] = .string(id); return v
+        case .plain?: v["managed"] = .bool(false)
+        case nil: break
+        }
         if let freeAgentMode { v["freeAgentMode"] = .bool(freeAgentMode) }
         if let access { v["access"] = .string(access) }
         if let useWorktree { v["useWorktree"] = .bool(useWorktree) }
@@ -444,6 +462,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         public let version: Int
         public let path: String?
     }
+    public let managedCreate: Feature?
     public let createOptions: Feature?
     public let agentSettings: Feature?
     /// Gate guided controls on this complete capability and the advertised commands.
@@ -469,6 +488,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     /// "Finished, waiting on you", owned by the desktop (`finishedQuickAgents` v1).
     public let finishedQuickAgents: Feature?
     /// Durable agents can be created (`agent.create` with create options v1). Older desktops offer quick agents only.
+    public var supportsManagedCreate: Bool { supportsAgentCreate && (managedCreate?.version ?? 0) >= 1 }
     public var supportsAgentCreate: Bool { commands.contains("agent.create") && (createOptions?.version ?? 0) >= 1 }
     /// An agent's settings can be read and changed (`agent.update` with agent settings v1).
     public var supportsAgentSettings: Bool { commands.contains("agent.update") && (agentSettings?.version ?? 0) >= 1 }
@@ -657,6 +677,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         network = optional(.network)
         agentAddress = optional(.agentAddress)
         routes = optional(.routes)
+        managedCreate = optional(.managedCreate)
         createOptions = optional(.createOptions)
         agentSettings = optional(.agentSettings)
         providerControl = optional(.providerControl)
@@ -684,7 +705,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
-        case grantRequests, appUpdate, snapshotTruncation, projectLinks
+        case grantRequests, appUpdate, snapshotTruncation, projectLinks, managedCreate
     }
 }
 

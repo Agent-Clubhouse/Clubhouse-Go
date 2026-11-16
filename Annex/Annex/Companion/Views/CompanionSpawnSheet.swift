@@ -24,7 +24,32 @@ struct CompanionSpawnSheet: View {
     @State private var durable = DurableForm()
     @FocusState private var promptFocused: Bool
 
+    #if DEBUG
+    /// Hosted tests drive the mounted sheet without depending on SwiftUI's private AX tree.
+    /// Real picker/button reachability is covered by CompanionManagedSpawnUITests.
+    struct HostedTestSeam {
+        let optionsLoaded: Bool
+        let loading: Bool
+        let selection: CompanionManagedSelection?
+        let createDisabled: Bool
+        let showsUnavailable: Bool
+        let createHint: String
+        let selectTemplate: (CompanionManagedSelection) -> Void
+        let selectProject: (CompanionProjectTarget) -> Void
+        let create: () -> Void
+    }
+    var hostedTestSeam: ((HostedTestSeam) -> Void)? = nil
+    #endif
+
     var body: some View {
+        #if DEBUG
+        let _ = hostedTestSeam?(HostedTestSeam(
+            optionsLoaded: durable.options != nil, loading: durable.loading,
+            selection: durable.managedSelection, createDisabled: createDisabled,
+            showsUnavailable: showsManagedUnavailable, createHint: createAccessibilityHint,
+            selectTemplate: { durable.selectTemplate($0) }, selectProject: selectEntry,
+            create: createDurableAgent))
+        #endif
         NavigationStack {
             formContent
             .companionBackground()
@@ -251,6 +276,10 @@ struct CompanionSpawnSheet: View {
 
     /// The New agent page's fields, from the project's create options.
     struct DurableForm {
+        var managedOn = false
+        var managedSelection: CompanionManagedSelection?
+        var managedOrchestratorOverride: String?
+        var managedModelOverride: String?
         var options: CompanionCreateOptions?
         var loading = false
         var error: String?
@@ -264,8 +293,12 @@ struct CompanionSpawnSheet: View {
         /// Off leaves it to the default, so only on is sent.
         var orchestrate = false
 
-        mutating func reset(to options: CompanionCreateOptions) {
+        mutating func reset(to options: CompanionCreateOptions, supportsManaged: Bool = false) {
             self.options = options
+            managedOn = supportsManaged && options.managed?.defaultOn == true
+            managedSelection = nil
+            managedOrchestratorOverride = nil
+            managedModelOverride = nil
             name = options.suggestedName.isEmpty ? CompanionAgentName.random() : options.suggestedName
             color = options.defaultColor
             orchestrator = options.defaultOrchestrator ?? options.options.orchestrators.first?.id ?? ""
@@ -275,11 +308,21 @@ struct CompanionSpawnSheet: View {
             access = nil
             orchestrate = false
         }
+        mutating func selectTemplate(_ selection: CompanionManagedSelection?) {
+            managedSelection = selection
+            guard let options else { return }
+            let template: CompanionManagedTemplate?
+            if case .template(let id)? = selection { template = options.managed?.templates.first { $0.id == id } }
+            else { template = nil }
+            // Explicit runtime choices win; otherwise the template fills them, then desktop defaults.
+            orchestrator = managedOrchestratorOverride ?? template?.orchestrator ?? options.defaultOrchestrator ?? options.options.orchestrators.first?.id ?? ""
+            model = managedModelOverride ?? template?.model ?? options.defaultModel
+        }
         var trimmedName: String { name.trimmingCharacters(in: .whitespaces) }
-        /// With its own worktree the name becomes a folder and a branch, so it's checked as the desktop does.
+        /// Managed setup and worktrees use the name for a folder, so it's checked as the desktop does.
         var nameProblem: String? {
             if trimmedName.isEmpty { return "Enter a name for the agent." }
-            return useWorktree ? CompanionAgentName.problem(trimmedName) : nil
+            return managedOn || useWorktree ? CompanionAgentName.problem(trimmedName) : nil
         }
     }
 
@@ -292,6 +335,7 @@ struct CompanionSpawnSheet: View {
 
     private func loadOptions() async {
         guard let project = durableProject else { durable = DurableForm(); return }
+        let hadManagedIntent = durable.managedOn
         durable.loading = true
         durable.options = nil
         durable.error = nil
@@ -299,7 +343,8 @@ struct CompanionSpawnSheet: View {
         do {
             let options = try await store.createOptions(for: project)
             guard durableProject == project else { return }
-            durable.reset(to: options)
+            durable.reset(to: options, supportsManaged: selectedHost?.canCreateManaged == true)
+            if hadManagedIntent && !offersManaged { durable.managedOn = true }
         } catch {
             guard durableProject == project else { return }
             durable.options = nil
@@ -317,8 +362,13 @@ struct CompanionSpawnSheet: View {
                 }
             }
             // Problems show at the top, next to Create in the toolbar, rather than below a long form.
-            if (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
+            if showsManagedUnavailable || (selectedHost.map { !$0.connection.canOperate } ?? false) || store.createError != nil || store.uncertainCreateRequest != nil {
                 Section {
+                    if showsManagedUnavailable {
+                        Label(managedUnavailableMessage, systemImage: "exclamationmark.triangle")
+                            .font(.subheadline).foregroundStyle(Color(palette.warning))
+                            .accessibilityIdentifier("new-agent-managed-unavailable")
+                    }
                     if let host = selectedHost, !host.connection.canOperate {
                         Label("\(host.connection.sentence(hostName: host.name)). Retry before creating an agent.", systemImage: "wifi.exclamationmark")
                             .font(.subheadline).foregroundStyle(Color(palette.warning))
@@ -426,21 +476,38 @@ struct CompanionSpawnSheet: View {
             }
         }
         Section {
+            if offersManaged {
+                Toggle("Clubhouse managed", isOn: $durable.managedOn)
+                    .accessibilityIdentifier("new-agent-managed")
+                    .onChange(of: durable.managedOn) { _, enabled in
+                        if enabled { durable.selectTemplate(durable.managedSelection) }
+                    }
+            }
             choiceMenu("Runs on", value: options.options.orchestrator(durable.orchestrator)?.displayName ?? durable.orchestrator,
-                       selection: $durable.orchestrator) {
+                       selection: Binding(get: { durable.orchestrator }, set: { id in
+                           durable.orchestrator = id
+                           if isManaged {
+                               durable.managedOrchestratorOverride = id
+                               durable.model = "default"
+                               durable.managedModelOverride = "default"
+                           }
+                       })) {
                 ForEach(options.options.orchestrators) { option in
                     Text(option.badge.map { "\(option.displayName) · \($0)" } ?? option.displayName).tag(option.id)
                 }
             }
             .accessibilityIdentifier("new-agent-orchestrator")
             .onChange(of: durable.orchestrator) { _, id in
-                if !options.options.models(for: id).contains(where: { $0.id == durable.model }) { durable.model = "default" }
+                if !isManaged && !options.options.models(for: id).contains(where: { $0.id == durable.model }) { durable.model = "default" }
                 if let access = durable.access, !options.accessChoices(for: id).contains(where: { $0.id == access }) {
                     durable.access = nil
                 }
             }
             let models = options.options.models(for: durable.orchestrator, keeping: durable.model)
-            choiceMenu("Model", value: models.first { $0.id == durable.model }?.label ?? durable.model, selection: $durable.model) {
+            choiceMenu("Model", value: models.first { $0.id == durable.model }?.label ?? durable.model, selection: Binding(get: { durable.model }, set: { model in
+                durable.model = model
+                if isManaged { durable.managedModelOverride = model }
+            })) {
                 ForEach(models) { Text($0.label).tag($0.id) }
             }
             .accessibilityIdentifier("new-agent-model")
@@ -449,20 +516,24 @@ struct CompanionSpawnSheet: View {
                 Text(warning).foregroundStyle(Color(palette.warning))
             }
         }
-        Section {
-            accessPicker(options)
-            if options.isGitRepo || offersOrchestration || !options.mcpCatalog.isEmpty {
-                NavigationLink {
-                    workspaceAndTools(options)
-                } label: {
-                    LabeledContent("Workspace and tools", value: workspaceSummary(options))
+        if isManaged {
+            managedTemplates(options)
+        } else {
+            Section {
+                accessPicker(options)
+                if options.isGitRepo || offersOrchestration || !options.mcpCatalog.isEmpty {
+                    NavigationLink {
+                        workspaceAndTools(options)
+                    } label: {
+                        LabeledContent("Workspace and tools", value: workspaceSummary(options))
+                    }
+                    .accessibilityIdentifier("new-agent-workspace-tools")
                 }
-                .accessibilityIdentifier("new-agent-workspace-tools")
-            }
-        } footer: {
-            if selectedHost?.canSetAccess == true, options.options.orchestrator(durable.orchestrator)?.permissions == true {
-                let selected = durable.access ?? options.defaultAccess
-                if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
+            } footer: {
+                if selectedHost?.canSetAccess == true, options.options.orchestrator(durable.orchestrator)?.permissions == true {
+                    let selected = durable.access ?? options.defaultAccess
+                    if let choice = options.options.accessLevels.first(where: { $0.id == selected }) { Text(choice.description) }
+                }
             }
         }
     }
@@ -557,26 +628,98 @@ struct CompanionSpawnSheet: View {
         .navigationBarTitleDisplayMode(.inline)
     }
 
+    private var offersManaged: Bool { selectedHost?.canCreateManaged == true && durable.options?.managed != nil }
+    private var isManaged: Bool { offersManaged && durable.managedOn }
+    // Preserve the open form's intent if a desktop withdraws support; a fresh old-host form is plain.
+    private var managedUnavailable: Bool { durable.managedOn && !offersManaged }
+    private var showsManagedUnavailable: Bool { managedUnavailable && !durable.loading && durable.options != nil }
+    private var managedUnavailableMessage: String {
+        "This desktop no longer offers templates. Close and reopen New agent to create a plain agent."
+    }
+
+    @ViewBuilder private func managedTemplates(_ options: CompanionCreateOptions) -> some View {
+        Section {
+            templateRow(selection: .blank, name: "Blank", description: "Identity and Clubhouse tools only. Add parts later on the desktop.")
+        } header: {
+            Text("Template")
+        } footer: {
+            if durable.managedSelection == nil { Text("Choose Blank or a template to continue.") }
+        }
+        if let managed = options.managed {
+            if !managed.builtinTemplates.isEmpty {
+                Section("Built-in") {
+                    ForEach(managed.builtinTemplates) { template in
+                        templateRow(selection: .template(template.id), name: template.name, description: template.description)
+                    }
+                }
+            }
+            if !managed.userTemplates.isEmpty {
+                Section("Your templates") {
+                    ForEach(managed.userTemplates) { template in
+                        templateRow(selection: .template(template.id), name: template.name, description: template.description)
+                    }
+                }
+            }
+        }
+    }
+
+    private func templateRow(selection: CompanionManagedSelection, name: String, description: String) -> some View {
+        Button { durable.selectTemplate(selection) } label: {
+            HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(name).foregroundStyle(Color(palette.label))
+                    Text(description).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                if durable.managedSelection == selection {
+                    Image(systemName: "checkmark").foregroundStyle(Color(palette.tint)).accessibilityHidden(true)
+                }
+            }
+            .padding(.vertical, 2)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(durable.managedSelection == selection ? [.isSelected] : [])
+        .accessibilityIdentifier({
+            switch selection { case .blank: "new-agent-template-blank"; case .template(let id): "new-agent-template-\(id)" }
+        }())
+    }
+
+    private var createDisabled: Bool {
+        managedUnavailable || store.createInProgress || store.uncertainCreateRequest != nil || selectedHost?.connection.canOperate != true
+            || durable.options == nil || durable.nameProblem != nil || (isManaged && durable.managedSelection == nil)
+    }
+
+    private var createAccessibilityHint: String {
+        showsManagedUnavailable ? managedUnavailableMessage : (isManaged && durable.managedSelection == nil ? "Choose Blank or a template to enable Create." : "")
+    }
+
+    private func createDurableAgent() {
+        guard !managedUnavailable, let project, let options = durable.options,
+              !isManaged || durable.managedSelection != nil else { return }
+        let request = CompanionCreateRequest(
+            project: project, name: durable.trimmedName, color: durable.color,
+            orchestrator: isManaged ? durable.managedOrchestratorOverride : nonempty(durable.orchestrator),
+            model: isManaged ? durable.managedModelOverride : (durable.model == "default" ? nil : durable.model),
+            access: !isManaged && selectedHost?.canSetAccess == true && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.access : nil,
+            useWorktree: !isManaged && options.isGitRepo ? durable.useWorktree : nil,
+            mcpIDs: isManaged || options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
+            orchestrate: !isManaged && offersOrchestration && durable.orchestrate ? true : nil,
+            managedSelection: isManaged ? durable.managedSelection : nil,
+            clientCommandID: UUID().uuidString)
+        Task { if await store.create(request) { dismiss() } }
+    }
+
     private var createButton: some View {
-        Button {
-            guard let project, let options = durable.options else { return }
-            let request = CompanionCreateRequest(
-                project: project, name: durable.trimmedName, color: durable.color,
-                orchestrator: nonempty(durable.orchestrator), model: durable.model == "default" ? nil : durable.model,
-                access: selectedHost?.canSetAccess == true && options.options.orchestrator(durable.orchestrator)?.permissions == true ? durable.access : nil,
-                useWorktree: options.isGitRepo ? durable.useWorktree : nil,
-                mcpIDs: options.mcpCatalog.isEmpty ? nil : options.mcpCatalog.map(\.id).filter(durable.mcpIDs.contains),
-                orchestrate: offersOrchestration && durable.orchestrate ? true : nil,
-                clientCommandID: UUID().uuidString)
-            Task { if await store.create(request) { dismiss() } }
-        } label: {
+        Button(action: createDurableAgent) {
             if store.createInProgress { ProgressView().accessibilityLabel("Creating agent") }
             else { Text("Create") }
         }
         .buttonStyle(.glassProminent).companionProminentLabel()
-        .disabled(store.createInProgress || store.uncertainCreateRequest != nil || selectedHost?.connection.canOperate != true
-                  || durable.options == nil || durable.nameProblem != nil)
+        .disabled(createDisabled)
+        .opacity(managedUnavailable || (isManaged && durable.managedSelection == nil) ? 0.45 : 1)
         .keyboardShortcut(.return, modifiers: .command)
+        .accessibilityHint(createAccessibilityHint)
         .accessibilityIdentifier("new-agent-create")
     }
 

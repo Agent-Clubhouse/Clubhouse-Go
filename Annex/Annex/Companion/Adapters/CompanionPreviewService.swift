@@ -137,6 +137,9 @@ import ClubhouseTransport
                 hosts[1].projects[0].agents[0].capabilities.insert(.approve)
                 for index in hosts.indices where hosts[index].id == "preview-office" { hosts[index].connection = .offline }
             }
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-managed-create") {
+                hosts[0].canCreateManaged = true
+            }
             let theme = Self.appearanceTheme
             if let theme {
                 for index in hosts.indices { hosts[index].theme = theme }
@@ -823,10 +826,21 @@ import ClubhouseTransport
     }
     func reconnect(hostID: String) async {}
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
-        .init(options: Self.agentOptions,
+        var options = CompanionCreateOptions(options: Self.agentOptions,
               mcpCatalog: [.init(id: "github", name: "GitHub", description: "Issues and pull requests"), .init(id: "ado", name: "Azure DevOps", description: nil)],
               mcpDefaults: ["github"], isGitRepo: true, suggestedName: "brave-otter", defaultOrchestrator: "claude-code",
               defaultColor: "indigo", defaultModel: "default", defaultUseWorktree: true, freeAgentModeAllowed: true, defaultAccess: .ask)
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-managed-create") ||
+            ProcessInfo.processInfo.arguments.contains("--companion-preview-managed-options-only") {
+            options.managed = .init(defaultOn: true, templates: [
+                .init(id: "builtin-template-helper", name: "Helper", description: "A focused helper", builtin: true),
+                .init(id: "user-lead", name: "Team lead", description: "Coordinates work", builtin: false,
+                      orchestrator: "claude-code", model: "opus", access: .plan)
+            ])
+        }
+        #endif
+        return options
     }
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt { throw previewError }
     func answerHelperRequest(_ request: CompanionHelperRequest, approve: Bool, force: Bool, clientCommandID: String) async throws { throw previewError }
