@@ -8,6 +8,8 @@ import ClubhouseTransport
     nonisolated deinit {}
     private var transports: [String: any AnnexTransporting] = [:]
     private var registeredTransportIDs: [String: UUID] = [:]
+    /// Latest per-host admission, independent of foreground/background generations.
+    private var registrationIntents: [String: UUID] = [:]
     private var hosts: [String: CompanionHost] = [:]
     private var capabilities: [String: AnnexCapabilities] = [:]
     /// A successful read can confirm an older desktop has no mobile capabilities; a failed read cannot.
@@ -92,16 +94,18 @@ import ClubhouseTransport
         // Pairing/restore registration remains authoritative across phase changes. Only cancelled
         // work is abandoned; current suspension decides whether the retained host may connect.
         let id = registration.host.hostID
+        let intent = UUID()
+        registrationIntents[id] = intent
         await beforeIconWork?()
         await iconStore.activate(host: id)
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, registrationIntents[id] == intent else { return }
         let transport = registration.transport
         await iconStore.setFetcher(for: id) { key, _ in
             let response = try await transport.icon(kind: key.kind.rawValue, id: key.id, version: key.version, ifNoneMatch: nil)
             return .init(status: response.status, contentType: response.contentType ?? "", data: response.data,
                          version: CompanionIconMetadata.version(etag: response.etag))
         }
-        guard !Task.isCancelled else { return }
+        guard !Task.isCancelled, registrationIntents[id] == intent else { return }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         registeredTransportIDs[id] = registration.transportID
@@ -113,7 +117,7 @@ import ClubhouseTransport
         hosts[id] = host
         emitHosts()
         guard let generation = await subscribe(to: registration.transport, hostID: id), eventGenerations[id] == generation else { return }
-        guard !Task.isCancelled, !isSuspended else {
+        guard !Task.isCancelled, registrationIntents[id] == intent, !isSuspended else {
             if isSuspended { hosts[id]?.connection = .offline; emitHosts() }
             return
         }
@@ -863,6 +867,7 @@ import ClubhouseTransport
         }
     }
     func remove(hostID: String) {
+        registrationIntents.removeValue(forKey: hostID)
         streamDiagnostics.remove(hostID: hostID)
         invalidateEvents(hostID: hostID)
         transports.removeValue(forKey: hostID)
@@ -901,7 +906,10 @@ import ClubhouseTransport
         emitHosts()
     }
     func shutdown() async {
+        // Retire held admissions before suspension can yield, and any started during it.
+        registrationIntents.removeAll()
         await suspend()
+        registrationIntents.removeAll()
         transports.removeAll()
         registeredTransportIDs.removeAll()
         capabilities.removeAll()

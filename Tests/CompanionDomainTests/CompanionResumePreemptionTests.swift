@@ -207,4 +207,44 @@ private actor ResumePreparationGate {
             #expect(h.host?.connection == .connected)
         }
     }
+
+    @Test func newerRegistrationWinsWhilePreviousAdmissionIsHeld() async throws {
+        let h = try await LiveServiceHarness.start()
+        let preparation = ResumePreparationGate()
+        let stale = await ScriptedAnnexTransport()
+        let fresh = await ScriptedAnnexTransport()
+        let host = try LiveServiceHarness.trustedHost()
+        let old = AnnexTransportRegistry.Registration(host: host, alias: "Stale admission", transport: stale)
+        let newer = AnnexTransportRegistry.Registration(host: host, alias: "Newer admission", transport: fresh)
+        let registering = Task { await h.service.register(old, beforeIconWork: { await preparation.hold() }) }
+        do {
+            let admissionIsHeld = try await wait { await preparation.waiting }
+            try #require(admissionIsHeld)
+            #expect(!h.service.hasRegistration(old), "Hold before the old transport is installed")
+            await h.service.register(newer)
+            let newerConnected = try await wait { h.host?.connection == .connected && h.host?.name == "Newer admission" }
+            try #require(newerConnected)
+            #expect(h.service.hasRegistration(newer))
+            await preparation.release()
+            await registering.value
+            #expect(h.service.hasRegistration(newer), "An older held admission must not replace the newer completed registration")
+            #expect(!h.service.hasRegistration(old))
+            #expect(await stale.connectCount == 0, "The superseded transport must never connect")
+            #expect(await stale.subscriptionCount == 0)
+            #expect(await fresh.connectCount == 1)
+            #expect(await fresh.subscriptionCount == 1)
+        } catch {
+            registering.cancel()
+            await preparation.release()
+            await registering.value
+            await h.service.shutdown()
+            h.stop()
+            throw error
+        }
+        registering.cancel()
+        await preparation.release()
+        await registering.value
+        await h.service.shutdown()
+        h.stop()
+    }
 }
