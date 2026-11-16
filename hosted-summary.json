@@ -1,0 +1,56 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "2ABC08F2-E713-4028-BC92-420821122F72",
+        "deviceName" : "ux-chat-446-private",
+        "modelName" : "iPhone 17",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 178,
+      "skippedTests" : 3,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "ClubhouseGo · Built with macOS 26.5.2",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1794774995.794,
+  "passedTests" : 173,
+  "result" : "Failed",
+  "skippedTests" : 3,
+  "startTime" : 1794774712.499,
+  "statistics" : [
+    {
+      "subtitle" : "8 test runs",
+      "title" : "3 tests ran with dynamic parameters"
+    }
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "XCTAssertEqualWithAccuracy failed: (\"14723.0\") is not equal to (\"0.0\") +/- (\"1.0\")",
+      "targetName" : "ClubhouseGoTests",
+      "testIdentifier" : 62,
+      "testIdentifierString" : "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+      "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+      "testName" : "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()"
+    }
+  ],
+  "title" : "Test - ClubhouseGo",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "32% of duration",
+      "text" : "2 longest test runs with outlier durations exceeding 13.04s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 177
+}
