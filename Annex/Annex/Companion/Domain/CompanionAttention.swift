@@ -150,6 +150,33 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
         }
     }
 
+    /// Cards lead with the requested action or question, rather than repeating the permission state.
+    var cardHeadline: String {
+        switch kind {
+        case .approval: prompt ?? "Review permission request"
+        case .question: prompt ?? "Answer in chat"
+        case .unreviewed where agent.status == .approval: "Review permission request"
+        case .unreviewed where agent.status == .waiting: "Answer in chat"
+        default: detail
+        }
+    }
+    var cardSupportingText: String? {
+        switch kind {
+        case .approval, .question: nil
+        default: prompt
+        }
+    }
+    var cardToolName: String? {
+        let name: String?
+        switch kind {
+        case .approval(let approval): name = approval.toolName
+        case .unreviewed where agent.status == .approval: name = agent.detail?.toolName
+        default: name = nil
+        }
+        guard let name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return nil }
+        return Self.shortToolName(name)
+    }
+
     static let questionLine = "Has a question for you"
     static func permissionLine(toolName: String?) -> String {
         guard let toolName, !toolName.isEmpty else { return "Needs permission" }

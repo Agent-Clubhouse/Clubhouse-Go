@@ -131,6 +131,12 @@ import ClubhouseTransport
                     .init(id: "preview-workshop", name: "Workshop Mac", endpoint: "", connection: .offline, projects: [])
                 ]
             }
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-needs-you-multiple-desktops") {
+                hosts[1].connection = .connected
+                hosts[1].projects[0].agents[0].status = .approval
+                hosts[1].projects[0].agents[0].capabilities.insert(.approve)
+                for index in hosts.indices where hosts[index].id == "preview-office" { hosts[index].connection = .offline }
+            }
             let theme = Self.appearanceTheme
             if let theme {
                 for index in hosts.indices { hosts[index].theme = theme }

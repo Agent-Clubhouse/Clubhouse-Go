@@ -823,6 +823,7 @@ struct CompanionNeedsYouView: View {
     @Bindable var store: CompanionStore
     var decisions: CompanionDecisionQueue
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let items = store.attentionItems()
@@ -853,15 +854,23 @@ struct CompanionNeedsYouView: View {
             }
             if CompanionConnectionNotice(hosts: store.hosts).isVisible {
                 Section {
-                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "needs-you")
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
+                    VStack(alignment: .leading, spacing: 6) {
+                        CompanionDesktopConnectionBanner(store: store, identifierPrefix: "needs-you")
+                        Text(availability.unavailableHosts.count == 1 ? "Its requests show up when it reconnects." : "Their requests show up when they reconnect.")
+                            .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                            .fixedSize(horizontal: false, vertical: true)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                } header: {
+                    Text(availability.unavailableHosts.contains(where: \.isConnecting) ? "Unavailable desktops" : "Offline")
                 }
             }
         }
         .companionListStyle()
         .navigationTitle("Needs you")
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true) } }
+        .navigationSubtitle(subtitle(requestCount: items.count))
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true, showsTitle: true) } }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 ForEach(decisions.pending) { pending in
@@ -879,6 +888,25 @@ struct CompanionNeedsYouView: View {
         .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
             Button("OK", role: .cancel) { }
         } message: { Text(store.grantRequestNotice ?? "") }
+    }
+
+    private func subtitle(requestCount: Int) -> Text {
+        let count = "\(requestCount) \(requestCount == 1 ? "request" : "requests")"
+        let unavailable = store.hosts.filter { !$0.connection.canOperate }
+        let connection: String?
+        if unavailable.count == 1 {
+            let host = unavailable[0]
+            let state: String = switch host.connection {
+            case .offline: "offline"
+            case .reconnecting: "reconnecting"
+            case .connecting, .synchronizing: "connecting"
+            default: "not connected"
+            }
+            connection = "\(host.name) \(state)"
+        } else { connection = unavailable.isEmpty ? nil : "\(unavailable.count) desktops not connected" }
+        let separator = dynamicTypeSize.isAccessibilitySize ? "\n" : " · "
+        return Text([count, connection].compactMap { $0 }.joined(separator: separator))
+            .foregroundColor(Color(palette.secondaryLabel))
     }
 
     private func attentionRow(_ item: CompanionAttentionItem) -> some View {
@@ -946,13 +974,20 @@ struct CompanionAttentionCard: View {
                 Text(item.agent.name).font(.subheadline.weight(.semibold))
                 if multipleHosts { CompanionHostTag(name: item.hostName) }
                 Spacer()
-                CompanionStatusText(status: item.agent.status).font(.caption.weight(.medium))
             }
-            Text(item.detail).font(.headline).fixedSize(horizontal: false, vertical: true)
-            if let prompt = item.prompt {
+            Text(item.cardHeadline).font(.headline).fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("attention-action-\(item.id)")
+            if let prompt = item.cardSupportingText {
                 Text(prompt).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
             }
-            if let deadline = item.deadline { CompanionApprovalCountdown(deadline: deadline) }
+            if item.cardToolName != nil || item.deadline != nil {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let tool = item.cardToolName { Text(tool).accessibilityIdentifier("attention-tool-\(item.id)") }
+                    if item.cardToolName != nil && item.deadline != nil { Text("·") }
+                    if let deadline = item.deadline { CompanionApprovalCountdown(deadline: deadline) }
+                }
+                .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+            }
             if case .approval(let approval) = item.kind, let detail = approval.detail, !detail.isEmpty {
                 Text(detail).font(.caption.monospaced()).lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
