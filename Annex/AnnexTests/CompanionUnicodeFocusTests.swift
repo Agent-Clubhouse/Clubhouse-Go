@@ -67,6 +67,89 @@ import SwiftUI
             expectedSelection: NSRange(location: 1, length: 2), expectedEdit: "q" + draft, userCaret: 0)
     }
 
+    func testDraftChangedAfterBookmarkRestoreBeforeNativeMountPreservesGraphemeBytes() async throws {
+        for changed in Self.drafts {
+            try await exerciseDraftChangeDuringMount(saved: "a\u{1F642}b", changed: changed,
+                bookmark: .init(lowerUTF16: 1, upperUTF16: 3))
+        }
+        // Swift equality considers these drafts equal; their bookmark offsets are different.
+        try await exerciseDraftChangeDuringMount(saved: "a\u{E9}b", changed: "ae\u{301}b",
+            bookmark: .init(lowerUTF16: 1, upperUTF16: 2))
+    }
+
+    func testDraftChangedAfterInsertionPointRestoreBeforeNativeMountPreservesGraphemeBytes() async throws {
+        try await exerciseDraftChangeDuringMount(saved: "a\u{1F642}b", changed: "\u{1F469}\u{200D}\u{1F4BB}",
+            bookmark: .init(lowerUTF16: 1, upperUTF16: 1))
+    }
+
+    func testUserCaretAfterMidMountDraftReplacementRemainsAuthoritative() async throws {
+        try await exerciseDraftChangeDuringMount(saved: "a\u{1F642}b", changed: "\u{1F469}\u{200D}\u{1F4BB}",
+            bookmark: .init(lowerUTF16: 1, upperUTF16: 3), userCaret: 0)
+    }
+
+    private func exerciseDraftChangeDuringMount(saved: String, changed: String, bookmark: CompanionComposerSelection,
+                                                userCaret: Int? = nil) async throws {
+        let service = UnicodeService()
+        let store = CompanionStore(service: service)
+        let hosts = CompanionPreviewService.hosts(now: .now)
+        let target = CompanionPreviewService.target
+        store.apply(.hosts(hosts))
+        await store.load(target)
+        store.drafts[target] = saved
+        let agent = try XCTUnwrap(hosts[0].agent(for: target))
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        let request = FocusRequest()
+        let memory = CompanionComposerMemory()
+        memory.selection = bookmark
+        memory.selectionDraft = saved
+        let appeared = expectation(description: "Draft replaced after the bookmark was consumed")
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIHostingController(rootView:
+            Composer(store: store, agent: agent, request: request, memory: memory)
+                .onAppear {
+                    XCTAssertNil(memory.selectionDraft, "Exercise the gap after restoration, not a mismatched saved bookmark")
+                    store.drafts[target] = changed
+                    appeared.fulfill()
+                })
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previous?.makeKey()
+            store.shutdown()
+        }
+        await fulfillment(of: [appeared], timeout: 5)
+        await fulfillment(of: [expectation(for: NSPredicate { _, _ in
+            self.findInput(window).map { $0.text.utf8.elementsEqual(changed.utf8) } == true
+        }, evaluatedWith: window)], timeout: 5)
+        let input = try XCTUnwrap(findInput(window))
+        request.value += 1
+        await fulfillment(of: [expectation(for: NSPredicate { _, _ in input.isFirstResponder }, evaluatedWith: input)], timeout: 5)
+        XCTAssertEqual(input.selectedRange, NSRange(location: changed.utf16.count, length: 0),
+                       "A retired bookmark must not select inside the replacement draft: \(Array(changed.utf8))")
+        if let userCaret {
+            input.selectedRange = NSRange(location: userCaret, length: 0)
+            input.delegate?.textViewDidChangeSelection?(input)
+            request.dismissals += 1
+            await fulfillment(of: [expectation(for: NSPredicate { _, _ in !input.isFirstResponder }, evaluatedWith: input)], timeout: 5)
+            request.value += 1
+            await fulfillment(of: [expectation(for: NSPredicate { _, _ in input.isFirstResponder }, evaluatedWith: input)], timeout: 5)
+            XCTAssertEqual(input.selectedRange, NSRange(location: userCaret, length: 0))
+        }
+        input.insertText("q")
+        let expected = userCaret == 0 ? "q" + changed : changed + "q"
+        await fulfillment(of: [expectation(for: NSPredicate { _, _ in
+            (store.drafts[target] ?? "").utf8.elementsEqual(expected.utf8)
+        }, evaluatedWith: store)], timeout: 5)
+        XCTAssertEqual(Array(input.text.utf8), Array(expected.utf8))
+        XCTAssertEqual(Array((store.drafts[target] ?? "").utf8), Array(expected.utf8))
+        await store.sendDraft(to: target)
+        XCTAssertEqual(service.requests.count, 1)
+        XCTAssertEqual(Array(try XCTUnwrap(service.requests.first).text.utf8), Array(expected.utf8))
+    }
+
     private func exerciseRemount(draft: String, savedDraft: String, bookmark: CompanionComposerSelection,
                                  expectedSelection: NSRange, expectedEdit: String, userCaret: Int? = nil) async throws {
         let service = UnicodeService()

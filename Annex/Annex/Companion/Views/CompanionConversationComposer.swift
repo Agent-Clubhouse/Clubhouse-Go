@@ -23,6 +23,8 @@ struct CompanionConversationComposer: View {
     let focusRequests: Int
     @FocusState private var composerFocused: Bool
     @State private var composerSelection: TextSelection?
+    /// A restored String.Index is meaningful only in the exact draft that produced it.
+    @State private var restoredSelectionDraft: String?
     @State private var selectionRestoration: CompanionComposerPasteHook.SelectionRestoration?
     @State private var slashHighlight = 0
     @State private var slashDismissedAt: Int?
@@ -67,9 +69,23 @@ struct CompanionConversationComposer: View {
                 print("COMPOSER_BINDING length=\(text.utf16.count) focused=\(composerFocused)")
             }
             #endif
+            // A native text edit owns its updated selection (including marked text). Only an
+            // external draft replacement should retire the initial restored bookmark.
+            if !text.utf8.elementsEqual(draft.wrappedValue.utf8) { restoredSelectionDraft = nil }
             draft.wrappedValue = text
         })
     }
+    private var editingSelection: Binding<TextSelection?> {
+        Binding(get: {
+            // onChange runs after view updates. Gate the binding itself so a mid-mount draft
+            // replacement can never hand SwiftUI old indices, even for canonically equal text.
+            if let restoredSelectionDraft, !restoredSelectionDraft.utf8.elementsEqual(draft.wrappedValue.utf8) {
+                return TextSelection(insertionPoint: draft.wrappedValue.endIndex)
+            }
+            return composerSelection
+        }, set: { composerSelection = $0 })
+    }
+
     var body: some View {
         composerLayout {
             if isAsleep {
@@ -96,7 +112,7 @@ struct CompanionConversationComposer: View {
                     HStack(alignment: .bottom, spacing: 6) {
                         // The theme's secondary label keeps the prompt at 4.5:1 on the composer card; the system placeholder
                         // colour followed a light trait on the dark card (1.13:1).
-                        TextField(composerPlaceholder, text: composerText, selection: $composerSelection,
+                        TextField(composerPlaceholder, text: composerText, selection: editingSelection,
                                   prompt: Text(composerPlaceholder).foregroundStyle(Color(palette.secondaryLabel)), axis: .vertical)
                             // Leave room for attachments and actions above a narrow keyboard. The native field
                             // scrolls to the caret; every line remains in the draft at its normal text size.
@@ -194,7 +210,9 @@ struct CompanionConversationComposer: View {
             // A restore/send/external clear can change text while this subtree is unmounted.
             // Drop changed drafts, including canonically equal strings with different UTF-16 offsets.
             selectionRestoration = nil
+            restoredSelectionDraft = nil
             if memory.selectionDraft?.utf8.elementsEqual(draft.wrappedValue.utf8) == true, let selection = memory.selection {
+                restoredSelectionDraft = draft.wrappedValue
                 let range = selection.range(in: draft.wrappedValue)
                 composerSelection = range.isEmpty ? TextSelection(insertionPoint: range.lowerBound) : TextSelection(range: range)
                 if !range.isEmpty {
@@ -243,6 +261,11 @@ struct CompanionConversationComposer: View {
         .onChange(of: caretSlashToken?.start) { _, start in if start != slashDismissedAt { slashDismissedAt = nil } }
         .onChange(of: slashMatches.map(\.name)) { slashHighlight = 0 }
         .onChange(of: draft.wrappedValue) { selectionRestoration = nil }
+        .onChange(of: restoredSelectionDraft == nil ? nil : Array(draft.wrappedValue.utf8)) { _, _ in
+            guard let restoredSelectionDraft, !restoredSelectionDraft.utf8.elementsEqual(draft.wrappedValue.utf8) else { return }
+            composerSelection = TextSelection(insertionPoint: draft.wrappedValue.endIndex)
+            self.restoredSelectionDraft = nil
+        }
         // Quick refreshes finish before the indicator would appear, so they don't flash.
         .task(id: conversation.isLoading) {
             guard conversation.isLoading else { showRefreshing = false; return }
@@ -391,7 +414,7 @@ struct CompanionConversationComposer: View {
     }
 
     private var selectedRange: Range<String.Index>? {
-        if case .selection(let range)? = composerSelection?.indices { return range }
+        if case .selection(let range)? = editingSelection.wrappedValue?.indices { return range }
         return nil
     }
 
@@ -426,6 +449,7 @@ struct CompanionConversationComposer: View {
     private func pickSlashCommand(_ command: CompanionSlashCommand) {
         guard let token = caretSlashToken else { return }
         let picked = CompanionSlashMenu.pick(command, text: draft.wrappedValue, token: token)
+        restoredSelectionDraft = nil
         draft.wrappedValue = picked.text
         composerSelection = TextSelection(insertionPoint: picked.text.index(picked.text.startIndex, offsetBy: picked.caret))
         composerFocused = true
