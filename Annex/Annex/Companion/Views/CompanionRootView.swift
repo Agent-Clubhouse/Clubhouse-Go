@@ -329,7 +329,6 @@ struct CompanionHomeView: View {
     @State private var hold: CompanionListHold?
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.companionSendFeedback) private var sendFeedback
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     private var scope: CompanionHomeScope { .init(hosts: store.hosts, selectedHostID: desktopSelection.hostID) }
@@ -407,24 +406,17 @@ struct CompanionHomeView: View {
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Settings", systemImage: "gearshape", action: onSettings)
-            }
-            if let sendFeedback {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button("Send feedback", systemImage: "exclamationmark.bubble", action: sendFeedback)
-                    } label: { Label("More", systemImage: "ellipsis") }
-                    .accessibilityIdentifier("home-more-menu")
-                }
+                    .companionToolbarSecondary()
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New agent", systemImage: "plus") {
                     // Start in the project at the top of Home, not the desktop's first.
                     if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn) { onNewAgent(entry.id, scope.selectedHostID) }
                 }
-                // The toolbar owns the glass; hosted shortcut content must not add automatic button chrome.
-                .buttonStyle(.plain)
+                .labelStyle(.iconOnly)
+                .buttonStyle(.glassProminent)
                 .buttonBorderShape(.circle)
-                .foregroundStyle(.tint)
+                .companionProminentLabel()
                 .disabled(!scopedHosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
                 .keyboardShortcut("n", modifiers: .command)
             }
@@ -800,9 +792,10 @@ struct CompanionArrangeProjectsView: View {
             .navigationTitle("Arrange projects")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() }.companionToolbarClose() }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { preferences.setProjectOrder(order.map(\.orderKey)); dismiss() }
+                    Button("Done", systemImage: "checkmark") { preferences.setProjectOrder(order.map(\.orderKey)); dismiss() }
+                        .labelStyle(.iconOnly).buttonStyle(.glassProminent).companionProminentLabel()
                 }
             }
         }

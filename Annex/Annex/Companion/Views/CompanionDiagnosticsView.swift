@@ -78,7 +78,7 @@ struct CompanionDiagnosticsView: View {
             Button("Refresh", systemImage: "arrow.clockwise") {
                 CompanionUIActions.record(.refresh, on: .connectionDiagnostics)
                 refresh()
-            }
+            }.companionToolbarSecondary()
         }
         .onAppear(perform: refresh)
         .sheet(isPresented: Binding(get: { reviewedExport != nil }, set: { if !$0 { reviewedExport = nil } })) {
@@ -90,13 +90,13 @@ struct CompanionDiagnosticsView: View {
                     .navigationTitle("Review export")
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
-                            Button("Done") {
+                            Button("Done", systemImage: "xmark") {
                                 CompanionUIActions.record(.done, on: .diagnosticsExport)
                                 reviewedExport = nil
-                            }
+                            }.companionToolbarClose()
                         }
                         ToolbarItem(placement: .confirmationAction) {
-                            if let reviewedExport { ShareLink(item: reviewedExport) }
+                            if let reviewedExport { ShareLink(item: reviewedExport).companionToolbarSecondary() }
                         }
                     }
             }

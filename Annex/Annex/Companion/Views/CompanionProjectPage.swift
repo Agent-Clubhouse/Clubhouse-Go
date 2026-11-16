@@ -47,6 +47,7 @@ struct CompanionProjectPage: View {
                                                   canWake: scopedMembers(entry).contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
                                                   onWake: { begin(.wake, entry: entry) }, onInfo: { showingInfo = true })
                     } label: { Label("Project options", systemImage: "ellipsis") }
+                    .companionToolbarSecondary()
                     .accessibilityIdentifier("project-page-options")
                 }
             }
@@ -336,10 +337,10 @@ struct CompanionProjectMachineChooser: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Cancel", systemImage: "xmark") {
                         AnnexTelemetry.shared.recordAction(screen: .project, control: .cancel)
                         dismiss()
-                    }
+                    }.companionToolbarClose()
                 }
             }
         }
@@ -432,15 +433,16 @@ struct CompanionWakeSheet: View {
                     Button("Cancel", systemImage: "xmark") {
                         AnnexTelemetry.shared.recordAction(screen: .wakeAgent, control: .cancel)
                         dismiss()
-                    }
+                    }.companionToolbarClose()
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Wake") {
+                    Button("Wake", systemImage: "checkmark") {
                         guard let target = selection else { return }
                         AnnexTelemetry.shared.recordAction(screen: .wakeAgent, control: .wakeAgent)
                         onWake(target, message)
                         dismiss()
                     }
+                    .labelStyle(.iconOnly).buttonStyle(.glassProminent).companionProminentLabel()
                     .disabled(!canWake)
                     .accessibilityIdentifier("wake-send")
                 }

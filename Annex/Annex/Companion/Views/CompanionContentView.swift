@@ -205,7 +205,7 @@ private struct CompanionContentPage: View {
         .privacySensitive()
         .navigationTitle(content?.name ?? "Desktop preview")
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done", action: close).accessibilityIdentifier("companion-preview-done") } }
+        .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark", action: close).companionToolbarClose().accessibilityIdentifier("companion-preview-done") } }
         .task { await load() }
         .onDisappear { loadID = UUID(); pdf = nil; clearPlayback() }
     }

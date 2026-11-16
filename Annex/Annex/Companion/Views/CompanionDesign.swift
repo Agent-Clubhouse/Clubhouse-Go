@@ -413,6 +413,24 @@ extension View {
     func companionProminentLabel() -> some View { modifier(CompanionProminentLabel()) }
 }
 
+/// Toolbar controls use the theme's label color; tint is reserved for the primary action.
+private struct CompanionToolbarSecondary: ViewModifier {
+    @Environment(\.companionPalette) private var palette
+    func body(content: Content) -> some View {
+        content
+            .foregroundStyle(Color(palette.label))
+            .tint(Color(palette.label))
+            .symbolRenderingMode(.monochrome)
+    }
+}
+
+extension View {
+    func companionToolbarSecondary() -> some View { modifier(CompanionToolbarSecondary()) }
+
+    /// Retain the button's full accessibility label while displaying only its close/confirm glyph.
+    func companionToolbarClose() -> some View { labelStyle(.iconOnly).companionToolbarSecondary() }
+}
+
 extension View {
     /// A CLI's live model list can run long; past a dozen it opens as its own scrolling list rather than a menu.
     @ViewBuilder func companionModelPickerStyle(count: Int) -> some View {

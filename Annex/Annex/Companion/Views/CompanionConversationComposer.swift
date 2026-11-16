@@ -692,8 +692,8 @@ struct CompanionComposerApprovalReviewSheet: View {
             .navigationTitle(isQuestion ? "Review question" : "Review approval")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Close", action: close)
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark", action: close).companionToolbarClose()
                         .accessibilityIdentifier("companion-approval-review-close")
                 }
             }

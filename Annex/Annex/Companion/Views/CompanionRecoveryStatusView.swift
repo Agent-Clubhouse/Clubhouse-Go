@@ -249,12 +249,12 @@ struct CompanionRecoveryStatusDetails: View {
             .navigationTitle("Connection and recovery")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
+                ToolbarItem(placement: .cancellationAction) {
                     Button { dismiss() } label: {
-                        Text("Done")
+                        Image(systemName: "xmark").accessibilityLabel("Done")
                             .frame(minWidth: 44, minHeight: 44)
                             .contentShape(Rectangle())
-                    }
+                    }.companionToolbarSecondary()
                 }
             }
         }

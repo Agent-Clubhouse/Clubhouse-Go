@@ -966,3 +966,5 @@ holds a real LiveService command, applies an unsequenced snapshot, then releases
 receipt for plain/linked Pin and Mark active. Controls cover ordinary receipt projection,
 identical snapshot contents and unrelated host publications. The revision lives on the
 value-type CompanionHost; no owning class field or isolated-deinit policy changes.
+
+Toolbar presentation (#429): `CompanionToolbarUITests` checks Home, New agent, Chat, context-sheet close and Agent settings confirmation in light, dark, Latte and Mocha. Inspect the attached screenshots for monochrome secondary glyphs and the single filled primary action. The close/confirmation controls retain their existing accessibility labels and identifiers. `FeedbackTriggersUITests.testSendFeedbackInSettingsAndChatMenu` replaces the removed Home overflow-menu route and keeps the Settings/chat attachment assertions. Dispatch's toolbar is owned by #444 and is validated there.

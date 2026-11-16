@@ -42,7 +42,7 @@ struct CompanionArchiveView: View {
             }
             .navigationTitle("Conversation archive")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark") { dismiss() }.companionToolbarClose() } }
             .task { await load() }
         }
     }

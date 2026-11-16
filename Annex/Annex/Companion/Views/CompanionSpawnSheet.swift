@@ -60,7 +60,7 @@ struct CompanionSpawnSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", systemImage: "xmark") { dismiss() }.disabled(store.spawnInProgress || store.createInProgress)
+                    Button("Cancel", systemImage: "xmark") { dismiss() }.companionToolbarClose().disabled(store.spawnInProgress || store.createInProgress)
                 }
                 if effectiveKind == .durable {
                     ToolbarItem(placement: .confirmationAction) { createButton }
