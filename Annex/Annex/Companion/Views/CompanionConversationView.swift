@@ -182,12 +182,14 @@ struct CompanionConversationView: View {
                 ToolbarItem(placement: .topBarLeading) {
                     Button("Header alignment", systemImage: "circle") {}
                         .frame(width: headerLeadingReservation, height: 44)
+                        .hidden()
+                        // Keep measurement outside the hidden content so UIKit lays out the measuring UIView.
                         .background {
                             CompanionToolbarIdentityCenter { frame, width in
                                 recordHeaderSide(frame, barWidth: width, leading: true)
                             }
                         }
-                        .hidden().allowsHitTesting(false).accessibilityHidden(true)
+                        .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .sharedBackgroundVisibility(.hidden)
                 // Identity and actions draw their own glass over the theme card.
