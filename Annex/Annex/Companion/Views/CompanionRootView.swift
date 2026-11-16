@@ -180,7 +180,27 @@ struct CompanionRootView: View {
             }
         } ?? false
         let visibleHostID = navigation.tab == .dispatcher && (navigation.paths[.dispatcher] ?? []).isEmpty ? navigation.dispatcherHostID : nil
-        return CompanionDispatcherSwitcher(desktops: navigation.dispatcherDesktops, hosts: store.hosts,
+        let conversations = ZStack {
+            ForEach(navigation.dispatcherDesktops) { desktop in
+                let visible = navigation.tab == .dispatcher && navigation.dispatcherHostID == desktop.id
+                    && (navigation.paths[.dispatcher] ?? []).isEmpty
+                VStack(spacing: 0) {
+                    if let target = desktop.target, let agent = store.agent(for: target) {
+                        conversation(agent, visible: visible).id(target)
+                    } else if store.hosts.contains(where: { $0.id == desktop.id && $0.dispatcher?.mcpOff != nil }) {
+                        CompanionDispatcherUnavailableView(store: store, hostID: desktop.id)
+                    } else {
+                        ProgressView("Loading the Dispatcher…")
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    }
+                }
+                .opacity(navigation.dispatcherHostID == desktop.id ? 1 : 0)
+                .allowsHitTesting(visible)
+                .accessibilityElement(children: .contain)
+                .accessibilityHidden(!visible)
+            }
+        }
+        let switcher = CompanionDispatcherSwitcher(desktops: navigation.dispatcherDesktops, hosts: store.hosts,
             selectedHostID: navigation.dispatcherHostID, replies: navigation.dispatcherReplies.unreadHostIDs,
             isWorking: isStreaming || !followsLatest, select: { hostID in
                 navigation.chooseDispatcher(hostID: hostID)
@@ -193,27 +213,9 @@ struct CompanionRootView: View {
                 CompanionDispatcherPreviewReports(store: store, desktops: navigation.dispatcherDesktops, selectedHostID: navigation.dispatcherHostID)
             }
             #endif
-            ZStack {
-                ForEach(navigation.dispatcherDesktops) { desktop in
-                    let visible = navigation.tab == .dispatcher && navigation.dispatcherHostID == desktop.id
-                        && (navigation.paths[.dispatcher] ?? []).isEmpty
-                    VStack(spacing: 0) {
-                        if let target = desktop.target, let agent = store.agent(for: target) {
-                            conversation(agent, visible: visible).id(target)
-                        } else if store.hosts.contains(where: { $0.id == desktop.id && $0.dispatcher?.mcpOff != nil }) {
-                            CompanionDispatcherUnavailableView(store: store, hostID: desktop.id)
-                        } else {
-                            ProgressView("Loading the Dispatcher…")
-                                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        }
-                    }
-                    .opacity(navigation.dispatcherHostID == desktop.id ? 1 : 0)
-                    .allowsHitTesting(visible)
-                    .accessibilityElement(children: .contain)
-                    .accessibilityHidden(!visible)
-                }
-            }
+            conversations
         }
+        return switcher
         .navigationTitle(navigation.dispatcherTitle(hosts: store.hosts))
         .navigationBarTitleDisplayMode(.inline)
         .companionTelemetryScreen(.dispatcher)
