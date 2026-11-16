@@ -36,7 +36,7 @@ import XCTest
         nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 20))
-        XCTAssertTrue(element(app, "dispatcher-launch-unavailable").exists)
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch.exists)
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         screenshot(app, "native-cold-quick-action-no-pairings")
     }
@@ -59,12 +59,12 @@ import XCTest
         var flags = ["--companion-preview"]
         if multiple { flags += ["--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"] }
         let app = launchApp(flags, attempts: 1)
-        let river = element(app, "agent-preview-studio-river")
+        let river = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         XCTAssertTrue(scrollTo(river, in: app, maxSwipes: 6))
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(river, shows: settings, attempts: 1)
         settings.tap()
-        let summary = element(app, "agent-settings-summary")
+        let summary = app.descendants(matching: .any).matching(identifier: "agent-settings-summary").firstMatch
         XCTAssertTrue(summary.waitForExistence(timeout: 10))
         nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
@@ -73,7 +73,7 @@ import XCTest
         if multiple {
             XCTAssertTrue(app.buttons["dispatcher-launch-choose-preview-laptop"].isHittable)
             XCTAssertTrue(app.buttons["dispatcher-launch-choose-preview-studio"].isHittable)
-        } else { XCTAssertTrue(element(app, "dispatcher-launch-unavailable").exists) }
+        } else { XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch.exists) }
         screenshot(app, multiple ? "warm-settings-to-chooser" : "warm-settings-to-guidance")
     }
     func testWarmManyDispatcherActionDismissesExistingSettingsBeforeChoosing() { warmActionWhileSettingsIsPresented(multiple: true) }
