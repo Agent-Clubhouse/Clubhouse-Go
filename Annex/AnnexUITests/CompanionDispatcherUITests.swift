@@ -326,7 +326,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     }
 
     func testDraftSurvivesTabSwitchAndDisconnectAndOffMovesHomeOnce() {
-        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls"])
+        let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-dispatcher-controls", "--companion-preview-dispatch-reports"])
         let composer = element(app, "companion-composer")
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         composer.tap()
@@ -337,19 +337,15 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         tab(app, "Dispatch").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
-        // Opening Settings also dismisses the keyboard before the desktop report.
-        app.buttons["Settings"].tap()
-        app.buttons["Disconnect desktop"].tap()
-        app.buttons["settings-close"].tap()
+        // The synthetic report preserves the selected Dispatch tab; Settings lives on Home.
+        app.buttons["dispatcher-preview-disconnect"].tap()
         XCTAssertTrue(tab(app, "Dispatch").exists, "A dropped connection isn't off")
         XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
         XCTAssertFalse(app.buttons["companion-send"].isEnabled)
         screenshot(app, "Dispatcher disconnected with cached conversation")
-        app.buttons["Settings"].tap()
-        app.buttons["Reconnect desktop"].tap()
-        app.buttons["Report Dispatcher off"].tap()
-        app.buttons["settings-close"].tap()
+        app.buttons["dispatcher-preview-reconnect"].tap()
+        app.buttons["dispatcher-preview-off"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         XCTAssertFalse(tab(app, "Dispatch").exists)
         tab(app, "Search").tap()

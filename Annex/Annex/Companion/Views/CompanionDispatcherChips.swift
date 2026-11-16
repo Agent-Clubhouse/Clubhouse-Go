@@ -126,7 +126,8 @@ struct CompanionDispatcherPreviewReports: View {
     let desktops: [CompanionDispatcherDesktop]
     let selectedHostID: String?
     var body: some View {
-        HStack {
+        VStack(spacing: 4) {
+          HStack {
             Button("Report other reply") {
                 guard let target = desktops.first(where: { $0.id != selectedHostID })?.target else { return }
                 store.apply(.upsert(target, .message(.init(id: UUID().uuidString, role: .assistant,
@@ -141,7 +142,20 @@ struct CompanionDispatcherPreviewReports: View {
                 guard let target = desktops.first(where: { $0.id == selectedHostID })?.target else { return }
                 store.apply(.streamFinished(target, messageID: "dispatcher-preview-stream", sequence: nil))
             }.accessibilityIdentifier("dispatcher-preview-finish-reply")
+          }
+          HStack {
+            Button("Disconnect desktop") { report(connection: .offline) }.accessibilityIdentifier("dispatcher-preview-disconnect")
+            Button("Reconnect desktop") { report(connection: .connected) }.accessibilityIdentifier("dispatcher-preview-reconnect")
+            Button("Report Dispatcher off") { report(enabled: false) }.accessibilityIdentifier("dispatcher-preview-off")
+          }
         }.font(.caption).buttonStyle(.bordered).padding(.horizontal)
+    }
+    private func report(connection: CompanionConnection? = nil, enabled: Bool? = nil) {
+        var next = store.hosts
+        guard let index = next.firstIndex(where: { $0.id == selectedHostID }) else { return }
+        if let connection { next[index].connection = connection }
+        if let enabled { next[index].dispatcher?.enabled = enabled }
+        store.apply(.hosts(next))
     }
 }
 #endif
