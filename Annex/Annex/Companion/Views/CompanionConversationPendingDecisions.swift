@@ -23,16 +23,16 @@ struct CompanionConversationPendingDecisions: View {
                         HStack(spacing: 8) {
                             summaryAndPager(decision, queue: queue, index: index)
                                 .fixedSize(horizontal: true, vertical: false)
-                            decisionActions(decision, index: index, count: queue.count, compact: compact)
+                            decisionActions(decision, presentation: presentation, index: index, count: queue.count, compact: compact)
                         }
                         VStack(alignment: .leading, spacing: 0) {
                             summaryAndPager(decision, queue: queue, index: index)
                             ViewThatFits(in: .horizontal) {
                                 HStack(spacing: 12) {
-                                    decisionActions(decision, index: index, count: queue.count, compact: compact)
+                                    decisionActions(decision, presentation: presentation, index: index, count: queue.count, compact: compact)
                                 }
                                 VStack(alignment: .leading, spacing: 0) {
-                                    decisionActions(decision, index: index, count: queue.count, compact: compact)
+                                    decisionActions(decision, presentation: presentation, index: index, count: queue.count, compact: compact)
                                 }
                             }
                         }
@@ -99,7 +99,7 @@ struct CompanionConversationPendingDecisions: View {
         }
     }
 
-    @ViewBuilder private func decisionActions(_ decision: CompanionPendingDecision, index: Int, count: Int, compact: Bool) -> some View {
+    @ViewBuilder private func decisionActions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int, compact: Bool) -> some View {
         Button(compact ? "Chat" : "Show in chat") { showInChat(decision.id) }
             .accessibilityLabel("Show in chat")
             .font(.subheadline).fixedSize(horizontal: true, vertical: false)
