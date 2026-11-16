@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import Vision
 import ClubhouseTransport
 @testable import ClubhouseGo
 
@@ -60,6 +61,75 @@ import ClubhouseTransport
             store.shutdown()
             defaults.removePersistentDomain(forName: suite)
         }
+    }
+
+    func testRemovingSelectedDesktopReconcilesToAllAndKeepsRemainingAgentsVisible() async throws {
+        let store = CompanionStore(service: CompanionPreviewService())
+        var hosts = CompanionPreviewService.hosts(now: Date())
+        let links = CompanionPreviewService.previewProjectLinks
+        for index in hosts.indices {
+            hosts[index].projectLinks = links
+            hosts[index].canLinkProjects = true
+            hosts[index].connection = .connected
+        }
+        hosts[0].projects[0].agents = [hosts[0].projects[0].agents[0]]
+        hosts[0].projects[0].agents[0].name = "Studio agent"
+        hosts[1].projects[0].agents = [hosts[1].projects[0].agents[0]]
+        hosts[1].projects[0].agents[0].name = "Laptop agent"
+        let remainingHost = hosts[0]
+        let selectedHost = hosts[1]
+        store.apply(.hosts(hosts))
+        let project = CompanionProjectTarget(hostID: remainingHost.id, projectID: "clubhouse")
+        XCTAssertEqual(store.projectEntry(containing: project)?.members.count, 2)
+        let suite = "project-scope-removal-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let preferences = CompanionPreferences(defaults: defaults, systemDeviceName: "Tests")
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
+        window.rootViewController = UIHostingController(rootView: NavigationStack {
+            CompanionProjectPage(store: store, preferences: preferences, project: project,
+                                 initialDesktopSelection: .host(selectedHost.id), onNewAgent: { _ in })
+        }.dynamicTypeSize(.large).companionBackground().companionTheme(.clubhouse).environment(\.colorScheme, .light))
+        window.makeKeyAndVisible()
+        defer {
+            window.isHidden = true
+            window.rootViewController = nil
+            previous?.makeKey()
+            store.shutdown()
+            defaults.removePersistentDomain(forName: suite)
+        }
+        let before = try await renderedText(window, stage: "Selected Laptop before removal")
+        XCTAssertTrue(before.contains("Laptop agent"), "The real page starts scoped to the second desktop")
+        XCTAssertFalse(before.contains("Studio agent"))
+
+        // The page remains anchored to Studio. Forgetting/unlinking Laptop shrinks the entry
+        // from two hosts to one; the now-hidden chips must still reset the selected scope.
+        store.apply(.hosts([remainingHost]))
+        XCTAssertEqual(store.projectEntry(containing: project)?.members.map(\.host.id), [remainingHost.id])
+        let after = try await renderedText(window, stage: "All scope after selected desktop removal")
+        XCTAssertTrue(after.contains("Studio agent"), "Reconciliation to All must restore the remaining desktop's actual agent rows")
+        XCTAssertFalse(after.contains("Laptop agent"))
+        XCTAssertTrue(after.contains("New agent"), "Project actions remain on the recovered page")
+    }
+
+    private func renderedText(_ window: UIWindow, stage: String) async throws -> String {
+        await Task.yield()
+        try await Task.sleep(for: .milliseconds(200))
+        window.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let attachment = XCTAttachment(image: image)
+        attachment.name = "442 \(stage)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
+        return (request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []).joined(separator: "\n")
     }
 
     func testMachineActionAvailabilityNeverTreatsASelectedOfflineDesktopAsOperable() throws {

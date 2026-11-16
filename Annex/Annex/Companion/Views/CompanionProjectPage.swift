@@ -7,7 +7,7 @@ struct CompanionProjectPage: View {
     let project: CompanionProjectTarget
     var onNewAgent: (CompanionProjectTarget) -> Void
     @State private var hold: [CompanionTarget]?
-    @State private var desktop: CompanionDesktopSelection = .all
+    @State private var desktop: CompanionDesktopSelection
     @State private var showingInfo = false
     @State private var choosingMachine: CompanionProjectMachineAction?
     @State private var pendingChoice: (CompanionProjectMachineAction, CompanionProjectTarget)?
@@ -17,6 +17,16 @@ struct CompanionProjectPage: View {
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionTerminal) private var terminal
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+
+    init(store: CompanionStore, preferences: CompanionPreferences, project: CompanionProjectTarget,
+         initialDesktopSelection: CompanionDesktopSelection = .all,
+         onNewAgent: @escaping (CompanionProjectTarget) -> Void) {
+        self.store = store
+        self.preferences = preferences
+        self.project = project
+        self.onNewAgent = onNewAgent
+        _desktop = State(initialValue: initialDesktopSelection)
+    }
 
     var body: some View {
         let entry = store.projectEntry(containing: project)
@@ -72,11 +82,11 @@ struct CompanionProjectPage: View {
         return List {
             Section {
                 actionRow(entry)
-                if Set(entry.members.map { $0.host.id }).count >= 2 {
-                    CompanionDesktopChips(members: entry.members, selection: $desktop)
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
-                }
+                // Keep the scope owner mounted even when its visible chips disappear. It must
+                // reconcile a removed selection before this page filters the remaining agents.
+                CompanionDesktopChips(members: entry.members, selection: $desktop)
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             }
             if !sections.needsYou.isEmpty {
                 Section {
