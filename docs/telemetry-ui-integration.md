@@ -386,9 +386,22 @@ The vocabulary includes the adopted `projectInfo` screen and reserves `workspace
 
 The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
 
+## Native link, share and photo-picker callbacks still pending
+
+These native controls retain their system activation behavior. They need the separately verified hook or their owning lane's explicit selection callback; no content or destination value may enter telemetry.
+
+| Pending | File | Interaction / owner |
+|---|---|---|
+| [ ] | [CompanionWelcome.swift:38](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L38) | Website Link opening; native hook spike/decision. |
+| [ ] | [CompanionQRPairing.swift:29](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L29) | System Settings Link opening; native hook spike/decision. |
+| [ ] | [CompanionDiagnosticsView.swift:83](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L83) | Reviewed export ShareLink; native hook spike/decision. |
+| [ ] | [CompanionMarkdownBlockViews.swift:284](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L284) | Preview ShareLink; chat owner plus verified native hook. |
+| [ ] | [CompanionContentView.swift:176](../Annex/Annex/Companion/Views/CompanionContentView.swift#L176) | Image ShareLink; content/chat owner plus verified native hook. |
+| [ ] | [CompanionAttachments.swift:33](../Annex/Annex/Companion/Views/CompanionAttachments.swift#L33) | Native photo-picker opening and explicit selection; chat owner. Never export image/content/selection identifiers. |
+
 ## Embedded feedback SDK controls
 
-The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swift`; the composer and screenshot editor controls themselves live in the vendored FramebriarUI sources below. They are remaining integration sites, not instrumented by changing the vendor in this PR. A follow-up should expose/adopt a typed interaction callback at that boundary. Never forward feedback text, screenshots, marks, ink values or identifiers into telemetry.
+The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swift`; the composer and screenshot editor controls themselves live in the vendored FramebriarUI sources below. They are remaining integration sites, not instrumented by changing the vendor in this PR. **Requires an upstream Framebriar change (optional enum-only interaction callback), then re-vendor.** This also covers the enrollment controls in `FeedbackModel.swift`. CI verifies the vendored directory byte-for-byte against `Vendor/Framebriar/SOURCE.json`; never instrument those files in place. After the upstream tag is re-vendored, the app-owned boundary can adopt its callback without forwarding any SDK data. Never forward feedback text, screenshots, marks, ink values or identifiers into telemetry.
 
 | Pending | SDK file and line | Source interaction |
 |---|---|---|
@@ -410,3 +423,13 @@ The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swif
 | [ ] | [FeedbackScreenshotEditor.swift:94](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L94) | `Button("Clear edits", role: .destructive) { confirmClear = true }` |
 | [ ] | [FeedbackScreenshotEditor.swift:102](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L102) | `Button("Clear edits", role: .destructive) { marks = [] }.accessibilityIdentifier("framebriar-editor-clear-confirm")` |
 | [ ] | [FeedbackScreenshotEditor.swift:109](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L109) | `Button { ink = choice } label: {` |
+| [ ] | [FeedbackModel.swift:225](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L225) | Redeem invitation — upstream enum-only callback, then re-vendor. Never export the invitation. |
+| [ ] | [FeedbackModel.swift:229](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L229) | Clear enrollment prompt — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:239](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L239) | Send held reports prompt — upstream callback, then re-vendor. Never export the token or count. |
+| [ ] | [FeedbackModel.swift:243](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L243) | Clear held reports prompt — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:247](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L247) | Retry delivery — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:248](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L248) | Clear queued reports prompt — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:256](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L256) | Clear queued reports confirmation — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:260](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L260) | Send held reports confirmation — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:265](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L265) | Clear held reports confirmation — upstream callback, then re-vendor. |
+| [ ] | [FeedbackModel.swift:269](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L269) | Clear enrollment confirmation — upstream callback, then re-vendor. |
