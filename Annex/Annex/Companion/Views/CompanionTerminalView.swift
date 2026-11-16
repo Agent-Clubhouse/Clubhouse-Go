@@ -68,7 +68,7 @@ struct CompanionTerminalScreenView: View {
                         CompanionUIActions.record(.done, on: .terminal)
                         dismiss()
                     } label: {
-                        Text("Done").foregroundStyle(Color(colors.foreground))
+                        Image(systemName: "xmark").foregroundStyle(Color(colors.foreground)).accessibilityLabel("Done")
                     }
                     .accessibilityIdentifier("terminal-done")
                 }

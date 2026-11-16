@@ -241,7 +241,7 @@ struct CompanionConversationView: View {
                         .accessibilityIdentifier("conversation-actions-menu")
                     }
                     .buttonStyle(.plain)
-                    .foregroundStyle(Color(palette.label))
+                    .companionToolbarSecondary()
                     .companionCardGlass(Capsule(), interactive: true)
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("companion-chat-header-actions")
@@ -339,7 +339,7 @@ struct CompanionConversationView: View {
     private var contextButton: some View {
         Button { showContextSettings = true } label: {
             HStack(spacing: 0) {
-                if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent) }
+                if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent, monochrome: true) }
                 else { Image(systemName: "chart.pie").font(.caption) }
             }
             .dynamicTypeSize(...DynamicTypeSize.xxLarge)
@@ -985,6 +985,7 @@ struct CompanionConversationView: View {
 /// Context fill as a small ring with its percentage, like the desktop's usage ring. Hot from 90%.
 struct CompanionContextRing: View {
     let percent: Int
+    var monochrome = false
     @Environment(\.companionPalette) private var palette
     @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 18
     var body: some View {
@@ -992,7 +993,7 @@ struct CompanionContextRing: View {
         ZStack {
             Circle().stroke(Color(palette.separator), lineWidth: 2)
             Circle().trim(from: 0, to: CGFloat(percent) / 100)
-                .stroke(hot ? Color(palette.error) : Color(palette.secondaryLabel), style: .init(lineWidth: 2, lineCap: .round))
+                .stroke(Color(monochrome ? palette.label : (hot ? palette.error : palette.secondaryLabel)), style: .init(lineWidth: 2, lineCap: .round))
                 .rotationEffect(.degrees(-90))
         }
         .frame(width: size, height: size)

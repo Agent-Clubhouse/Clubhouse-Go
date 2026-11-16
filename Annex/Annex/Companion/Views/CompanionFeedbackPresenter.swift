@@ -393,11 +393,11 @@ struct CompanionEnrollmentSheet: View {
     var body: some View {
         NavigationStack {
             CompanionFeedbackEnrollment(model: model).toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", systemImage: "xmark") {
                         CompanionUIActions.record(.done, on: .feedbackEnrollment)
                         dismiss()
-                    }
+                    }.companionToolbarClose()
                 }
             }
         }
@@ -436,7 +436,7 @@ private struct CompanionFeedbackMenuCapture: UIViewRepresentable {
         private let controls = NSHashTable<UIControl>.weakObjects()
         private let highlightObservations = NSMapTable<UIControl, NSKeyValueObservation>.weakToStrongObjects()
         private var lastPress: TimeInterval = -.infinity
-        private static let sources: Set<String> = ["home-more-menu", "conversation-actions-menu", "fixture-feedback-menu"]
+        private static let sources: Set<String> = ["conversation-actions-menu", "fixture-feedback-menu"]
         override init(frame: CGRect) {
             super.init(frame: frame)
             isUserInteractionEnabled = false

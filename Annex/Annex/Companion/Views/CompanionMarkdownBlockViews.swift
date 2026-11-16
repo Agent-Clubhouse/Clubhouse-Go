@@ -273,17 +273,18 @@ struct CompanionMarkdownBlockSheet: View {
             .navigationTitle(preview.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done", action: close).accessibilityIdentifier("companion-markdown-block-done")
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", systemImage: "xmark", action: close).companionToolbarClose().accessibilityIdentifier("companion-markdown-block-done")
                 }
                 ToolbarItemGroup(placement: .bottomBar) {
                     Button(preview.copyTitle, systemImage: "doc.on.doc") { UIPasteboard.general.string = preview.copyText }
-                        .labelStyle(.titleAndIcon)
+                        .labelStyle(.titleAndIcon).companionToolbarSecondary()
                         .accessibilityIdentifier("companion-markdown-block-copy")
                     Spacer()
                     ShareLink(item: preview.copyText, subject: Text(preview.title)) {
                         Label("Share", systemImage: "square.and.arrow.up")
                     }
+                    .companionToolbarSecondary()
                     .accessibilityIdentifier("companion-markdown-block-share")
                 }
             }

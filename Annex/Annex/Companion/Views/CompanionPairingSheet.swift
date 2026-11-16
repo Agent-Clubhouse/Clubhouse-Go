@@ -150,10 +150,10 @@ struct CompanionPairingSheet: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") {
+                    Button("Cancel", systemImage: "xmark") {
                         CompanionUIActions.record(.cancel, on: .pairing)
                         dismiss()
-                    }.disabled(isPairing)
+                    }.companionToolbarClose().disabled(isPairing)
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button {
@@ -161,8 +161,8 @@ struct CompanionPairingSheet: View {
                         Task { await pair() }
                     } label: {
                         if isPairing { ProgressView().accessibilityLabel("Pairing desktop") }
-                        else { Text("Pair") }
-                    }.disabled(!verified || (try? AnnexEndpoint.manual(address: address, port: port)) == nil || identity.isEmpty || certificate.isEmpty || pin.isEmpty || isPairing)
+                        else { Image(systemName: "checkmark").accessibilityLabel("Pair") }
+                    }.buttonStyle(.glassProminent).companionProminentLabel().disabled(!verified || (try? AnnexEndpoint.manual(address: address, port: port)) == nil || identity.isEmpty || certificate.isEmpty || pin.isEmpty || isPairing)
                 }
             }
             .interactiveDismissDisabled(isPairing)

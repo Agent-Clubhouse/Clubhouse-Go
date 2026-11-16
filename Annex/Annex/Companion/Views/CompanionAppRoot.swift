@@ -423,7 +423,7 @@ struct CompanionSettingsSheet: View {
                     Button("Close", systemImage: "xmark") {
                         CompanionUIActions.record(.close, on: .settings)
                         dismiss()
-                    }.labelStyle(.iconOnly)
+                    }.companionToolbarClose()
                         .accessibilityIdentifier("settings-close")
                 }
             }

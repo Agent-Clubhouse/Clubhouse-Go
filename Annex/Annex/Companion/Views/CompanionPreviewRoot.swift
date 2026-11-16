@@ -115,7 +115,7 @@ struct CompanionPreviewRoot: View {
                                 CompanionUIActions.record(.close, on: .settings)
                                 $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil
                             }
-                                .labelStyle(.iconOnly).accessibilityIdentifier("settings-close")
+                                .companionToolbarClose().accessibilityIdentifier("settings-close")
                         }
                     }
                     .companionTelemetryScreen(.settings)

@@ -222,17 +222,22 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTAssertFalse(app.buttons["screenshot-feedback-prompt"].exists)
     }
 
-    @MainActor func testSendFeedbackInHomeAndChatMenus() throws {
+    @MainActor func testSendFeedbackInSettingsAndChatMenu() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-feedback"])
         let composer = app.navigationBars["Send feedback"]
-        let more = app.buttons["home-more-menu"]
-        XCTAssertTrue(more.waitForExistence(timeout: 15))
-        waitAndTap(more, until: app.buttons["Send feedback"], timeout: 5)
-        app.buttons["Send feedback"].tap()
-        XCTAssertTrue(composer.waitForExistence(timeout: 5), "Home's menu opens the feedback form")
+        XCTAssertFalse(app.buttons["home-more-menu"].exists, "Home has no one-item overflow menu")
+        let settings = app.buttons["Settings"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 15))
+        waitAndTap(settings, until: app.navigationBars["Settings"], timeout: 5)
+        let send = app.buttons["Send feedback"]
+        XCTAssertTrue(scrollTo(send, in: app, maxSwipes: 6))
+        send.tap()
+        XCTAssertTrue(composer.waitForExistence(timeout: 5), "Settings opens the feedback form")
         XCTAssertTrue(app.images["framebriar-attachment"].exists, "The underlying screen starts attached for review")
         app.buttons["Cancel"].tap()
         XCTAssertFalse(composer.waitForExistence(timeout: 2))
+        XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+        app.buttons["settings-close"].tap()
 
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         scrollUntilExists(agent, in: app, maxSwipes: 4)

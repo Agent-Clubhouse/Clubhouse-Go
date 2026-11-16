@@ -92,7 +92,7 @@ struct CompanionReviewView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }.accessibilityIdentifier("review-done")
+                    Button("Done", systemImage: "xmark") { dismiss() }.companionToolbarClose().accessibilityIdentifier("review-done")
                 }
                 if entries.isEmpty {
                     ToolbarItem(placement: .principal) {

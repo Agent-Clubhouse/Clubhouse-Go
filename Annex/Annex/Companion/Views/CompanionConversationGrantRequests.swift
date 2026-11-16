@@ -106,8 +106,8 @@ struct CompanionConversationGrantRequests: View {
                     .navigationTitle("Review permission")
                     .navigationBarTitleDisplayMode(.inline)
                     .toolbar {
-                        ToolbarItem(placement: .confirmationAction) {
-                            Button("Close") { showsReview = false }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close", systemImage: "xmark") { showsReview = false }.companionToolbarClose()
                                 .accessibilityIdentifier("companion-grant-review-close")
                         }
                     }

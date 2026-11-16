@@ -75,13 +75,13 @@ struct CompanionFullEventReview: View {
             }
             .navigationTitle(reference.reviewLabel).navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) { Button("Close", systemImage: "xmark") { dismiss() }.companionToolbarClose() }
                 if let full, full.event["type"]?.string == "permission_request" {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Reviewed") {
+                        Button("Reviewed", systemImage: "checkmark") {
                             if store.acknowledgeFullReview(full, reference: reference, target: target) { dismiss() }
                             else { acknowledgmentFailure = "This request changed or the review expired while it was open. Close this review, refresh the conversation, and fetch the request again." }
-                        }.disabled(!reachedEnd)
+                        }.labelStyle(.iconOnly).buttonStyle(.glassProminent).companionProminentLabel().disabled(!reachedEnd)
                         .accessibilityHint(reachedEnd ? "Confirm that you reviewed this complete request" : "Scroll to the end to confirm")
                     }
                 }

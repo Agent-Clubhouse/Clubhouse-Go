@@ -35,11 +35,11 @@ struct CompanionAgentDetailsSheet: View {
             .navigationTitle(agent?.name ?? "Agent details")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", systemImage: "xmark") {
                         AnnexTelemetry.shared.recordAction(screen: .agentDetails, control: .done)
                         dismiss()
-                    }
+                    }.companionToolbarClose()
                 }
             }
             .task(id: refreshKey) { await load() }

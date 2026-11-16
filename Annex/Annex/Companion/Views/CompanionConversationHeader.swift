@@ -272,7 +272,7 @@ struct CompanionConversationUsageSheet: View {
                     .padding(.horizontal, 16).padding(.vertical, 6)
                     .accessibilityIdentifier("companion-context-plan-limits")
                 }
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark") { dismiss() }.companionToolbarClose() } }
         }
     }
 }

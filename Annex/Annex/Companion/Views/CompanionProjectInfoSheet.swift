@@ -36,11 +36,11 @@ struct CompanionProjectInfoSheet: View {
             .navigationTitle("Project info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Done", systemImage: "xmark") {
                         AnnexTelemetry.shared.recordAction(screen: .projectInfo, control: .done)
                         dismiss()
-                    }
+                    }.companionToolbarClose()
                 }
             }
         }
