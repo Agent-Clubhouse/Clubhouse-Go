@@ -420,4 +420,67 @@ import UIKit
             && abs(bookmark.position.distanceFromEntry - saved.distanceFromEntry) <= 1
         print("HISTORY_READING partialCount=5 fullCount=182 oldOffset=\(before) forcedOffset=0 followsAfterHistory=\(followedAfterHistory ? 1 : 0) reachedBottom=\(reachedBottom ? 1 : 0) readingRefreshRetained=\(retained ? 1 : 0)")
     }
+    /// One invocation for each distinct ordering; no retry and no relaxed production assertion.
+    private func probeNativeTop(_ schedule: Int) async throws {
+        CompanionNativeTopAudit.caseName = "schedule-\(schedule)"
+        CompanionNativeTopAudit.enabled = true
+        defer { CompanionNativeTopAudit.enabled = false; CompanionNativeTopAudit.caseName = "existing" }
+        let service = HistoryReadingService(); service.releaseHistory = true
+        let store = CompanionStore(service: service), target = CompanionPreviewService.target
+        let hosts = CompanionPreviewService.hosts(now: .now)
+        store.apply(.hosts(hosts)); await store.load(target)
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+        let agent = try XCTUnwrap(hosts.flatMap(\.allAgents).first { $0.id == target })
+        window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: store, agent: agent) })
+        window.makeKeyAndVisible()
+        defer { window.isHidden = true; window.rootViewController = nil }
+        let bookmark = store.readingBookmark(for: target)
+        try await waitUntil { bookmark.viewport.hasInitialized && bookmark.viewport.metrics?.isAtTrueBottom == true }
+        let scroll = try XCTUnwrap(transcript(window))
+        func chunk(_ count: Int) {
+            store.apply(.upsert(target, .message(.init(id: "reading-helper", role: .assistant,
+                text: String(repeating: "Native-top scheduling probe. ", count: count), isStreaming: true,
+                subagentID: "preview-helper")), sequence: nil))
+        }
+        print("NATIVE462 TEST schedule=\(schedule) initial=\(scroll.contentOffset.y + scroll.adjustedContentInset.top)")
+        XCTAssertTrue(scroll.delegate?.scrollViewShouldScrollToTop?(scroll) ?? false)
+        XCTAssertFalse(bookmark.position.followsLatest)
+        if schedule == 2 {
+            service.hasEarlierMessages = true
+            await store.load(target, force: true)
+        } else {
+            let before = scroll.contentSize.height
+            chunk(100)
+            if schedule == 3 { chunk(120) }
+            try await waitUntil { scroll.contentSize.height > before }
+        }
+        scroll.setContentOffset(CGPoint(x: 0, y: -scroll.adjustedContentInset.top), animated: true)
+        try await waitUntil { abs(scroll.contentOffset.y + scroll.adjustedContentInset.top) <= 1 }
+        print("NATIVE462 TEST schedule=\(schedule) reached=\(scroll.contentOffset.y + scroll.adjustedContentInset.top) pending=\(bookmark.viewport.isScrollingToTop) animated=\(scroll.isScrollAnimating)")
+        if schedule == 1 {
+            try await waitUntil { !scroll.isScrollAnimating && !bookmark.viewport.isScrollingToTop }
+            try await Task.sleep(for: .milliseconds(50))
+        }
+        if schedule == 2 {
+            chunk(120)
+        } else if schedule != 3 {
+            chunk(120)
+        }
+        let deadline = ContinuousClock.now.advanced(by: .milliseconds(300))
+        var maximum = abs(scroll.contentOffset.y + scroll.adjustedContentInset.top)
+        while ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(10))
+            maximum = max(maximum, abs(scroll.contentOffset.y + scroll.adjustedContentInset.top))
+        }
+        print("NATIVE462 TEST schedule=\(schedule) final=\(scroll.contentOffset.y + scroll.adjustedContentInset.top) max=\(maximum) bookmark=\(bookmark.position.offset) pending=\(bookmark.viewport.isScrollingToTop) follows=\(bookmark.position.followsLatest)")
+        XCTAssertEqual(scroll.contentOffset.y + scroll.adjustedContentInset.top, 0, accuracy: 1)
+        XCTAssertLessThanOrEqual(maximum, 1, "No transient displacement during the 300ms observation")
+        XCTAssertFalse(bookmark.position.followsLatest)
+    }
+    func testProbeNativeTopNextChunkBeforeTheFirstSettledFrame() async throws { try await probeNativeTop(0) }
+    func testProbeNativeTopNextChunkAfterAnimationSettles() async throws { try await probeNativeTop(1) }
+    func testProbeNativeTopHistoryThenChunk() async throws { try await probeNativeTop(2) }
+    func testProbeNativeTopTwoChunksBeforeTheFirstUpwardSample() async throws { try await probeNativeTop(3) }
+
 }

@@ -143,6 +143,7 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
             guard let scrollView, window != nil, pending?() == true,
                   !scrollView.isTracking, !scrollView.isDragging else { stopNativeTopCheck(); return }
             let offset = scrollView.contentOffset.y + scrollView.adjustedContentInset.top
+            if CompanionNativeTopAudit.enabled { print("NATIVE462 adapter-sample offset=\(offset) elapsed=\(link.timestamp - nativeStartedAt) animated=\(scrollView.isScrollAnimating)") }
             guard offset > 1 else { stopNativeTopCheck(); return }
             guard link.duration > 0, link.timestamp - nativeStartedAt >= 2 * link.duration else { return }
             if offset >= nativeStartOffset - 1 || !scrollView.isScrollAnimating {
@@ -154,6 +155,7 @@ struct CompanionNativeScrollTopObserver: UIViewRepresentable {
             guard displayLink != nil, scroll === scrollView else { return }
             guard pending?() == true, !scroll.isTracking, !scroll.isDragging else { stopNativeTopCheck(); return }
             guard scroll.contentOffset.y + scroll.adjustedContentInset.top > 1 else { stopNativeTopCheck(); return }
+            if CompanionNativeTopAudit.enabled { print("NATIVE462 adapter-repair offset=\(scroll.contentOffset.y + scroll.adjustedContentInset.top)") }
             // Consume the repair before scrolling: delegate callbacks can be synchronous.
             stopNativeTopCheck()
             repaired?()

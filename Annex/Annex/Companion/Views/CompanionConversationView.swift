@@ -525,6 +525,7 @@ struct CompanionConversationView: View {
                 AnnexTelemetry.shared.measurePerformance(.scrollGeometry, messageCount: conversation.items.count) {
                     guard new.containerSize.height > 0, new.contentSize.height > 0 else { return }
                     let metrics = Self.metrics(new)
+                    nativeTopAudit("geometry new=\(metrics.normalizedOffset) old=\(Self.metrics(old).normalizedOffset)")
                     let scrolledUp = Self.scrolledUp(from: old, to: new, beforeLast: readingViewport.previousMetrics,
                                                     currentViewport: readingViewport.nativeMetrics)
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
@@ -569,6 +570,7 @@ struct CompanionConversationView: View {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    nativeTopAudit("frames")
                     updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
@@ -586,6 +588,7 @@ struct CompanionConversationView: View {
                     } else if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
                         readingViewport.isRestoring = true
                         readingViewport.restoreOffset = offset
+                        nativeTopAudit("preference-command y=\(offset)")
                         readingScrollPosition.scrollTo(y: offset)
                     }
                 }
@@ -617,6 +620,7 @@ struct CompanionConversationView: View {
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
                 if followLatest && !readingViewport.isScrollingToTop {
+                    nativeTopAudit("items-latest-command")
                     proxy.scrollTo("latest", anchor: .bottom)
                 }
             }
@@ -626,6 +630,7 @@ struct CompanionConversationView: View {
             // generation's geometry/bookmark writes until this task restores the saved choice and issues its anchor.
             .task(id: conversation.historyRevision) {
                 let revision = conversation.historyRevision
+                nativeTopAudit("history-generation")
                 readingViewport.finishRestoration(.generation)
                 readingViewport.preserveBookmarkUntilUserAction = false
                 readingViewport.hasInitialized = false
@@ -659,6 +664,7 @@ struct CompanionConversationView: View {
                     saveReadingPosition(metrics)
                 }
                 if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop {
+                    nativeTopAudit("history-latest-command")
                     proxy.scrollTo("latest", anchor: .bottom)
                 }
                 else if let restorationID { await restoreReadingPosition(saved, id: restorationID) }
@@ -783,7 +789,7 @@ struct CompanionConversationView: View {
                     if let metrics = readingViewport.metrics { readingScrollPhaseChanged(from: priorPhase, to: phase, metrics: metrics) }
                     priorPhase = phase
                 }) ?? true
-                if deliver { readingScrollPosition.scrollTo(y: offset) }
+                if deliver { nativeTopAudit("restore-command y=\(offset)"); readingScrollPosition.scrollTo(y: offset) }
                 #else
                 readingScrollPosition.scrollTo(y: offset)
                 #endif
@@ -826,6 +832,7 @@ struct CompanionConversationView: View {
     }
 
     private func nativeScrollToTopRequested() {
+        nativeTopAudit("native-request")
         setFollowing(false, reason: .nativeTop)
         readingViewport.isScrollingToTop = true
         readingBookmark.position.followsLatest = false
@@ -833,6 +840,7 @@ struct CompanionConversationView: View {
     }
 
     private func cancelNativeScrollToTop() {
+        nativeTopAudit("cancel-native")
         guard readingViewport.isScrollingToTop else { return }
         readingViewport.isScrollingToTop = false
         if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
@@ -848,9 +856,19 @@ struct CompanionConversationView: View {
             cancelNativeScrollToTop()
             cancelReadingRestoration(.navigation)
         }
+        nativeTopAudit("follow reason=\(reason.rawValue) next=\(follows)")
         let previous = followLatest
         followLatest = follows
         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
+    }
+
+    // Temporary scalar-only investigation trace. Not part of a proposed production fix.
+    private func nativeTopAudit(_ event: String) {
+        #if DEBUG
+        guard CompanionNativeTopAudit.enabled else { return }
+        let viewport = readingViewport
+        print("NATIVE462 t=\(ProcessInfo.processInfo.systemUptime) case=\(CompanionNativeTopAudit.caseName) event=\(event) following=\(followLatest) pending=\(viewport.isScrollingToTop) restoring=\(viewport.isRestoring) initialized=\(viewport.hasInitialized) position=\(readingBookmark.position.offset) metrics=\(viewport.metrics?.normalizedOffset ?? -1) native=\(viewport.nativeMetrics?.normalizedOffset ?? -1) frameHeight=\(viewport.frameContentHeight ?? -1) edge=\(String(describing: readingScrollPosition.edge)) point=\(String(describing: readingScrollPosition.point)) user=\(readingScrollPosition.isPositionedByUser)")
+        #endif
     }
 
     /// Opt-in preview diagnostics for CI. Closed reasons and numbers only; never draft or transcript text.
@@ -1095,4 +1113,8 @@ private struct CompanionReadingFrames: PreferenceKey {
     /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
     static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
 }
+#endif
+
+#if DEBUG
+@MainActor enum CompanionNativeTopAudit { static var caseName = "existing"; static var enabled = false }
 #endif
