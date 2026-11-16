@@ -188,7 +188,8 @@ import XCTest
         if navigation.exists {
             XCTAssertLessThanOrEqual(end.frame.maxY, navigation.frame.minY - 4, "The final text can sit clear of floating controls")
         }
-        print("CHAT_CHROME \(state) finalText=\(end.frame) nextButton=\(navigation.frame) send=\(app.buttons["companion-send"].frame)")
+        let latestFrame = navigation.exists ? String(describing: navigation.frame) : "hidden while following"
+        print("CHAT_CHROME \(state) finalText=\(end.frame) latest=\(latestFrame) send=\(app.buttons["companion-send"].frame)")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Chat chrome \(state)"; shot.lifetime = .keepAlways; add(shot)
     }

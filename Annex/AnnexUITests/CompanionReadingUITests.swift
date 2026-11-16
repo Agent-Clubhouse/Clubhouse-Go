@@ -27,20 +27,33 @@ import UIKit
 
     /// Real transcript gestures replace setup through the arrows removed by #447.
     private func dragTranscript(_ app: XCUIApplication, by distance: CGFloat) {
-        let viewport = transcriptViewport(app)
+        let viewport = gestureViewport(app)
+        let distance = min(abs(distance), viewport.height * 0.8) * (distance < 0 ? -1 : 1)
         let from = app.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: viewport.minX + 8, dy: viewport.midY - distance / 2))
+            .withOffset(CGVector(dx: viewport.midX, dy: viewport.midY - distance / 2))
         from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: distance)),
                    withVelocity: .slow, thenHoldForDuration: 0.2)
+    }
+
+    private func gestureViewport(_ app: XCUIApplication) -> CGRect {
+        var viewport = transcriptViewport(app)
+        // The pinned request tray precedes the composer inside this footer. Starting
+        // a gesture there does not scroll the transcript. Existing assertion bounds
+        // remain unchanged; only setup gestures use this measured hit region.
+        let footer = element(app, "companion-grant-footer-scroll")
+        if footer.exists { viewport.size.height = max(0, min(viewport.maxY, footer.frame.minY) - viewport.minY) }
+        XCTAssertGreaterThan(viewport.height, 44)
+        return viewport
     }
 
     private func revealInTranscript(_ target: XCUIElement, in app: XCUIApplication, towardEarlier: Bool) {
         for _ in 0..<40 {
             checkTimeLeft("revealing the reading entry")
-            let viewport = transcriptViewport(app)
+            let viewport = gestureViewport(app)
             if target.exists && target.isHittable && target.frame.minY >= viewport.minY && target.frame.minY < viewport.maxY - 40 { return }
             dragTranscript(app, by: viewport.height * (towardEarlier ? 0.65 : -0.65))
         }
+        screenshot(app, "Reading setup did not reveal the entry")
         XCTFail("The reading entry must be reachable through transcript gestures")
     }
 
