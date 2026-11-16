@@ -1026,6 +1026,9 @@ Home's project header supplies a native long-press menu instead of an overflow b
 Wake and Info use the shared Project-page items; linked All actions choose a concrete
 member before Wake/Terminal, rechecking current availability after the chooser dismisses.
 The shared chooser has a defaulted telemetry screen parameter: Project remains Project,
-Home records Home, without duplicate callbacks. Pin/Inactive adoption must preserve the
-merged #460 group-state/mixed-version contract. This preparation is held locally until
-#497 merges, then rebased before its PR or runtime spot.
+Home records Home, without duplicate callbacks. Pin/Inactive uses the merged #460
+group-state contract, including a single authoritative source, mixed-version disabled
+controls and its connection hint. A selected desktop still edits group state, while Wake
+and Terminal remain constrained to the selected copy. Old hosts keep per-copy menus and
+their existing days-idle Mark active behavior. The existing LinkedProjectState UI methods
+now open the same controls from the header long press; their assertions are unchanged.
