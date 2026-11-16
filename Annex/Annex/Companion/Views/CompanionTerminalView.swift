@@ -64,7 +64,10 @@ struct CompanionTerminalScreenView: View {
             .toolbarColorScheme(colors.background.luminance < 0.4 ? .dark : .light, for: .navigationBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button { dismiss() } label: {
+                    Button {
+                        CompanionUIActions.record(.done, on: .terminal)
+                        dismiss()
+                    } label: {
                         Text("Done").foregroundStyle(Color(colors.foreground))
                     }
                     .accessibilityIdentifier("terminal-done")
@@ -73,11 +76,22 @@ struct CompanionTerminalScreenView: View {
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
                             Button("Copy all", systemImage: "doc.on.doc") {
+                                CompanionUIActions.record(.copyTerminalOutput, on: .terminal)
                                 UIPasteboard.general.string = session.screen.plainText()
                                 copied = true
                             }
-                            if case .exited = session.state { Button(restartLabel, systemImage: "arrow.clockwise") { session.restart() } }
-                            if case .failed = session.state { Button("Try again", systemImage: "arrow.clockwise") { session.restart() } }
+                            if case .exited = session.state {
+                                Button(restartLabel, systemImage: "arrow.clockwise") {
+                                    CompanionUIActions.record(.restartTerminal, on: .terminal)
+                                    session.restart()
+                                }
+                            }
+                            if case .failed = session.state {
+                                Button("Try again", systemImage: "arrow.clockwise") {
+                                    CompanionUIActions.record(.retry, on: .terminal)
+                                    session.restart()
+                                }
+                            }
                             if let cwd = session.cwd { Section(cwd) {} }
                         } label: { Label("Terminal actions", systemImage: "ellipsis") }
                         .accessibilityIdentifier("terminal-menu")
@@ -85,6 +99,7 @@ struct CompanionTerminalScreenView: View {
                 }
             }
         }
+        .companionTelemetryScreen(.terminal)
         .tint(Color(colors.foreground))
         .sensoryFeedback(.success, trigger: copied) { _, now in now }
         .task(id: copied) {
@@ -151,6 +166,7 @@ struct CompanionTerminalPane: View {
     let session: CompanionTerminalSession
     let colors: CompanionTerminalColors
     @State private var focus = CompanionTerminalFocus()
+    @Environment(\.companionTelemetryScreen) private var screen
 
     var body: some View {
         VStack(spacing: 0) {
@@ -166,25 +182,30 @@ struct CompanionTerminalPane: View {
         switch session.state {
         case .running:
             if let message = session.inputError {
-                banner(message, systemImage: "exclamationmark.triangle", action: ("Dismiss", session.clearInputError))
+                banner(message, systemImage: "exclamationmark.triangle", action: ("Dismiss", .close, session.clearInputError))
             }
         case .closed: EmptyView()
         case .connecting: banner("Connecting…", systemImage: nil, progress: true)
         case .reconnecting: banner("Reconnecting to your desktop…", systemImage: nil, progress: true)
         case .exited(let code):
             banner(code.map { "Exited with code \($0)." } ?? "Exited.", systemImage: "stop.circle",
-                   action: (session.scope.resizesPTY ? "New shell" : "Reattach", session.restart))
+                   action: (session.scope.resizesPTY ? "New shell" : "Reattach", .restartTerminal, session.restart))
         case .failed(let message):
-            banner(message, systemImage: "exclamationmark.triangle", action: ("Try again", session.restart))
+            banner(message, systemImage: "exclamationmark.triangle", action: ("Try again", .retry, session.restart))
         }
     }
 
-    private func banner(_ text: String, systemImage: String?, progress: Bool = false, action: (String, () -> Void)? = nil) -> some View {
+    private func banner(_ text: String, systemImage: String?, progress: Bool = false, action: (String, AnnexUIAction.Control, () -> Void)? = nil) -> some View {
         HStack(spacing: 8) {
             if progress { ProgressView().controlSize(.small) }
             if let systemImage { Image(systemName: systemImage) }
             Text(text).font(.footnote).frame(maxWidth: .infinity, alignment: .leading)
-            if let action { Button(action.0, action: action.1).font(.footnote.weight(.semibold)).accessibilityIdentifier("terminal-retry") }
+            if let action {
+                Button(action.0) {
+                    CompanionUIActions.record(action.1, on: screen)
+                    action.2()
+                }.font(.footnote.weight(.semibold)).accessibilityIdentifier("terminal-retry")
+            }
         }
         .foregroundStyle(Color(colors.foreground))
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -211,30 +232,37 @@ struct CompanionTerminalKeyBar: View {
     let session: CompanionTerminalSession
     let focus: CompanionTerminalFocus
     let colors: CompanionTerminalColors
+    @Environment(\.companionTelemetryScreen) private var screen
     private static let symbols = ["|", "~", "/", "-", "*", "$", "&", ">"]
 
     var body: some View {
         HStack(spacing: 6) {
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 6) {
-                    key("esc", "Escape", id: "esc") { session.press(.escape) }
-                    key("tab", "Tab", id: "tab") { session.press(.tab) }
-                    key("ctrl", "Control", id: "ctrl", selected: session.controlArmed) { session.controlArmed.toggle() }
-                    key("⌃C", "Interrupt", id: "interrupt") { session.press(.interrupt) }
-                    icon("arrow.left", "Left", id: "left") { session.press(.left) }
-                    icon("arrow.up", "Up", id: "up") { session.press(.up) }
-                    icon("arrow.down", "Down", id: "down") { session.press(.down) }
-                    icon("arrow.right", "Right", id: "right") { session.press(.right) }
-                    ForEach(Self.symbols, id: \.self) { symbol in key(symbol, symbol, id: symbol) { session.type(symbol) } }
+                    key("esc", "Escape", id: "esc", control: .terminalEscape) { session.press(.escape) }
+                    key("tab", "Tab", id: "tab", control: .terminalTab) { session.press(.tab) }
+                    key("ctrl", "Control", id: "ctrl", control: .terminalControl, selected: session.controlArmed) { session.controlArmed.toggle() }
+                    key("⌃C", "Interrupt", id: "interrupt", control: .terminalInterrupt) { session.press(.interrupt) }
+                    icon("arrow.left", "Left", id: "left", control: .terminalLeft) { session.press(.left) }
+                    icon("arrow.up", "Up", id: "up", control: .terminalUp) { session.press(.up) }
+                    icon("arrow.down", "Down", id: "down", control: .terminalDown) { session.press(.down) }
+                    icon("arrow.right", "Right", id: "right", control: .terminalRight) { session.press(.right) }
+                    ForEach(Self.symbols, id: \.self) { symbol in
+                        key(symbol, symbol, id: symbol, control: .terminalSymbol) { session.type(symbol) }
+                    }
                 }
                 .padding(.horizontal, 8)
             }
             PasteButton(payloadType: String.self) { strings in
+                CompanionUIActions.record(.pasteTerminalInput, on: screen)
                 Task { @MainActor in session.paste(strings.joined(separator: "\n")) }
             }
             .labelStyle(.titleAndIcon).buttonBorderShape(.capsule).controlSize(.small)
             .accessibilityIdentifier("terminal-paste")
-            Button { focus.toggle() } label: {
+            Button {
+                CompanionUIActions.record(.toggleTerminalKeyboard, on: screen)
+                focus.toggle()
+            } label: {
                 Image(systemName: focus.isEditing ? "keyboard.chevron.compact.down" : "keyboard")
                     .frame(minWidth: 32, minHeight: 32)
             }
@@ -248,8 +276,11 @@ struct CompanionTerminalKeyBar: View {
         .background(Color(colors.foreground).opacity(0.06))
     }
 
-    private func key(_ title: String, _ label: String, id: String, selected: Bool = false, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func key(_ title: String, _ label: String, id: String, control: AnnexUIAction.Control, selected: Bool = false, action: @escaping () -> Void) -> some View {
+        Button {
+            CompanionUIActions.record(control, on: screen)
+            action()
+        } label: {
             Text(title).font(.system(.callout, design: .monospaced).weight(.medium)).frame(minWidth: 30, minHeight: 32)
         }
         .buttonStyle(CompanionTerminalKeyStyle(selected: selected, colors: colors))
@@ -258,8 +289,11 @@ struct CompanionTerminalKeyBar: View {
         .accessibilityIdentifier("terminal-key-\(id)")
     }
 
-    private func icon(_ systemImage: String, _ label: String, id: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func icon(_ systemImage: String, _ label: String, id: String, control: AnnexUIAction.Control, action: @escaping () -> Void) -> some View {
+        Button {
+            CompanionUIActions.record(control, on: screen)
+            action()
+        } label: {
             Image(systemName: systemImage).font(.callout.weight(.medium)).frame(minWidth: 30, minHeight: 32)
         }
         .buttonStyle(CompanionTerminalKeyStyle(selected: false, colors: colors))

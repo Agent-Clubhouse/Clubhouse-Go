@@ -40,6 +40,7 @@ struct CompanionPairingSheet: View {
                 manualPairing
             }
         }
+        .companionTelemetryScreen(.pairing)
         .fullScreenCover(isPresented: $scanning) {
             CompanionQRScannerView(onFound: { link in invitation = link; scanning = false }, onCancel: { scanning = false })
         }
@@ -57,7 +58,10 @@ struct CompanionPairingSheet: View {
                     }.padding(.vertical, 12)
                 }.listRowBackground(Color.clear)
                 Section {
-                    Button { scanning = true } label: {
+                    Button {
+                        CompanionUIActions.record(.scanPairingCode, on: .pairing)
+                        scanning = true
+                    } label: {
                         Label("Scan the pairing code", systemImage: "qrcode.viewfinder").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
@@ -75,11 +79,15 @@ struct CompanionPairingSheet: View {
                         }
                     }
                     if discoveryError != nil {
-                        Button("Scan again") { discovery.stop(); discovery.start() }
+                        Button("Scan again") {
+                            CompanionUIActions.record(.refresh, on: .pairing)
+                            discovery.stop(); discovery.start()
+                        }
                     }
                     Text("Nearby names are unverified. Tailscale peers and networks that block multicast may need manual entry.").font(.caption).foregroundStyle(.secondary)
                     ForEach(nearby) { host in
                         Button {
+                            CompanionUIActions.record(.selectDesktop, on: .pairing)
                             address = host.endpoint.host
                             port = String(host.endpoint.port)
                             name = host.name
@@ -101,6 +109,7 @@ struct CompanionPairingSheet: View {
                     TextField("Port (unless included above)", text: $port).keyboardType(.numberPad)
                     TextField("Desktop name on this phone (optional)", text: $name)
                     Button {
+                        CompanionUIActions.record(.inspectDesktop, on: .pairing)
                         Task { await inspect() }
                     } label: {
                         if isInspecting { ProgressView("Reading desktop certificate…") }
@@ -112,7 +121,11 @@ struct CompanionPairingSheet: View {
                         .font(.callout.monospaced()).textInputAutocapitalization(.never).autocorrectionDisabled()
                     TextField("TLS certificate fingerprint (SHA-256)", text: $certificate, axis: .vertical)
                         .font(.callout.monospaced()).textInputAutocapitalization(.never).autocorrectionDisabled()
-                    Toggle("These fingerprints match my desktop", isOn: $verified)
+                    Toggle("These fingerprints match my desktop", isOn: Binding(get: { verified }, set: {
+                        guard $0 != verified else { return }
+                        CompanionUIActions.record(.trustDesktop, on: .pairing)
+                        verified = $0
+                    }))
                 } header: { Text("Verify your desktop") } footer: {
                     Text("Compare both fingerprints with the values shown on the desktop. A network name alone does not prove its identity.")
                 }
@@ -121,7 +134,11 @@ struct CompanionPairingSheet: View {
                 } header: { Text("This phone") } footer: { Text(CompanionDeviceNameField.footer) }
                 Section {
                     SecureField("Pairing PIN", text: $pin).keyboardType(.numberPad).textContentType(.oneTimeCode).focused($focused, equals: .pin)
-                    Toggle("Remember this desktop", isOn: $remember)
+                    Toggle("Remember this desktop", isOn: Binding(get: { remember }, set: {
+                        guard $0 != remember else { return }
+                        CompanionUIActions.record(.toggleRememberDesktop, on: .pairing)
+                        remember = $0
+                    }))
                 } header: { Text("Connect") } footer: {
                     Text("Pairing lets this device control Clubhouse agents on your desktop. " + (remember ? "Remembering saves access in this device's Keychain and keeps this device paired on desktop." : "This device keeps access in memory until the app closes. End the pairing in Desktops & settings to revoke desktop session trust; otherwise it remains until desktop disconnect or Annex stops."))
                 }
@@ -132,9 +149,17 @@ struct CompanionPairingSheet: View {
             .navigationTitle("Pair a desktop")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isPairing) }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        CompanionUIActions.record(.cancel, on: .pairing)
+                        dismiss()
+                    }.disabled(isPairing)
+                }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button { Task { await pair() } } label: {
+                    Button {
+                        CompanionUIActions.record(.pairDesktop, on: .pairing)
+                        Task { await pair() }
+                    } label: {
                         if isPairing { ProgressView().accessibilityLabel("Pairing desktop") }
                         else { Text("Pair") }
                     }.disabled(!verified || (try? AnnexEndpoint.manual(address: address, port: port)) == nil || identity.isEmpty || certificate.isEmpty || pin.isEmpty || isPairing)
@@ -204,9 +229,11 @@ struct CompanionPairingSheet: View {
 /// This phone's name, which a desktop shows while the phone controls it. Starts as the system name.
 struct CompanionDeviceNameField: View {
     @Bindable var preferences: CompanionPreferences
+    @Environment(\.companionTelemetryScreen) private var screen
     static let footer = "Your desktop shows this name while this phone is in control."
     var body: some View {
         TextField(preferences.systemDeviceName, text: $preferences.deviceName)
+            .onSubmit { CompanionUIActions.record(.renamePhone, on: screen) }
             .autocorrectionDisabled()
             .accessibilityLabel("This phone's name")
             .accessibilityIdentifier("companion.deviceName")

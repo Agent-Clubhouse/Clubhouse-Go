@@ -8,7 +8,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case agentDetails, agentSettings, newAgent, workspaceTools, projectInfo, wakeAgent, review, archive, changes
         case settings, desktopSettings, dispatcherSettings, planLimits, helperPresets
         case feedback, feedbackEnrollment, feedbackDiagnostics, connectionDiagnostics, diagnosticsExport
-        case welcome, pairing, providerSignIn, terminal, content, markdownFile
+        case welcome, demo, pairing, providerSignIn, terminal, content, markdownFile
     }
 
     public enum Control: String, Codable, CaseIterable, Sendable {
@@ -17,6 +17,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case newAgent, wakeAgent, wakeAndResume, startNewSession, sleepAgent, refreshSleepState
         case openTerminal, openAgentTerminal, openProjectTerminal, restartTerminal, copyTerminalOutput, toggleTerminalKeyboard
         case terminalEscape, terminalTab, terminalControl, terminalUp, terminalDown, terminalLeft, terminalRight
+        case terminalInterrupt, terminalSymbol, pasteTerminalInput, openDemo
         case openMore, close, back, cancel, done, save, confirm, submit
         case send, steer, queue, interrupt, removeQueued
         case approve, decline, allowOnce, allowAlways, deny, answerQuestion, skipQuestion
@@ -29,6 +30,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case toggleDispatcher, renameAgent, selectEmoji, openWorkspaceTools, selectMCP, toggleWorktree, toggleHelpers
         case expandHelpers, expandQuietAgents, expandSleepingAgents, expandFinishedAgents
         case connectDesktop, scanPairingCode, enterPairingAddress, trustDesktop, pairDesktop
+        case inspectDesktop, toggleRememberDesktop, renamePhone
         case enrollFeedback, clearFeedback, sendHeldFeedback, clearHeldFeedback, prepareDiagnosticsReport
         case openArchive, openChanges, openContent, openLink, openRouting, openProviderSignIn, signOutProvider
     }
