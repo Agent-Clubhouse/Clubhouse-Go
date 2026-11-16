@@ -20,28 +20,25 @@ struct CompanionConversationPendingDecisions: View {
                 Group {
                     if isCompactHeight {
                         HStack(spacing: 8) {
-                            identity(decision, presentation: presentation, index: index, count: queue.count)
+                            identity(decision, presentation: presentation, index: index, queue: queue)
                             actions(decision, presentation: presentation).fixedSize()
                         }
                     } else {
                         ViewThatFits(in: .horizontal) {
                             HStack(spacing: 12) {
-                                identity(decision, presentation: presentation, index: index, count: queue.count)
+                                identity(decision, presentation: presentation, index: index, queue: queue)
                                     .fixedSize(horizontal: true, vertical: false)
                                 Spacer(minLength: 0)
                                 actions(decision, presentation: presentation).fixedSize()
                             }
                             VStack(alignment: .leading, spacing: 8) {
-                                identity(decision, presentation: presentation, index: index, count: queue.count)
+                                identity(decision, presentation: presentation, index: index, queue: queue)
                                 HStack { Spacer(minLength: 0); actions(decision, presentation: presentation) }
                             }
                         }
                     }
                 }
-                .highPriorityGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
-                    guard abs(gesture.translation.width) > max(44, abs(gesture.translation.height)) else { return }
-                    select(gesture.translation.width < 0 ? 1 : -1, queue: queue, index: index)
-                })
+                .highPriorityGesture(selectionGesture(queue: queue, index: index))
                 .accessibilityAction(named: "Previous request") { select(-1, queue: queue, index: index) }
                 .accessibilityAction(named: "Next request") { select(1, queue: queue, index: index) }
                 .disabled(review != nil)
@@ -65,7 +62,8 @@ struct CompanionConversationPendingDecisions: View {
         }
     }
 
-    private func identity(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int) -> some View {
+    private func identity(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, queue: [CompanionPendingDecision]) -> some View {
+        let count = queue.count
         let kind: String
         switch decision {
         case .approval(let approval): kind = approval.toolName
@@ -86,6 +84,7 @@ struct CompanionConversationPendingDecisions: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
+            .highPriorityGesture(selectionGesture(queue: queue, index: index))
         } primaryAction: {
             showInChat(decision.id)
         }
@@ -151,6 +150,13 @@ struct CompanionConversationPendingDecisions: View {
     }
     private func select(_ direction: Int, queue: [CompanionPendingDecision], index: Int) {
         selectedID = queue[max(0, min(queue.count - 1, index + direction))].id
+    }
+    private func selectionGesture(queue: [CompanionPendingDecision], index: Int) -> some Gesture {
+        DragGesture(minimumDistance: 24).onEnded { gesture in
+            guard abs(gesture.translation.width) > max(44, abs(gesture.translation.height)) else { return }
+            // Both hit surfaces resolve from the captured index, so one drag cannot skip a request.
+            select(gesture.translation.width < 0 ? 1 : -1, queue: queue, index: index)
+        }
     }
 
     private var pendingIDs: [String] {
