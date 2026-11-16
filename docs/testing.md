@@ -31,6 +31,13 @@ Catppuccin Latte, Catppuccin Mocha and accessibility XXXL. The two DEBUG theme f
 through the existing host theme mapping; they do not add a production theme registry.
 
 Saved Access uses the desktop's `access.version >= 1` contract and its per-CLI choices, labels and descriptions.
+Agent rows suppress saved Access only when it matches a known default; unknown defaults keep their badges.
+`CompanionAgentRowTests` covers this rule, host disambiguation, the single-state status line, existing-read
+default caching and production-row renders in light, dark, two data-driven desktop themes and AX3 text.
+`companionAgentRows(store:impliedHostID:)` supplies context without new desktop reads. Defaults are learned
+from existing create-options/settings reads and discarded on disconnect. The catalog does not yet include
+a default-access field; adding one is a desktop-contract follow-up. Home context and the combined
+`CompanionAgentTreeQuietFold` call site are integrated by the Home desktop-filter work (#439).
 `CompanionAgentSheetsTests` covers create/settings pickers and elevated confirmation; package contract tests encode
 every recorded Access request without exemptions. Saved changes apply at next start, while chat's known live level
 wins in its existing badge only while the session is running. Ended sessions use saved Access.

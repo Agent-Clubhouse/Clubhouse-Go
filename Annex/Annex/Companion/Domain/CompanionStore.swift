@@ -27,6 +27,11 @@ import Observation
     private var confirmedSleepCommands: [CompanionTarget: String] = [:]
     private var providerFlows: [CompanionTarget: CompanionProviderFlow] = [:]
     private(set) var settingsRevisions: [CompanionTarget: UUID] = [:]
+    /// Learned only from reads the user already requested; listing agents never fetches settings.
+    private(set) var projectAccessDefaults: [CompanionProjectTarget: CompanionPermissionLevel] = [:]
+    private(set) var agentAccessDefaults: [CompanionTarget: CompanionPermissionLevel] = [:]
+    /// A reply cannot cross a disconnect, pairing replacement, desktop epoch or catalog replacement.
+    @ObservationIgnored private var accessDefaultGenerations: [String: UUID] = [:]
     private(set) var operationErrors: [CompanionTarget: String] = [:]
     /// The `wrong_machine` refusal behind a chat's error, while it shows.
     private(set) var wrongMachines: [CompanionTarget: CompanionWrongMachine] = [:]
@@ -131,6 +136,9 @@ import Observation
     func shutdown() {
         isShutDown = true
         stop()
+        projectAccessDefaults.removeAll()
+        agentAccessDefaults.removeAll()
+        accessDefaultGenerations.removeAll()
         providerFlows.removeAll()
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
@@ -1034,7 +1042,14 @@ import Observation
     // MARK: Durable agents (#131, #132)
 
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
-        try await service.createOptions(for: project)
+        let generation = accessDefaultReadGeneration(hostID: project.hostID)
+        let options = try await service.createOptions(for: project)
+        if let host = accessDefaultHost(hostID: project.hostID, generation: generation),
+           host.projects.contains(where: { $0.id == project.projectID }) {
+            projectAccessDefaults[project] = options.defaultAccess
+            agentAccessDefaults = agentAccessDefaults.filter { $0.key.hostID != project.hostID || $0.key.projectID != project.projectID }
+        }
+        return options
     }
 
     /// Creates a durable agent and opens it. Its worktree is still being made when this returns.
@@ -1104,7 +1119,12 @@ import Observation
     }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard canEditSettings(target) else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
-        return try await service.settings(for: target)
+        let generation = accessDefaultReadGeneration(hostID: target.hostID)
+        let settings = try await service.settings(for: target)
+        if let host = accessDefaultHost(hostID: target.hostID, generation: generation), host.agent(for: target) != nil {
+            agentAccessDefaults[target] = settings.access?.defaultLevel
+        }
+        return settings
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard !sleepRequests.contains(target), providerFlows[target]?.blocksMutations != true else {
@@ -1113,9 +1133,47 @@ import Observation
         guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
         }
+        let generation = accessDefaultReadGeneration(hostID: target.hostID)
         let saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        if let host = accessDefaultHost(hostID: target.hostID, generation: generation), host.agent(for: target) != nil {
+            agentAccessDefaults[target] = saved.access?.defaultLevel
+        }
         settingsRevisions[target] = UUID()
         return saved
+    }
+
+    private func accessDefaultReadGeneration(hostID: String) -> UUID? {
+        guard !isShutDown, hosts.contains(where: { $0.id == hostID && $0.connection.canOperate }) else { return nil }
+        if accessDefaultGenerations[hostID] == nil { accessDefaultGenerations[hostID] = UUID() }
+        return accessDefaultGenerations[hostID]
+    }
+
+    private func accessDefaultHost(hostID: String, generation: UUID?) -> CompanionHost? {
+        guard !isShutDown, let generation, accessDefaultGenerations[hostID] == generation else { return nil }
+        return hosts.first { $0.id == hostID && $0.connection.canOperate }
+    }
+
+    private func reconcileAccessDefaults(in incoming: [CompanionHost]) {
+        let connected = Set(incoming.filter { $0.connection.canOperate }.map(\.id))
+        accessDefaultGenerations = accessDefaultGenerations.filter { connected.contains($0.key) }
+        var unchangedHosts: Set<String> = []
+        for host in incoming where host.connection.canOperate {
+            let previous = hosts.first { $0.id == host.id }
+            let unchanged = previous?.connection.canOperate == true
+                && previous?.controlEpoch == host.controlEpoch && previous?.endpoint == host.endpoint
+            if unchanged { unchangedHosts.insert(host.id) }
+            let sameProjects = previous.map { Set($0.projects.map(\.id)) == Set(host.projects.map(\.id)) } ?? false
+            let sameAgents = previous.map { Set($0.allAgents.map(\.id)) == Set(host.allAgents.map(\.id)) } ?? false
+            if !unchanged || !sameProjects || !sameAgents || accessDefaultGenerations[host.id] == nil {
+                accessDefaultGenerations[host.id] = UUID()
+            }
+        }
+        let projects = Set(incoming.flatMap { host in
+            host.projects.map { CompanionProjectTarget(hostID: host.id, projectID: $0.id) }
+        })
+        let agents = Set(incoming.flatMap { $0.allAgents.map(\.id) })
+        projectAccessDefaults = projectAccessDefaults.filter { unchangedHosts.contains($0.key.hostID) && projects.contains($0.key) }
+        agentAccessDefaults = agentAccessDefaults.filter { unchangedHosts.contains($0.key.hostID) && agents.contains($0.key) }
     }
 
     func reconnect(hostID: String) async {
@@ -1432,6 +1490,7 @@ import Observation
         switch event {
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
+            reconcileAccessDefaults(in: incoming)
             for host in incoming {
                 if let previous = hosts.first(where: { $0.id == host.id }) {
                     let oldAgents = Dictionary(previous.allAgents.map { ($0.id, $0) }, uniquingKeysWith: { _, latest in latest })
