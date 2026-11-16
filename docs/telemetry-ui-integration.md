@@ -274,10 +274,9 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [ ] | [CompanionReviewView.swift:191](../Annex/Annex/Companion/Views/CompanionReviewView.swift#L191) | Follow-up owner to assign | `Button("Wake") { Task { await store.wake(entry.id) } }.buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.small)` |
 | [ ] | [CompanionReviewView.swift:194](../Annex/Annex/Companion/Views/CompanionReviewView.swift#L194) | Follow-up owner to assign | `Button("Show sleeping") { filters.includeSleeping = true }` |
 | [ ] | [CompanionReviewView.swift:199](../Annex/Annex/Companion/Views/CompanionReviewView.swift#L199) | Follow-up owner to assign | `Button("Show everyone") { filters.needsYouOnly = false }` |
-| [ ] | [CompanionRootView.swift:190](../Annex/Annex/Companion/Views/CompanionRootView.swift#L190) | Root lane | `Menu {` |
-| [ ] | [CompanionRootView.swift:193](../Annex/Annex/Companion/Views/CompanionRootView.swift#L193) | Root lane | `Button {` |
-| [ ] | [CompanionRootView.swift:213](../Annex/Annex/Companion/Views/CompanionRootView.swift#L213) | Root lane | `Button {} label: {` |
-| [ ] | [CompanionRootView.swift:231](../Annex/Annex/Companion/Views/CompanionRootView.swift#L231) | Root lane | `Button("Settings", systemImage: "gearshape") { navigation.interact(); onSettings() }` |
+| [x] | [CompanionDispatcherChips.swift](../Annex/Annex/Companion/Views/CompanionDispatcherChips.swift) | #444 | Explicit chip and collapsed-menu selection records `dispatcher/selectDesktop`. |
+| [ ] | [CompanionDispatcherChips.swift](../Annex/Annex/Companion/Views/CompanionDispatcherChips.swift) | #433 follow-up | Native collapsed switcher Menu opening; AX-preserving hook experiment remains deferred. |
+| [ ] | [CompanionDispatcherChips.swift](../Annex/Annex/Companion/Views/CompanionDispatcherChips.swift) | #433 follow-up | Explicit “Show Dispatcher chips” and “Collapse Dispatchers” callbacks need dedicated enum-only controls. |
 | [ ] | [CompanionRootView.swift:343](../Annex/Annex/Companion/Views/CompanionRootView.swift#L343) | Root lane | `Button("Pair a desktop", action: onPair).buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)` |
 | [ ] | [CompanionRootView.swift:369](../Annex/Annex/Companion/Views/CompanionRootView.swift#L369) | Root lane | `Button("OK", role: .cancel) {}` |
 | [ ] | [CompanionRootView.swift:374](../Annex/Annex/Companion/Views/CompanionRootView.swift#L374) | Root lane | `Button("Settings", systemImage: "gearshape", action: onSettings)` |

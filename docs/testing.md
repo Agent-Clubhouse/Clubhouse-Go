@@ -1006,3 +1006,5 @@ keep independent draft and reading-position assertions, while the obsolete remot
 now require cached-only names and absent unpaired entries. `CompanionDispatchChipsUITests` covers five
 appearances, semantic working collapse/explicit expansion under injected Reduce Motion, cached reply
 dots, and last-Dispatcher restoration after opening a Home agent on another desktop.
+
+Dispatch restoration keeps its separate saved choice through an empty startup catalog and connecting pairing placeholders. A current capable host report can replace or clear it; an offline cached Dispatcher is unknown and deliberately does not count as removed. `CompanionDispatchChipsUITests.testLastDispatcherRestoresIndependentlyOfHomeSelection` first proves Navi survives Home's Laptop selection, then supplies connected no-Dispatcher reports and proves cleanup: Laptop's independent last-host fallback gives Echo, whereas a stale Studio Dispatcher preference would give Navi.
