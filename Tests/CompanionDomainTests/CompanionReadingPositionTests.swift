@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 import Testing
 @testable import CompanionDomain
 
@@ -244,5 +245,48 @@ struct CompanionReadingPositionTests {
     @Test func nextStillTargetsAnOffscreenMessage() {
         let metrics = CompanionScrollMetrics(offset: 100, contentHeight: 1_000, containerHeight: 300, topInset: 20, bottomInset: 40)
         #expect(CompanionAssistantNavigation.nextDestination(in: ["a", "b"], frames: ["a": 0...100, "b": 600...650], metrics: metrics) == "b")
+    }
+}
+
+private final class ReadingFollowInvalidations: @unchecked Sendable {
+    private let lock = NSLock()
+    private var count = 0
+    func record() { lock.lock(); defer { lock.unlock() }; count += 1 }
+    var value: Int { lock.lock(); defer { lock.unlock() }; return count }
+}
+
+@MainActor struct CompanionReadingFollowObservationTests {
+    @Test func onlySemanticFollowFlipsInvalidateObserversAcrossRealMutationPaths() {
+        let bookmark = CompanionReadingBookmark()
+        let invalidations = ReadingFollowInvalidations()
+        func observe() {
+            withObservationTracking { _ = bookmark.followsLatest } onChange: { invalidations.record() }
+        }
+        observe()
+        for pixel in 0..<100 {
+            bookmark.position.offset = Double(pixel)
+            bookmark.position.entryID = "message:\(pixel)"
+            bookmark.position.distanceFromEntry = Double(pixel) / 2
+            bookmark.position.capture(offset: Double(pixel), frames: ["message:anchor": 0...200])
+        }
+        bookmark.position = .init(followsLatest: true, entryID: "replacement", offset: 400)
+        bookmark.hasMounted = true
+        bookmark.viewport.frames = ["message:anchor": 0...200]
+        bookmark.viewport.metrics = .init(offset: 0, contentHeight: 2_000, containerHeight: 500)
+        bookmark.viewport.nativeMetrics = .init(offset: 0, contentHeight: 2_000, containerHeight: 300, bottomInset: 200)
+        bookmark.viewport.clearGeometry()
+        #expect(bookmark.followsLatest && invalidations.value == 0,
+                "Pixel, capture, replacement and keyboard/layout geometry are not follow-mode transitions")
+        bookmark.position.followsLatest = false
+        #expect(!bookmark.followsLatest && invalidations.value == 1)
+        observe()
+        bookmark.position.offset = 800
+        bookmark.position.capture(offset: 800, frames: ["message:older": 750...900])
+        bookmark.position = .init(followsLatest: false, entryID: "same-mode", offset: 900)
+        bookmark.viewport.metrics = .init(offset: 1_500, contentHeight: 2_000, containerHeight: 500)
+        #expect(!bookmark.followsLatest && invalidations.value == 1,
+                "Even geometric at-bottom cannot change an explicitly paused follow mode")
+        bookmark.position = .init(followsLatest: true)
+        #expect(bookmark.followsLatest && invalidations.value == 2)
     }
 }

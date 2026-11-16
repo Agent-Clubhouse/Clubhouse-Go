@@ -980,3 +980,29 @@ Section accessory and symbol audit (#430): `CompanionAccessoryUITests` checks Re
 The accessory appearance matrix expands the native minimized tab bar with a real Home-control tap before selecting Needs you, and asserts that the destination tab is hittable. It never changes navigation state directly.
 
 The decision header uses public `ViewThatFits`: when its full summary/pager and text actions do not fit in one row, the summary/pager stays above the actions. Action labels retain their full Dynamic Type size and intrinsic width, with a vertical action fallback on narrower widths, so they never hyphenate, truncate or split mid-word. Pinned-decision UI assertions also require exactly one exposed instance of each action. The initial AX-landscape attachment has stale orientation/cropping; landscape visual proof is deferred, independently of the passing landscape interaction/containment assertions.
+
+### Dispatch chips (#444)
+
+Dispatch offers only paired, cached Dispatcher entries, using their chosen chat names and identity avatars.
+The chip row is present at rest and disappears while the selected cached assistant reply streams or the
+user pauses following latest. A leading avatar-stack menu switches directly or explicitly expands chips.
+One Dispatcher has neither switcher; Settings stays on Home. The same retained conversations keep their
+composer drafts and Store reading bookmarks. Reduce Motion removes the collapse/expand animation.
+The separate last-Dispatcher preference is independent of Home/search agent selection and safely falls
+back for missing, corrupt or removed values.
+
+Reply dots and the additive tab count use only actual assistant-message arrivals in already-cached
+histories. Initial history is a baseline; messages in unloaded or unopened chats do not badge until
+history is cached. Seen markers live for this launch, reset for a replacement session/target, and clear
+when the selected chat is visible and following latest. There are no new reads, wire fields or persisted
+transcript/seen markers. Existing Needs you badge semantics are retained alongside this count.
+
+`CompanionReadingFollowObservationTests` observes the real bookmark through nested offset, entry,
+distance, capture and whole-position replacement writes: none invalidates observers when followsLatest
+is unchanged. Viewport/frame/metric and keyboard/layout changes stay ignored, even at geometric bottom.
+Only a semantic follow-mode flip publishes. `CompanionDispatcherReplyTests` covers baseline, arrivals,
+seen state, replacement, deletion, and user/tool/streaming-delta exclusions. Updated Dispatcher UI tests
+keep independent draft and reading-position assertions, while the obsolete remote/machine-menu checks
+now require cached-only names and absent unpaired entries. `CompanionDispatchChipsUITests` covers five
+appearances, semantic working collapse/explicit expansion under injected Reduce Motion, cached reply
+dots, and last-Dispatcher restoration after opening a Home agent on another desktop.
