@@ -23,7 +23,7 @@ The mapper emits one unparented `app.action` log with `screen`, `control`, `app.
 
 - Project page: New agent, Wake with a message, Terminal, retained-run Dismiss (swipe, context menu and accessibility action share one action), Clear all, and the Wake sheet's Cancel/Wake.
 - Agent details/settings sheets: Done, retry, cancellation of settings confirmation, and saved identity, color, emoji, provider/model/runtime, access, auto-sleep, context-window and behavior controls. Only the fixed control category is recorded, never its value. A setting choice that opens a warning is counted immediately, even when later cancelled; accepting the warning records a separate `.confirm` intent, without double-counting the selection.
-- Shared agent menu items, Terminal entries, Dispatcher switch and new-agent notice actions: explicit screen context from `.companionTelemetryScreen(_:)`. A missing context records nothing, rather than guessing which Root/chat screen opened the control. Project page and settings form supply it; Root/chat adoption is still required. Shared terminal entries, Dispatcher switch and created-agent notice also require their actual originating screen context; do not add a duplicate record in the caller.
+- Shared helper/quiet disclosures, agent menu items, Terminal entries, Dispatcher switch and new-agent notice actions: explicit screen context from `.companionTelemetryScreen(_:)`. A missing context records nothing, rather than guessing which Root/chat screen opened the control. Project page and settings form supply it; Root/chat adoption is still required. Shared terminal entries, Dispatcher switch and created-agent notice also require their actual originating screen context; do not add a duplicate record in the caller.
 
 ## Required Root/settings follow-up
 
@@ -49,9 +49,7 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionAgentSettingsSheet.swift:401](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L401) | Follow-up owner to assign | `NavigationLink("Auto provider and plan limits") { CompanionHelperPresetsView(store: store, hostID: target.hostID, agentID: target.agentID) }` |
 | [ ] | [CompanionAgentSettingsSheet.swift:461](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L461) | Follow-up owner to assign | `NavigationLink {` |
 | [ ] | [CompanionAgentSettingsSheet.swift:469](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L469) | Follow-up owner to assign | `Menu {` |
-| [ ] | [CompanionAgentTreeRows.swift:38](../Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift#L38) | Follow-up owner to assign | `Button(action: toggle) {` |
-| [ ] | [CompanionAgentTreeRows.swift:52](../Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift#L52) | Follow-up owner to assign | `NavigationLink(value: row.id) {` |
-| [ ] | [CompanionAgentTreeRows.swift:76](../Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift#L76) | Follow-up owner to assign | `Button {` |
+| [ ] | [CompanionAgentTreeRows.swift:129](../Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift#L129) | Follow-up owner to assign | `NavigationLink(value: row.id) {` |
 | [ ] | [CompanionAppRoot.swift:293](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L293) | Root/settings owner (shared file) | `Button("OK") { runtime.restoreError = nil }` |
 | [ ] | [CompanionAppRoot.swift:341](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L341) | Root/settings owner (shared file) | `Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { openSettings() }` |
 | [ ] | [CompanionAppRoot.swift:412](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L412) | Root/settings owner (shared file) | `DisclosureGroup("Connection details") {` |
@@ -138,7 +136,7 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionConversationView.swift:661](../Annex/Annex/Companion/Views/CompanionConversationView.swift#L661) | Chat lane / follow-up owner | `Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }` |
 | [ ] | [CompanionConversationView.swift:1034](../Annex/Annex/Companion/Views/CompanionConversationView.swift#L1034) | Chat lane / follow-up owner | `Button(action: previous) { icon("chevron.up") }` |
 | [ ] | [CompanionConversationView.swift:1039](../Annex/Annex/Companion/Views/CompanionConversationView.swift#L1039) | Chat lane / follow-up owner | `Button(action: next) { icon("chevron.down") }` |
-| [ ] | [CompanionDesign.swift:342](../Annex/Annex/Companion/Views/CompanionDesign.swift#L342) | Follow-up owner to assign | `Button { selection = value } label: {` |
+| [ ] | [CompanionDesign.swift:364](../Annex/Annex/Companion/Views/CompanionDesign.swift#L364) | Follow-up owner to assign | `Button { selection = value } label: {` |
 | [ ] | [CompanionDiagnosticsView.swift:16](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L16) | Follow-up owner to assign | `Picker("Capture", selection: Binding(get: { settings.mode }, set: {` |
 | [ ] | [CompanionDiagnosticsView.swift:37](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L37) | Follow-up owner to assign | `NavigationLink("Tracing destination") { CompanionTelemetryDestinationView() }` |
 | [ ] | [CompanionDiagnosticsView.swift:40](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L40) | Follow-up owner to assign | `Button("Review diagnostic export") {` |
@@ -368,3 +366,5 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 - [ ] The last integration PR closes #433.
 
 The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the prepared #443 and managed-create surfaces. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
+
+The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
