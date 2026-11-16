@@ -39,6 +39,14 @@ import XCTest
         let error = app.staticTexts.matching(identifier: "Preview only. This action does not contact a desktop.").firstMatch
         XCTAssertTrue(error.waitForExistence(timeout: 10), "The complete question attempts the preview command")
         XCTAssertTrue(scrollTo(error, in: app) && error.isHittable, "Failures remain reachable in the pinned review")
+        if keyboardUp {
+            let sheet = app.scrollViews["companion-approval-review-scroll"]
+            let card = app.descendants(matching: .any).matching(identifier: "companion-approval-review-question-card").firstMatch
+            XCTAssertTrue(card.exists)
+            XCTAssertLessThanOrEqual(card.frame.maxX, sheet.frame.maxX + 1, "The card stays within the medium sheet after draft keyboard use")
+            XCTAssertGreaterThanOrEqual(card.frame.minX, sheet.frame.minX - 1)
+            XCTAssertLessThanOrEqual(error.frame.maxX, sheet.frame.maxX + 1, "The error wraps within the sheet")
+        }
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Pinned question failure, draft keyboard previously up \(keyboardUp)"; shot.lifetime = .keepAlways; add(shot)
         close.tap()

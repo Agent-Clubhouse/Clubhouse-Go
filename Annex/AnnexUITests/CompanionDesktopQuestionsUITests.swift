@@ -27,8 +27,10 @@ import XCTest
                 XCTAssertTrue(show.isHittable)
                 show.tap()
                 XCTAssertTrue(waitFor(summary, NSPredicate { _, _ in
-                    self.pixelContains(transcript.frame, summary.frame)
-                        && summary.frame.maxY <= app.descendants(matching: .any).matching(identifier: "companion-pinned-decision").firstMatch.frame.minY + 1
+                    let tray = app.descendants(matching: .any).matching(identifier: "companion-pinned-decision").firstMatch.frame
+                    return abs(summary.frame.minY - transcript.frame.minY) <= 24
+                        && summary.frame.minY < tray.minY
+                        && summary.frame.maxY > transcript.frame.minY
                 }, timeout: 5), "Original request \(index) jumps to the grouped summary: \(summary.frame), \(transcript.frame)")
                 if index == 2 { capture(app, "\(name) later-member jump and grouped summary") }
                 next.tap()
