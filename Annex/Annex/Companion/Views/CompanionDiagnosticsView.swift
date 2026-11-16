@@ -83,7 +83,10 @@ struct CompanionDiagnosticsView: View {
         .onAppear(perform: refresh)
         .sheet(isPresented: Binding(get: { reviewedExport != nil }, set: { if !$0 { reviewedExport = nil } })) {
             NavigationStack {
-                ScrollView { Text(reviewedExport ?? "").font(.caption.monospaced()).textSelection(.enabled).padding() }
+                ScrollView {
+                    Text(reviewedExport ?? "").font(.caption.monospaced()).textSelection(.enabled).padding()
+                        .accessibilityIdentifier("diagnostics-export-json")
+                }
                     .navigationTitle("Review export")
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {

@@ -2,6 +2,7 @@ import SwiftUI
 import ClubhouseTransport
 
 struct CompanionAppUpdateCheckAction: View {
+    @Environment(\.companionTelemetryScreen) private var screen
     @Bindable var store: CompanionStore
     let host: CompanionHost
     var body: some View {
@@ -10,6 +11,7 @@ struct CompanionAppUpdateCheckAction: View {
                 let checking = store.appUpdateChecksInFlight.contains(host.id)
                 let alreadyChecking = store.isAlreadyCheckingAppUpdate(hostID: host.id)
                 Button(alreadyChecking ? "Already checking" : checking ? "Checking…" : "Check for updates") {
+                    CompanionUIActions.record(.checkForUpdates, on: screen)
                     Task { await store.checkAppUpdate(hostID: host.id) }
                 }
                 .buttonStyle(.borderless)
@@ -90,6 +92,7 @@ struct CompanionAppUpdateView: View {
                             }
                             if request.canCancel && host.appUpdateApproval == nil {
                                 Button("Cancel update request", role: .destructive) {
+                                    CompanionUIActions.record(.cancelUpdate, on: .desktopUpdate)
                                     Task { await store.cancelAppUpdate(hostID: hostID) }
                                 }
                                 .accessibilityIdentifier("app-update-cancel")
@@ -99,6 +102,7 @@ struct CompanionAppUpdateView: View {
                         if update.canRequest, let version = update.availableVersion {
                             if host.canRequestAppUpdate {
                                 Button("Restart to update to \(version)") {
+                                    CompanionUIActions.record(.restartForUpdate, on: .desktopUpdate)
                                     Task { await store.requestAppUpdate(hostID: hostID) }
                                 }
                                 .buttonStyle(.borderedProminent).companionProminentLabel().controlSize(.large)
@@ -110,6 +114,7 @@ struct CompanionAppUpdateView: View {
                                     if let blocker = dispatcher.turnOnBlocker { Text(blocker) }
                                     else {
                                         Button("Turn on Dispatcher") {
+                                            CompanionUIActions.record(.toggleDispatcher, on: .desktopUpdate)
                                             Task { await store.setDispatcher(enabled: true, hostID: hostID) }
                                         }
                                         .accessibilityIdentifier("app-update-enable-dispatcher")
@@ -142,6 +147,7 @@ struct CompanionAppUpdateView: View {
                 Text("This desktop does not offer updates from your phone.")
             }
         }
+        .companionTelemetryScreen(.desktopUpdate)
         .navigationTitle("Desktop update")
     }
 }

@@ -41,6 +41,14 @@ This deliberately separates tap intent from command-outcome `app.action` logs. `
 - Agent details/settings sheets: Done, retry, cancellation of settings confirmation, and saved identity, color, emoji, provider/model/runtime, access, auto-sleep, context-window and behavior controls. Only the fixed control category is recorded, never its value. A setting choice that opens a warning is counted immediately, even when later cancelled; accepting the warning records a separate `.confirm` intent, without double-counting the selection.
 - Shared helper/quiet disclosures, agent menu items, Terminal entries, Dispatcher switch and new-agent notice actions: explicit screen context from `.companionTelemetryScreen(_:)`. A missing context records nothing, rather than guessing which Root/chat screen opened the control. Project page and settings form supply it; Root/chat adoption is still required. Shared terminal entries, Dispatcher switch and created-agent notice also require their actual originating screen context; do not add a duplicate record in the caller.
 
+## App-owned leaf follow-up
+
+The single leaf follow-up adopts explicit Terminal toolbar/key-bar and banner callbacks; Welcome/demo actions; manual and QR pairing callbacks; the shared color-swatches button; Dispatcher and guided provider settings; desktop-update callbacks; helper preset settings; manual plan-limit refresh; diagnostics settings; and app-owned feedback shortcuts, prompts and confirmations. The fixed intent is emitted before the existing callback. Automatic reads, polling, destination construction and programmatic draft resets emit nothing. Native Menu, NavigationLink, ShareLink and implicit DisclosureGroup openings remain pending a separate accessibility-preserving hook spike and decision; no gesture hook is rolled out here.
+
+The shared swatch button owns `.selectColor`, so agent and Dispatcher settings no longer count it again while saving. Dispatcher/agent settings supply their own screen context. **Managed-create still needs `.companionTelemetryScreen(.newAgent)` around its shared swatches in CompanionSpawnSheet.swift; inline chat Terminal panes need `.conversation` from their owning lane.** Neither file is edited in the leaf follow-up. Until a caller supplies context, shared controls deliberately record nothing.
+
+App-owned feedback code can record settings toggles, held/queued-report prompts and confirmations, the screenshot offer, and enrollment-sheet Done. The SDK composer, editor and enrollment controls remain blocked on the upstream callback and re-vendor described below. Native/system dismissal and debug fixture controls are excluded; no synthetic Cancel event is inferred from state changes.
+
 ## Required Root/settings follow-up
 
 - Replace the undifferentiated Root `.navigation` tap event with explicit screen/control intents at each tab and navigation action. Set context separately for Home, Dispatcher, Needs you and Agents; do not apply one Home context around the whole tab tree.
@@ -50,21 +58,21 @@ This deliberately separates tap intent from command-outcome `app.action` logs. `
 
 ## Remaining source call sites
 
-Each unchecked entry is a remaining interaction site, including the menu/picker opening and its item/selection action where they share a source declaration. A helper that generates several buttons needs the same closed control for each semantic action, with its caller's screen; never encode the selected identifier. Instrument explicit callbacks or selection setters, guarding equality when the native control can write an unchanged value. Follow-up owners must retain existing navigation, confirmation and disabled-state behavior.
+Checked entries identify callbacks adopted by the API or app-owned leaf follow-up. Each unchecked entry is a remaining interaction site, including the menu/picker opening and its item/selection action where they share a source declaration. A helper that generates several buttons needs the same closed control for each semantic action, with its caller's screen; never encode the selected identifier. Instrument explicit callbacks or selection setters, guarding equality when the native control can write an unchanged value. Follow-up owners must retain existing navigation, confirmation and disabled-state behavior.
 
 | Pending | File and line | Follow-up ownership | Source interaction |
 |---|---|---|---|
 | [ ] | [CompanionRootView.swift:107](../Annex/Annex/Companion/Views/CompanionRootView.swift#L107) | Root lane | Replace generic navigation observation with explicit user intent at the actual originating action. |
 | [ ] | [CompanionRootView.swift:723](../Annex/Annex/Companion/Views/CompanionRootView.swift#L723) | Root lane | Project reorder interaction. |
 | [ ] | [CompanionRootView.swift:1358](../Annex/Annex/Companion/Views/CompanionRootView.swift#L1358) | Root lane | Search presentation/submit; never export the query. |
-| [ ] | [CompanionDispatcherSettingsSections.swift:215](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L215) | Dispatcher/settings owner | Identity draft submit; never export the draft. |
-| [ ] | [CompanionDispatcherSettingsSections.swift:238](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L238) | Dispatcher/settings owner | Emoji draft submit; never export the value. |
+| [x] | [CompanionDispatcherSettingsSections.swift:218](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L218) | ux-structure leaf callbacks | Identity draft submit; never export the draft. |
+| [x] | [CompanionDispatcherSettingsSections.swift:242](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L242) | ux-structure leaf callbacks | Emoji draft submit; never export the value. |
 | [ ] | [CompanionMarkdownBlockViews.swift:85](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L85) | Chat lane | Inline preview tap. |
 | [ ] | [CompanionAgentDetailsSheet.swift:153](../Annex/Annex/Companion/Views/CompanionAgentDetailsSheet.swift#L153) | Follow-up owner to assign | `NavigationLink {` |
-| [ ] | [CompanionAgentSettingsSheet.swift:180](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L180) | Other callers only | Shared color button: agent settings already records `agentSettings/selectColor` through its save callback (selection at :433, save at :769/:778). Do not add a duplicate there. Adopting the shared button must remove that existing save-side event in the same change. |
-| [ ] | [CompanionAgentSettingsSheet.swift:401](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L401) | Follow-up owner to assign | `NavigationLink("Auto provider and plan limits") { CompanionHelperPresetsView(store: store, hostID: target.hostID, agentID: target.agentID) }` |
-| [ ] | [CompanionAgentSettingsSheet.swift:461](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L461) | Follow-up owner to assign | `NavigationLink {` |
-| [ ] | [CompanionAgentSettingsSheet.swift:469](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L469) | Follow-up owner to assign | `Menu {` |
+| [x] | [CompanionAgentSettingsSheet.swift:181](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L181) | ux-structure leaf callbacks | Shared color button owns `selectColor` once; Agent settings removes its prior save-side event in this same change. Other callers supply their originating screen. |
+| [ ] | [CompanionAgentSettingsSheet.swift:405](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L405) | Native opening hook pending | `NavigationLink("Auto provider and plan limits") { CompanionHelperPresetsView(store: store, hostID: target.hostID, agentID: target.agentID) }` |
+| [ ] | [CompanionAgentSettingsSheet.swift:468](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L468) | Native opening hook pending | `NavigationLink {` |
+| [ ] | [CompanionAgentSettingsSheet.swift:476](../Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift#L476) | Native opening hook pending | `Menu {` |
 | [ ] | [CompanionAgentTreeRows.swift:129](../Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift#L129) | Follow-up owner to assign | `NavigationLink(value: row.id) {` |
 | [ ] | [CompanionAppRoot.swift:293](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L293) | Root/settings owner (shared file) | `Button("OK") { runtime.restoreError = nil }` |
 | [ ] | [CompanionAppRoot.swift:341](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L341) | Root/settings owner (shared file) | `Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { openSettings() }` |
@@ -80,11 +88,11 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionAppRoot.swift:517](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L517) | Root/settings owner (shared file) | `Button("Forget on this device", role: .destructive, action: forget)` |
 | [ ] | [CompanionAppRoot.swift:537](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L537) | Root/settings owner (shared file) | `Button("Copy build SHA", systemImage: "doc.on.doc") { UIPasteboard.general.string = sha }` |
 | [ ] | [CompanionAppRoot.swift:539](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L539) | Root/settings owner (shared file) | `Button("Copy version", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }` |
-| [ ] | [CompanionAppUpdateView.swift:12](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L12) | Follow-up owner to assign | `Button(alreadyChecking ? "Already checking" : checking ? "Checking…" : "Check for updates") {` |
-| [ ] | [CompanionAppUpdateView.swift:31](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L31) | Follow-up owner to assign | `NavigationLink {` |
-| [ ] | [CompanionAppUpdateView.swift:92](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L92) | Follow-up owner to assign | `Button("Cancel update request", role: .destructive) {` |
-| [ ] | [CompanionAppUpdateView.swift:101](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L101) | Follow-up owner to assign | `Button("Restart to update to \(version)") {` |
-| [ ] | [CompanionAppUpdateView.swift:112](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L112) | Follow-up owner to assign | `Button("Turn on Dispatcher") {` |
+| [x] | [CompanionAppUpdateView.swift:13](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L13) | ux-structure leaf callbacks | `Button(alreadyChecking ? "Already checking" : checking ? "Checking…" : "Check for updates") {` |
+| [ ] | [CompanionAppUpdateView.swift:33](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L33) | Native opening hook pending | `NavigationLink {` |
+| [x] | [CompanionAppUpdateView.swift:94](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L94) | ux-structure leaf callbacks | `Button("Cancel update request", role: .destructive) {` |
+| [x] | [CompanionAppUpdateView.swift:104](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L104) | ux-structure leaf callbacks | `Button("Restart to update to \(version)") {` |
+| [x] | [CompanionAppUpdateView.swift:116](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L116) | ux-structure leaf callbacks | `Button("Turn on Dispatcher") {` |
 | [ ] | [CompanionArchiveView.swift:22](../Annex/Annex/Companion/Views/CompanionArchiveView.swift#L22) | Follow-up owner to assign | `Button("Try again") { Task { await load() } }` |
 | [ ] | [CompanionArchiveView.swift:26](../Annex/Annex/Companion/Views/CompanionArchiveView.swift#L26) | Follow-up owner to assign | `NavigationLink {` |
 | [ ] | [CompanionArchiveView.swift:45](../Annex/Annex/Companion/Views/CompanionArchiveView.swift#L45) | Follow-up owner to assign | `.toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }` |
@@ -95,12 +103,12 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionAttachments.swift:33](../Annex/Annex/Companion/Views/CompanionAttachments.swift#L33) | Chat lane / follow-up owner | `PhotosPicker(selection: $selection, maxSelectionCount: max(1, remaining), selectionBehavior: .ordered,` |
 | [ ] | [CompanionAttachments.swift:97](../Annex/Annex/Companion/Views/CompanionAttachments.swift#L97) | Chat lane / follow-up owner | `Button { store.removeAttachment(image.id, from: target) } label: {` |
 | [ ] | [CompanionAttachments.swift:147](../Annex/Annex/Companion/Views/CompanionAttachments.swift#L147) | Chat lane / follow-up owner | `Button { if let reference { presenter?.open(reference) } } label: {` |
-| [ ] | [CompanionAutoQuotaViews.swift:45](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L45) | Follow-up owner to assign | `Toggle("Allow Copilot as a last resort", isOn: Binding(get: { copilotAuto }, set: { value in` |
-| [ ] | [CompanionAutoQuotaViews.swift:68](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L68) | Follow-up owner to assign | `Button(valueText(value, scope: scopeID)) { change(value) }` |
-| [ ] | [CompanionAutoQuotaViews.swift:129](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L129) | Follow-up owner to assign | `DisclosureGroup("Limits for individual models") { modelWindows }` |
-| [ ] | [CompanionAutoQuotaViews.swift:222](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L222) | Follow-up owner to assign | `DisclosureGroup(provider + " limit at decision") { CompanionQuotaView(quota: quota, labels: labels) }` |
-| [ ] | [CompanionAutoQuotaViews.swift:234](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L234) | Follow-up owner to assign | `Button("OK", role: .cancel) { }` |
-| [ ] | [CompanionAutoQuotaViews.swift:237](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L237) | Follow-up owner to assign | `Button("OK", role: .cancel) { }` |
+| [x] | [CompanionAutoQuotaViews.swift:45](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L45) | ux-structure leaf callbacks | `Toggle("Allow Copilot as a last resort", isOn: Binding(get: { copilotAuto }, set: { value in` |
+| [x] | [CompanionAutoQuotaViews.swift:69](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L69) | ux-structure leaf callbacks | `Button(valueText(value, scope: scopeID)) { change(value) }` |
+| [ ] | [CompanionAutoQuotaViews.swift:131](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L131) | Native opening hook pending | `DisclosureGroup("Limits for individual models") { modelWindows }` |
+| [ ] | [CompanionAutoQuotaViews.swift:224](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L224) | Native opening hook pending | `DisclosureGroup(provider + " limit at decision") { CompanionQuotaView(quota: quota, labels: labels) }` |
+| [ ] | [CompanionAutoQuotaViews.swift:236](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L236) | Follow-up owner to assign | `Button("OK", role: .cancel) { }` |
+| [ ] | [CompanionAutoQuotaViews.swift:239](../Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift#L239) | Follow-up owner to assign | `Button("OK", role: .cancel) { }` |
 | [ ] | [CompanionChangesView.swift:34](../Annex/Annex/Companion/Views/CompanionChangesView.swift#L34) | Follow-up owner to assign | `NavigationLink {` |
 | [ ] | [CompanionChangesView.swift:52](../Annex/Annex/Companion/Views/CompanionChangesView.swift#L52) | Follow-up owner to assign | `Button("Try again") { Task { await load() } }.buttonStyle(.bordered)` |
 | [ ] | [CompanionChangesView.swift:162](../Annex/Annex/Companion/Views/CompanionChangesView.swift#L162) | Follow-up owner to assign | `Button("Try again") { Task { await load() } }.buttonStyle(.bordered)` |
@@ -153,74 +161,72 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionConversationView.swift:1034](../Annex/Annex/Companion/Views/CompanionConversationView.swift#L1034) | Chat lane / follow-up owner | `Button(action: previous) { icon("chevron.up") }` |
 | [ ] | [CompanionConversationView.swift:1039](../Annex/Annex/Companion/Views/CompanionConversationView.swift#L1039) | Chat lane / follow-up owner | `Button(action: next) { icon("chevron.down") }` |
 | [ ] | [CompanionDesign.swift:364](../Annex/Annex/Companion/Views/CompanionDesign.swift#L364) | Follow-up owner to assign | `Button { selection = value } label: {` |
-| [ ] | [CompanionDiagnosticsView.swift:16](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L16) | Follow-up owner to assign | `Picker("Capture", selection: Binding(get: { settings.mode }, set: {` |
-| [ ] | [CompanionDiagnosticsView.swift:37](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L37) | Follow-up owner to assign | `NavigationLink("Tracing destination") { CompanionTelemetryDestinationView() }` |
-| [ ] | [CompanionDiagnosticsView.swift:40](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L40) | Follow-up owner to assign | `Button("Review diagnostic export") {` |
-| [ ] | [CompanionDiagnosticsView.swift:45](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L45) | Follow-up owner to assign | `Button("Clear captured diagnostics", role: .destructive) {` |
-| [ ] | [CompanionDiagnosticsView.swift:53](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L53) | Follow-up owner to assign | `DisclosureGroup {` |
-| [ ] | [CompanionDiagnosticsView.swift:74](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L74) | Follow-up owner to assign | `.toolbar { Button("Refresh", systemImage: "arrow.clockwise", action: refresh) }` |
-| [ ] | [CompanionDiagnosticsView.swift:81](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L81) | Follow-up owner to assign | `ToolbarItem(placement: .cancellationAction) { Button("Done") { reviewedExport = nil } }` |
-| [ ] | [CompanionDiagnosticsView.swift:88](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L88) | Follow-up owner to assign | `.alert("Could not prepare bounded export", isPresented: $exportError) { Button("OK") {} }` |
-| [ ] | [CompanionDiagnosticsView.swift:107](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L107) | Follow-up owner to assign | `Button("Save destination without enabling") {` |
-| [ ] | [CompanionDiagnosticsView.swift:118](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L118) | Follow-up owner to assign | `Button(settings.remoteEnabled ? "Disable collector export" : "Enable reviewed collector export") {` |
-| [ ] | [CompanionDiagnosticsView.swift:121](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L121) | Follow-up owner to assign | `Button("Remove destination", role: .destructive) { settings.removeDestination(); address = "" }` |
-| [ ] | [CompanionDiagnosticsView.swift:129](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L129) | Follow-up owner to assign | `Button("I verified this collector — enable export") { settings.setRemoteEnabled(true) }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:88](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L88) | Follow-up owner to assign | `Button("Try again") { Task { await reload() } }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:115](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L115) | Follow-up owner to assign | `Button {` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:149](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L149) | Follow-up owner to assign | `Toggle("Choose models yourself", isOn: Binding(get: { settings.models.byHand }, set: { on in` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:170](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L170) | Follow-up owner to assign | `Picker("CLI", selection: Binding(get: { provider ?? "" }, set: { id in` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:179](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L179) | Follow-up owner to assign | `Picker("Model", selection: Binding(get: { pick?.model ?? "default" }, set: { id in` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:189](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L189) | Follow-up owner to assign | `Picker("Effort", selection: Binding<String?>(get: { pick?.effort }, set: { effort in` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:249](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L249) | Follow-up owner to assign | `Button("Clear emoji", systemImage: "xmark.circle.fill") { save(.emoji) { try await store.updateDispatcher(.init(emoji: .clear), hostID: hostID) } }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:265](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L265) | Follow-up owner to assign | `Picker("Personality", selection: Binding(get: { personality.preset ?? "custom" }, set: { preset in` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:285](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L285) | Follow-up owner to assign | `Button("Revert") { drafts.personality.receive(personality.text, replacing: true) }.buttonStyle(.borderless)` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:287](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L287) | Follow-up owner to assign | `Button("Save personality") { save(.personality) { try await store.updateDispatcher(.init(personality: .init(text: text)), hostID: hostID) } }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:334](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L334) | Follow-up owner to assign | `Button("Clear chat", role: .destructive) { Task { await store.askDispatcherReset(.clearChat, hostID: hostID) } }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:337](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L337) | Follow-up owner to assign | `Button("Forget everything", role: .destructive) { Task { await store.askDispatcherReset(.forgetEverything, hostID: hostID) } }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:351](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L351) | Follow-up owner to assign | `Button(prompt.reset.action, role: .destructive) { Task { await store.confirmDispatcherReset(prompt) } }` |
-| [ ] | [CompanionDispatcherSettingsSections.swift:352](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L352) | Follow-up owner to assign | `Button("Cancel", role: .cancel) { store.cancelDispatcherReset() }` |
-| [ ] | [CompanionFeedback.swift:127](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L127) | Follow-up owner to assign | `NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }` |
-| [ ] | [CompanionFeedback.swift:129](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L129) | Follow-up owner to assign | `NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }` |
-| [ ] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | Follow-up owner to assign | `Toggle("Shake to open feedback", isOn: $shakeEnabled)` |
-| [ ] | [CompanionFeedback.swift:151](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L151) | Follow-up owner to assign | `Toggle("Attach a screenshot when you shake", isOn: $shakeAttachesScreenshot).disabled(!shakeEnabled)` |
-| [ ] | [CompanionFeedback.swift:152](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L152) | Follow-up owner to assign | `Toggle("Offer feedback when you take a screenshot", isOn: $screenshotOffersFeedback)` |
-| [ ] | [CompanionFeedback.swift:245](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L245) | Follow-up owner to assign | `Button("Change fixture enrollment", action: fixtureControls.changeEnrollment)` |
-| [ ] | [CompanionFeedback.swift:246](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L246) | Follow-up owner to assign | `Button("Record later retry", action: fixtureControls.recordLater)` |
-| [ ] | [CompanionFeedback.swift:281](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L281) | Follow-up owner to assign | `DisclosureGroup("Feedback diagnostics test") {` |
-| [ ] | [CompanionFeedback.swift:282](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L282) | Follow-up owner to assign | `NavigationLink("Prepare one diagnostics test report…") {` |
-| [ ] | [CompanionFeedback.swift:302](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L302) | Follow-up owner to assign | `NavigationLink("Prepare test report") { CompanionFeedbackComposer(model: model, isDiagnosticsTest: true) }` |
-| [ ] | [CompanionFeedback.swift:346](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L346) | Follow-up owner to assign | `Button("Send with this enrollment…") {` |
-| [ ] | [CompanionFeedback.swift:352](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L352) | Follow-up owner to assign | `Button("Send") { Task { await model.releaseHeldReports(releaseToken: release.token) } }` |
-| [ ] | [CompanionFeedback.swift:356](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L356) | Follow-up owner to assign | `Button("Clear held reports", role: .destructive) {` |
-| [ ] | [CompanionFeedback.swift:363](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L363) | Follow-up owner to assign | `Button("Clear held reports", role: .destructive) {` |
-| [ ] | [CompanionFeedback.swift:380](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L380) | Follow-up owner to assign | `Button("Clear queued feedback", role: .destructive) { confirmingClear = true }` |
-| [ ] | [CompanionFeedback.swift:383](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L383) | Follow-up owner to assign | `Button("Clear queued feedback", role: .destructive) { Task { await model.clearQueue() } }` |
-| [ ] | [CompanionFeedbackPresenter.swift:364](../Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift#L364) | Follow-up owner to assign | `Button(action: open) {` |
-| [ ] | [CompanionFeedbackPresenter.swift:369](../Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift#L369) | Follow-up owner to assign | `Button("Dismiss", systemImage: "xmark", action: close)` |
-| [ ] | [CompanionFeedbackPresenter.swift:389](../Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift#L389) | Follow-up owner to assign | `ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }` |
+| [ ] | [CompanionDiagnosticsView.swift:16](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L16) | Native opening hook pending; selection wired here | `Picker("Capture", selection: Binding(get: { settings.mode }, set: {` |
+| [ ] | [CompanionDiagnosticsView.swift:38](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L38) | Native opening hook pending | `NavigationLink("Tracing destination") { CompanionTelemetryDestinationView() }` |
+| [x] | [CompanionDiagnosticsView.swift:41](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L41) | ux-structure leaf callbacks | `Button("Review diagnostic export") {` |
+| [x] | [CompanionDiagnosticsView.swift:47](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L47) | ux-structure leaf callbacks | `Button("Clear captured diagnostics", role: .destructive) {` |
+| [ ] | [CompanionDiagnosticsView.swift:56](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L56) | Native opening hook pending | `DisclosureGroup {` |
+| [x] | [CompanionDiagnosticsView.swift:77](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L77) | ux-structure leaf callbacks | `.toolbar {` |
+| [x] | [CompanionDiagnosticsView.swift:89](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L89) | ux-structure leaf callbacks | `}` |
+| [x] | [CompanionDiagnosticsView.swift:101](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L101) | ux-structure leaf callbacks | `}` |
+| [x] | [CompanionDiagnosticsView.swift:122](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L122) | ux-structure leaf callbacks | `Text("Use an existing HTTPS OTLP/HTTP JSON collector that forwards to your App Insights instance. An App Insights connection string is not an OTLP URL. This configuration is independent of developer feedback.")` |
+| [x] | [CompanionDiagnosticsView.swift:134](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L134) | ux-structure leaf callbacks | `Section("Reviewed destination") {` |
+| [x] | [CompanionDiagnosticsView.swift:138](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L138) | ux-structure leaf callbacks | `CompanionUIActions.record(.toggleCollectorExport, on: .telemetryDestination)` |
+| [x] | [CompanionDiagnosticsView.swift:149](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L149) | ux-structure leaf callbacks | `.navigationTitle("Tracing destination")` |
+| [x] | [CompanionDispatcherSettingsSections.swift:88](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L88) | ux-structure leaf callbacks | `Button("Try again") {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:118](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L118) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:152](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L152) | ux-structure leaf callbacks | `Toggle("Choose models yourself", isOn: Binding(get: { settings.models.byHand }, set: { on in` |
+| [ ] | [CompanionDispatcherSettingsSections.swift:173](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L173) | Native opening hook pending; selection wired here | `Picker("CLI", selection: Binding(get: { provider ?? "" }, set: { id in` |
+| [ ] | [CompanionDispatcherSettingsSections.swift:182](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L182) | Native opening hook pending; selection wired here | `Picker("Model", selection: Binding(get: { pick?.model ?? "default" }, set: { id in` |
+| [ ] | [CompanionDispatcherSettingsSections.swift:192](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L192) | Native opening hook pending; selection wired here | `Picker("Effort", selection: Binding<String?>(get: { pick?.effort }, set: { effort in` |
+| [x] | [CompanionDispatcherSettingsSections.swift:253](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L253) | ux-structure leaf callbacks | `Button("Clear emoji", systemImage: "xmark.circle.fill") { save(.emoji, control: .selectEmoji) { try await store.updateDispatcher(.init(emoji: .clear), hostID: hostID) } }` |
+| [ ] | [CompanionDispatcherSettingsSections.swift:269](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L269) | Native opening hook pending; selection wired here | `Picker("Personality", selection: Binding(get: { personality.preset ?? "custom" }, set: { preset in` |
+| [x] | [CompanionDispatcherSettingsSections.swift:289](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L289) | ux-structure leaf callbacks | `Button("Revert") {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:294](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L294) | ux-structure leaf callbacks | `Button("Save personality") { save(.personality, control: .savePersonality) { try await store.updateDispatcher(.init(personality: .init(text: text)), hostID: hostID) } }` |
+| [x] | [CompanionDispatcherSettingsSections.swift:341](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L341) | ux-structure leaf callbacks | `Button("Clear chat", role: .destructive) {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:347](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L347) | ux-structure leaf callbacks | `Button("Forget everything", role: .destructive) {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:364](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L364) | ux-structure leaf callbacks | `Button(prompt.reset.action, role: .destructive) {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:364](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L364) | ux-structure leaf callbacks | `Button(prompt.reset.action, role: .destructive) {` |
+| [ ] | [CompanionFeedback.swift:127](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L127) | Native opening hook pending | `NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }` |
+| [ ] | [CompanionFeedback.swift:129](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L129) | Native opening hook pending | `NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }` |
+| [x] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | ux-structure leaf callbacks | `Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in` |
+| [x] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | ux-structure leaf callbacks | `Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in` |
+| [x] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | ux-structure leaf callbacks | `Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in` |
+| [ ] | [CompanionFeedback.swift:290](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L290) | Native opening hook pending | `DisclosureGroup("Feedback diagnostics test") {` |
+| [ ] | [CompanionFeedback.swift:291](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L291) | Native opening hook pending | `NavigationLink("Prepare one diagnostics test report…") {` |
+| [ ] | [CompanionFeedback.swift:311](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L311) | Native opening hook pending | `NavigationLink("Prepare test report") { CompanionFeedbackComposer(model: model, isDiagnosticsTest: true) }` |
+| [x] | [CompanionFeedback.swift:355](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L355) | ux-structure leaf callbacks | `Button("Send with this enrollment…") {` |
+| [x] | [CompanionFeedback.swift:362](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L362) | ux-structure leaf callbacks | `Button("Send") {` |
+| [x] | [CompanionFeedback.swift:369](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L369) | ux-structure leaf callbacks | `Button("Clear held reports", role: .destructive) {` |
+| [x] | [CompanionFeedback.swift:377](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L377) | ux-structure leaf callbacks | `Button("Clear held reports", role: .destructive) {` |
+| [x] | [CompanionFeedback.swift:395](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L395) | ux-structure leaf callbacks | `Button("Clear queued feedback", role: .destructive) {` |
+| [x] | [CompanionFeedback.swift:401](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L401) | ux-structure leaf callbacks | `Button("Clear queued feedback", role: .destructive) {` |
+| [x] | [CompanionFeedbackPresenter.swift:364](../Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift#L364) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionFeedbackPresenter.swift:372](../Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift#L372) | ux-structure leaf callbacks | `Button("Dismiss", systemImage: "xmark") {` |
+| [x] | [CompanionFeedbackPresenter.swift:395](../Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift#L395) | ux-structure leaf callbacks | `ToolbarItem(placement: .confirmationAction) {` |
 | [ ] | [CompanionFolderList.swift:18](../Annex/Annex/Companion/Views/CompanionFolderList.swift#L18) | Follow-up owner to assign | `NavigationLink { destination(listing.path(of: entry)) } label: { row(entry, chevron: true) }` |
 | [ ] | [CompanionFullEventReview.swift:24](../Annex/Annex/Companion/Views/CompanionFullEventReview.swift#L24) | Follow-up owner to assign | `Button(reference.reviewLabel, systemImage: "doc.text.magnifyingglass") { presenter.open(reference) }` |
 | [ ] | [CompanionFullEventReview.swift:78](../Annex/Annex/Companion/Views/CompanionFullEventReview.swift#L78) | Follow-up owner to assign | `ToolbarItem(placement: .cancellationAction) { Button("Close") { dismiss() } }` |
 | [ ] | [CompanionFullEventReview.swift:81](../Annex/Annex/Companion/Views/CompanionFullEventReview.swift#L81) | Follow-up owner to assign | `Button("Reviewed") {` |
 | [ ] | [CompanionFullEventReview.swift:91](../Annex/Annex/Companion/Views/CompanionFullEventReview.swift#L91) | Follow-up owner to assign | `Button("Close review") { dismiss() }` |
-| [ ] | [CompanionGuidedProviderScreen.swift:41](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L41) | Follow-up owner to assign | `Button {` |
-| [ ] | [CompanionGuidedProviderScreen.swift:66](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L66) | Follow-up owner to assign | `Button("Check previous result") { Task { await flow.checkPreviousResult() } }` |
-| [ ] | [CompanionGuidedProviderScreen.swift:74](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L74) | Follow-up owner to assign | `Button("Refresh preview") { Task { await flow.refresh() } }` |
-| [ ] | [CompanionGuidedProviderScreen.swift:78](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L78) | Follow-up owner to assign | `Button("Save provider") { Task { await flow.save() } }` |
-| [ ] | [CompanionGuidedProviderScreen.swift:84](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L84) | Follow-up owner to assign | `Button("Start new session") { confirmStart = true }` |
-| [ ] | [CompanionGuidedProviderScreen.swift:101](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L101) | Follow-up owner to assign | `Button("Start new session") { Task { await flow.startNew() } }` |
-| [ ] | [CompanionGuidedProviderScreen.swift:102](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L102) | Follow-up owner to assign | `Button("Cancel", role: .cancel) {}` |
-| [ ] | [CompanionHelperPresetsView.swift:15](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L15) | Follow-up owner to assign | `NavigationLink {` |
-| [ ] | [CompanionHelperPresetsView.swift:60](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L60) | Follow-up owner to assign | `DisclosureGroup {` |
-| [ ] | [CompanionHelperPresetsView.swift:89](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L89) | Follow-up owner to assign | `Button("Reset all presets") { reset(.init()) }.disabled(!canEdit)` |
-| [ ] | [CompanionHelperPresetsView.swift:122](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L122) | Follow-up owner to assign | `NavigationLink {` |
-| [ ] | [CompanionHelperPresetsView.swift:138](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L138) | Follow-up owner to assign | `Button("Reset provider presets") { reset(.init(provider: id)) }.disabled(!canEdit)` |
-| [ ] | [CompanionHelperPresetsView.swift:153](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L153) | Follow-up owner to assign | `NavigationLink(agent.name) { CompanionHelperPresetsView(store: store, hostID: hostID, agentID: agent.id.agentID) }` |
-| [ ] | [CompanionHelperPresetsView.swift:160](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L160) | Follow-up owner to assign | `NavigationLink(project.name) { CompanionHelperPresetsView(store: store, hostID: hostID, projectID: project.id) }` |
-| [ ] | [CompanionHelperPresetsView.swift:205](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L205) | Follow-up owner to assign | `Picker("Model", selection: Binding(get: { model }, set: { model = $0; effort = nil })) {` |
-| [ ] | [CompanionHelperPresetsView.swift:213](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L213) | Follow-up owner to assign | `Picker("Effort", selection: $effort) {` |
-| [ ] | [CompanionHelperPresetsView.swift:219](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L219) | Follow-up owner to assign | `Button(screen.saving ? "Saving…" : "Save preset") {` |
-| [ ] | [CompanionHelperPresetsView.swift:232](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L232) | Follow-up owner to assign | `Button("Reset preset") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:41](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L41) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionGuidedProviderScreen.swift:67](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L67) | ux-structure leaf callbacks | `Button("Check previous result") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:78](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L78) | ux-structure leaf callbacks | `Button("Refresh preview") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:85](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L85) | ux-structure leaf callbacks | `Button("Save provider") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:94](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L94) | ux-structure leaf callbacks | `Button("Start new session") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:115](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L115) | ux-structure leaf callbacks | `Button("Start new session") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:115](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L115) | ux-structure leaf callbacks | `Button("Start new session") {` |
+| [ ] | [CompanionHelperPresetsView.swift:15](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L15) | Native opening hook pending | `NavigationLink {` |
+| [ ] | [CompanionHelperPresetsView.swift:60](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L60) | Native opening hook pending | `DisclosureGroup {` |
+| [x] | [CompanionHelperPresetsView.swift:89](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L89) | ux-structure leaf callbacks | `Button("Reset all presets") { reset(.init(), control: .resetAllHelperPresets) }.disabled(!canEdit)` |
+| [ ] | [CompanionHelperPresetsView.swift:125](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L125) | Native opening hook pending | `NavigationLink {` |
+| [x] | [CompanionHelperPresetsView.swift:141](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L141) | ux-structure leaf callbacks | `Button("Reset provider presets") { reset(.init(provider: id), control: .resetProviderPresets) }.disabled(!canEdit)` |
+| [ ] | [CompanionHelperPresetsView.swift:156](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L156) | Native opening hook pending | `NavigationLink(agent.name) { CompanionHelperPresetsView(store: store, hostID: hostID, agentID: agent.id.agentID) }` |
+| [ ] | [CompanionHelperPresetsView.swift:163](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L163) | Native opening hook pending | `NavigationLink(project.name) { CompanionHelperPresetsView(store: store, hostID: hostID, projectID: project.id) }` |
+| [ ] | [CompanionHelperPresetsView.swift:209](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L209) | Native opening hook pending; selection wired here | `Picker("Model", selection: Binding(get: { model }, set: { model = $0; effort = nil })) {` |
+| [ ] | [CompanionHelperPresetsView.swift:220](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L220) | Native opening hook pending; selection wired here | `Picker("Effort", selection: $effort) {` |
+| [x] | [CompanionHelperPresetsView.swift:229](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L229) | ux-structure leaf callbacks | `Button(screen.saving ? "Saving…" : "Save preset") {` |
+| [x] | [CompanionHelperPresetsView.swift:243](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L243) | ux-structure leaf callbacks | `Button("Reset preset") {` |
 | [ ] | [CompanionMarkdownBlockViews.swift:57](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L57) | Chat lane / follow-up owner | `Button("Open", systemImage: "arrow.up.left.and.arrow.down.right", action: open)` |
 | [ ] | [CompanionMarkdownBlockViews.swift:61](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L61) | Chat lane / follow-up owner | `Button("Copy", systemImage: "doc.on.doc", action: copy)` |
 | [ ] | [CompanionMarkdownBlockViews.swift:75](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L75) | Chat lane / follow-up owner | `Button(action: open) {` |
@@ -232,24 +238,24 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionMarkdownFileView.swift:61](../Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift#L61) | Chat lane / follow-up owner | `Button("Try again") { attempt += 1 }` |
 | [ ] | [CompanionMarkdownFileView.swift:79](../Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift#L79) | Chat lane / follow-up owner | `Button("Copy preview", systemImage: "doc.on.doc") { UIPasteboard.general.string = source }` |
 | [ ] | [CompanionMarkdownFileView.swift:151](../Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift#L151) | Chat lane / follow-up owner | `Button("Load image") { requested = true }.disabled(loading)` |
-| [ ] | [CompanionPairingSheet.swift:60](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L60) | Follow-up owner to assign | `Button { scanning = true } label: {` |
-| [ ] | [CompanionPairingSheet.swift:78](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L78) | Follow-up owner to assign | `Button("Scan again") { discovery.stop(); discovery.start() }` |
-| [ ] | [CompanionPairingSheet.swift:82](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L82) | Follow-up owner to assign | `Button {` |
-| [ ] | [CompanionPairingSheet.swift:103](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L103) | Follow-up owner to assign | `Button {` |
-| [ ] | [CompanionPairingSheet.swift:115](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L115) | Follow-up owner to assign | `Toggle("These fingerprints match my desktop", isOn: $verified)` |
-| [ ] | [CompanionPairingSheet.swift:124](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L124) | Follow-up owner to assign | `Toggle("Remember this desktop", isOn: $remember)` |
-| [ ] | [CompanionPairingSheet.swift:135](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L135) | Follow-up owner to assign | `ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isPairing) }` |
-| [ ] | [CompanionPairingSheet.swift:137](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L137) | Follow-up owner to assign | `Button { Task { await pair() } } label: {` |
+| [x] | [CompanionPairingSheet.swift:61](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L61) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionPairingSheet.swift:82](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L82) | ux-structure leaf callbacks | `Button("Scan again") {` |
+| [x] | [CompanionPairingSheet.swift:89](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L89) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionPairingSheet.swift:111](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L111) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionPairingSheet.swift:124](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L124) | ux-structure leaf callbacks | `Toggle("These fingerprints match my desktop", isOn: Binding(get: { verified }, set: {` |
+| [x] | [CompanionPairingSheet.swift:137](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L137) | ux-structure leaf callbacks | `Toggle("Remember this desktop", isOn: Binding(get: { remember }, set: {` |
+| [x] | [CompanionPairingSheet.swift:152](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L152) | ux-structure leaf callbacks | `ToolbarItem(placement: .cancellationAction) {` |
+| [x] | [CompanionPairingSheet.swift:159](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L159) | ux-structure leaf callbacks | `Button {` |
 | [ ] | [CompanionPlanLimitsView.swift:9](../Annex/Annex/Companion/Views/CompanionPlanLimitsView.swift#L9) | Follow-up owner to assign | `NavigationLink { CompanionPlanLimitsView(store: store) } label: {` |
 | [ ] | [CompanionProjectPage.swift:50](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L50) | Project lane | Native Project options menu opening; the Project info item itself is instrumented. |
 | [ ] | [CompanionProjectPage.swift:193](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L193) | Follow-up owner to assign | `NavigationLink(value: run.target) { label }` |
 | [ ] | [CompanionProjectPage.swift:241](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L241) | Follow-up owner to assign | `NavigationLink {` |
 | [ ] | [CompanionProjectPage.swift:318](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L318) | Follow-up owner to assign | `Picker("Agent", selection: $selection) {` |
-| [ ] | [CompanionQRPairing.swift:37](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L37) | Follow-up owner to assign | `Button("Cancel", systemImage: "xmark", action: onCancel)` |
-| [ ] | [CompanionQRPairing.swift:49](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L49) | Follow-up owner to assign | `Button("Pair manually", action: onCancel).buttonStyle(.glass).controlSize(.large).padding(.top, 12)` |
-| [ ] | [CompanionQRPairing.swift:127](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L127) | Follow-up owner to assign | `Toggle("Remember this desktop", isOn: $remember)` |
-| [ ] | [CompanionQRPairing.swift:138](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L138) | Follow-up owner to assign | `Button { Task { await pair() } } label: {` |
-| [ ] | [CompanionQRPairing.swift:142](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L142) | Follow-up owner to assign | `Button("Scan again", action: onScanAgain).disabled(isPairing)` |
+| [x] | [CompanionQRPairing.swift:37](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L37) | ux-structure leaf callbacks | `Button("Cancel", systemImage: "xmark") {` |
+| [x] | [CompanionQRPairing.swift:52](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L52) | ux-structure leaf callbacks | `Button("Pair manually") {` |
+| [x] | [CompanionQRPairing.swift:133](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L133) | ux-structure leaf callbacks | `Toggle("Remember this desktop", isOn: Binding(get: { remember }, set: {` |
+| [x] | [CompanionQRPairing.swift:148](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L148) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionQRPairing.swift:155](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L155) | ux-structure leaf callbacks | `Button("Scan again") {` |
 | [ ] | [CompanionQuestionCard.swift:29](../Annex/Annex/Companion/Views/CompanionQuestionCard.swift#L29) | Chat lane / follow-up owner | `Button {` |
 | [ ] | [CompanionQuestionCard.swift:62](../Annex/Annex/Companion/Views/CompanionQuestionCard.swift#L62) | Chat lane / follow-up owner | `Button("Send answers", systemImage: "arrow.up") { respond(answers) }` |
 | [ ] | [CompanionRecoveryStatusView.swift:68](../Annex/Annex/Companion/Views/CompanionRecoveryStatusView.swift#L68) | Follow-up owner to assign | `Button { onRetry(action) } label: {` |
@@ -345,16 +351,16 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionSpawnSheet.swift:561](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L561) | Managed-create lane | `Button {` |
 | [ ] | [CompanionSpawnSheet.swift:589](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L589) | Managed-create lane | `Button("Check again") { Task { if await store.checkCreateOutcome() { dismiss() } } }` |
 | [ ] | [CompanionSpawnSheet.swift:591](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift#L591) | Managed-create lane | `Button("I've checked the agents") { confirmReviewedCreate = true }` |
-| [ ] | [CompanionTerminalView.swift:66](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L66) | Follow-up owner to assign | `Button { dismiss() } label: {` |
-| [ ] | [CompanionTerminalView.swift:73](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L73) | Follow-up owner to assign | `Menu {` |
-| [ ] | [CompanionTerminalView.swift:74](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L74) | Follow-up owner to assign | `Button("Copy all", systemImage: "doc.on.doc") {` |
-| [ ] | [CompanionTerminalView.swift:78](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L78) | Follow-up owner to assign | `if case .exited = session.state { Button(restartLabel, systemImage: "arrow.clockwise") { session.restart() } }` |
-| [ ] | [CompanionTerminalView.swift:79](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L79) | Follow-up owner to assign | `if case .failed = session.state { Button("Try again", systemImage: "arrow.clockwise") { session.restart() } }` |
-| [ ] | [CompanionTerminalView.swift:186](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L186) | Follow-up owner to assign | `if let action { Button(action.0, action: action.1).font(.footnote.weight(.semibold)).accessibilityIdentifier("terminal-retry") }` |
-| [ ] | [CompanionTerminalView.swift:231](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L231) | Follow-up owner to assign | `PasteButton(payloadType: String.self) { strings in` |
-| [ ] | [CompanionTerminalView.swift:236](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L236) | Follow-up owner to assign | `Button { focus.toggle() } label: {` |
-| [ ] | [CompanionTerminalView.swift:251](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L251) | Follow-up owner to assign | `Button(action: action) {` |
-| [ ] | [CompanionTerminalView.swift:261](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L261) | Follow-up owner to assign | `Button(action: action) {` |
+| [x] | [CompanionTerminalView.swift:67](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L67) | ux-structure leaf callbacks | `Button {` |
+| [ ] | [CompanionTerminalView.swift:77](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L77) | Native opening hook pending | `Menu {` |
+| [x] | [CompanionTerminalView.swift:78](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L78) | ux-structure leaf callbacks | `Button("Copy all", systemImage: "doc.on.doc") {` |
+| [x] | [CompanionTerminalView.swift:83](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L83) | ux-structure leaf callbacks | `if case .exited = session.state {` |
+| [x] | [CompanionTerminalView.swift:83](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L83) | ux-structure leaf callbacks | `if case .exited = session.state {` |
+| [x] | [CompanionTerminalView.swift:203](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L203) | ux-structure leaf callbacks | `if let action {` |
+| [x] | [CompanionTerminalView.swift:256](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L256) | ux-structure leaf callbacks | `PasteButton(payloadType: String.self) { strings in` |
+| [x] | [CompanionTerminalView.swift:262](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L262) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionTerminalView.swift:279](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L279) | ux-structure leaf callbacks | `private func key(_ title: String, _ label: String, id: String, control: AnnexUIAction.Control, selected: Bool = false, action: @escaping () -> Void) -> some View {` |
+| [x] | [CompanionTerminalView.swift:292](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L292) | ux-structure leaf callbacks | `private func icon(_ systemImage: String, _ label: String, id: String, control: AnnexUIAction.Control, action: @escaping () -> Void) -> some View {` |
 | [ ] | [CompanionTimelineCards.swift:63](../Annex/Annex/Companion/Views/CompanionTimelineCards.swift#L63) | Chat lane / follow-up owner | `Button("Copy message", systemImage: "doc.on.doc") { UIPasteboard.general.string = message.text }` |
 | [ ] | [CompanionTimelineCards.swift:118](../Annex/Annex/Companion/Views/CompanionTimelineCards.swift#L118) | Chat lane / follow-up owner | `Button("Remove from queue", systemImage: "minus.circle", action: removeQueued)` |
 | [ ] | [CompanionTimelineCards.swift:132](../Annex/Annex/Companion/Views/CompanionTimelineCards.swift#L132) | Chat lane / follow-up owner | `Button("Try sending again", action: retry).font(.subheadline.weight(.semibold)).disabled(!canRetry)` |
@@ -371,10 +377,10 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionTimelineCards.swift:789](../Annex/Annex/Companion/Views/CompanionTimelineCards.swift#L789) | Chat lane / follow-up owner | `Menu("More", systemImage: "ellipsis") {` |
 | [ ] | [CompanionTimelineCards.swift:792](../Annex/Annex/Companion/Views/CompanionTimelineCards.swift#L792) | Chat lane / follow-up owner | `Button(option.label) { choose(option) }.disabled(option.allows && !canAllow)` |
 | [ ] | [CompanionTimelineCards.swift:811](../Annex/Annex/Companion/Views/CompanionTimelineCards.swift#L811) | Chat lane / follow-up owner | `Button {` |
-| [ ] | [CompanionWelcome.swift:32](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L32) | Follow-up owner to assign | `Button(action: onPair) { Text("Pair your Mac").frame(maxWidth: .infinity) }` |
-| [ ] | [CompanionWelcome.swift:34](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L34) | Follow-up owner to assign | `Button("Look around first", action: onDemo).buttonStyle(.glass).controlSize(.large)` |
-| [ ] | [CompanionWelcome.swift:78](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L78) | Follow-up owner to assign | `Button("Pair your Mac", action: onPair).buttonStyle(.glassProminent).companionProminentLabel()` |
-| [ ] | [CompanionWelcome.swift:79](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L79) | Follow-up owner to assign | `Button("Close demo", systemImage: "xmark", action: onClose).labelStyle(.iconOnly).buttonStyle(.glass)` |
+| [x] | [CompanionWelcome.swift:33](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L33) | ux-structure leaf callbacks | `Button {` |
+| [x] | [CompanionWelcome.swift:38](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L38) | ux-structure leaf callbacks | `Button("Look around first") {` |
+| [x] | [CompanionWelcome.swift:85](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L85) | ux-structure leaf callbacks | `Button("Pair your Mac") {` |
+| [x] | [CompanionWelcome.swift:85](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L85) | ux-structure leaf callbacks | `Button("Pair your Mac") {` |
 
 ## Completion evidence
 
@@ -388,22 +394,23 @@ The vocabulary includes the adopted `projectInfo` screen and reserves `workspace
 
 The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
 
-## Native link, share and photo-picker callbacks still pending
 
-These native controls retain their system activation behavior. They need the separately verified hook or their owning lane's explicit selection callback; no content or destination value may enter telemetry.
+## Additional explicit callbacks and remaining context
 
-| Pending | File | Interaction / owner |
+| Status | File | Interaction / remaining work |
 |---|---|---|
-| [ ] | [CompanionWelcome.swift:38](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L38) | Website Link opening; native hook spike/decision. |
-| [ ] | [CompanionQRPairing.swift:29](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L29) | System Settings Link opening; native hook spike/decision. |
-| [ ] | [CompanionDiagnosticsView.swift:83](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L83) | Reviewed export ShareLink; native hook spike/decision. |
-| [ ] | [CompanionMarkdownBlockViews.swift:284](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L284) | Preview ShareLink; chat owner plus verified native hook. |
-| [ ] | [CompanionContentView.swift:176](../Annex/Annex/Companion/Views/CompanionContentView.swift#L176) | Image ShareLink; content/chat owner plus verified native hook. |
-| [ ] | [CompanionAttachments.swift:33](../Annex/Annex/Companion/Views/CompanionAttachments.swift#L33) | Native photo-picker opening and explicit selection; chat owner. Never export image/content/selection identifiers. |
+| [x] | [CompanionPlanLimitsView.swift](../Annex/Annex/Companion/Views/CompanionPlanLimitsView.swift) | User pull-to-refresh only; automatic polls excluded. |
+| [x] | [CompanionHelperPresetsView.swift](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift) | User pull-to-refresh only; reconnect and foreground reads excluded. |
+| [x] | [CompanionPairingSheet.swift](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift) | Shared phone-name field submit records `.renamePhone` with explicit originating context, never the name. |
+| [ ] | [CompanionAppRoot.swift](../Annex/Annex/Companion/Views/CompanionAppRoot.swift) | Settings owner must supply `.settings` context to the shared phone-name field. Shared file stays with Root/settings owner. |
+| [ ] | [CompanionSpawnSheet.swift](../Annex/Annex/Companion/Views/CompanionSpawnSheet.swift) | Managed-create owner supplies `.newAgent` context to shared swatches. Native picker openings and remaining buttons retain their individual checklist entries above. |
+| [ ] | [CompanionConversationView.swift](../Annex/Annex/Companion/Views/CompanionConversationView.swift) | Chat owner supplies `.conversation` context to inline Terminal panes (and the other instrumented shared controls). |
+| [ ] | [CompanionDiagnosticsView.swift](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift) | Native export ShareLink needs the separately verified interaction hook. |
+| [ ] | [CompanionAppUpdateView.swift](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift) | Root/settings owner supplies originating context to inline shared Check for updates actions; the standalone update page supplies `.desktopUpdate` itself. |
 
 ## Embedded feedback SDK controls
 
-The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swift`; the composer and screenshot editor controls themselves live in the vendored FramebriarUI sources below. They are remaining integration sites, not instrumented by changing the vendor in this PR. **Requires an upstream Framebriar change (optional enum-only interaction callback), then re-vendor.** This also covers the enrollment controls in `FeedbackModel.swift`. CI verifies the vendored directory byte-for-byte against `Vendor/Framebriar/SOURCE.json`; never instrument those files in place. After the upstream tag is re-vendored, the app-owned boundary can adopt its callback without forwarding any SDK data. Never forward feedback text, screenshots, marks, ink values or identifiers into telemetry.
+The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swift`; the composer and screenshot editor controls themselves live in the vendored FramebriarUI sources below. They are remaining integration sites, not instrumented by changing the vendor in this PR. **Requires an upstream Framebriar change (optional enum-only interaction callback), then re-vendor.** This includes the enrollment controls in `FeedbackModel.swift`. CI verifies the vendored directory byte-for-byte against `Vendor/Framebriar/SOURCE.json`; never instrument those files in place. After the upstream tag is re-vendored, the app-owned boundary can adopt its callback without forwarding any SDK data. Never forward feedback text, screenshots, marks, ink values or identifiers into telemetry.
 
 | Pending | SDK file and line | Source interaction |
 |---|---|---|

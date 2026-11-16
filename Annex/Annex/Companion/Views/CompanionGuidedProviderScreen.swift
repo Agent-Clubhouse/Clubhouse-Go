@@ -39,6 +39,7 @@ private struct CompanionGuidedProviderForm: View {
             Section("Choose a provider") {
                 ForEach(settings.options.orchestrators, id: \.id) { provider in
                     Button {
+                        CompanionUIActions.record(.selectProvider, on: .providerSettings)
                         Task { await flow.select(provider.id) }
                     } label: {
                         VStack(alignment: .leading, spacing: 4) {
@@ -63,7 +64,10 @@ private struct CompanionGuidedProviderForm: View {
             if flow.blocksMutations {
                 Section {
                     Text("This action is not confirmed yet. Other changes stay locked until its result is known.")
-                    Button("Check previous result") { Task { await flow.checkPreviousResult() } }
+                    Button("Check previous result") {
+                            CompanionUIActions.record(.checkProviderResult, on: .providerSettings)
+                            Task { await flow.checkPreviousResult() }
+                        }
                         .disabled(flow.busy || store.host(for: target)?.connection.canOperate != true)
                         .accessibilityIdentifier("provider-check-result")
                 }
@@ -71,17 +75,26 @@ private struct CompanionGuidedProviderForm: View {
                 if let preview = flow.preview { previewSection(preview.outcome) }
                 if flow.selectedProvider != nil && !flow.startRequested {
                     Section {
-                        Button("Refresh preview") { Task { await flow.refresh() } }
+                        Button("Refresh preview") {
+                            CompanionUIActions.record(.refresh, on: .providerSettings)
+                            Task { await flow.refresh() }
+                        }
                             .disabled(!flow.canChoose)
                             .accessibilityIdentifier("provider-refresh")
                         if flow.savedProvider == nil {
-                            Button("Save provider") { Task { await flow.save() } }
+                            Button("Save provider") {
+                            CompanionUIActions.record(.saveProvider, on: .providerSettings)
+                            Task { await flow.save() }
+                        }
                                 .disabled(!flow.canSave)
                                 .accessibilityIdentifier("provider-save")
                         } else {
                             Text("Provider saved. Starting is a separate action.")
                                 .accessibilityIdentifier("provider-saved")
-                            Button("Start new session") { confirmStart = true }
+                            Button("Start new session") {
+                                CompanionUIActions.record(.startNewSession, on: .providerSettings)
+                                confirmStart = true
+                            }
                                 .disabled(!flow.canStart)
                                 .accessibilityIdentifier("provider-start-new")
                         }
@@ -97,9 +110,13 @@ private struct CompanionGuidedProviderForm: View {
             }
         }
         .accessibilityIdentifier("provider-flow")
+        .companionTelemetryScreen(.providerSettings)
         .confirmationDialog("Start a new session?", isPresented: $confirmStart, titleVisibility: .visible) {
-            Button("Start new session") { Task { await flow.startNew() } }
-            Button("Cancel", role: .cancel) {}
+            Button("Start new session") {
+                CompanionUIActions.record(.confirm, on: .providerSettings)
+                Task { await flow.startNew() }
+            }
+            Button("Cancel", role: .cancel) { CompanionUIActions.record(.cancel, on: .providerSettings) }
         } message: {
             Text("Start \(store.agent(for: target)?.name ?? "this agent") with \(name(flow.savedProvider ?? "")) on \(store.host(for: target)?.name ?? "the desktop")? This can use provider quota. Previous native context is not transferred.")
         }
