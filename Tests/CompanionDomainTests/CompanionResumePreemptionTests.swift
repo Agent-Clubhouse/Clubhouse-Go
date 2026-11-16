@@ -47,14 +47,16 @@ private actor ResumePreparationGate {
         lifecycle.update(.background)
         await lifecycle.settle()
         lifecycle.update(.active)
-        try #require(try await wait { await preparation.waiting })
+        let preparationIsHeld = try await wait { await preparation.waiting }
+        try #require(preparationIsHeld)
         lifecycle.update(.background)
         let suspendedWhileHeld = try await wait { transitions == [false, true, false] }
         #expect(suspendedWhileHeld, "Background must start before the held foreground preparation returns")
         #expect(!resumed)
         await preparation.release()
         await lifecycle.settle()
-        #expect(try await wait { resumed })
+        let resumeFinished = try await wait { resumed }
+        #expect(resumeFinished)
         #expect(sawCancellation)
     }
 
@@ -74,13 +76,16 @@ private actor ResumePreparationGate {
         lifecycle.update(.background)
         await lifecycle.settle()
         lifecycle.update(.active)
-        try #require(try await wait { await preparation.waiting })
+        let preparationIsHeld = try await wait { await preparation.waiting }
+        try #require(preparationIsHeld)
         lifecycle.update(.background)
-        try #require(try await wait { await disconnect.waiting })
+        let disconnectIsHeld = try await wait { await disconnect.waiting }
+        try #require(disconnectIsHeld)
         lifecycle.update(.active)
         #expect(foregrounds == 1, "A fresh foreground cannot overtake the held disconnect")
         await disconnect.release()
-        #expect(try await wait { foregrounds == 2 }, "Fresh foreground must not wait for cancelled old preparation")
+        let freshForegroundStarted = try await wait { foregrounds == 2 }
+        #expect(freshForegroundStarted, "Fresh foreground must not wait for cancelled old preparation")
         await lifecycle.settle()
         #expect(await preparation.waiting)
         await preparation.release()
@@ -117,7 +122,8 @@ private actor ResumePreparationGate {
         let registration = AnnexTransportRegistry.Registration(host: try LiveServiceHarness.trustedHost(), alias: "First registration", transport: transport)
         let registering = Task { await service.register(registration, beforeIconWork: { await preparation.hold() }) }
         do {
-            try #require(try await wait { await preparation.waiting })
+            let preparationIsHeld = try await wait { await preparation.waiting }
+            try #require(preparationIsHeld)
             #expect(service.registeredHostIDs.isEmpty, "This regression must start before LiveService owns the host")
             await service.suspend()
             if returnToForeground { await service.resume() }
@@ -126,10 +132,12 @@ private actor ResumePreparationGate {
             #expect(service.registeredHostIDs == [LiveServiceHarness.hostID], "An uncancelled first registration must not disappear across lifecycle changes")
             if !returnToForeground {
                 #expect(await transport.connectCount == 0)
-                #expect(try await wait { store.hosts.first?.connection == .offline })
+                let registeredOffline = try await wait { store.hosts.first?.connection == .offline }
+                #expect(registeredOffline)
                 await service.resume()
             }
-            #expect(try await wait { store.hosts.first?.connection == .connected })
+            let registeredConnected = try await wait { store.hosts.first?.connection == .connected }
+            #expect(registeredConnected)
             #expect(await transport.connectCount == 1)
         } catch {
             registering.cancel()
@@ -159,7 +167,8 @@ private actor ResumePreparationGate {
             return [LiveServiceHarness.hostID]
         }
         try await withHeldResume(h, preparation: preparation) { oldResume in
-            try #require(try await wait { await preparation.waiting })
+            let preparationIsHeld = try await wait { await preparation.waiting }
+            try #require(preparationIsHeld)
             oldResume.cancel()
             await h.service.suspend()
             h.service.prepareResume = nil
@@ -182,7 +191,8 @@ private actor ResumePreparationGate {
         await h.service.suspend()
         h.service.prepareResume = { await preparation.hold(); return [] }
         try await withHeldResume(h, preparation: preparation) { oldResume in
-            try #require(try await wait { await preparation.waiting })
+            let preparationIsHeld = try await wait { await preparation.waiting }
+            try #require(preparationIsHeld)
             // Even a caller that does not propagate cancellation cannot revive an old lifecycle generation.
             await h.service.suspend()
             h.service.prepareResume = nil
