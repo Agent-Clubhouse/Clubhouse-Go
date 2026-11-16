@@ -226,8 +226,7 @@ struct CompanionElevatedAccessBadge: View {
     let label: String
     @Environment(\.companionPalette) private var palette
     var body: some View {
-        Label(label, systemImage: "exclamationmark.shield.fill")
-            .labelStyle(.titleAndIcon)
+        Text(label)
             .font(.caption2.weight(.bold))
             .foregroundStyle(Color(palette.error))
             .padding(.horizontal, 6).padding(.vertical, 1)
@@ -435,5 +434,46 @@ extension View {
     /// A CLI's live model list can run long; past a dozen it opens as its own scrolling list rather than a menu.
     @ViewBuilder func companionModelPickerStyle(count: Int) -> some View {
         if count > CompanionAgentOptions.menuModelLimit { pickerStyle(.navigationLink) } else { self }
+    }
+}
+
+/// A section action or pull-down: text first, with only the menu's trailing disclosure glyph.
+struct CompanionAccessoryLabel: View {
+    let title: String
+    var isMenu = false
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(title)
+            if isMenu { Image(systemName: "chevron.down").font(.caption.weight(.semibold)).accessibilityHidden(true) }
+        }
+        .font(.subheadline.weight(.semibold))
+        .foregroundStyle(Color(palette.tint))
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(title)
+    }
+}
+
+/// The same context ring in toolbars and details; an empty ring means the reading is unknown.
+struct CompanionContextRing: View {
+    var percent: Int? = nil
+    var monochrome = false
+    @Environment(\.companionPalette) private var palette
+    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 18
+
+    var body: some View {
+        ZStack {
+            Circle().stroke(Color(palette.separator), lineWidth: 2)
+            if let percent {
+                Circle().trim(from: 0, to: CGFloat(max(0, min(100, percent))) / 100)
+                    .stroke(Color(monochrome ? palette.label : (percent >= 90 ? palette.error : palette.secondaryLabel)),
+                            style: .init(lineWidth: 2, lineCap: .round))
+                    .rotationEffect(.degrees(-90))
+            }
+        }
+        .frame(width: size, height: size)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(percent.map { "Context \($0)% full" } ?? "Context usage unknown")
     }
 }

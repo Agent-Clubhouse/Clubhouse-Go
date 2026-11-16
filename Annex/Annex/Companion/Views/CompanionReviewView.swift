@@ -21,13 +21,11 @@ extension EnvironmentValues {
 /// The Review button for Home and Needs you.
 struct CompanionReviewButton: View {
     var needsYouOnly: Bool
-    var showsTitle = false
     @Environment(\.companionOpenReview) private var openReview
     var body: some View {
         if let openReview {
             Button { openReview(.init(needsYouOnly: needsYouOnly)) } label: {
-                if showsTitle { Text("Review") }
-                else { Label("Review", systemImage: "rectangle.stack") }
+                CompanionAccessoryLabel(title: "Review")
             }
                 .accessibilityIdentifier("companion-open-review")
                 .accessibilityHint("Step through your agents' chats one at a time")

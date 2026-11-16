@@ -40,10 +40,12 @@ struct CompanionConversationPendingDecisions: View {
                                 .disabled(index + 1 == queue.count)
                                 .accessibilityIdentifier("companion-pinned-decision-next")
                         }
-                        Button("Show in chat", systemImage: "text.bubble") { showInChat(decision.id) }
+                        Button(compact ? "Chat" : "Show in chat") { showInChat(decision.id) }
+                            .accessibilityLabel("Show in chat")
+                            .font(.subheadline).fixedSize(horizontal: false, vertical: true)
                             .accessibilityHint("Scrolls to the original request and its full context. Sends nothing.")
                             .accessibilityIdentifier("companion-decision-show-in-chat")
-                        Button("Review request", systemImage: "hand.raised.fill") {
+                        Button(compact ? "Review" : "Review request") {
                             let requestID: String
                             switch decision {
                             case .approval(let approval): requestID = approval.id
@@ -51,6 +53,7 @@ struct CompanionConversationPendingDecisions: View {
                             }
                             review = .init(target: target, approvalID: requestID, presentation: presentation)
                         }
+                            .font(.subheadline).fixedSize(horizontal: false, vertical: true)
                             .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary)\(queue.count > 1 ? ", \(index + 1) of \(queue.count)" : "")")
                             .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
                             .accessibilityIdentifier("companion-review-approval")
