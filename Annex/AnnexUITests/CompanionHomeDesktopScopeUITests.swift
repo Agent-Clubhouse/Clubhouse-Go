@@ -35,7 +35,7 @@ import XCTest
         let remove = app.buttons["Report Travel desktop removed"]
         XCTAssertTrue(scrollUntilExists(remove, in: app) && scrollTo(remove, in: app))
         remove.tap()
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         XCTAssertTrue(app.buttons.matching(identifier: "agent-preview-studio-river").firstMatch.waitForExistence(timeout: 10), "The chip owner must reconcile even as its row disappears")
         XCTAssertFalse(app.buttons["desktop-chip-all"].exists)
         XCTAssertFalse(app.buttons.matching(identifier: "agent-preview-laptop-river").firstMatch.exists)
