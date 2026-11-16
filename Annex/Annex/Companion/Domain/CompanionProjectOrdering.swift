@@ -40,30 +40,49 @@ struct CompanionProjectMember: Identifiable, Sendable, Equatable {
 
 enum CompanionLinkedProjects {
     static func entries(hosts: [CompanionHost], links: [AnnexProjectLinks.Group]) -> [CompanionProjectEntry] {
-        let all = hosts.flatMap { host in host.projects.map { CompanionProjectMember(host: host, project: $0) } }
-        let catalog = Dictionary(all.map { (AnnexProjectLinks.Reference(machine: $0.host.id.lowercased(), projectId: $0.project.id), $0) },
-                                 uniquingKeysWith: { first, _ in first })
-        var groups: [CompanionProjectTarget: CompanionProjectEntry] = [:]
+        // Keep large Host/Member values out of nested generic flatMap/compactMap frames.
+        // This runs when Store receives a catalog generation, never while a header builds its menu.
+        var all: [CompanionProjectMember] = []
+        var catalog: [AnnexProjectLinks.Reference: Int] = [:]
+        for host in hosts {
+            for project in host.projects {
+                let key = AnnexProjectLinks.Reference(machine: host.id.lowercased(), projectId: project.id)
+                if catalog[key] == nil { catalog[key] = all.count }
+                all.append(.init(host: host, project: project))
+            }
+        }
+        var groups: [CompanionProjectTarget: Int] = [:]
+        var linkedEntries: [CompanionProjectEntry] = []
         var claimed: Set<CompanionProjectTarget> = []
         for link in links {
             var seen: Set<AnnexProjectLinks.Reference> = []
-            let members = link.projects.compactMap { ref -> CompanionProjectMember? in
+            var members: [CompanionProjectMember] = []
+            for ref in link.projects {
                 let key = AnnexProjectLinks.Reference(machine: ref.machine.lowercased(), projectId: ref.projectId)
-                return seen.insert(key).inserted ? catalog[key] : nil
+                if seen.insert(key).inserted, let index = catalog[key] { members.append(all[index]) }
             }
             // Desktop groups are disjoint. Never duplicate a project if a malformed replica overlaps them.
             guard members.count > 1, members.allSatisfy({ !claimed.contains($0.id) }), let first = members.first else { continue }
             var project = first.project
             if let name = link.name, !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { project.name = name }
-            project.agents = members.flatMap(\.project.agents)
-            let entry = CompanionProjectEntry(host: first.host, project: project, linkedMembers: members, linkID: link.id)
-            for member in members { groups[member.id] = entry; claimed.insert(member.id) }
+            project.agents = []
+            for member in members { project.agents.append(contentsOf: member.project.agents) }
+            let index = linkedEntries.count
+            linkedEntries.append(.init(host: first.host, project: project, linkedMembers: members, linkID: link.id))
+            for member in members { groups[member.id] = index; claimed.insert(member.id) }
         }
         var emitted: Set<CompanionProjectTarget> = []
-        return all.compactMap { member in
-            let entry = groups[member.id] ?? .init(host: member.host, project: member.project)
-            return emitted.insert(entry.id).inserted ? entry : nil
+        var result: [CompanionProjectEntry] = []
+        result.reserveCapacity(all.count)
+        for member in all {
+            if let index = groups[member.id] {
+                let entry = linkedEntries[index]
+                if emitted.insert(entry.id).inserted { result.append(entry) }
+            } else if emitted.insert(member.id).inserted {
+                result.append(.init(host: member.host, project: member.project))
+            }
         }
+        return result
     }
 }
 
@@ -128,11 +147,21 @@ enum CompanionAgentOrdering {
 
 extension CompanionStore {
     var projectEntries: [CompanionProjectEntry] {
-        CompanionLinkedProjects.entries(hosts: hosts, links: projectLinks?.projectLinks ?? [])
+        // Register the catalog dependency even though the prebuilt cache itself is ignored by Observation.
+        _ = projectCatalogRevision
+        return cachedProjectEntries
     }
     func projectEntry(containing target: CompanionProjectTarget) -> CompanionProjectEntry? {
-        projectEntries.first { $0.members.contains { $0.id == target } }
+        projectEntries.first { $0.id == target || $0.linkedMembers.contains { $0.id == target } }
     }
+    /// A render snapshot is display context, never command authority. Resolve again at the tap.
+    func resolveProjectActionEntry(containing target: CompanionProjectTarget, expectedLinkID: String?, hostID: String? = nil) -> CompanionProjectEntry? {
+        guard let current = projectEntry(containing: target), current.linkID == expectedLinkID else { return nil }
+        guard let hostID else { return current }
+        guard current.members.contains(where: { $0.host.id == hostID }) else { return nil }
+        return CompanionHomeScope(hosts: hosts, selectedHostID: hostID).projects([current]).first
+    }
+
     func projectName(for target: CompanionTarget) -> String? {
         if isDispatcher(target) { return CompanionDispatcher.name }
         return projectEntry(containing: .init(hostID: target.hostID, projectID: target.projectID))?.project.name

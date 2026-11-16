@@ -7,8 +7,20 @@ import Observation
 @MainActor @Observable final class CompanionStore {
     // Concrete service/persistence ownership is reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
-    var hosts: [CompanionHost] = []
-    private var projectLinksSourceID: String?
+    var hosts: [CompanionHost] = [] {
+        didSet { rebuildProjectCatalog() }
+    }
+    @ObservationIgnored private(set) var cachedProjectEntries: [CompanionProjectEntry] = []
+    private(set) var projectCatalogRevision: UInt64 = 0
+    private var projectLinksSourceID: String? {
+        didSet { if oldValue != projectLinksSourceID { rebuildProjectCatalog() } }
+    }
+
+    /// Build at snapshot mutation time, outside SwiftUI's deep List/context-menu accumulation.
+    private func rebuildProjectCatalog() {
+        cachedProjectEntries = CompanionLinkedProjects.entries(hosts: hosts, links: projectLinks?.projectLinks ?? [])
+        projectCatalogRevision &+= 1
+    }
     var projectLinks: AnnexProjectLinks? {
         let capable = hosts.filter { $0.canLinkProjects && $0.projectLinks != nil }
         let connected = capable.filter { $0.connection.canOperate }

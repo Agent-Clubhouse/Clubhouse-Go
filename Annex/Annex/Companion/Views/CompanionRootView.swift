@@ -313,6 +313,9 @@ struct CompanionHomeView: View {
     var onNewAgent: (CompanionProjectTarget, String?) -> Void
     var isPreview = false
     var onInteraction: () -> Void = {}
+    #if DEBUG
+    var hostedProjectMenu: ((CompanionLinkedProjectStateMenuItems) -> Void)? = nil
+    #endif
     @State private var arranging = false
     @State private var desktopSelection: CompanionDesktopSelection = .all
     @State private var expandedOfflineHosts: Set<String> = []
@@ -635,58 +638,72 @@ struct CompanionHomeView: View {
     private func projectHeader(_ group: CompanionProjectGroup) -> some View {
         let entry = group.entry
         let projectID = "\(entry.host.id)-\(entry.project.id)"
+        // Bound the Debug builder's generic value storage. Reuse one erased menu for
+        // all three gesture targets and both accessibility action surfaces.
+        let menu = CompanionHomeProjectHeaderMenu(content: AnyView(projectContextMenuItems(group)))
         let headerLayout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
                 : AnyLayout(HStackLayout(spacing: 6))
         return headerLayout {
-            HStack(spacing: 6) {
-                CompanionProjectBadge(project: entry.project)
-                    .overlay(alignment: .bottomTrailing) {
-                        if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
-                            Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
-                                .accessibilityHidden(true)
-                        }
-                    }
-                projectLink(entry)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contextMenu { projectContextMenuItems(group) }
-                    .accessibilityActions { projectContextMenuItems(group) }
-                    .accessibilityLabel("Open \(entry.project.name)")
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
-                if group.isPinned {
-                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
-                        .accessibilityLabel("Pinned")
-                }
-            }
-            HStack(spacing: 6) {
-                if entry.isLinked {
-                    let count = Set(entry.members.map(\.host.id)).count
-                    Label("\(count)", systemImage: "desktopcomputer")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
-                        .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
-                }
-                if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
-                Spacer(minLength: 0)
-                Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
-                    .buttonStyle(.borderless)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .disabled(!entry.canSpawn)
-                    .contextMenu { projectContextMenuItems(group) }
-                    .accessibilityActions { projectContextMenuItems(group) }
-                    .accessibilityIdentifier("project-new-agent-\(projectID)")
-                    .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
-            }
+            projectHeaderTitle(group, menu: menu)
+            projectHeaderActions(group, menu: menu)
         }
         .font(.subheadline.weight(.semibold))
         .textCase(nil)
         .opacity(group.isIdle ? 0.7 : 1)
         .contentShape(Rectangle())
-        .contextMenu { projectContextMenuItems(group) }
+        .contextMenu { menu }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("project-\(projectID)")
+    }
+
+    private func projectHeaderTitle(_ group: CompanionProjectGroup, menu: CompanionHomeProjectHeaderMenu) -> AnyView {
+        let entry = group.entry
+        return AnyView(HStack(spacing: 6) {
+            CompanionProjectBadge(project: entry.project)
+                .overlay(alignment: .bottomTrailing) {
+                    if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                        Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
+                            .accessibilityHidden(true)
+                    }
+                }
+            projectLink(entry)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contextMenu { menu }
+                .accessibilityActions { menu }
+                .accessibilityLabel("Open \(entry.project.name)")
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
+            if group.isPinned {
+                Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
+                    .accessibilityLabel("Pinned")
+            }
+        })
+    }
+
+    private func projectHeaderActions(_ group: CompanionProjectGroup, menu: CompanionHomeProjectHeaderMenu) -> AnyView {
+        let entry = group.entry
+        let projectID = "\(entry.host.id)-\(entry.project.id)"
+        return AnyView(HStack(spacing: 6) {
+            if entry.isLinked {
+                let count = Set(entry.members.map(\.host.id)).count
+                Label("\(count)", systemImage: "desktopcomputer")
+                    .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
+                    .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
+            }
+            if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
+            Spacer(minLength: 0)
+            Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
+                .buttonStyle(.borderless)
+                .frame(minWidth: 44, minHeight: 44)
+                .disabled(!entry.canSpawn)
+                .contextMenu { menu }
+                .accessibilityActions { menu }
+                .accessibilityIdentifier("project-new-agent-\(projectID)")
+                .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
+        })
     }
 
     private func observeConnectedHosts(_ hosts: [CompanionHost]) {
@@ -789,7 +806,7 @@ struct CompanionHomeView: View {
             canWake: entry.members.contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
             onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
         if store.linkedProjectState(catalogEntry) != nil {
-            CompanionLinkedProjectStateMenuItems(store: store, entry: catalogEntry, isIdle: group.isIdle)
+            linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
         } else if entry.isLinked {
             // Old hosts retain their per-copy state and days-idle rule.
             ForEach(entry.members) { member in
@@ -800,7 +817,7 @@ struct CompanionHomeView: View {
                         isPinned: state?.pinned ?? preferences.pinnedProjects.contains(single.orderKey),
                         isIdle: state?.idle ?? preferences.idleRule.isIdle(single.orderKey,
                             running: member.host.connection.canOperate && member.project.agents.contains(where: CompanionHomeLayout.isAwake),
-                            lastActivity: projectActivity(member.id), now: Date()), tree: group.tree))
+                            lastActivity: projectActivity(member.id), now: Date()), tree: group.tree), expectedLinkID: catalogEntry.linkID)
                 }
                 .disabled(state != nil && !member.host.connection.canOperate)
             }
@@ -814,7 +831,18 @@ struct CompanionHomeView: View {
         }
     }
 
-    private func beginProjectAction(_ action: CompanionProjectMachineAction, entry: CompanionProjectEntry) {
+    private func linkedStateMenu(entry: CompanionProjectEntry, isIdle: Bool) -> CompanionLinkedProjectStateMenuItems {
+        let menu = CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: isIdle)
+        #if DEBUG
+        hostedProjectMenu?(menu)
+        #endif
+        return menu
+    }
+
+    private func beginProjectAction(_ action: CompanionProjectMachineAction, entry rendered: CompanionProjectEntry) {
+        guard let entry = store.resolveProjectActionEntry(containing: rendered.id, expectedLinkID: rendered.linkID,
+                                                         hostID: desktopSelection.hostID),
+              entry.members.contains(where: { action.isAvailable($0, store: store, terminal: terminal) }) else { return }
         if entry.isLinked {
             choosingProjectAction = .init(project: entry.id, selection: desktopSelection, action: action)
         } else if let target = entry.members.first?.id { performProjectAction(action, on: target) }
@@ -841,11 +869,13 @@ struct CompanionHomeView: View {
         Task { await store.wake(wake.target, message: wake.message) }
     }
 
-    private func projectMenuItems(_ group: CompanionProjectGroup) -> some View {
+    private func projectMenuItems(_ group: CompanionProjectGroup, expectedLinkID: String? = nil) -> some View {
         let key = group.entry.orderKey, project = group.id
         let shared = store.sharedProjectState(project)
         let isMarked = shared?.inactive ?? preferences.inactiveProjects.contains(key)
         func change(local: @escaping () -> Void, remote: @escaping () async -> Void) {
+            guard let current = store.resolveProjectActionEntry(containing: project, expectedLinkID: expectedLinkID ?? group.entry.linkID),
+                  store.linkedProjectState(current) == nil else { return }
             if store.sharedProjectState(project) == nil { withAnimation(reduceMotion ? nil : .snappy) { local() } }
             else { Task { await remote() } }
         }
@@ -864,6 +894,12 @@ struct CompanionHomeView: View {
             }
         }
     }
+}
+
+/// A concrete boundary keeps the Home header's menu out of its inline generic row type.
+private struct CompanionHomeProjectHeaderMenu: View {
+    let content: AnyView
+    var body: AnyView { content }
 }
 
 /// A row that opens and closes a fold, with a turning chevron.
