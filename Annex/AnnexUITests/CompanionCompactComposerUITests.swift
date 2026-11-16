@@ -121,8 +121,21 @@ import XCTest
 
     private func focus(_ composer: XCUIElement, in app: XCUIApplication) {
         composer.tap()
+        dismissQuickPathIntroductionIfPresent(in: app)
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(composer.debugDescription.contains("Keyboard Focused"), "One tap focuses the draft")
+    }
+
+    /// A fresh isolated simulator can present this one-time system keyboard tutorial instead of the keys.
+    /// Do not treat any other missing keyboard as onboarding or change simulator keyboard settings.
+    private func dismissQuickPathIntroductionIfPresent(in app: XCUIApplication) {
+        let introduction = app.descendants(matching: .any).matching(identifier: "UIContinuousPathIntroductionView").firstMatch
+        if introduction.waitForExistence(timeout: 1) {
+            let proceed = introduction.buttons["Continue"]
+            XCTAssertTrue(proceed.waitForExistence(timeout: 3), "The exact QuickPath tutorial offers Continue")
+            proceed.tap()
+            XCTAssertTrue(introduction.waitForNonExistence(timeout: 3), "Continue dismisses only the QuickPath tutorial")
+        }
     }
 
     // MARK: Menus and confirmation
@@ -152,6 +165,7 @@ import XCTest
             app.collectionViews.count == 0 && app.buttons.matching(NSPredicate(format: "identifier IN %@", self.chatControlIDs)).count == 0
         }, timeout: 5)
         XCTAssertTrue(closed, "The chat-controls menu closes")
+        dismissQuickPathIntroductionIfPresent(in: app)
     }
 
     /// Cancels the Interrupt confirmation through its own Cancel button, scrolling the alert's actions at large sizes.
@@ -258,6 +272,11 @@ import XCTest
     }
 
     func testLargestTextWorkingAttachmentRowFits() throws {
+        // The captured equal-edge case must pass, while a real display-pixel overflow must fail.
+        let outer = CGRect(x: 16, y: 312, width: 370, height: 211.66668701171875)
+        let target = CGRect(x: 16, y: 479.66666666666663, width: 166.33333333333331, height: 44)
+        XCTAssertTrue(pixelContains(outer, target), "Equal pixel-rounded edges are contained")
+        XCTAssertFalse(pixelContains(outer, target.offsetBy(dx: 0, dy: 1 / max(UIScreen.main.scale, 1))), "A real one-pixel overflow fails")
         try workingRow(largestText: true)
     }
 
