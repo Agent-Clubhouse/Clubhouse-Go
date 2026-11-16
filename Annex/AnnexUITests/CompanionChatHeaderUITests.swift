@@ -144,6 +144,18 @@ import XCTest
         waitAndTap(usage, until: element(app, "companion-context-reading-note"), attempts: 1)
         XCTAssertTrue(app.navigationBars["Context and limits"].exists)
         XCTAssertTrue(app.buttons["companion-context-settings-row"].exists)
-        XCTAssertTrue(element(app, "companion-context-plan-limits-footer").exists)
+        let footer = element(app, "companion-context-plan-limits-footer")
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.staticTexts["companion-context-reading-note"].exists, "The reported context belongs to the presented sheet's List")
+        for _ in 0..<4 {
+            if footer.exists && footer.isHittable && pixelContains(list.frame.intersection(app.frame), footer.frame) { break }
+            list.swipeUp(velocity: .slow)
+        }
+        XCTAssertTrue(footer.exists && footer.isHittable, "The Settings disclosure remains reachable by scrolling the sheet")
+        XCTAssertEqual(footer.label, "Every desktop and provider: Settings › Plan limits.")
+        XCTAssertTrue(pixelContains(list.frame.intersection(app.frame), footer.frame))
+        let disclosure = XCTAttachment(screenshot: app.screenshot())
+        disclosure.name = "Review Cedar context footer after normal List scroll"
+        disclosure.lifetime = .keepAlways; add(disclosure)
     }
 }
