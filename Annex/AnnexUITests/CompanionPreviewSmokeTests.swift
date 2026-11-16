@@ -559,13 +559,14 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(app.buttons["Agent settings"].exists)
     }
 
-    /// Needs you says why in the desktop's words, and shows how long an approval has.
+    /// Needs you leads with the desktop's requested action, with tool and timeout metadata beneath it.
     func testNeedsYouUsesTheDesktopWords() {
         let app = launchApp(["--companion-preview"])
         let tab = app.tabBars.buttons["Needs you"]
         XCTAssertTrue(tab.waitForExistence(timeout: 15))
-        waitAndTap(tab, until: app.staticTexts["Needs permission to use Bash"], timeout: 10)
-        XCTAssertTrue(app.staticTexts["Run xcodebuild"].exists, "The request's title goes under the reason")
+        waitAndTap(tab, until: app.staticTexts["Run xcodebuild"], timeout: 10)
+        XCTAssertTrue(app.staticTexts["Bash"].exists, "The tool is metadata beneath the requested action")
+        XCTAssertFalse(app.staticTexts["Needs permission to use Bash"].exists)
         let countdown = app.descendants(matching: .any).matching(identifier: "companion-approval-countdown").firstMatch
         XCTAssertTrue(countdown.waitForExistence(timeout: 5))
         XCTAssertTrue(countdown.label.contains("Times out in"), countdown.label)

@@ -12,7 +12,7 @@ import XCTest
 
     func testOfflineNoticeKeepsReachableRequestAndScopedRetry() {
         let app = open("one-offline")
-        let request = app.staticTexts["Needs permission to use Bash"]
+        let request = app.staticTexts["Run xcodebuild"]
         XCTAssertTrue(request.waitForExistence(timeout: 10), "Reachable requests appear before availability notices")
         let retry = app.buttons["needs-you-retry-preview-laptop"]
         XCTAssertTrue(scrollUntilExists(retry, in: app))

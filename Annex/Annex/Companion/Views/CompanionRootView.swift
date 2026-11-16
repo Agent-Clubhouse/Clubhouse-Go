@@ -823,11 +823,19 @@ struct CompanionNeedsYouView: View {
     @Bindable var store: CompanionStore
     var decisions: CompanionDecisionQueue
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let items = store.attentionItems()
         let availability = CompanionAttentionAvailability(hosts: store.hosts)
         List {
+            if dynamicTypeSize.isAccessibilitySize, let connectionSummary {
+                Text(connectionSummary)
+                    .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("needs-you-availability-summary")
+                    .listRowBackground(Color.clear)
+            }
             if !store.attentionDecisionNotices.isEmpty {
                 Section {
                     CompanionDecisionNoticesView(store: store, notices: store.attentionDecisionNotices)
@@ -853,15 +861,24 @@ struct CompanionNeedsYouView: View {
             }
             if CompanionConnectionNotice(hosts: store.hosts).isVisible {
                 Section {
-                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "needs-you")
-                        .listRowBackground(Color.clear)
-                        .listRowInsets(EdgeInsets())
+                    VStack(alignment: .leading, spacing: 6) {
+                        CompanionDesktopConnectionBanner(store: store, identifierPrefix: "needs-you")
+                        Text(availability.unavailableHosts.count == 1 ? "Its requests show up when it reconnects." : "Their requests show up when they reconnect.")
+                            .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 12).padding(.bottom, 8)
+                    }
+                    .listRowBackground(Color.clear)
+                    .listRowInsets(EdgeInsets())
+                } header: {
+                    Text(availability.unavailableHosts.contains(where: \.isConnecting) ? "Unavailable desktops" : "Offline")
                 }
             }
         }
         .companionListStyle()
         .navigationTitle("Needs you")
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true) } }
+        .navigationSubtitle(subtitle(requestCount: items.count))
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true, showsTitle: true) } }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 ForEach(decisions.pending) { pending in
@@ -879,6 +896,24 @@ struct CompanionNeedsYouView: View {
         .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
             Button("OK", role: .cancel) { }
         } message: { Text(store.grantRequestNotice ?? "") }
+    }
+
+    private var connectionSummary: String? {
+        let unavailable = store.hosts.filter { !$0.connection.canOperate }
+        if unavailable.count == 1 {
+            let host = unavailable[0]
+            return "\(host.name) \(host.connection.presentation().label.lowercased())"
+        }
+        return unavailable.isEmpty ? nil : "\(unavailable.count) desktops not connected"
+    }
+
+    private func subtitle(requestCount: Int) -> Text {
+        let count = "\(requestCount) \(requestCount == 1 ? "request" : "requests")"
+        // The native subtitle has one line at accessibility sizes. Availability
+        // remains visible in the first scrolling row instead of a clipped line.
+        let connection = dynamicTypeSize.isAccessibilitySize ? nil : connectionSummary
+        return Text([count, connection].compactMap { $0 }.joined(separator: " · "))
+            .foregroundColor(Color(palette.secondaryLabel))
     }
 
     private func attentionRow(_ item: CompanionAttentionItem) -> some View {
@@ -938,6 +973,7 @@ struct CompanionAttentionCard: View {
     var decisions: CompanionDecisionQueue
     var multipleHosts: Bool
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -946,13 +982,20 @@ struct CompanionAttentionCard: View {
                 Text(item.agent.name).font(.subheadline.weight(.semibold))
                 if multipleHosts { CompanionHostTag(name: item.hostName) }
                 Spacer()
-                CompanionStatusText(status: item.agent.status).font(.caption.weight(.medium))
             }
-            Text(item.detail).font(.headline).fixedSize(horizontal: false, vertical: true)
-            if let prompt = item.prompt {
+            Text(item.cardHeadline).font(.headline).fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("attention-action-\(item.id)")
+            if let prompt = item.cardSupportingText {
                 Text(prompt).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel)).fixedSize(horizontal: false, vertical: true)
             }
-            if let deadline = item.deadline { CompanionApprovalCountdown(deadline: deadline) }
+            if item.cardToolName != nil || item.deadline != nil {
+                HStack(alignment: .firstTextBaseline, spacing: 6) {
+                    if let tool = item.cardToolName { Text(tool).accessibilityIdentifier("attention-tool-\(item.id)") }
+                    if item.cardToolName != nil && item.deadline != nil { Text("·") }
+                    if let deadline = item.deadline { CompanionApprovalCountdown(deadline: deadline) }
+                }
+                .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
+            }
             if case .approval(let approval) = item.kind, let detail = approval.detail, !detail.isEmpty {
                 Text(detail).font(.caption.monospaced()).lineLimit(4)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -970,19 +1013,26 @@ struct CompanionAttentionCard: View {
             Label("Sending in a moment…", systemImage: "clock").font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
         case .approval(let approval):
             let canRespond = store.canOperate(item.agent.id) && item.agent.capabilities.contains(.approve)
-            HStack(spacing: 8) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))
+            layout {
                 if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
                     Button { Task { await store.respond(approval, option: deny, target: item.agent.id) } } label: {
-                        Text(deny.label).frame(maxWidth: .infinity)
+                        Text(deny.label).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityIdentifier("attention-deny-\(item.id)")
                 }
                 if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
                     Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {
-                        Text(allow.label).frame(maxWidth: .infinity)
+                        Text(allow.label).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
                     .disabled(!store.canApprove(approval, target: item.agent.id))
+                    .accessibilityIdentifier("attention-allow-\(item.id)")
                 }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
