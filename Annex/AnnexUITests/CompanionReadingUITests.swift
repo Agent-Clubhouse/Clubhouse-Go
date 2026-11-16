@@ -261,7 +261,7 @@ import UIKit
         // This base hides the tab bar inside a chat; #211 supplies direct tab switching separately.
         app.navigationBars.buttons.element(boundBy: 0).tap()
         // iPad exposes these as top buttons outside a UITabBar.
-        app.buttons.matching(NSPredicate(format: "label == %@", "Agents")).firstMatch.tap()
+        app.buttons.matching(NSPredicate(format: "label == %@", "Search")).firstMatch.tap()
         app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch.tap()
         openRiver(app)
         XCTAssertTrue(anchor.waitForExistence(timeout: 10))

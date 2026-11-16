@@ -129,9 +129,9 @@ final class CompanionAgentTreeUITests: ReliableUITestCase {
         phase("return home and verify shared disclosure")
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertEqual(toggle.value as? String, "Collapsed", "Home and project share disclosure")
-        let agents = app.buttons.matching(identifier: "Agents").firstMatch
-        XCTAssertTrue(agents.waitForExistence(timeout: 5))
-        agents.tap()
+        let search = app.buttons.matching(NSPredicate(format: "label == %@", "Search")).firstMatch
+        XCTAssertTrue(search.waitForExistence(timeout: 5))
+        search.tap()
         phase("cross-project helper lookup")
         let maple = element(app, "agent-preview-studio-maple")
         XCTAssertTrue(scrollUntilExists(maple, in: app) && scrollTo(maple, in: app))
