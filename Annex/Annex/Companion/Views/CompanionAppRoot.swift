@@ -33,6 +33,25 @@ import ClubhouseTransport
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
     private(set) var restoredHostIDs: Set<String>?
+    #if DEBUG
+    private(set) var launchKeychainDiagnostic: CompanionLaunchKeychainDiagnostic?
+    #endif
+    var externalLaunchDiagnosticJSON: String? {
+        #if DEBUG
+        launchKeychainDiagnostic?.json
+        #else
+        nil
+        #endif
+    }
+    private var externalRestoreFailureAcknowledged = false
+    var externalLaunchRestorationReady: Bool {
+        (restoredHostIDs != nil || externalRestoreFailureAcknowledged) && !isRestoring && restoreError == nil
+    }
+    var externalLaunchRestorationFailed: Bool { externalRestoreFailureAcknowledged && restoredHostIDs == nil }
+    func acknowledgeRestoreError() {
+        if restoredHostIDs == nil && !isRestoring { externalRestoreFailureAcknowledged = true }
+        restoreError = nil
+    }
     private var started = false
     private var rediscovering: Set<String> = []
     private var nextRediscovery: [String: Date] = [:]
@@ -67,6 +86,9 @@ import ClubhouseTransport
     func start() async {
         guard !started else { return }
         started = true; isRestoring = true
+        #if DEBUG
+        launchKeychainDiagnostic = .probe()
+        #endif
         store.start()
         service.onUnreachable = { [weak self] hostID in Task { await self?.rediscover(hostID: hostID) } }
         service.onRoutes = { [weak self] hostID, routes in
@@ -99,8 +121,16 @@ import ClubhouseTransport
             let restored = try await registry.restoreSaved()
             #endif
             restoredHostIDs = Set(restored.map { $0.host.hostID })
+            #if DEBUG
+            launchKeychainDiagnostic?.restored()
+            #endif
             for registration in restored { await service.register(await answeringRoute(for: registration)) }
-        } catch { restoreError = CompanionLiveService.readableError(error) }
+        } catch {
+            #if DEBUG
+            launchKeychainDiagnostic?.failed(error)
+            #endif
+            restoreError = CompanionLiveService.readableError(error)
+        }
     }
     private func syncNetworkRegistrations() async {
         guard !syncingNetworkRegistrations else { return }
@@ -168,6 +198,9 @@ import ClubhouseTransport
         preferences.saveDeviceName()
         if remember { sessionHosts.remove(host.hostID) }
         else { sessionHosts.insert(host.hostID) }
+        // A successful current pairing establishes authority even if initial restoration failed.
+        // Start with this verified host only; cached identities remain untrusted.
+        if restoredHostIDs == nil { restoredHostIDs = [] }
         restoredHostIDs?.insert(host.hostID)
         await service.register(registration)
     }
@@ -248,6 +281,7 @@ struct CompanionAppRoot: View {
     /// Set once someone moves past the welcome screen; deleting the app shows it again.
     @AppStorage("companion.welcomeDone") private var welcomeDone = false
     @State private var showDemo = false
+    @State private var externalLaunchDismissal = false
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
 
@@ -268,7 +302,11 @@ struct CompanionAppRoot: View {
                               onPair: { [showPairing = $showPairing] in showPairing.wrappedValue = true },
                               onSettings: { [settingsCapture = $settingsCapture.releasingFeedbackScreenshot] in
                                   settingsCapture.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
-                              }, pairedHostIDs: runtime.restoredHostIDs)
+                              }, pairedHostIDs: runtime.restoredHostIDs,
+                              externalLaunchReady: runtime.externalLaunchRestorationReady
+                                && settingsCapture == nil && !showPairing && !showDemo && !externalLaunchDismissal,
+                              externalLaunchRestoreFailed: runtime.externalLaunchRestorationFailed)
+                .environment(\.companionDispatcherLaunchDiagnostics, runtime.externalLaunchDiagnosticJSON)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
@@ -276,12 +314,19 @@ struct CompanionAppRoot: View {
                     .transition(.opacity)
             }
         }
-            .fullScreenCover(isPresented: $showDemo) {
+            .fullScreenCover(isPresented: $showDemo, onDismiss: { externalLaunchDismissal = false }) {
                 CompanionDemoView(onPair: { showDemo = false; welcomeDone = true; showPairing = true }, onClose: { showDemo = false })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
-            .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil }) {
+            .sheet(isPresented: $showPairing, onDismiss: { openedLink = nil; externalLaunchDismissal = false }) {
                 CompanionPairingSheet(runtime: runtime, link: openedLink).companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
+            }
+            .onChange(of: CompanionDispatcherLaunchInbox.shared.pending, initial: true) { _, pending in
+                guard pending != nil else { return }
+                if settingsCapture != nil || showPairing || showDemo { externalLaunchDismissal = true }
+                $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil
+                showPairing = false
+                showDemo = false
             }
             .onOpenURL { url in
                 guard let link = CompanionPairingLink(url: url) else { return }
@@ -289,7 +334,7 @@ struct CompanionAppRoot: View {
                 openedLink = link
                 showPairing = true
             }
-            .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
+            .sheet(item: $settingsCapture.releasingFeedbackScreenshot, onDismiss: { externalLaunchDismissal = false }) { capture in
                 CompanionSettingsSheet(runtime: runtime, initialCapture: capture, pair: { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil; showPairing = true })
                     .companionTheme(runtime.preferences.sharedTheme(hosts: runtime.store.hosts))
             }
@@ -299,8 +344,8 @@ struct CompanionAppRoot: View {
             .overlay(alignment: .top) {
                 if runtime.isRestoring { ProgressView("Restoring desktops…").padding(.horizontal, 18).padding(.vertical, 12).glassEffect(.regular, in: .capsule).padding() }
             }
-            .alert("Could not restore desktops", isPresented: Binding(get: { runtime.restoreError != nil }, set: { if !$0 { runtime.restoreError = nil } })) {
-                Button("OK") { runtime.restoreError = nil }
+            .alert("Could not restore desktops", isPresented: Binding(get: { runtime.restoreError != nil }, set: { if !$0 { runtime.acknowledgeRestoreError() } })) {
+                Button("OK", action: runtime.acknowledgeRestoreError)
             } message: { Text(runtime.restoreError ?? "") }
             .task {
                 await runtime.start()

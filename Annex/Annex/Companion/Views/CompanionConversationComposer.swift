@@ -42,6 +42,7 @@ struct CompanionConversationComposer: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionComposerFitsGrantFooter) private var fitsGrantFooter
     @Environment(\.companionComposerCompactHeight) private var compactHeight
+    @Environment(\.companionDispatcherFocus) private var externalDispatcherFocus
     @Environment(\.companionPalette) private var palette
     /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
     @ScaledMetric(relativeTo: .body) private var composerLineHeight: CGFloat = 24
@@ -246,6 +247,13 @@ struct CompanionConversationComposer: View {
                 composerSelection = TextSelection(insertionPoint: draft.wrappedValue.endIndex)
             }
             composerFocused = true
+        }
+        .onChange(of: externalDispatcherFocus.request, initial: true) { _, request in
+            guard let request, request.target == target else { return }
+            // Match the existing focus path: preserve the draft and any valid editing selection.
+            if composerSelection == nil { composerSelection = TextSelection(insertionPoint: draft.wrappedValue.endIndex) }
+            composerFocused = true
+            externalDispatcherFocus.handled(request.id)
         }
         .onChange(of: dismissals) { _, _ in
             #if DEBUG

@@ -4,6 +4,10 @@ import ClubhouseTransport
 
 @main
 struct ClubhouseGoApp: App {
+    @UIApplicationDelegateAdaptor(CompanionLaunchAppDelegate.self) private var launchDelegate
+    #if DEBUG
+    private static let unitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
+    #endif
     @Environment(\.scenePhase) private var scenePhase
     /// The process owns clients and transports; reconnecting a scene only mounts another view.
     @State private var runtimeLifetime: CompanionStateLifetime<CompanionRuntime>
@@ -13,6 +17,10 @@ struct ClubhouseGoApp: App {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") {
                 CompanionSceneTestRoot(runtimeLifetime: runtimeLifetime)
+            } else if Self.unitTestHost {
+                // Hosted fixtures mount their own Root/AppRoot. A second live Root would
+                // compete for the process inbox; keep only SwiftUI's window ownership here.
+                Color.clear
             } else if ProcessInfo.processInfo.arguments.contains("--deinit-probe") {
                 CompanionDeinitProbe()
             } else if ProcessInfo.processInfo.arguments.contains("--reading-restore-ui-testing") {
@@ -40,8 +48,7 @@ struct ClubhouseGoApp: App {
         #if DEBUG
         // Hosting ClubhouseGoTests (XCTest injected; never set in the app UI tests launch): no Keychain feedback
         // client, telemetry bridge or feedback pump sharing notifications and AnnexTelemetry.shared with the tests (#340).
-        let unitTestHost = ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil
-        let testMode = unitTestHost || ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
+        let testMode = Self.unitTestHost || ProcessInfo.processInfo.environment["CLUBHOUSE_COMPANION_TEST_INVITATION"] != nil || (ProcessInfo.processInfo.arguments.contains("--scene-runtime-testing") || ProcessInfo.processInfo.arguments.contains("--companion-root-ui-testing"))
         _runtimeLifetime = State(initialValue: CompanionStateLifetime {
             // Lazy: previews/probes never reset the install or construct a feedback client.
             if !testMode { CompanionInstallReset.clearLeftoversIfFreshInstall() }
@@ -60,6 +67,9 @@ struct ClubhouseGoApp: App {
         // UI tests wait for the app to go idle after every gesture; UIKit transitions make each wait longer.
         if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
             UIView.setAnimationsEnabled(false)
+        }
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-external-dispatch-shortcut") {
+            CompanionDispatcherLaunchInbox.shared.handleQuickAction(CompanionDispatcherLaunchInbox.quickActionType)
         }
         CompanionShakeDiagnostics.install()
         #endif

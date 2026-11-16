@@ -1056,3 +1056,21 @@ The ordinary project header row hides only the redundant system NavigationLink d
 The #442 linked Project-toolbar adoption extracts Home's authoritative group state menu without changing its callbacks or authority guards. `CompanionProjectPageUITests` replaces the obsolete linked Pin-absence assertion and adds real-page supported Pin/Unpin + Active/Inactive (while desktop-scoped), unavailable/mixed-version hint, and old-host per-copy fallback cases. Run that full class with `CompanionLinkedProjectStateUITests` to cover both owners of the shared component. The Project page derives idle from Home's full-group layout policy; selecting a desktop does not change group command scope. Broad hosted/package/coverage validation remains deferred to integrated main under the batch policy.
 
 #524 large-catalog launch regression uses generated synthetic hosts, projects and agents only. Store rebuilds its catalog on host/link/project-state mutations, before SwiftUI can build a List or eager context menu; repeated reads share the same CoW buffer. CompanionLargeCatalogRegressionTests covers scale, buffer reuse, invalidation and fresh authority. CompanionLargeCatalogTests mounts the real Home and obtains its actual shared-state menu through a DEBUG-only seam; it invokes the exact production setPinned/setInactive functions after host, capability, linked-authority and identity changes, asserting the current receiver or zero new commands. CompanionLargeCatalogUITests opens the native Home context menu with 8 desktops, 384 projects and 7680 agents. No user data is read or logged. Device Debug compilation and arm64 stack-frame inspection are separate from physical launch validation, which remains with the installer.
+
+### External Dispatcher authority and cold-entry proof (#445)
+
+Pairing authority is optional: `nil` means unknown, while a non-nil set (including empty) is known. Unknown authority preserves the saved Dispatcher/tab but cannot consume an external request against cached targets. `CompanionDispatcherLaunchRecoveryTests` mounts real Runtime/AppRoot for delayed restore, raw missing-entitlement failure, reconnect/suspend, fresh-pair recovery, successful empty restoration and explicit forget; its Root harness separately covers the delayed catalog. The preview adapter uses `hasReceivedHostReport`, so initial empty storage is not a known empty report.
+
+The native SpringBoard cold test reads status-only evidence from the actual DEBUG Runtime. A unique test-service `SecItemAdd` probes Keychain capability; a successful add must be followed by successful `SecItemDelete`. No build configuration, simulator flag or environment opt-out decides the branch. An add returning exactly `-34018`, with the real restore also returning `persistenceFailed(-34018)`, requires the visible error, acknowledgment and unavailable guidance; the xcresult calls this **entitlement-recovery coverage**, never a production cold-restore PASS. A capable probe requires successful restoration and the unchanged no-error assertion. Any other status, cleanup failure or probe/restore mismatch fails. The JSON attachment contains only statuses/outcome, never item names, records or credentials.
+
+Physical Siri/Action-button delivery and signed in-place upgrade remain unverified by the simulator suite. After any correction, require independent delta QA and the complete affected-class inventory on the exact corrected head, strict verification and no retries before Ready.
+
+
+Hosted XCTest keeps SwiftUI's host window but renders an inert entrypoint instead of
+an automatic `CompanionAppRoot`. Fixtures explicitly mount the Root/AppRoot they test;
+otherwise a second Store can consume the same process-lifetime external-launch inbox.
+The DEBUG-only `XCTestConfigurationFilePath` detection is shared with the existing
+unit-test runtime setup. UI tests run in their separate runner and do not inject that
+host configuration into the target app; native cold launches are also unchanged.
+The explicit `--scene-runtime-testing` path still takes precedence so its isolated
+scene-ownership tests can exercise the real app owner. Release contains no placeholder.
