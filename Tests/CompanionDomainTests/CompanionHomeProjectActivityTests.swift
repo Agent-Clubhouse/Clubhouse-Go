@@ -71,6 +71,16 @@ struct CompanionHomeProjectActivityTests {
                 "A connected report stays authoritative; no wall-clock timer expires a long turn")
     }
 
+    @Test func anOfflineScopeStillShowsItsRecentProjectPlaceholderWithoutExpandingIdle() {
+        let offline = member("Laptop", status: .working, connection: .offline)
+        let group = CompanionProjectEntry(host: offline.host, project: offline.project)
+        let layout = CompanionHomeLayout.build([group], sort: .recent, customOrder: [], rule: .init(),
+            projectActivity: { _ in nil }, agentActivity: \.lastActivity)
+        #expect(layout.projects.map(\.id) == [group.id])
+        #expect(layout.projects[0].tree.all.isEmpty)
+        #expect(!CompanionHomeProjectActivity(entry: group, recordedProjectActivity: { _ in nil }).isRunning)
+    }
+
     @Test func recentPutsAnyMemberRunningFirstThenUsesMaxRecordedRecencyAcrossMembers() {
         let older = Date(timeIntervalSince1970: 100), newest = Date(timeIntervalSince1970: 300)
         let running = entry([member("first", status: .sleeping), member("second", status: .working, activity: older)], name: "running")
