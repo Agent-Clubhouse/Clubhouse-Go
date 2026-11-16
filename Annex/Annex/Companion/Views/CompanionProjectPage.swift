@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// One project scope, with shared desktop chips, one action row, and one quiet disclosure.
 struct CompanionProjectPage: View {
