@@ -270,7 +270,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
     func testSleepingAgentSettingsOpenFromLongPressAndAreEditable() {
         let app = launch()
         // Juniper sleeps, so it's in its project's "1 sleeping" fold, as on the desktop.
-        let fold = element(app, "fold-sleeping-preview-studio-clubhouse")
+        let fold = element(app, "fold-quiet-preview-studio-clubhouse")
         let juniper = element(app, "agent-preview-studio-juniper")
         scrollUntilExists(fold, in: app)
         expandFold(fold, revealing: juniper, in: app)
@@ -312,7 +312,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
     func testOrchestrateSectionShowsThePolicyAndToggles() {
         let app = launch()
         // Juniper orchestrates: the toggle is on and the policy shows in the desktop's words.
-        let fold = element(app, "fold-sleeping-preview-studio-clubhouse")
+        let fold = element(app, "fold-quiet-preview-studio-clubhouse")
         let juniper = element(app, "agent-preview-studio-juniper")
         scrollUntilExists(fold, in: app)
         expandFold(fold, revealing: juniper, in: app)

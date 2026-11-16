@@ -108,6 +108,13 @@ struct CompanionPreviewRoot: View {
                                 Button("Report projects linked") { reportProjectLinks(linked: true) }
                             }
                         }
+                        if ProcessInfo.processInfo.arguments.contains("--companion-preview-home-scope-controls") {
+                            Section("Preview Home scope") {
+                                Button("Report Travel desktop removed") {
+                                    store.apply(.hosts(store.hosts.filter { $0.id != "preview-laptop" }))
+                                }
+                            }
+                        }
                         if ProcessInfo.processInfo.arguments.contains("--companion-preview-home-summary-controls") {
                             Section("Preview Home counts") {
                                 Button("Report two requests and no working agents") { reportHomeCounts() }

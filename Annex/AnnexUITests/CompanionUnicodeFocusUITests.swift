@@ -8,7 +8,7 @@ import XCTest
     ]
 
     private func openCreatedAgent(_ app: XCUIApplication) {
-        let fold = app.descendants(matching: .any).matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch
+        let fold = app.descendants(matching: .any).matching(identifier: "fold-quiet-preview-studio-clubhouse").firstMatch
         XCTAssertTrue(scrollUntilExists(fold, in: app) && scrollTo(fold, in: app))
         let juniper = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-juniper").firstMatch
         if !juniper.exists { fold.tap() }

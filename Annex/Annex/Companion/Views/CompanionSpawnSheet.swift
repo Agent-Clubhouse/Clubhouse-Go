@@ -7,6 +7,8 @@ struct CompanionSpawnSheet: View {
     enum Kind: Hashable { case durable, quick }
     @Bindable var store: CompanionStore
     let initialProject: CompanionProjectTarget
+    /// A Home desktop scope constrains this launch; nil retains the linked-machine chooser.
+    var initialHostID: String? = nil
     @Environment(\.dismiss) private var dismiss
     @Environment(\.companionPalette) private var palette
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -109,7 +111,7 @@ struct CompanionSpawnSheet: View {
 
     private func reconcileSelection(_ entries: [CompanionProjectEntry]) {
         guard let project else { return }
-        if let entry = entries.first(where: { $0.members.contains { $0.id == project } }) { entryID = entry.id }
+        if let entry = availableEntries.first(where: { $0.members.contains { $0.id == project } }) { entryID = entry.id }
         else { self.project = nil }
     }
 
@@ -191,7 +193,7 @@ struct CompanionSpawnSheet: View {
     private var projectMenu: some View {
             Menu {
                 Picker("Project", selection: Binding(get: { selectedEntry?.id }, set: { if let id = $0 { selectEntry(id) } })) {
-                    ForEach(store.projectEntries) { entry in
+                    ForEach(availableEntries) { entry in
                         Text(entry.isLinked ? entry.project.name : "\(entry.project.name) · \(entry.host.name)").tag(Optional(entry.id))
                     }
                 }
@@ -202,12 +204,19 @@ struct CompanionSpawnSheet: View {
             .accessibilityIdentifier("spawn-project-picker")
     }
 
+    private var availableEntries: [CompanionProjectEntry] {
+        guard let initialHostID else { return store.projectEntries }
+        // A removed launch desktop must not broaden this sheet back to All.
+        guard store.hosts.contains(where: { $0.id == initialHostID }) else { return [] }
+        return CompanionHomeScope(hosts: store.hosts, selectedHostID: initialHostID).projects(store.projectEntries)
+    }
+
     private var selectedEntry: CompanionProjectEntry? {
-        store.projectEntry(containing: entryID ?? initialProject)
+        availableEntries.first { $0.members.contains { $0.id == (entryID ?? initialProject) } }
     }
 
     private func selectEntry(_ id: CompanionProjectTarget) {
-        let entry = store.projectEntry(containing: id)
+        let entry = availableEntries.first { $0.members.contains { $0.id == id } }
         entryID = entry?.id
         project = entry?.isLinked == true ? nil : entry?.id
         provider = ""

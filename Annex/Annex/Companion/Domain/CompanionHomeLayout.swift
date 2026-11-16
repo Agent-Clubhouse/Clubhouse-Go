@@ -18,8 +18,41 @@ struct CompanionHomeSummary: Equatable, Sendable {
 
     var workingLabel: String { "\(working) working" }
     var attentionLabel: String { "\(needsYou) \(needsYou == 1 ? "needs" : "need") you" }
-    var connectionLabel: String? { desktops >= 3 ? "\(connected) of \(desktops) desktops connected" : nil }
+    var connectionLabel: String? { desktops >= 3 || (desktops > 1 && connected < desktops) ? "\(connected) of \(desktops) desktops connected" : nil }
     var accessibilityLabel: String { ([workingLabel, attentionLabel] + [connectionLabel].compactMap { $0 }).joined(separator: ", ") }
+}
+
+/// Home's launch-lifetime desktop filter. It never mutates the store or command authority.
+/// Linked copies are projected before layout so another machine's agents cannot leak into a scope.
+struct CompanionHomeScope: Sendable {
+    let allHosts: [CompanionHost]
+    let selectedHostID: String?
+
+    init(hosts: [CompanionHost], selectedHostID: String?) {
+        allHosts = hosts
+        self.selectedHostID = selectedHostID.flatMap { id in hosts.contains { $0.id == id } ? id : nil }
+    }
+
+    var hosts: [CompanionHost] { allHosts.filter { selectedHostID == nil || $0.id == selectedHostID } }
+    var impliedHostID: String? { selectedHostID ?? (allHosts.count == 1 ? allHosts.first?.id : nil) }
+    var showsHostTags: Bool { allHosts.count > 1 && selectedHostID == nil }
+    func contains(_ target: CompanionTarget) -> Bool { selectedHostID == nil || target.hostID == selectedHostID }
+
+    func projects(_ entries: [CompanionProjectEntry]) -> [CompanionProjectEntry] {
+        guard let selectedHostID else { return entries }
+        return entries.compactMap { entry in
+            let members = entry.members.filter { $0.host.id == selectedHostID }
+            guard let first = members.first else { return nil }
+            var scoped = entry
+            scoped.host = first.host
+            scoped.project = first.project
+            scoped.project.name = entry.project.name
+            scoped.project.agents = members.flatMap(\.project.agents)
+            scoped.linkedMembers = entry.linkedMembers.isEmpty ? [] : members
+            // Keep linkID/orderKey stable while the command target follows the selected copy.
+            return scoped
+        }
+    }
 }
 
 /// The desktop sidebar's idle rule (Clubhouse `projectActivity.ts`), applied on this phone only.
@@ -131,7 +164,7 @@ struct CompanionHomeLayout: Sendable, Equatable {
         if let hold { ordered = CompanionListHold.apply(ordered, order: hold.projects, id: \.orderKey) }
         var pinned: [CompanionProjectGroup] = [], active: [CompanionProjectGroup] = [], idle: [CompanionProjectGroup] = []
         for entry in ordered {
-            let tree = CompanionAgentTree.build(entry.project.agents, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
+            let tree = CompanionAgentTree.build(entry.project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
             let running = entry.project.agents.contains(where: isAwake)
             let states = entry.members.map { member in
                 let single = CompanionProjectEntry(host: member.host, project: member.project)

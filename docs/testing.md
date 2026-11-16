@@ -910,3 +910,32 @@ assertion. The compact banner adapts the glyph/action row vertically when their 
 width plus padding cannot fit, while retaining the full-width wrapping title. A single
 FIFO ticket checks the original main method (expected width failure), the corrected
 method, both banner appearance matrices and the compiled deinit policy.
+
+Home's desktop chips (#439) use the shared Project-page component and launch-lifetime
+selection. `CompanionHomeScopeTests` verifies linked copies with identical agent names
+never leak across a selected machine, selected offline scopes retain no authority, and
+a vanished host resolves to All. Home's shared row context suppresses implied host tags,
+and its quiet fold receives the authoritative retained run list with Dismiss/Clear.
+Connected-desktop availability remains global while activity/request counts follow the
+selected scope. Scope changes reset held list ordering and emit only the shared chip event.
+
+`CompanionHomeDesktopScopeUITests` checks actual Home chips, cross-desktop isolation for
+linked copies with the same agent name, tab retention, selected-host removal down to one,
+no machine labels for the sole desktop, and a fresh All scope after relaunch. Its five-
+appearance matrix also selects an offline host and requires a non-actionable placeholder
+instead of cached live rows. Scope regression tests retain exited quick runs only in the
+authoritative shared quiet fold. Home header/card styling and linked activity ranking
+remain with #440; no new desktop sync or Store cache mutation is introduced.
+
+Home #439 carries an explicit launch-host scope into New agent. The defaulted
+`CompanionSpawnSheet.initialHostID` constrains its real project entries and machine
+choices; nil preserves All's linked chooser. Removing that launch desktop never widens
+the open sheet to another host. The real-sheet UI regression opens both Home + entry
+points from Laptop and verifies only Laptop's project is offered, then checks All
+still offers both machines. Existing Home tests migrate separate sleeping/finished
+selectors to the shared quiet fold without removing their content/routing assertions.
+
+Home's New agent presentation stores its concrete target and optional launch-host scope in
+one Identifiable value. SwiftUI receives both through the sheet item, avoiding a stale
+secondary State capture that could reopen All's linked-machine chooser from a selected host.
+The real-sheet regression covers both Home + buttons and All's preserved chooser.
