@@ -32,7 +32,7 @@ struct CompanionConversationPendingDecisions: View {
                                 Spacer(minLength: 0)
                                 actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
                             }
-                            VStack(alignment: .leading, spacing: 8) {
+                            VStack(alignment: .leading, spacing: usesTightAccessibilityRows ? 0 : 8) {
                                 identity(decision, presentation: presentation, index: index, queue: queue)
                                 HStack { Spacer(minLength: 0); actions(decision, presentation: presentation, index: index, count: queue.count) }
                             }
@@ -43,7 +43,7 @@ struct CompanionConversationPendingDecisions: View {
                 .accessibilityAction(named: "Previous request") { select(-1, queue: queue, index: index) }
                 .accessibilityAction(named: "Next request") { select(1, queue: queue, index: index) }
                 .disabled(review != nil)
-                .padding(.horizontal, 12).padding(.vertical, 4)
+                .padding(.horizontal, 12).padding(.vertical, usesTightAccessibilityRows ? 1 : 4)
                 .companionCardGlass(RoundedRectangle(cornerRadius: 20))
                 .padding(.horizontal, 16).padding(.vertical, 4)
                 .accessibilityElement(children: .contain)
@@ -184,6 +184,11 @@ struct CompanionConversationPendingDecisions: View {
     // Use the existing compact-room policy at every text size. The complete subtitle
     // remains the title's AX value when the keyboard leaves no room for visible metadata.
     private var hasCompactRoom: Bool { compactHeight || maximumHeight < 120 }
+    // Keep both full-width AX rows and their text styles when the keyboard limits room.
+    // Regular-height only: standard text, roomy AX and compact-height layouts retain their spacing.
+    private var usesTightAccessibilityRows: Bool {
+        hasCompactRoom && dynamicTypeSize.isAccessibilitySize && verticalSizeClass == .regular
+    }
     private var usesSingleRow: Bool {
         verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
     }
