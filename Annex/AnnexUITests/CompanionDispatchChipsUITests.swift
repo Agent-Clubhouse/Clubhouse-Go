@@ -79,6 +79,12 @@ import XCTest
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["dispatcher-desktop-preview-studio"].isSelected)
         capture(app, "444 Saved Dispatcher restored after Home selection")
+        // Re-establish the independent Home fallback: restoring Navi updates the legacy last-host value.
+        // With lastHostID on Laptop, cleared Dispatcher preference gives Echo; stale Studio preference gives Navi.
+        app.tabBars.buttons["Home"].tap()
+        XCTAssertTrue(scrollTo(otherAgent, in: app, maxSwipes: 12))
+        otherAgent.tap()
+        XCTAssertTrue(app.navigationBars["River"].waitForExistence(timeout: 5))
         // A connected report with no Dispatchers is authoritative and clears the saved choice.
         app.terminate()
         // This existing fixture makes both desktops connected, so neither has an unknown offline catalog.
@@ -90,7 +96,7 @@ import XCTest
         app.terminate()
         app.launchArguments = args + ["--companion-preview-keep-preferences", "--ui-testing-fast"]
         app.launch()
-        XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 15), "A cleared choice uses the deterministic first Dispatcher")
+        XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 15), "A cleared choice uses the independent Home-host fallback")
         XCTAssertTrue(app.buttons["dispatcher-desktop-preview-laptop"].isSelected)
         capture(app, "444 Removed Dispatcher preference falls back safely")
     }
