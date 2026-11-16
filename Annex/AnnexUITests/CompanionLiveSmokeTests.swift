@@ -108,7 +108,9 @@ final class CompanionLiveSmokeTests: XCTestCase {
         }
         app.buttons["Settings"].tap()
         let desktop = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "settings-desktop-")).firstMatch
-        waitAndTap(desktop, until: app.buttons["End session pairing"].firstMatch)
+        XCTAssertTrue(desktop.waitForExistence(timeout: 10), "Settings must offer the paired desktop's detail page")
+        XCTAssertTrue(desktop.isHittable)
+        desktop.tap()
         let endSession = app.buttons["End session pairing"].firstMatch
         XCTAssertTrue(endSession.waitForExistence(timeout: 10), "Desktop capability must advertise scoped session revocation")
         endSession.tap()
