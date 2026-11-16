@@ -372,7 +372,10 @@ struct CompanionAgentSettingsForm: View {
             if let loadError {
                 Label(loadError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-refresh-error")
-                Button("Retry") { Task { await load() } }
+                Button("Retry") {
+                    AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .retry)
+                    Task { await load() }
+                }
                     .accessibilityIdentifier("agent-settings-refresh-retry")
             }
             if let contextResetNotice = settings.contextWindowReset?.message {
@@ -807,6 +810,7 @@ struct CompanionDispatcherSwitch: View {
     let hostID: String
     /// The Dispatcher name and its desktop, when more than one is paired.
     var label: String?
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
@@ -815,7 +819,11 @@ struct CompanionDispatcherSwitch: View {
             VStack(alignment: .leading, spacing: 6) {
                 if dispatcher.mcpOff == nil {
                     Toggle(isOn: Binding(get: { dispatcher.enabled },
-                                         set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
+                                         set: { on in
+                        guard on != dispatcher.enabled else { return }
+                        CompanionUIActions.record(.toggleDispatcher, on: screen)
+                        Task { await store.setDispatcher(enabled: on, hostID: hostID) }
+                    })) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Turn on Dispatcher")
                             if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
@@ -848,6 +856,7 @@ struct CompanionCreatedAgentNotice: View {
     @Bindable var store: CompanionStore
     let agent: CompanionAgent
     var onWakeWithMessage: () -> Void
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
@@ -863,19 +872,28 @@ struct CompanionCreatedAgentNotice: View {
                 Image(systemName: "checkmark.circle").foregroundStyle(Color(palette.success))
                 VStack(alignment: .leading, spacing: 8) {
                     text("\(agent.name) is ready", "It sleeps until you wake it.")
-                    Button("Wake with a message", systemImage: "text.bubble", action: onWakeWithMessage)
+                    Button("Wake with a message", systemImage: "text.bubble") {
+                        CompanionUIActions.record(.wakeAgent, on: screen)
+                        onWakeWithMessage()
+                    }
                         .buttonStyle(.glassProminent).companionProminentLabel()
                         .accessibilityIdentifier("companion-wake-with-message")
                     // Or wake it without one. A new agent has no session yet, so this is Start New Session.
                     ForEach(store.wakeChoices(for: agent.id)) { choice in
-                        Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(agent.id, choice) } }
+                        Button(choice.label, systemImage: choice.systemImage) {
+                            CompanionUIActions.wake(choice, on: screen)
+                            Task { await store.wake(agent.id, choice) }
+                        }
                             .buttonStyle(.glass).disabled(!store.mayWake(agent.id))
                             .accessibilityIdentifier("companion-created-wake-\(choice.rawValue)")
                     }
                 }
             }
             Spacer(minLength: 0)
-            Button("Dismiss", systemImage: "xmark") { store.justCreated = nil }
+            Button("Dismiss", systemImage: "xmark") {
+                CompanionUIActions.record(.close, on: screen)
+                store.justCreated = nil
+            }
                 .labelStyle(.iconOnly).buttonStyle(.borderless).foregroundStyle(Color(palette.secondaryLabel))
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)

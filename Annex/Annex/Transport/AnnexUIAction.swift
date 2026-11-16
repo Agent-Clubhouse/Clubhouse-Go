@@ -26,7 +26,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case retry, reconnect, refresh, copy, share, forgetDesktop, revokeSession, checkForUpdates, restartForUpdate
         case selectDesktop, selectProject, selectProvider, selectModel, selectRuntime, selectAccess, selectColor
         case selectContextWindow, resetContextWindow, selectAutoSleep, selectHelperPreset, selectBehavior
-        case renameAgent, selectEmoji, openWorkspaceTools, selectMCP, toggleWorktree, toggleHelpers
+        case toggleDispatcher, renameAgent, selectEmoji, openWorkspaceTools, selectMCP, toggleWorktree, toggleHelpers
         case expandHelpers, expandQuietAgents, expandSleepingAgents, expandFinishedAgents
         case connectDesktop, scanPairingCode, enterPairingAddress, trustDesktop, pairDesktop
         case enrollFeedback, clearFeedback, sendHeldFeedback, clearHeldFeedback, prepareDiagnosticsReport

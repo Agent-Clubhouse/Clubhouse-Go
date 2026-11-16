@@ -21,12 +21,16 @@ extension EnvironmentValues {
 /// "Terminal" in a menu: a shell at the project root, or in the agent's worktree. Hidden when the desktop has no terminals.
 struct CompanionTerminalMenuItem: View {
     let scope: CompanionTerminalScope
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionTerminal) private var terminal
     var body: some View {
         if let terminal {
             let availability = terminal.availability(scope)
             if availability.isShown {
-                Button("Terminal", systemImage: "terminal") { terminal.open(scope) }
+                Button("Terminal", systemImage: "terminal") {
+                    CompanionUIActions.record(scope.agent == nil ? .openProjectTerminal : .openAgentTerminal, on: screen)
+                    terminal.open(scope)
+                }
                     .disabled(!availability.isAvailable)
             }
         }
