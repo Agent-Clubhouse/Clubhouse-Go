@@ -878,3 +878,9 @@ Back-to-back calls deliberately bypass the disabled UI to verify zero duplicate 
 Initial screenshot/OCR checks prove the real banner and Retry render; UI reachability remains
 with the existing offline-banner UI classes. The seam is absent from Release. Test teardown
 clears the observed seam and drains all held reconnects, including failure paths.
+
+The batch-2 #435 integration regression keeps the existing 320pt accessibility sizing
+assertion. The compact banner adapts the glyph/action row vertically when their natural
+width plus padding cannot fit, while retaining the full-width wrapping title. A single
+FIFO ticket checks the original main method (expected width failure), the corrected
+method, both banner appearance matrices and the compiled deinit policy.
