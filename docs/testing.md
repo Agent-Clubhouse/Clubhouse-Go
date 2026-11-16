@@ -1064,3 +1064,13 @@ Pairing authority is optional: `nil` means unknown, while a non-nil set (includi
 The native SpringBoard cold test reads status-only evidence from the actual DEBUG Runtime. A unique test-service `SecItemAdd` probes Keychain capability; a successful add must be followed by successful `SecItemDelete`. No build configuration, simulator flag or environment opt-out decides the branch. An add returning exactly `-34018`, with the real restore also returning `persistenceFailed(-34018)`, requires the visible error, acknowledgment and unavailable guidance; the xcresult calls this **entitlement-recovery coverage**, never a production cold-restore PASS. A capable probe requires successful restoration and the unchanged no-error assertion. Any other status, cleanup failure or probe/restore mismatch fails. The JSON attachment contains only statuses/outcome, never item names, records or credentials.
 
 Physical Siri/Action-button delivery and signed in-place upgrade remain unverified by the simulator suite. After any correction, require independent delta QA and the complete affected-class inventory on the exact corrected head, strict verification and no retries before Ready.
+
+
+Hosted XCTest keeps SwiftUI's host window but renders an inert entrypoint instead of
+an automatic `CompanionAppRoot`. Fixtures explicitly mount the Root/AppRoot they test;
+otherwise a second Store can consume the same process-lifetime external-launch inbox.
+The DEBUG-only `XCTestConfigurationFilePath` detection is shared with the existing
+unit-test runtime setup. UI tests run in their separate runner and do not inject that
+host configuration into the target app; native cold launches are also unchanged.
+The explicit `--scene-runtime-testing` path still takes precedence so its isolated
+scene-ownership tests can exercise the real app owner. Release contains no placeholder.
