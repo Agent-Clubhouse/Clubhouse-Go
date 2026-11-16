@@ -305,6 +305,7 @@ struct CompanionProjectMachineChooser: View {
     let project: CompanionProjectTarget
     let selection: CompanionDesktopSelection
     let action: CompanionProjectMachineAction
+    var screen: AnnexUIAction.Screen = .project
     var onChoose: (CompanionProjectTarget) -> Void
     @Environment(\.dismiss) private var dismiss
     @Environment(\.companionTerminal) private var terminal
@@ -317,7 +318,7 @@ struct CompanionProjectMachineChooser: View {
                     Section(action.title) {
                         ForEach(entry.members.filter { selection.hostID == nil || $0.host.id == selection.hostID }) { member in
                             Button {
-                                AnnexTelemetry.shared.recordAction(screen: .project, control: .selectDesktop)
+                                AnnexTelemetry.shared.recordAction(screen: screen, control: .selectDesktop)
                                 onChoose(member.id)
                             } label: {
                                 VStack(alignment: .leading, spacing: 3) {
@@ -338,7 +339,7 @@ struct CompanionProjectMachineChooser: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", systemImage: "xmark") {
-                        AnnexTelemetry.shared.recordAction(screen: .project, control: .cancel)
+                        AnnexTelemetry.shared.recordAction(screen: screen, control: .cancel)
                         dismiss()
                     }.companionToolbarClose()
                 }

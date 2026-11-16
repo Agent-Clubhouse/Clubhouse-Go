@@ -88,8 +88,12 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     private func projectHeader(_ app: XCUIApplication) -> XCUIElement {
         any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'open-project-' AND label == %@", "Open \(projectName)")).firstMatch
     }
-    private func projectMenu(_ app: XCUIApplication) -> XCUIElement {
-        any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'project-menu-' AND label == %@", "\(projectName) options")).firstMatch
+    private func openProjectMenu(_ app: XCUIApplication, until item: XCUIElement,
+                                 file: StaticString = #filePath, line: UInt = #line) {
+        revealProject(app, file: file, line: line)
+        let header = projectHeader(app)
+        XCTAssertTrue(scrollTo(header, in: app, file: file, line: line), file: file, line: line)
+        longPressUntilMenu(header, shows: item, attempts: 1, "The project header offers its actions", file: file, line: line)
     }
     private func agentRow(_ app: XCUIApplication, _ agentID: String) -> XCUIElement {
         any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'agent-' AND identifier ENDSWITH %@", "-\(agentID)")).firstMatch
@@ -565,12 +569,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     func test0ProjectPinAndIdleSync() throws {
         var app = try launchPaired()
         revealProject(app)
-        let menu = projectMenu(app)
-        scrollTo(menu, in: app)
         // A failed earlier attempt may have left it inactive.
         let markActive = app.buttons["Mark active"]
-        let anyItem = app.buttons.matching(NSPredicate(format: "label IN {'Pin project', 'Unpin project'}")).firstMatch
-        waitAndTap(menu, until: anyItem, timeout: 10, "The project menu opens")
+        let anyItem = app.buttons.matching(NSPredicate(format: "label IN {'Pin to top of Home', 'Unpin from Home'}")).firstMatch
+        openProjectMenu(app, until: anyItem)
         if markActive.exists {
             markActive.tap()
             XCTAssertTrue(element(app, "idle-projects-fold").waitForNonExistence(timeout: 20))
@@ -578,22 +580,22 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
             app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
             XCTAssertTrue(anyItem.waitForNonExistence(timeout: 5))
         }
-        let pin = app.buttons["Pin project"], unpin = app.buttons["Unpin project"]
-        let either = app.buttons.matching(NSPredicate(format: "label IN {'Pin project', 'Unpin project'}")).firstMatch
-        waitAndTap(menu, until: either, timeout: 10, "The project menu offers pinning")
-        if unpin.exists { unpin.tap(); waitAndTap(menu, until: pin, timeout: 10) }
+        let pin = app.buttons["Pin to top of Home"], unpin = app.buttons["Unpin from Home"]
+        let either = app.buttons.matching(NSPredicate(format: "label IN {'Pin to top of Home', 'Unpin from Home'}")).firstMatch
+        openProjectMenu(app, until: either)
+        if unpin.exists { unpin.tap(); openProjectMenu(app, until: pin) }
         pin.tap()
-        waitAndTap(projectMenu(app), until: unpin, timeout: 15, "The desktop must apply the pin")
+        openProjectMenu(app, until: unpin)
         app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()  // close the menu
         XCTAssertTrue(unpin.waitForNonExistence(timeout: 5))
         // Relaunching pairs again from scratch, so only the desktop can remember the pin.
         app.terminate()
         app = try launchPaired()
-        waitAndTap(projectMenu(app), until: app.buttons["Unpin project"], timeout: 10, "The desktop must keep the pin")
+        openProjectMenu(app, until: app.buttons["Unpin from Home"])
         screenshot(app, "Pin kept by the desktop")
-        app.buttons["Unpin project"].tap()
+        app.buttons["Unpin from Home"].tap()
 
-        waitAndTap(projectMenu(app), until: app.buttons["Mark inactive"], timeout: 10, "An unpinned active project can be marked inactive")
+        openProjectMenu(app, until: app.buttons["Mark inactive"])
         // Awake agents show as rows on Home; sleeping ones are folded away.
         let awake = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'agent-'")).firstMatch.exists
         app.buttons["Mark inactive"].tap()
@@ -604,11 +606,11 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let fold = element(app, "idle-projects-fold")
         if !awake { XCTAssertTrue(fold.waitForExistence(timeout: 20), "The desktop must keep the inactive mark") }
         revealProject(app)
-        waitAndTap(projectMenu(app), until: app.buttons["Mark active"], timeout: 10, "The desktop must keep the inactive mark")
+        openProjectMenu(app, until: app.buttons["Mark active"])
         screenshot(app, "Inactive mark kept by the desktop")
         app.buttons["Mark active"].tap()
         XCTAssertTrue(fold.waitForNonExistence(timeout: 20), "Mark active brings the project back")
-        waitAndTap(projectMenu(app), until: app.buttons["Mark inactive"], timeout: 10, "The desktop must clear the mark")
+        openProjectMenu(app, until: app.buttons["Mark inactive"])
         app.windows.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.08)).tap()
     }
 

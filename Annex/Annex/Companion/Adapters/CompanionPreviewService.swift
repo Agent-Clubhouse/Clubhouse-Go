@@ -284,10 +284,14 @@ import ClubhouseTransport
                     }
                 }
                 if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-local-idle") {
+                    let idleActivity = Date().addingTimeInterval(-30 * 86_400)
                     for project in hosts[0].projects.indices {
                         for agent in hosts[0].projects[project].agents.indices {
                             hosts[0].projects[project].agents[agent].status = .sleeping
-                            hosts[0].projects[project].agents[agent].lastActivity = Date().addingTimeInterval(-30 * 86_400)
+                            hosts[0].projects[project].agents[agent].lastActivity = idleActivity
+                            if hosts[0].projects[project].agents[agent].turnStartedAt != nil {
+                                hosts[0].projects[project].agents[agent].turnStartedAt = idleActivity
+                            }
                         }
                     }
                 }
@@ -298,6 +302,18 @@ import ClubhouseTransport
                 if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-mixed-version") {
                     hosts[1].canSyncLinkedProjectState = false
                     hosts[1].projectState = [:]
+                }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-home-offline") {
+                    hosts[1].connection = .offline
+                    // Deliberately cached Working: it must not keep the linked group live.
+                    hosts[1].projects[0].agents[0].status = .working
+                    if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-home-seen") {
+                        hosts[0].dispatcherPresence = .init(remotes: [
+                            .init(machineId: hosts[1].id, machineName: hosts[1].name, label: "", state: "offline",
+                                  lastSeen: Date().addingTimeInterval(-720).ISO8601Format(),
+                                  link: .init(state: "active"))
+                        ])
+                    }
                 }
             }
             #endif

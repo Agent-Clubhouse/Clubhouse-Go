@@ -1020,3 +1020,35 @@ appearances, semantic working collapse/explicit expansion under injected Reduce 
 dots, and last-Dispatcher restoration after opening a Home agent on another desktop.
 
 Dispatch restoration keeps its separate saved choice through an empty startup catalog and connecting pairing placeholders. A current capable host report can replace or clear it; an offline cached Dispatcher is unknown and deliberately does not count as removed. `CompanionDispatchChipsUITests.testLastDispatcherRestoresIndependentlyOfHomeSelection` first proves Navi survives Home's Laptop selection, then supplies connected no-Dispatcher reports and proves cleanup: Laptop's independent last-host fallback gives Echo, whereas a stale Studio Dispatcher preference would give Navi.
+
+Linked Home (#440) treats only `connection.canOperate` catalogs as live. Cached Working
+on offline, failed, connecting, reconnecting or synchronizing hosts cannot keep a group
+running, inflate the summary or create active rows. A connected report stays authoritative
+until the connection changes; no age timer expires a legitimately long turn. Recent puts
+any-member running first, then the maximum finite recorded project/agent/turn-start time
+across all members, preserving catalog order for ties and excluding live per-tool chat
+timestamps. Offline disclosure expansion is per host for this Home session only. A known
+last-seen time comes from read-only desktop presence or a locally observed connected
+report, never agent activity. Missing last-seen says “not connected”; unknown agent counts
+are omitted. Cached rows are dimmed with no navigation, settings, Wake or Terminal action.
+`CompanionLinkedHomeUITests` covers two/five desktops across five appearances, collapsed
+and expanded, session reset, same-name identity and unavailable cached work.
+
+Home's project header supplies a native long-press menu instead of an overflow button.
+Wake and Info use the shared Project-page items; linked All actions choose a concrete
+member before Wake/Terminal, rechecking current availability after the chooser dismisses.
+The shared chooser has a defaulted telemetry screen parameter: Project remains Project,
+Home records Home, without duplicate callbacks. Pin/Inactive uses the merged #460
+group-state contract, including a single authoritative source, mixed-version disabled
+controls and its connection hint. A selected desktop still edits group state, while Wake
+and Terminal remain constrained to the selected copy. Old hosts keep per-copy menus and
+their existing days-idle Mark active behavior. The existing LinkedProjectState UI methods
+now open the same controls from the header long press; their assertions are unchanged.
+
+Home header menus (#440) are bound directly to the project NavigationLink and plus as well as the header's rectangular hit shape. The same guarded menu builder supplies public SwiftUI accessibilityActions on the link and plus; no alternate command closure or capability predicate is introduced. Labels and IDs are applied after these wrappers. The corrected risk spot checks ordinary link tap navigation, real long presses on link/header/plus, menu accessibility labels, the existing scope regression, and every failed migrated menu method. This is declarative accessibility exposure plus XCTest AX assertions, not a physical VoiceOver session.
+
+The project header is the first regular row of its native card section, not supplementary Section-header content: the latter ignored context menus on this runtime and fired the link/plus tap on long press. Its separator is hidden, it shares the card background, and its title link retains the heading trait, normal tap navigation and final label/ID. The row is an HStack/VStack with borderless controls, not a row-wide selectable button. A bounded standard/XXXL × two/five-desktop method scrolls cached River to the end and asserts its maxY clears the floating tab bar's minY; those PNGs distinguish positioning from a missing bottom inset.
+
+Home recorded recency now includes a member's turn-start timestamp as well as its catalog last activity. This can keep a recently started project out of the days-idle fold even when its other timestamp is old; the idle window and pin/explicit-inactive rules are unchanged. The DEBUG old-host days-idle fixture ages both timestamps consistently. Its first corrected-row run exposed the previous contradiction (sleeping and lastActivity 30 days ago, but Cedar's turn started 65 seconds ago); the Mark active assertion is retained.
+
+The ordinary project header row hides only the redundant system NavigationLink disclosure via public navigationLinkIndicatorVisibility; its explicit title chevron, NavigationLink role, tap route and accessibility label/ID remain. Its label receives the remaining width so the automatic row accessory cannot squeeze the accessibility-sized title. The changed-source matrix is inspected again for duplicate disclosures and mid-word splits.

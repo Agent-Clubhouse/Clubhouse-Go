@@ -511,10 +511,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(element("project-preview-studio-prototype").waitForExistence(timeout: 5), "Opening the idle section shows the project")
 
         scrollToTop()
-        let menu = element("project-menu-preview-studio-website")
-        reveal(menu)
-        let pin = app.buttons["Pin project"]
-        waitAndTap(menu, until: pin, timeout: 5)
+        let header = element("open-project-preview-studio-website")
+        reveal(header)
+        let pin = app.buttons["Pin to top of Home"]
+        longPressUntilMenu(header, shows: pin, attempts: 1)
         pin.tap()
         scrollToTop()
         let website = element("project-preview-studio-website"), clubhouse = element("project-preview-studio-clubhouse")

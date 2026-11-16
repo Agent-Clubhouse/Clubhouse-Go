@@ -63,8 +63,8 @@ import XCTest
         projectPicker.tap()
         XCTAssertTrue(app.buttons["Clubhouse · Travel MacBook"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["Clubhouse · Studio Mac"].exists, "The sheet must not widen Home's explicit launch scope")
-        app.buttons["Clubhouse · Travel MacBook"].tap()
         capture(app, "Home Laptop scoped New agent exposes only Laptop")
+        app.buttons["Clubhouse · Travel MacBook"].tap()
         app.navigationBars.buttons["Cancel"].tap()
         let toolbarPlus = app.navigationBars.buttons["New agent"]
         XCTAssertTrue(toolbarPlus.waitForExistence(timeout: 5))

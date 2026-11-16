@@ -116,6 +116,74 @@ struct CompanionProjectState: Sendable, Equatable {
     }
 }
 
+/// One session-only offline disclosure label. Missing catalog counts remain unknown.
+struct CompanionHomeOfflineMachineSummary: Equatable, Sendable {
+    let name: String
+    let lastSeen: Date?
+    let agentCount: Int?
+
+    var text: String { text(now: Date()) }
+    func text(now: Date) -> String {
+        let seen = lastSeen.flatMap { $0.timeIntervalSinceReferenceDate.isFinite ? $0 : nil }
+        let state = seen.map { "offline, seen \(CompanionFinishedRun.ago($0, now: now))" } ?? "not connected"
+        let count = agentCount.map { " · \($0) agent\($0 == 1 ? "" : "s")" } ?? ""
+        return "\(name) \(state)\(count)"
+    }
+}
+
+/// One Home group's live activity and stable recorded recency, aggregated across linked copies.
+/// Unavailable (including synchronizing) hosts contain cached state, never live work. A
+/// connected report remains authoritative until its connection changes; no age timer expires
+/// a legitimately long-running turn. Recency never reads live conversation/tool timestamps.
+struct CompanionHomeProjectActivity: Equatable, Sendable {
+    let isRunning: Bool
+    let status: CompanionAgentStatus?
+    let lastActivity: Date?
+
+    init(entry: CompanionProjectEntry, recordedProjectActivity: (CompanionProjectTarget) -> Date?) {
+        let live = entry.members.filter(\.host.connection.canOperate).flatMap(\.project.agents)
+            .filter { !CompanionFinishedRuns.hasFinished($0) }
+        isRunning = live.contains(where: CompanionHomeLayout.isAwake)
+        status = live.enumerated().min {
+            let a = Self.urgency($0.element.status), b = Self.urgency($1.element.status)
+            return a == b ? $0.offset < $1.offset : a < b
+        }?.element.status
+        lastActivity = entry.members.flatMap { member in
+            [recordedProjectActivity(member.id)] + member.project.agents.flatMap { [$0.lastActivity, $0.turnStartedAt] }
+        }.compactMap { $0 }.filter { $0.timeIntervalSinceReferenceDate.isFinite }.max()
+    }
+
+    private static func urgency(_ status: CompanionAgentStatus) -> Int {
+        switch status {
+        case .approval: 0
+        case .waiting: 1
+        case .failed: 2
+        case .working: 3
+        case .starting: 4
+        case .idle: 5
+        case .completed: 6
+        case .sleeping: 7
+        case .stopped: 8
+        }
+    }
+
+    /// Recent ranks any-member running first, then max recorded recency; ties keep catalog order.
+    static func ordered(_ entries: [CompanionProjectEntry],
+                        recordedProjectActivity: (CompanionProjectTarget) -> Date?) -> [CompanionProjectEntry] {
+        let activity = entries.map { Self(entry: $0, recordedProjectActivity: recordedProjectActivity) }
+        return entries.indices.sorted { lhs, rhs in
+            let a = activity[lhs], b = activity[rhs]
+            if a.isRunning != b.isRunning { return a.isRunning }
+            switch (a.lastActivity, b.lastActivity) {
+            case let (x?, y?) where x != y: return x > y
+            case (.some, nil): return true
+            case (nil, .some): return false
+            default: return lhs < rhs
+            }
+        }.map { entries[$0] }
+    }
+}
+
 /// One project on Home: its agents in order, with sleeping agents and finished quick agents folded away.
 struct CompanionProjectGroup: Identifiable, Sendable, Equatable {
     var entry: CompanionProjectEntry
@@ -162,12 +230,16 @@ struct CompanionHomeLayout: Sendable, Equatable {
                       now: Date = Date(), hold: CompanionListHold? = nil,
                       shared: (CompanionProjectEntry) -> CompanionProjectState? = { _ in nil },
                       projectActivity: (CompanionProjectTarget) -> Date?, agentActivity: (CompanionAgent) -> Date?) -> Self {
-        var ordered = CompanionProjectOrdering.ordered(entries, sort: sort, customOrder: customOrder, lastActivity: projectActivity)
+        var ordered = sort == .recent
+            ? CompanionHomeProjectActivity.ordered(entries, recordedProjectActivity: projectActivity)
+            : CompanionProjectOrdering.ordered(entries, sort: sort, customOrder: customOrder, lastActivity: projectActivity)
         if let hold { ordered = CompanionListHold.apply(ordered, order: hold.projects, id: \.orderKey) }
         var pinned: [CompanionProjectGroup] = [], active: [CompanionProjectGroup] = [], idle: [CompanionProjectGroup] = []
         for entry in ordered {
-            let tree = CompanionAgentTree.build(entry.project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
-            let running = entry.project.agents.contains(where: isAwake)
+            let live = entry.members.filter(\.host.connection.canOperate).flatMap(\.project.agents)
+                .filter { !CompanionFinishedRuns.hasFinished($0) }
+            let tree = CompanionAgentTree.build(live, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
+            let running = live.contains(where: isAwake)
             let capable = entry.members.filter { $0.host.canSyncLinkedProjectState }
             let orderedSources = capable.filter { $0.host.connection.canOperate } + capable.filter { !$0.host.connection.canOperate }
             let linked = entry.isLinked ? orderedSources.compactMap { member -> CompanionProjectState? in
