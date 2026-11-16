@@ -9,10 +9,33 @@ import XCTest
     }
     private func launch(_ flags: [String] = []) -> XCUIApplication {
         let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"] + flags, attempts: 1)
+        if flags.contains("--companion-header-pushed") {
+            let open = app.buttons["header-fixture-open-chat"]
+            XCTAssertTrue(open.waitForExistence(timeout: 10))
+            open.tap()
+        }
         XCTAssertTrue(app.buttons["companion-chat-header"].waitForExistence(timeout: 10))
+        settleIdentity(app, state: "launch")
         return app
     }
+    private func settleIdentity(_ app: XCUIApplication, state: String) {
+        let identity = app.buttons["companion-chat-header"]
+        let started = Date()
+        let immediatelyCentered = abs(identity.frame.midX - app.frame.midX) <= 1
+        let centered = immediatelyCentered || waitFor(identity, NSPredicate { _, _ in
+            abs(identity.frame.midX - app.frame.midX) <= 1
+        }, timeout: 5)
+        print("HEADER_SETTLE state=\(state) seconds=\(Date().timeIntervalSince(started)) centered=\(centered) immediate=\(immediatelyCentered) frame=\(identity.frame)")
+        if !centered {
+            let screenshot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+            screenshot.name = "Header centering failure \(state)"; screenshot.lifetime = .keepAlways; add(screenshot)
+            let geometry = XCTAttachment(string: "identity=\(identity.frame), screen=\(app.frame)\n\(app.debugDescription)")
+            geometry.name = "Header centering failure geometry \(state)"; geometry.lifetime = .keepAlways; add(geometry)
+        }
+        XCTAssertTrue(centered, "Identity must settle within the existing 1pt screen-centering tolerance in 5s")
+    }
     private func capture(_ app: XCUIApplication, _ name: String) {
+        settleIdentity(app, state: "capture \(name)")
         // Synthetic fixture screenshots only.
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Header synthetic \(Int(app.frame.width))pt — \(name)"
@@ -81,14 +104,67 @@ import XCTest
         }
     }
 
+    func testLongIdentityCentersWithAndWithoutBackAtAccessibilitySizes() {
+        for pushed in [false, true] {
+            for largeText in [false, true] {
+                let flags = ["--companion-header-long-name", pushed ? "--companion-header-pushed" : "--companion-header-no-leading"]
+                    + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] : [])
+                let app = launch(flags)
+                let identity = app.buttons["companion-chat-header"]
+                let context = app.buttons["companion-context-usage"]
+                let actions = app.buttons["conversation-actions-menu"]
+                let capsule = element(app, "companion-chat-header-actions")
+                XCTAssertEqual(identity.frame.midX, app.frame.midX, accuracy: 1)
+                XCTAssertGreaterThan(identity.frame.width, 100)
+                XCTAssertLessThanOrEqual(identity.frame.maxX + 4, context.frame.minX)
+                XCTAssertEqual(context.frame.maxX + 1, actions.frame.minX, accuracy: 1)
+                XCTAssertTrue(pixelContains(capsule.frame, context.frame))
+                XCTAssertTrue(pixelContains(capsule.frame, actions.frame))
+                XCTAssertTrue(context.isHittable && actions.isHittable)
+                assertMinimumTarget(context, "context")
+                assertMinimumTarget(actions, "actions")
+                XCTAssertFalse(app.staticTexts["28%"].exists, "Context percentage is spoken, not printed in the toolbar")
+                XCTAssertEqual(context.value as? String, "Latest reported context: 28% full")
+                if pushed {
+                    let back = app.navigationBars.buttons.firstMatch
+                    XCTAssertLessThanOrEqual(back.frame.maxX + 4, identity.frame.minX)
+                }
+                capture(app, "\(pushed ? "back" : "no back") long name \(largeText ? "AX Large" : "standard")")
+                waitAndTap(identity, until: element(app, "companion-chat-details-name"), attempts: 1)
+                XCTAssertEqual(element(app, "companion-chat-details-name").label,
+                               "Alexandria — release coordination and simulator validation")
+                app.terminate()
+            }
+        }
+    }
+
+    func testDesktopThemesKeepHeaderAndLabeledComposerReadable() {
+        for (theme, flags) in [
+            ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
+            ("Catppuccin Mocha", ["--companion-header-mocha"]),
+        ] {
+            let app = launch(flags + ["--companion-header-no-leading"])
+            let controls = app.buttons["companion-level-menu"]
+            XCTAssertTrue(controls.staticTexts["Auto-accept edits · Opus"].exists,
+                          "The collapsed composer names its access level and model")
+            XCTAssertEqual(app.buttons["companion-chat-header"].frame.midX, app.frame.midX, accuracy: 1)
+            assertNamePillContrast(app)
+            assertAvatarColour(app, theme)
+            capture(app, theme)
+            app.terminate()
+        }
+    }
+
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
-    /// glass must not restyle it. The 50pt photo is centred at the top of the identity control; sampled inside it,
+    /// glass must not restyle it. The 44pt photo is centred at the top of the identity control; sampled inside it,
     /// left of the initial and clear of the status dot.
     private func assertAvatarColour(_ app: XCUIApplication, _ state: String) {
+        settleIdentity(app, state: "avatar \(state)")
         let identity = app.buttons["companion-chat-header"].frame
-        guard let image = app.screenshot().image.cgImage else { return XCTFail("\(state): no screenshot") }
+        let screenshot = app.screenshot()
+        guard let image = screenshot.image.cgImage else { return XCTFail("\(state): no screenshot") }
         let scale = CGFloat(image.width) / app.frame.width
-        let x = Int(((identity.midX - 16) * scale).rounded()), y = Int(((identity.minY + 25) * scale).rounded())
+        let x = Int(((identity.midX - 16) * scale).rounded()), y = Int(((identity.minY + 22) * scale).rounded())
         var pixel = [UInt8](repeating: 0, count: 4)
         pixel.withUnsafeMutableBytes { buffer in
             let context = CGContext(data: buffer.baseAddress, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
@@ -97,6 +173,10 @@ import XCTest
             context?.draw(image, in: CGRect(x: -x, y: -(image.height - 1 - y), width: image.width, height: image.height))
         }
         let rgb = pixel.prefix(3).map(Int.init)
+        let sampled = XCTAttachment(screenshot: screenshot)
+        sampled.name = "Avatar sample \(state)"; sampled.lifetime = .keepAlways; add(sampled)
+        let geometry = XCTAttachment(string: "identity=\(identity), screenshot=\(image.width)x\(image.height), scale=\(scale), pixel=(\(x),\(y)), rgb=\(rgb)")
+        geometry.name = "Avatar sample geometry \(state)"; geometry.lifetime = .keepAlways; add(geometry)
         for (channel, expected) in zip(rgb, [99, 102, 241]) {
             XCTAssertEqual(channel, expected, accuracy: 12, "\(state): avatar renders \(rgb), not the canonical indigo")
         }
@@ -105,6 +185,7 @@ import XCTest
     /// The name pill under the photo floats over whatever transcript is behind it; its text stays at WCAG AA.
     /// Sampled across the bottom of the identity control, where the pill is, away from the photo.
     private func assertNamePillContrast(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        settleIdentity(app, state: "contrast")
         let identity = app.buttons["companion-chat-header"].frame
         let pill = CGRect(x: identity.midX - 30, y: identity.maxY - 13, width: 60, height: 9)
         guard let image = app.screenshot().image.cgImage else { return XCTFail("No screenshot", file: file, line: line) }
@@ -146,6 +227,7 @@ import XCTest
     /// Editing keeps the draft, every composer action and the header controls usable. Returns the composer's top.
     @discardableResult
     private func assertEditingLayout(_ app: XCUIApplication, largeText: Bool) -> CGFloat {
+        settleIdentity(app, state: "editing")
         let region = editingRegion(app)
         let editors = app.descendants(matching: .any).matching(identifier: "companion-composer")
         XCTAssertEqual(editors.count, 1, "One native draft field keeps its identity")
