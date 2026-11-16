@@ -15,6 +15,7 @@ struct CompanionConversationHeaderFixture: View {
     @State private var imageVersion = 0
     private let target = CompanionPreviewService.target
     private var arguments: [String] { ProcessInfo.processInfo.arguments }
+    private var pushed: Bool { arguments.contains("--companion-header-pushed") }
 
     private var theme: CompanionDesktopTheme {
         if arguments.contains("--companion-header-latte") {
@@ -32,34 +33,46 @@ struct CompanionConversationHeaderFixture: View {
         return .clubhouse
     }
 
+    private var conversation: some View {
+        Group {
+            if ready, let agent = store.agent(for: target) {
+                CompanionConversationView(store: store, agent: agent)
+            } else { ProgressView("Preparing header fixture…") }
+        }
+    }
+
+
     var body: some View {
         NavigationStack {
             Group {
-                if ready, let agent = store.agent(for: target) {
-                    CompanionConversationView(store: store, agent: agent)
-                } else { ProgressView("Preparing header fixture…") }
+                if pushed {
+                    NavigationLink("Open chat") { conversation }
+                        .accessibilityIdentifier("header-fixture-open-chat")
+                } else { conversation }
             }
             .toolbar {
-                ToolbarItem(placement: .topBarLeading) {
-                    Menu {
-                        Button(imageVersion == 0 ? "Use custom profile image" : "Update profile image") {
-                            Task { await updateImage() }
-                        }
-                        .accessibilityIdentifier("header-fixture-image")
-                        Button("Require conversation refresh") {
-                            store.apply(.resyncRequired(hostID: target.hostID))
-                        }
-                        .accessibilityIdentifier("header-fixture-refresh")
-                        if arguments.contains("--companion-header-held-tail") {
-                            Button("Append held reply") {
-                                store.apply(.upsert(target, .message(.init(id: "header-fixture-incoming", role: .assistant,
-                                    text: "Held incoming tail.")), sequence: nil))
+                if !pushed && !arguments.contains("--companion-header-no-leading") {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Menu {
+                            Button(imageVersion == 0 ? "Use custom profile image" : "Update profile image") {
+                                Task { await updateImage() }
                             }
-                            .accessibilityIdentifier("header-fixture-append")
-                        }
-                    } label: { Label("Header fixture", systemImage: "photo") }
-                    .accessibilityValue("Synthetic profile image version \(imageVersion)")
-                    .accessibilityIdentifier("header-fixture-menu")
+                            .accessibilityIdentifier("header-fixture-image")
+                            Button("Require conversation refresh") {
+                                store.apply(.resyncRequired(hostID: target.hostID))
+                            }
+                            .accessibilityIdentifier("header-fixture-refresh")
+                            if arguments.contains("--companion-header-held-tail") {
+                                Button("Append held reply") {
+                                    store.apply(.upsert(target, .message(.init(id: "header-fixture-incoming", role: .assistant,
+                                        text: "Held incoming tail.")), sequence: nil))
+                                }
+                                .accessibilityIdentifier("header-fixture-append")
+                            }
+                        } label: { Label("Header fixture", systemImage: "photo") }
+                        .accessibilityValue("Synthetic profile image version \(imageVersion)")
+                        .accessibilityIdentifier("header-fixture-menu")
+                    }
                 }
             }
         }
