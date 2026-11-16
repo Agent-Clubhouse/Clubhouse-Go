@@ -177,9 +177,11 @@ import UIKit
                 $0.elementType == .image && ($0.identifier == "chevron.down" || $0.label == "chevron.down")
             }
             XCTAssertNotNil(disclosure)
-            for id in ["companion-previous-message", "companion-next-message"] {
+            for id in ["companion-previous-message", "companion-next-message", "companion-latest"] {
                 let jump = newestNode(in: snapshot) { $0.identifier == id }
-                XCTAssertNotNil(jump)
+                // #447 removes both arrows and hides Latest while following. Absence
+                // guarantees that no floating hit target can cover the newest card.
+                XCTAssertNil(jump, "Following has no transcript overlay controls")
                 if let jump {
                     XCTAssertFalse(jump.frame.intersects(newestItem.frame), "Jump buttons must not cover the newest card's interactive target")
                     if let disclosure {

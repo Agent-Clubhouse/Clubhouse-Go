@@ -27,6 +27,8 @@ and samples each avatar screenshot once, retaining that exact image and its samp
   - `--diagnostics-ui-testing`: `DiagnosticSettingsTests`
   - `--framebriar-shake-ui-testing`: `FramebriarShakeUITests` and `FramebriarShakeDiagnosticsUITests`. The diagnostics tests add `--framebriar-shake-unenrolled` (feedback not enrolled) and `--framebriar-shake-companion-layout` (Companion-like split view with navigation and a composer).
 
+`CompanionLatestUITests` checks the single centered Latest capsule in light, dark, Catppuccin Latte/Mocha and accessibility XXXL, using the socket-free conversation fixture. It requires a 44pt target inside the transcript above the composer, no former arrow controls, absence at the true bottom and one-tap arrival at the complete stationary final row. The Reading suite retains rotation, restoration, streaming and viewport tolerances; real transcript gestures replace setup through the Previous control removed by #447. Follow-state assertions use the existing DEBUG transcript trace when the pill is hidden. KeyboardDismissal and ChatChrome require no overlay while following, preserving the newest text/card/disclosure clearance; the pill's actual geometry is checked away from the bottom. Simulator visuals do not cover a physical device or spoken VoiceOver.
+
 `CompanionDispatcherUITests` replaces the Start screen setting check with every-tab process-relaunch
 restoration and unavailable-Dispatch fallback/foreground checks. Search is checked through its expanded
 native field because its collapsed tab button leaves the accessibility tree. Fresh preferences open Home; existing

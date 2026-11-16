@@ -179,12 +179,21 @@ import UIKit
         print("CHAT_CHROME \(state) transcript=\(transcript) header=\(header) composer=\(composer) visibleTop=\(visibleTop) visibleBottom=\(visibleBottom) height=\(visibleBottom - visibleTop)")
         XCTAssertGreaterThan(visibleBottom - visibleTop, 100)
         let end = app.staticTexts["End of the long reply."]
-        let navigation = app.buttons["companion-next-message"]
-        XCTAssertTrue(end.exists && navigation.exists)
+        let navigation = app.pausedChatNavigation
+        XCTAssertTrue(end.exists)
+        XCTAssertFalse(navigation.exists, "#447 hides the replacement at the true bottom")
+        XCTAssertFalse(app.buttons["companion-previous-message"].exists)
+        XCTAssertFalse(app.buttons["companion-next-message"].exists)
         let visible = CGRect(x: transcript.minX, y: visibleTop, width: transcript.width, height: visibleBottom - visibleTop)
         XCTAssertTrue(pixelContains(visible, end.frame), "The entire final line stays above the composer")
-        XCTAssertLessThanOrEqual(end.frame.maxY, navigation.frame.minY - 4, "The final text can sit clear of floating controls")
-        print("CHAT_CHROME \(state) finalText=\(end.frame) nextButton=\(navigation.frame) send=\(app.buttons["companion-send"].frame)")
+        // At the true bottom there is no floating control to occlude the final line.
+        // The replacement's actual bounds/44pt target are checked away from bottom
+        // in CompanionLatestUITests and the streaming Reading test.
+        if navigation.exists {
+            XCTAssertLessThanOrEqual(end.frame.maxY, navigation.frame.minY - 4, "The final text can sit clear of floating controls")
+        }
+        let latestFrame = navigation.exists ? String(describing: navigation.frame) : "hidden while following"
+        print("CHAT_CHROME \(state) finalText=\(end.frame) latest=\(latestFrame) send=\(app.buttons["companion-send"].frame)")
         let shot = XCTAttachment(screenshot: app.screenshot())
         shot.name = "Chat chrome \(state)"; shot.lifetime = .keepAlways; add(shot)
     }
