@@ -829,6 +829,13 @@ struct CompanionNeedsYouView: View {
         let items = store.attentionItems()
         let availability = CompanionAttentionAvailability(hosts: store.hosts)
         List {
+            if dynamicTypeSize.isAccessibilitySize, let connectionSummary {
+                Text(connectionSummary)
+                    .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityIdentifier("needs-you-availability-summary")
+                    .listRowBackground(Color.clear)
+            }
             if !store.attentionDecisionNotices.isEmpty {
                 Section {
                     CompanionDecisionNoticesView(store: store, notices: store.attentionDecisionNotices)
@@ -859,6 +866,7 @@ struct CompanionNeedsYouView: View {
                         Text(availability.unavailableHosts.count == 1 ? "Its requests show up when it reconnects." : "Their requests show up when they reconnect.")
                             .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                             .fixedSize(horizontal: false, vertical: true)
+                            .padding(.horizontal, 12).padding(.bottom, 8)
                     }
                     .listRowBackground(Color.clear)
                     .listRowInsets(EdgeInsets())
@@ -890,17 +898,21 @@ struct CompanionNeedsYouView: View {
         } message: { Text(store.grantRequestNotice ?? "") }
     }
 
-    private func subtitle(requestCount: Int) -> Text {
-        let count = "\(requestCount) \(requestCount == 1 ? "request" : "requests")"
+    private var connectionSummary: String? {
         let unavailable = store.hosts.filter { !$0.connection.canOperate }
-        let connection: String?
         if unavailable.count == 1 {
             let host = unavailable[0]
-            let state = host.connection.presentation().label.lowercased()
-            connection = "\(host.name) \(state)"
-        } else { connection = unavailable.isEmpty ? nil : "\(unavailable.count) desktops not connected" }
-        let separator = dynamicTypeSize.isAccessibilitySize ? "\n" : " · "
-        return Text([count, connection].compactMap { $0 }.joined(separator: separator))
+            return "\(host.name) \(host.connection.presentation().label.lowercased())"
+        }
+        return unavailable.isEmpty ? nil : "\(unavailable.count) desktops not connected"
+    }
+
+    private func subtitle(requestCount: Int) -> Text {
+        let count = "\(requestCount) \(requestCount == 1 ? "request" : "requests")"
+        // The native subtitle has one line at accessibility sizes. Availability
+        // remains visible in the first scrolling row instead of a clipped line.
+        let connection = dynamicTypeSize.isAccessibilitySize ? nil : connectionSummary
+        return Text([count, connection].compactMap { $0 }.joined(separator: " · "))
             .foregroundColor(Color(palette.secondaryLabel))
     }
 
@@ -1008,7 +1020,7 @@ struct CompanionAttentionCard: View {
                 if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
                     Button { Task { await store.respond(approval, option: deny, target: item.agent.id) } } label: {
                         Text(deny.label).fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
                     .accessibilityIdentifier("attention-deny-\(item.id)")
@@ -1016,7 +1028,7 @@ struct CompanionAttentionCard: View {
                 if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
                     Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {
                         Text(allow.label).fixedSize(horizontal: false, vertical: true)
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
                     .disabled(!store.canApprove(approval, target: item.agent.id))
