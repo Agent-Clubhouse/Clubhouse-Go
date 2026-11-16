@@ -221,21 +221,28 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         let settings = app.buttons["Agent settings"]
         waitAndTap(actions, until: settings, timeout: 5, "The chat header offers the agent's settings")
 
-        let hint = element(app, "agent-settings-locked-hint")
-        waitAndTap(settings, until: hint, timeout: 10, "An awake agent says why its settings are locked")
-        XCTAssertTrue(app.staticTexts["Sleep the agent to change these"].exists)
-        XCTAssertTrue(app.staticTexts["Chat · Claude Code · Opus · Sleeps after 30 min"].exists, "The summary uses the desktop's words")
-        XCTAssertFalse(app.buttons["agent-settings-model"].isEnabled, "Model waits for the agent to sleep")
-        XCTAssertFalse(app.textFields["agent-settings-name"].isEnabled, "Name waits for the agent to sleep")
-        let autoSleep = app.buttons["agent-settings-auto-sleep"]
-        scrollTo(autoSleep, in: app, maxSwipes: 4)
-        XCTAssertTrue(autoSleep.isEnabled, "Auto-sleep can change at any time")
+        let summary = element(app, "agent-settings-summary")
+        waitAndTap(settings, until: summary, timeout: 10, "An awake agent shows its identity")
+        XCTAssertTrue(summary.label.contains("Claude Code · Opus · Needs you"), "The identity uses the desktop's provider, model and status words")
+        let name = app.textFields["agent-settings-name"]
+        XCTAssertTrue(scrollTo(name, in: app, maxSwipes: 4))
+        XCTAssertFalse(name.isEnabled, "Name waits for the agent to sleep")
+        let model = app.buttons["agent-settings-model"]
+        XCTAssertTrue(scrollTo(model, in: app, maxSwipes: 6))
+        XCTAssertFalse(model.isEnabled, "Model waits for the agent to sleep")
         let access = app.buttons["agent-settings-access"]
-        scrollTo(access, in: app, maxSwipes: 4)
+        XCTAssertTrue(scrollTo(access, in: app, maxSwipes: 4))
         XCTAssertTrue(access.exists)
         XCTAssertFalse(access.isEnabled, "Saved Access is a spawn setting, so it waits for the agent to sleep")
         let applicationNote = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", "Applies at next start. Saving does not change the running session.")).firstMatch
         XCTAssertTrue(scrollTo(applicationNote, in: app, maxSwipes: 3), "The footer explains that saved Access waits for the next start")
+        let hint = element(app, "agent-settings-locked-hint")
+        XCTAssertTrue(scrollTo(hint, in: app, maxSwipes: 3), "One footer explains the sleeping-only lock")
+        XCTAssertTrue(app.staticTexts["Sleep the agent to change these"].exists)
+        XCTAssertEqual(app.staticTexts.matching(identifier: "agent-settings-locked-hint").count, 1)
+        let autoSleep = app.buttons["agent-settings-auto-sleep"]
+        XCTAssertTrue(scrollTo(autoSleep, in: app, maxSwipes: 4))
+        XCTAssertTrue(autoSleep.isEnabled, "Auto-sleep can change at any time")
         screenshot(app, "Awake agent settings")
 
         // Preview edits fail visibly and put the control back.
@@ -272,10 +279,13 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         longPressUntilMenu(juniper, shows: settings, "The agent row's long-press menu offers its settings")
 
         let name = app.textFields["agent-settings-name"]
-        waitAndTap(settings, until: name, timeout: 10)
+        waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 10)
+        XCTAssertTrue(scrollTo(name, in: app, maxSwipes: 4))
         XCTAssertEqual(name.value as? String, "Juniper")
         XCTAssertTrue(name.isEnabled, "A sleeping agent's settings can change")
-        XCTAssertTrue(app.buttons["agent-settings-model"].isEnabled)
+        let model = app.buttons["agent-settings-model"]
+        XCTAssertTrue(scrollTo(model, in: app, maxSwipes: 6))
+        XCTAssertTrue(model.isEnabled)
         XCTAssertFalse(element(app, "agent-settings-locked-hint").exists, "Nothing is locked while it sleeps")
         screenshot(app, "Sleeping agent settings")
 
