@@ -13,6 +13,9 @@ import XCTest
         waitAndTap(context, until: app.navigationBars["Context and limits"], attempts: 1)
         let close = app.buttons["companion-context-close"]
         XCTAssertTrue(close.isHittable)
+        XCTAssertTrue(waitFor(close, NSPredicate { _, _ in
+            close.frame.width >= 44 && close.frame.height >= 44
+        }, timeout: 3), "The sheet presentation must settle to its full Close target")
         assertMinimumTarget(close, "Context close")
         return app
     }
@@ -91,5 +94,24 @@ import XCTest
         XCTAssertTrue(element(app, "companion-context-report").exists)
         XCTAssertTrue(app.buttons["agent-settings-context-window"].isHittable)
         XCTAssertTrue(app.buttons["companion-context-close"].isHittable)
+    }
+
+    /// Read-only measurements for the shared-style follow-up; no target requirement is waived here.
+    func testOtherNativeCloseTargetsForFollowUp() {
+        let app = launchApp(["--companion-preview", "--companion-preview-start-home"], attempts: 1)
+        waitAndTap(app.buttons["Settings"], until: app.buttons["settings-close"], attempts: 1)
+        let settingsClose = app.buttons["settings-close"]
+        XCTAssertTrue(settingsClose.isHittable)
+        capture(app, "other native Settings close measurement")
+        print("OTHER_NATIVE_CLOSE Settings \(settingsClose.frame)")
+        settingsClose.tap()
+        let newAgent = app.navigationBars.buttons["New agent"]
+        waitAndTap(newAgent, until: app.buttons["new-agent-create"], attempts: 1)
+        let cancel = app.navigationBars.buttons["Cancel"]
+        XCTAssertTrue(cancel.isHittable)
+        capture(app, "other native New agent close measurement")
+        print("OTHER_NATIVE_CLOSE NewAgent \(cancel.frame)")
+        cancel.tap()
+        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
     }
 }
