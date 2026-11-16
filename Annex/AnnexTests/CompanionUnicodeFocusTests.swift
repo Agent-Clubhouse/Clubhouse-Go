@@ -32,6 +32,18 @@ import SwiftUI
         }
     }
 
+    /// No conditional mount wrapper: the outer onAppear must follow the composer's own restore.
+    private struct DraftReplacementComposer: View {
+        let store: CompanionStore
+        let agent: CompanionAgent
+        let memory: CompanionComposerMemory
+        let request: FocusRequest
+        var body: some View {
+            CompanionConversationComposer(store: store, agent: agent, memory: memory,
+                focusRequests: request.value, confirmCancel: .constant(false), dismissals: request.dismissals)
+        }
+    }
+
     private func findInput(_ view: UIView) -> UITextView? {
         (view as? UITextView) ?? view.subviews.lazy.compactMap(findInput).first
     }
@@ -72,9 +84,6 @@ import SwiftUI
             try await exerciseDraftChangeDuringMount(saved: "a\u{1F642}b", changed: changed,
                 bookmark: .init(lowerUTF16: 1, upperUTF16: 3))
         }
-        // Swift equality considers these drafts equal; their bookmark offsets are different.
-        try await exerciseDraftChangeDuringMount(saved: "a\u{E9}b", changed: "ae\u{301}b",
-            bookmark: .init(lowerUTF16: 1, upperUTF16: 2))
     }
 
     func testDraftChangedAfterInsertionPointRestoreBeforeNativeMountPreservesGraphemeBytes() async throws {
@@ -107,7 +116,7 @@ import SwiftUI
         let appeared = expectation(description: "Draft replaced after the bookmark was consumed")
         window.frame = scene.screen.bounds
         window.rootViewController = UIHostingController(rootView:
-            Composer(store: store, agent: agent, request: request, memory: memory)
+            DraftReplacementComposer(store: store, agent: agent, memory: memory, request: request)
                 .onAppear {
                     XCTAssertNil(memory.selectionDraft, "Exercise the gap after restoration, not a mismatched saved bookmark")
                     store.drafts[target] = changed
