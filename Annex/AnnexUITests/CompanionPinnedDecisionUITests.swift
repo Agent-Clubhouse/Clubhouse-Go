@@ -217,6 +217,8 @@ import Vision
         }
         capture(app, "AX5 landscape: scrollable approval decisions")
         XCTAssertTrue(allow.isEnabled && allow.isHittable, "The review's decision stays reachable: \(allow.frame), \(review.frame)")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists,
+                       "Opening the native menu and Review sends nothing")
     }
     func testSwipesAndTitleTapsNeverSendADecision() {
         let app = openRiver()

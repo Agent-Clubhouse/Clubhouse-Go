@@ -72,7 +72,11 @@ struct CompanionConversationPendingDecisions: View {
         case .question: kind = "Question"
         }
         let subtitle = "\(index + 1) of \(count) waiting · \(kind)"
-        return Button { showInChat(decision.id) } label: {
+        return Menu {
+            Button("Review request") { openReview(decision, presentation: presentation) }
+                .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
+                .accessibilityIdentifier("companion-review-approval")
+        } label: {
             VStack(alignment: .leading, spacing: isCompactHeight ? 0 : 2) {
                 Text(decision.summary).font((isCompactHeight ? Font.caption : .subheadline).weight(.semibold))
                     .lineLimit(isCompactHeight ? 1 : 2)
@@ -82,16 +86,11 @@ struct CompanionConversationPendingDecisions: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
-            .contextMenu {
-                Button("Review request") { openReview(decision, presentation: presentation) }
-                    .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
-                    .accessibilityIdentifier("companion-review-approval")
-            }
-            .accessibilityHidden(true)
+        } primaryAction: {
+            showInChat(decision.id)
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityAddTraits(.isButton)
+        .menuIndicator(.hidden)
         .accessibilityAction { showInChat(decision.id) }
         .accessibilityLabel(decision.summary)
         .accessibilityValue(subtitle)
