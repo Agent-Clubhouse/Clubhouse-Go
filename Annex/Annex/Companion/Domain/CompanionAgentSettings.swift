@@ -197,6 +197,8 @@ nonisolated struct CompanionCreateOptions: Sendable, Equatable {
     var options: CompanionAgentOptions
     var mcpCatalog: [CompanionMCPOption] = []
     var mcpDefaults: [String] = []
+    /// Distinguishes a desktop's explicit empty selection from an omitted or malformed defaults field.
+    var mcpDefaultsReported = true
     var isGitRepo = false
     var suggestedName = ""
     var defaultOrchestrator: String?

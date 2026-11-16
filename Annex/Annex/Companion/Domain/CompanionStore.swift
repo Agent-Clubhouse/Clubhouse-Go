@@ -1041,6 +1041,15 @@ import Observation
 
     // MARK: Durable agents (#131, #132)
 
+    /// Read-only UI admission token. It changes across the same connection/catalog boundaries as cached defaults.
+    /// This exposes no wire field and starts no read; the info sheet uses it to reject a late create-options reply.
+    func createOptionsReadGeneration(for project: CompanionProjectTarget) -> UUID? {
+        guard !isShutDown,
+              let host = hosts.first(where: { $0.id == project.hostID }), host.connection.canOperate,
+              host.canCreateDurable, host.projects.contains(where: { $0.id == project.projectID }) else { return nil }
+        return accessDefaultGenerations[project.hostID]
+    }
+
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
         let generation = accessDefaultReadGeneration(hostID: project.hostID)
         let options = try await service.createOptions(for: project)

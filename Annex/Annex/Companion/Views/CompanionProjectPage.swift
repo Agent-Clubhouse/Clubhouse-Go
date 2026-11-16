@@ -9,6 +9,7 @@ struct CompanionProjectPage: View {
     let project: CompanionProjectTarget
     var onNewAgent: (CompanionProjectTarget) -> Void
     @State private var hold: [CompanionTarget]?
+    @State private var showingInfo = false
 
     var body: some View {
         let entry = store.projectEntry(containing: project)
@@ -43,7 +44,14 @@ struct CompanionProjectPage: View {
             if let entry, !entry.isLinked, store.hosts.count > 1 {
                 ToolbarItem(placement: .topBarTrailing) { CompanionHostTag(name: entry.host.name) }
             }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Project info", systemImage: "info.circle") { showingInfo = true }
+                } label: { Label("Project options", systemImage: "ellipsis") }
+                .accessibilityIdentifier("project-page-options")
+            }
         }
+        .sheet(isPresented: $showingInfo) { CompanionProjectInfoSheet(store: store, project: project) }
     }
 }
 

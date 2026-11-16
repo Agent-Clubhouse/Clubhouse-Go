@@ -363,6 +363,8 @@ struct CompanionProject: Identifiable, Sendable, Equatable {
     var color: String? = nil
     var emoji: String? = nil
     var icon: CompanionIconReference? = nil
+    /// The project root reported by this desktop, not an agent's worktree or an inferred local path.
+    var path: String? = nil
 }
 
 struct CompanionAgent: Identifiable, Sendable, Equatable {
