@@ -144,8 +144,24 @@ struct CompanionDesktopConnectionBanner: View {
     let identifierPrefix: String
     @State private var retryAttempts: [String: UUID] = [:]
 
+    #if DEBUG
+    /// Hosted tests exercise the mounted banner's actual action and disabled predicate.
+    /// Public in-process AX traversal does not reliably expose SwiftUI buttons.
+    struct HostedTestSeam {
+        let retryHostIDs: [String]
+        let retryDisabled: Bool
+        let retry: () -> Void
+    }
+    var hostedTestSeam: ((HostedTestSeam) -> Void)? = nil
+    #endif
+
     var body: some View {
         let notice = CompanionConnectionNotice(hosts: store.hosts)
+        #if DEBUG
+        let _ = hostedTestSeam?(HostedTestSeam(retryHostIDs: notice.retryHostIDs,
+                                              retryDisabled: retryDisabled(notice.retryHostIDs),
+                                              retry: { retry(notice.retryHostIDs) }))
+        #endif
         Group {
             if notice.isVisible {
                 CompanionCompactConnectionBanner(title: notice.title, isInProgress: notice.isInProgress,
@@ -155,7 +171,7 @@ struct CompanionDesktopConnectionBanner: View {
                             Text("Retry").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                         }
                         .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                        .disabled(notice.retryHostIDs.allSatisfy { retryAttempts[$0] != nil })
+                        .disabled(retryDisabled(notice.retryHostIDs))
                         .accessibilityLabel(notice.retryLabel)
                         .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
                     }
@@ -170,6 +186,10 @@ struct CompanionDesktopConnectionBanner: View {
                 return old.connection == new.connection
             }
         }
+    }
+
+    private func retryDisabled(_ hostIDs: [String]) -> Bool {
+        hostIDs.allSatisfy { retryAttempts[$0] != nil }
     }
 
     private func retry(_ hostIDs: [String]) {
