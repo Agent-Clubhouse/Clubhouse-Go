@@ -59,7 +59,7 @@ wins in its existing badge only while the session is running. Ended sessions use
 against the latest snapshot while cached settings are stale.
 A desktop without `access.version >= 1` is read-only for saved Access, not a boolean fallback.
 
-Managed creation (#454) uses the desktop fixtures at `b09e825fb93036dfff0a61f9420e4e4d6175607b`.
+Managed creation (#454) uses the desktop fixtures at `ff19df8fad0e46ae379ae2d71efb0e040d893456`.
 `managedCreate.version >= 1` gates the additive flow; `createOptions` stays version 1.
 `DurableAgentCommandTests` checks all 37 create receipts and ensures managed requests omit every
 plain-only field. Domain tests cover capability absence, template order, sleeping receipts and error copy.
@@ -81,16 +81,23 @@ assertions require zero additional reads on capability loss and exactly one on p
 ### Linked projects
 
 The optional mobile v1 `projectLinks` capability is pinned at desktop
-`7b9425f1f1b6f028541d99ee2908c2a945e49edd`. One connected capable desktop supplies the
+`ff19df8fad0e46ae379ae2d71efb0e040d893456`. One connected capable desktop supplies the
 network-wide full replacement; the phone never unions replicas or infers links from names or remotes.
 References match the paired host's lowercased identity fingerprint and desktop-local project ID.
 Unknown machines/projects are ignored. Unlinking and catalog removal split derived entries, and
 groups omitted under `projectLinksTruncated` remain unlinked. No link state is persisted.
 
 Home, search, project pages and Needs you share the derived groups. Machine sections/labels retain
-qualified agent and action targets. A linked project is pinned if any member is pinned and idle
-only when every member is idle; pin, inactive, terminal, Changes and Wake actions remain
-machine-specific. New agent requires an explicit machine for a multi-member group. Review keeps
+qualified agent and action targets. With `linkedProjectState.version >= 1` and `linked: true`,
+Pin and Inactive use one desktop's group-effective values, replacing local preferences and any/all
+merging of stale replicas. One group command goes to a connected capable copy; its optimistic state
+rolls back on refusal. Terminal, Changes, Wake, raw activity and ordinary idle inputs remain per machine.
+Fully old-host groups keep the existing per-copy menu and any-pinned/all-idle display rule. A mixed group
+with only an old host connected shows cached shared controls disabled, explaining which capable desktop
+to connect; it never silently changes one old-host copy. All-offline groups retain one cached link replica,
+without unioning stale link sets. Unlink/split follows the desktop's reported values. Explicit Mark active
+is one command; desktop snapshots record activity on every copy. Ordinary top-level, unsequenced
+snapshot pushes update `payload.projectState`; same-checkpoint pushes never request replay. New agent requires an explicit machine for a multi-member group. Review keeps
 its existing filters and uses the linked project label.
 Offline or failed members retain their labeled place in a linked Home group, but their cached
 agent trees are hidden. Multiple projects on one machine use machine-plus-project option labels.
@@ -622,7 +629,7 @@ The live and provider tests listed below skip unless you enable them.
 
 ## Live E2E against a real desktop (nightly)
 
-Desktop update validation (#359, #400) is deliberately **fixtures and preview only**: never trigger a real update, check or restart. `AppUpdateContractTests` reads the pinned desktop statuses, events, approval and command/error fixtures; `CompanionAppUpdateTests` covers capability gates, required approval modes, cancellation, explicit same-id request/cancel/check recovery, pending check progress without a Dispatcher or grant, stale whole-result receipt protection, Already checking, authoritative retirement of resolved attempts, terminal shutdown with late replies, and new-epoch/lost-receipt safety, including a capability refresh racing a snapshot blocked on icon work. `SessionTests.desktopUpdateRestartDropsReceiptsAndReplayCursorAndRefetchesCapabilities` exercises the real transport with synthetic sockets. `qaSocketEpochRemainsCorrectWhenRestartRacesTheUpgrade` proves fresh capabilities replace a mismatched socket before publishing its epochless snapshot. `CompanionAppUpdateUITests` uses `--companion-preview-app-update` for the Home indicator's running/available versions, version-specific restart action and immediate explicit approval choices. Fixtures are re-synced from desktop main at `5dcf6f18cfd9ecd6850ec735fdd3134e6b750bed` after Agent-Clubhouse/Clubhouse#3505 merged.
+Desktop update validation (#359, #400) is deliberately **fixtures and preview only**: never trigger a real update, check or restart. `AppUpdateContractTests` reads the pinned desktop statuses, events, approval and command/error fixtures; `CompanionAppUpdateTests` covers capability gates, required approval modes, cancellation, explicit same-id request/cancel/check recovery, pending check progress without a Dispatcher or grant, stale whole-result receipt protection, Already checking, authoritative retirement of resolved attempts, terminal shutdown with late replies, and new-epoch/lost-receipt safety, including a capability refresh racing a snapshot blocked on icon work. `SessionTests.desktopUpdateRestartDropsReceiptsAndReplayCursorAndRefetchesCapabilities` exercises the real transport with synthetic sockets. `qaSocketEpochRemainsCorrectWhenRestartRacesTheUpgrade` proves fresh capabilities replace a mismatched socket before publishing its epochless snapshot. `CompanionAppUpdateUITests` uses `--companion-preview-app-update` for the Home indicator's running/available versions, version-specific restart action and immediate explicit approval choices. Fixtures are re-synced from desktop main at `ff19df8fad0e46ae379ae2d71efb0e040d893456` after Agent-Clubhouse/Clubhouse#3505 merged.
 
 For #400, the progress regression fixture injects 512 update events, each followed by a connected notification and snapshot, while the icon actor is blocked. Observable/displayed progress must reach the real 99% within one second before releasing icons, and cannot regress afterwards. Hosted `CompanionAppUpdateViewTests` uses verbatim copies of the pinned `app-update-statuses.json` and `snapshot-app-update-approval.json` in `Annex/AnnexTests/AppUpdateFixtures` for all status/review layouts and synthetic request-to-choice transitions. Hosted and preview UI also exercise checking through download to restart-ready. Preview UI covers every status, all three immediate approval choices, idle-wait cancellation and explicit Dispatcher enabling. Set `COMPANION_PREVIEW_APP_UPDATE_STATE` to `none`, `available`, `downloading`, `ready` or `unsupported` with `--companion-preview-app-update`; add `--companion-preview-app-update-dispatcher-off` for its enable path, `--companion-preview-app-update-no-check` for an older host, or `--companion-preview-app-update-check-running` for Already checking. No live check, installer or restart is invoked.
 

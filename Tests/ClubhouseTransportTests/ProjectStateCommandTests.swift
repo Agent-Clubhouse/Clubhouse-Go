@@ -39,3 +39,17 @@ private let projectCommands = ["chat.send", "project.setPinned", "project.setIna
     #expect(try !capabilities(commands: projectCommands, projectState: #"{"version":0}"#).supportsProjectState)
     #expect(try !capabilities(commands: ["chat.send", "project.setPinned"]).supportsProjectState, "Both commands are needed")
 }
+
+@Test func linkedStateRequiresItsOwnVersionAndTheExistingProjectCommands() throws {
+    var body = try #require(AnnexContract.json("capabilities.json")["response"]?["body"])
+    #expect(try body.decode(AnnexCapabilities.self).supportsLinkedProjectState)
+    guard case .object(var fields) = body else { throw AnnexTransportError.malformedResponse }
+    for value: AnnexJSON in [.null, .object(["version": .integer(0)]), .string("1")] {
+        fields["linkedProjectState"] = value; body = .object(fields)
+        #expect(try !body.decode(AnnexCapabilities.self).supportsLinkedProjectState)
+        #expect(try body.decode(AnnexCapabilities.self).supportsProjectState, "Old projectState v1 stays unchanged")
+    }
+    fields["linkedProjectState"] = .object(["version": .integer(1)])
+    fields["projectState"] = .null
+    #expect(try !AnnexJSON.object(fields).decode(AnnexCapabilities.self).supportsLinkedProjectState)
+}

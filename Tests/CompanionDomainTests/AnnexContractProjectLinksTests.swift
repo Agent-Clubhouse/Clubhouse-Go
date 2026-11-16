@@ -47,3 +47,30 @@ import Testing
         throw AnnexTransportError.disconnected
     }
 }
+
+@Suite @MainActor struct AnnexContractLinkedProjectStateTests {
+    @Test func linkedSnapshotReceiptAndPeerPushDecodeThroughTheLiveService() async throws {
+        let fixture = try ContractFixtures.json("linked-project-state.json")
+        let caps = try ContractFixtures.body("capabilities.json").decode(AnnexCapabilities.self)
+        #expect(caps.supportsLinkedProjectState && caps.projectState?.version == 1)
+        let original = try #require(CompanionProjectState.map(from: fixture["snapshot"]?["projectState"]))
+        #expect(original["proj_docs"]?.linked == true && original["proj_docs"]?.idle == true)
+        let receipt = try #require(fixture["pinned"]?["request"]?["body"]).decode(AnnexCommandReceipt.self)
+        let pinned = try #require(CompanionProjectState(json: receipt.result))
+        #expect(pinned.linked && pinned.pinned && !pinned.inactive && !pinned.idle)
+        let harness = try await LiveServiceHarness.start { transport in
+            await transport.addCommands(["project.setPinned", "project.setInactive"])
+            await transport.setFeature("projectState", .object(["version": .integer(1)]))
+            await transport.setFeature("linkedProjectState", .object(["version": .integer(1)]))
+        }
+        defer { harness.stop() }
+        #expect(harness.host?.canSyncLinkedProjectState == true)
+        let frame = try #require(fixture["changedOnAnotherComputer"]?["frame"]).decode(AnnexEnvelope.self)
+        #expect(frame.type == "snapshot" && frame.seq == nil && frame.replayed == nil)
+        // The synthetic transport emits the exact top-level frame, with no REST read or replay path.
+        await harness.transport.emit(.message(frame))
+        try await harness.waitUntil { harness.host?.projectState?["proj_docs"]?.linked == true }
+        #expect(harness.host?.projectState == CompanionProjectState.map(from: frame.payload?["projectState"]))
+        #expect(await harness.transport.executed.isEmpty)
+    }
+}

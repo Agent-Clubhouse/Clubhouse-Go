@@ -277,6 +277,27 @@ import ClubhouseTransport
                     hosts[index].canLinkProjects = true
                     hosts[index].hasLoadedCatalog = true
                     hosts[index].projectLinks = Self.previewProjectLinks
+                    if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-project-state") {
+                        hosts[index].canSyncProjectState = true
+                        hosts[index].canSyncLinkedProjectState = true
+                        hosts[index].projectState = Dictionary(uniqueKeysWithValues: hosts[index].projects.map { ($0.id, CompanionProjectState(linked: true)) })
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-local-idle") {
+                    for project in hosts[0].projects.indices {
+                        for agent in hosts[0].projects[project].agents.indices {
+                            hosts[0].projects[project].agents[agent].status = .sleeping
+                            hosts[0].projects[project].agents[agent].lastActivity = Date().addingTimeInterval(-30 * 86_400)
+                        }
+                    }
+                }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-partially-offline") ||
+                   ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-mixed-version") {
+                    hosts[0].connection = .offline
+                }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-state-mixed-version") {
+                    hosts[1].canSyncLinkedProjectState = false
+                    hosts[1].projectState = [:]
                 }
             }
             #endif
@@ -286,6 +307,27 @@ import ClubhouseTransport
         }
 
     }
+    #if DEBUG
+    // Synthetic shared-state fixture only; never selected by pairing or compiled into Release.
+    func setProject(_ project: CompanionProjectTarget, pinned: Bool, clientCommandID: String) async throws -> CompanionProjectState {
+        try previewLinkedProjectState(project, pinned: pinned)
+    }
+    func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState {
+        try previewLinkedProjectState(project, inactive: inactive)
+    }
+    private func previewLinkedProjectState(_ project: CompanionProjectTarget, pinned: Bool? = nil, inactive: Bool? = nil) throws -> CompanionProjectState {
+        guard ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-project-state"),
+              let index = sentHosts.firstIndex(where: { $0.id == project.hostID }),
+              sentHosts[index].connection.canOperate, sentHosts[index].canSyncLinkedProjectState,
+              let current = sentHosts[index].projectState?[project.projectID] else { throw previewError }
+        if inactive == true && current.pinned { throw CompanionServiceError.rejected("Unpin this project before marking it inactive.") }
+        let next = current.with(pinned: pinned, inactive: inactive)
+        sentHosts[index].projectState?[project.projectID] = next
+        continuation?.yield(.hosts(sentHosts))
+        return next
+    }
+    #endif
+
     static var previewProjectLinks: AnnexProjectLinks {
         var projects: [AnnexProjectLinks.Reference] = [
             .init(machine: "preview-studio", projectId: "clubhouse"),

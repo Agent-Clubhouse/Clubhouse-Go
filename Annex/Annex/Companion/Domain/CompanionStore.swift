@@ -10,7 +10,9 @@ import Observation
     var hosts: [CompanionHost] = []
     private var projectLinksSourceID: String?
     var projectLinks: AnnexProjectLinks? {
-        let eligible = hosts.filter { $0.connection.canOperate && $0.canLinkProjects && $0.projectLinks != nil }
+        let capable = hosts.filter { $0.canLinkProjects && $0.projectLinks != nil }
+        let connected = capable.filter { $0.connection.canOperate }
+        let eligible = connected.isEmpty ? capable : connected
         return (eligible.first { $0.id == projectLinksSourceID } ?? eligible.first)?.projectLinks
     }
     var selection: CompanionTarget?
@@ -85,6 +87,8 @@ import Observation
     private(set) var pendingProjectStates: [CompanionProjectTarget: CompanionProjectState] = [:]
     /// Why the last pin or inactive change didn't reach the desktop.
     var projectStateError: String?
+    private var pendingLinkedProjectStates: [String: CompanionProjectState] = [:]
+    private var linkedProjectStateSources: [String: CompanionProjectTarget] = [:]
     /// Finished runs dismissed or cleared on a desktop, hidden until it confirms.
     private(set) var pendingFinishedRemovals: Set<CompanionTarget> = []
     /// Why the last Dismiss or Clear all didn't reach the desktop.
@@ -139,6 +143,8 @@ import Observation
         projectAccessDefaults.removeAll()
         agentAccessDefaults.removeAll()
         accessDefaultGenerations.removeAll()
+        pendingLinkedProjectStates.removeAll()
+        linkedProjectStateSources.removeAll()
         providerFlows.removeAll()
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
@@ -1378,17 +1384,103 @@ import Observation
     /// A project's pins, mark and idle flag when its desktop shares them, with any change still on its way.
     /// Nil when this phone keeps its own (an older desktop, or one that hasn't moved its pins over yet).
     func sharedProjectState(_ project: CompanionProjectTarget) -> CompanionProjectState? {
+        let own = rawProjectState(project)
+        guard let entry = projectEntry(containing: project), let group = linkedProjectState(entry) else { return own }
+        // Only Pin/Inactive are shared. Keep this copy's raw activity and idle inputs.
+        var state = own ?? .init()
+        state.linked = true
+        state.pinned = group.pinned
+        state.inactive = !group.pinned && group.inactive
+        if group.pinned { state.idle = false }
+        else if group.inactive { state.idle = true }
+        else if let link = entry.linkID, let pending = pendingLinkedProjectStates[link] { state.idle = pending.idle }
+        return state
+    }
+    private func rawProjectState(_ project: CompanionProjectTarget) -> CompanionProjectState? {
         guard let host = hosts.first(where: { $0.id == project.hostID }), host.sharesProjectState else { return nil }
         return pendingProjectStates[project] ?? host.projectState?[project.projectID] ?? .init()
     }
+    /// One capable replica supplies the group's shared values; never union stale replicas.
+    private func linkedProjectStateSource(_ entry: CompanionProjectEntry, connectedOnly: Bool = false) -> CompanionProjectMember? {
+        guard entry.isLinked else { return nil }
+        let members = entry.members.compactMap { member -> CompanionProjectMember? in
+            guard let host = hosts.first(where: { $0.id == member.host.id }),
+                  let project = host.projects.first(where: { $0.id == member.project.id }) else { return nil }
+            return .init(host: host, project: project)
+        }
+        let eligible = members.filter {
+            $0.host.canSyncLinkedProjectState && rawProjectState($0.id)?.linked == true
+                && (!connectedOnly || $0.host.connection.canOperate)
+        }
+        let connected = eligible.filter { $0.host.connection.canOperate }
+        let candidates = connected.isEmpty ? eligible : connected
+        return candidates.first { $0.id == entry.linkID.flatMap { linkedProjectStateSources[$0] } } ?? candidates.first
+    }
+    func linkedProjectState(_ entry: CompanionProjectEntry) -> CompanionProjectState? {
+        guard let source = linkedProjectStateSource(entry) else { return nil }
+        return entry.linkID.flatMap { pendingLinkedProjectStates[$0] } ?? rawProjectState(source.id)
+    }
+    func canChangeLinkedProjectState(_ entry: CompanionProjectEntry) -> Bool {
+        !isShutDown && linkedProjectStateSource(entry, connectedOnly: true) != nil
+            && entry.linkID.flatMap { pendingLinkedProjectStates[$0] } == nil
+    }
+    func linkedProjectStateConnectionHint(_ entry: CompanionProjectEntry) -> String? {
+        guard linkedProjectStateSource(entry, connectedOnly: true) == nil,
+              let source = linkedProjectStateSource(entry) else { return nil }
+        return "Connect \(source.host.name) for shared changes."
+    }
+    func setLinkedProject(_ entry: CompanionProjectEntry, pinned: Bool) async {
+        await changeLinkedProjectState(entry, change: { $0.with(pinned: pinned) }) { [service] target, id in
+            try await service.setProject(target, pinned: pinned, clientCommandID: id)
+        }
+    }
+    func setLinkedProject(_ entry: CompanionProjectEntry, inactive: Bool) async {
+        await changeLinkedProjectState(entry, change: { $0.with(inactive: inactive) }) { [service] target, id in
+            try await service.setProject(target, inactive: inactive, clientCommandID: id)
+        }
+    }
+    private func changeLinkedProjectState(_ entry: CompanionProjectEntry,
+                                          change: (CompanionProjectState) -> CompanionProjectState,
+                                          send: (CompanionProjectTarget, String) async throws -> CompanionProjectState) async {
+        guard !isShutDown, let link = entry.linkID, let currentEntry = projectEntry(containing: entry.id), currentEntry.linkID == link,
+              let current = linkedProjectState(currentEntry), pendingLinkedProjectStates[link] == nil else { return }
+        guard let source = linkedProjectStateSource(currentEntry, connectedOnly: true) else {
+            projectStateError = linkedProjectStateConnectionHint(currentEntry)
+            return
+        }
+        let epoch = source.host.controlEpoch
+        let previousSource = linkedProjectStateSources[link]
+        linkedProjectStateSources[link] = source.id
+        pendingLinkedProjectStates[link] = change(current)
+        projectStateError = nil
+        defer { pendingLinkedProjectStates[link] = nil }
+        do {
+            let confirmed = try await send(source.id, UUID().uuidString)
+            guard !isShutDown, projectEntry(containing: source.id)?.linkID == link,
+                  let index = hosts.firstIndex(where: { $0.id == source.host.id && $0.controlEpoch == epoch }) else { return }
+            // This receipt acknowledges one receiving desktop, not propagation to offline copies.
+            hosts[index].projectState?[source.project.id] = confirmed
+        } catch {
+            guard !isShutDown, projectEntry(containing: source.id)?.linkID == link,
+                  hosts.contains(where: { $0.id == source.host.id && $0.controlEpoch == epoch }) else { return }
+            linkedProjectStateSources[link] = previousSource
+            projectStateError = error.localizedDescription
+        }
+    }
     /// Pins or unpins a project on its desktop: shown at once, then confirmed by the desktop.
     func setProject(_ project: CompanionProjectTarget, pinned: Bool) async {
+        if let entry = projectEntry(containing: project), linkedProjectState(entry) != nil {
+            await setLinkedProject(entry, pinned: pinned); return
+        }
         await changeProjectState(project, to: { $0.with(pinned: pinned) }) { [service] id in
             try await service.setProject(project, pinned: pinned, clientCommandID: id)
         }
     }
     /// Marks a project inactive or active on its desktop. Marking active counts as activity there.
     func setProject(_ project: CompanionProjectTarget, inactive: Bool) async {
+        if let entry = projectEntry(containing: project), linkedProjectState(entry) != nil {
+            await setLinkedProject(entry, inactive: inactive); return
+        }
         await changeProjectState(project, to: { $0.with(inactive: inactive) }) { [service] id in
             try await service.setProject(project, inactive: inactive, clientCommandID: id)
         }
@@ -1552,9 +1644,14 @@ import Observation
             }
             clearRemovedChats(in: hosts)
             self.hosts = hosts
-            if !hosts.contains(where: { $0.id == projectLinksSourceID && $0.connection.canOperate && $0.canLinkProjects && $0.projectLinks != nil }) {
-                projectLinksSourceID = hosts.first { $0.connection.canOperate && $0.canLinkProjects && $0.projectLinks != nil }?.id
+            let linkSources = hosts.filter { $0.canLinkProjects && $0.projectLinks != nil }
+            let connectedLinkSources = linkSources.filter { $0.connection.canOperate }
+            let eligibleLinkSources = connectedLinkSources.isEmpty ? linkSources : connectedLinkSources
+            if !eligibleLinkSources.contains(where: { $0.id == projectLinksSourceID }) {
+                projectLinksSourceID = eligibleLinkSources.first?.id
             }
+            let currentLinks = Set(projectEntries.compactMap(\.linkID))
+            linkedProjectStateSources = linkedProjectStateSources.filter { currentLinks.contains($0.key) }
             for target in sleepRequests {
                 guard confirmedSleepCommands[target] == nil else { continue }
                 guard let host = host(for: target), host.connection.canOperate else { continue }

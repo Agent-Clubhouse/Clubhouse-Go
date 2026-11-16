@@ -192,6 +192,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var appUpdateOutcome: String?
     /// The desktop offers `projectState` v1 with `project.setPinned` and `project.setInactive`.
     var canSyncProjectState = false
+    /// Shared Pin/Inactive commands on a linked copy fan out to the group.
+    var canSyncLinkedProjectState = false
     /// Each project's pins, mark and idle flag from the snapshot. Nil until the desktop sends it (after its one-time migration).
     var projectState: [String: CompanionProjectState]?
     /// The desktop's idle window in days, for display. 0 is never.

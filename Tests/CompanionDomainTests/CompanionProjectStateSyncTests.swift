@@ -10,6 +10,8 @@ private let now = Date(timeIntervalSince1970: 1_800_000_000)
 @MainActor private final class ProjectStateService: CompanionService {
     var sent: [String] = []
     var failure: CompanionServiceError?
+    var targets: [CompanionProjectTarget] = []
+    var confirmation: CompanionProjectState?
     var gate: CheckedContinuation<Void, Never>?
     var holds = false
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
@@ -20,16 +22,18 @@ private let now = Date(timeIntervalSince1970: 1_800_000_000)
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { .init(clientCommandID: request.clientCommandID) }
     func reconnect(hostID: String) async {}
     func setProject(_ project: CompanionProjectTarget, pinned: Bool, clientCommandID: String) async throws -> CompanionProjectState {
-        try await reply("pinned:\(project.projectID):\(pinned)", .init(pinned: pinned))
+        targets.append(project)
+        return try await reply("pinned:\(project.projectID):\(pinned)", .init(pinned: pinned))
     }
     func setProject(_ project: CompanionProjectTarget, inactive: Bool, clientCommandID: String) async throws -> CompanionProjectState {
-        try await reply("inactive:\(project.projectID):\(inactive)", .init(inactive: inactive, idle: inactive, lastActivity: inactive ? nil : now))
+        targets.append(project)
+        return try await reply("inactive:\(project.projectID):\(inactive)", .init(inactive: inactive, idle: inactive, lastActivity: inactive ? nil : now))
     }
     private func reply(_ command: String, _ state: CompanionProjectState) async throws -> CompanionProjectState {
         sent.append(command)
         if holds { await withCheckedContinuation { gate = $0 } }
         if let failure { throw failure }
-        return state
+        return confirmation ?? state
     }
     func release() { gate?.resume(); gate = nil }
 }
@@ -190,4 +194,172 @@ struct CompanionSharedLayoutTests {
         #expect(CompanionAgentCommandError.message(code: "project_state_unavailable", message: nil) == "Your desktop is still setting up shared pins. Try again in a moment.")
         #expect(CompanionAgentCommandError.message(code: "project_not_found", message: nil) == "This project is no longer on the desktop.")
     }
+}
+
+@MainActor struct CompanionLinkedProjectStateTests {
+    private func hosts(firstConnection: CompanionConnection = .connected, secondConnection: CompanionConnection = .connected,
+                       shared: Bool = true, state: CompanionProjectState = .init(linked: true)) -> [CompanionHost] {
+        let references: [AnnexProjectLinks.Reference] = ["first", "second"].map { .init(machine: $0, projectId: "copy") }
+        return [firstConnection, secondConnection].enumerated().map { index, connection in
+            var h = CompanionHost(id: index == 0 ? "first" : "second", name: index == 0 ? "Studio" : "Laptop",
+                                  endpoint: "", connection: connection, projects: [.init(id: "copy", name: "Project", agents: [])])
+            h.canLinkProjects = true
+            h.projectLinks = .init(projectLinks: [.init(id: "linked-identity", projects: references)])
+            h.canSyncProjectState = true
+            h.canSyncLinkedProjectState = shared
+            h.projectState = ["copy": state]
+            return h
+        }
+    }
+    private func store(_ hosts: [CompanionHost], service: ProjectStateService = .init()) -> CompanionStore {
+        let store = CompanionStore(service: service); store.apply(.hosts(hosts)); return store
+    }
+    private func layout(_ store: CompanionStore, rule: CompanionIdleRule = .init()) -> CompanionHomeLayout {
+        .build(store.projectEntries, sort: .custom, customOrder: [], rule: rule,
+               shared: { store.sharedProjectState($0.id) }, projectActivity: { _ in nil }, agentActivity: { _ in nil })
+    }
+
+    @Test func capableGroupUsesOneReplicaInsteadOfUnioningStalePinsAndNeverUsesLocalPrefs() throws {
+        var h = hosts()
+        h[1].projectState?["copy"] = .init(pinned: true, linked: true)
+        let store = store(h)
+        let keys = Set(h.map { CompanionProjectOrdering.key(.init(hostID: $0.id, projectID: "copy")) })
+        let result = layout(store, rule: .init(pinned: keys, inactive: keys))
+        #expect(result.projects.count == 1 && !result.projects[0].isPinned && !result.projects[0].isIdle)
+        #expect(store.sharedProjectState(.init(hostID: "second", projectID: "copy"))?.pinned == false)
+        // Desktop resolves explicit clocks and legacy ANY-pinned/ALL-inactive. The phone must not
+        // undo that decision by unioning another replica or applying remembered renderer preferences.
+    }
+
+    @Test func oldHostsKeepPerCopyValuesAndLocalFallback() {
+        var h = hosts(shared: false)
+        h[1].projectState?["copy"] = .init(pinned: true)
+        #expect(layout(store(h)).projects.first?.isPinned == true)
+        for i in h.indices { h[i].projectState = nil }
+        let local = CompanionIdleRule(pinned: [CompanionProjectOrdering.key(.init(hostID: "second", projectID: "copy"))])
+        #expect(layout(store(h), rule: local).projects.first?.isPinned == true)
+    }
+
+    @Test func pinSendsOnceToConnectedCapableCopyAndShowsOptimisticGroupState() async throws {
+        let service = ProjectStateService(); service.holds = true
+        service.confirmation = .init(pinned: true, lastActivity: now, linked: true)
+        let store = store(hosts(firstConnection: .offline), service: service)
+        let entry = try #require(store.projectEntries.first)
+        let task = Task { await store.setLinkedProject(entry, pinned: true) }
+        while service.gate == nil { await Task.yield() }
+        #expect(layout(store).projects.first?.isPinned == true)
+        #expect(store.canChangeLinkedProjectState(entry) == false, "One local command may be in flight")
+        #expect(service.targets == [.init(hostID: "second", projectID: "copy")])
+        service.release(); await task.value
+        #expect(service.sent == ["pinned:copy:true"] && layout(store).projects.first?.isPinned == true)
+        #expect(store.hosts[0].projectState?["copy"]?.pinned == false, "No acknowledgement is invented for the offline copy")
+        #expect(store.hosts[0].projectState?["copy"]?.lastActivity == nil, "Raw activity stays per machine")
+    }
+
+    @Test func refusalRollsBackTheWholeGroupAndExplains() async throws {
+        let service = ProjectStateService(); service.holds = true; service.failure = .rejected("Unpin this project before marking it inactive.")
+        let store = store(hosts(), service: service); let entry = try #require(store.projectEntries.first)
+        let task = Task { await store.setLinkedProject(entry, inactive: true) }
+        while service.gate == nil { await Task.yield() }
+        #expect(layout(store).idle.count == 1)
+        service.release(); await task.value
+        #expect(layout(store).idle.isEmpty && store.linkedProjectState(entry)?.inactive == false)
+        #expect(store.projectStateError == "Unpin this project before marking it inactive.")
+    }
+
+    @Test func inactiveToActiveIsOneCommandThenEachCopyReportsItsOwnActivity() async throws {
+        let service = ProjectStateService(); service.holds = true
+        service.confirmation = .init(lastActivity: now, linked: true)
+        let store = store(hosts(state: .init(inactive: true, idle: true, linked: true)), service: service)
+        let entry = try #require(store.projectEntries.first)
+        let task = Task { await store.setLinkedProject(entry, inactive: false) }
+        while service.gate == nil { await Task.yield() }
+        #expect(layout(store).idle.isEmpty)
+        service.release(); await task.value
+        #expect(service.sent == ["inactive:copy:false"] && layout(store).idle.isEmpty)
+        var reports = store.hosts
+        for i in reports.indices { reports[i].projectState?["copy"] = .init(lastActivity: now, linked: true) }
+        store.apply(.hosts(reports))
+        #expect(store.hosts.allSatisfy { $0.projectState?["copy"]?.lastActivity == now })
+    }
+
+    @Test func mixedVersionGroupNeverSendsToTheOnlyConnectedOldHost() async throws {
+        let service = ProjectStateService(); var h = hosts(firstConnection: .offline)
+        h[1].canSyncLinkedProjectState = false; h[1].projectState?["copy"] = .init()
+        let store = store(h, service: service); let entry = try #require(store.projectEntries.first)
+        #expect(store.linkedProjectState(entry) != nil && !store.canChangeLinkedProjectState(entry))
+        #expect(store.linkedProjectStateConnectionHint(entry) == "Connect Studio for shared changes.")
+        await store.setLinkedProject(entry, pinned: true)
+        #expect(service.sent.isEmpty && service.targets.isEmpty)
+    }
+
+    @Test func fullyOfflineGroupRetainsItsIdentityWithDisabledSharedControls() async throws {
+        let service = ProjectStateService(); let store = store(hosts(firstConnection: .offline, secondConnection: .offline), service: service)
+        let entry = try #require(store.projectEntries.first)
+        #expect(entry.isLinked && !store.canChangeLinkedProjectState(entry))
+        await store.setLinkedProject(entry, inactive: true)
+        #expect(service.sent.isEmpty)
+    }
+
+    @Test func splitKeepsDesktopValuesWithoutRestoringOldLocalPreferences() {
+        var h = hosts(state: .init(pinned: true, linked: true)); let store = store(h)
+        for i in h.indices { h[i].projectLinks = .init(projectLinks: []); h[i].projectState?["copy"]?.linked = false }
+        store.apply(.hosts(h))
+        let result = layout(store, rule: .init(inactive: Set(h.map { CompanionProjectOrdering.key(.init(hostID: $0.id, projectID: "copy")) })))
+        #expect(result.projects.count == 2 && result.projects.allSatisfy(\.isPinned) && result.idle.isEmpty)
+    }
+
+    @Test(arguments: [false, true], [false, true])
+    func lateGroupReceiptCannotApplyAcrossLinkIdentityOrEpochChange(changesLink: Bool, fails: Bool) async throws {
+        let service = ProjectStateService(); service.holds = true; service.confirmation = .init(pinned: true, linked: true)
+        if fails { service.failure = .rejected("Old refusal") }
+        let store = store(hosts(), service: service); let entry = try #require(store.projectEntries.first)
+        let task = Task { await store.setLinkedProject(entry, pinned: true) }
+        while service.gate == nil { await Task.yield() }
+        var changed = hosts()
+        for i in changed.indices {
+            if changesLink { changed[i].projectLinks = .init(projectLinks: []) }
+            else { changed[i].controlEpoch = "replacement" }
+        }
+        store.apply(.hosts(changed)); service.release(); await task.value
+        #expect(store.projectEntries.count == (changesLink ? 2 : 1))
+        #expect(store.hosts.allSatisfy { $0.projectState?["copy"]?.pinned == false })
+        #expect(store.projectStateError == nil, "A stale refusal cannot attach to the replacement group or desktop")
+    }
+
+    @Test func linkedPinClearsInactiveWhileOrdinaryIdleAndActivityStayPerCopy() {
+        let pinned = CompanionProjectState(inactive: true, idle: true, linked: true).with(pinned: true)
+        #expect(pinned.pinned && !pinned.inactive && !pinned.idle)
+        let refusedMark = pinned.with(inactive: true)
+        #expect(refusedMark.pinned && !refusedMark.inactive && !refusedMark.idle,
+                "An optimistic linked mark cannot make a pinned group inactive before the desktop refuses it")
+        var h = hosts(); h[0].projectState?["copy"]?.idle = true
+        h[0].projectState?["copy"]?.lastActivity = now.addingTimeInterval(-100)
+        h[1].projectState?["copy"]?.lastActivity = now
+        let store = store(h)
+        #expect(layout(store).idle.isEmpty, "A non-idle copy keeps the unmarked group active")
+        #expect(store.sharedProjectState(.init(hostID: "first", projectID: "copy"))?.lastActivity == now.addingTimeInterval(-100))
+    }
+    @Test func singleTargetEntryPointAlsoRoutesThroughTheConnectedGroupMember() async {
+        let service = ProjectStateService(); service.confirmation = .init(pinned: true, linked: true)
+        let store = store(hosts(firstConnection: .offline), service: service)
+        await store.setProject(.init(hostID: "first", projectID: "copy"), pinned: true)
+        #expect(service.targets == [.init(hostID: "second", projectID: "copy")])
+    }
+
+    @Test(arguments: [false, true])
+    func shutdownFencesLateSuccessAndRefusal(fails: Bool) async throws {
+        let service = ProjectStateService(); service.holds = true; service.confirmation = .init(pinned: true, linked: true)
+        if fails { service.failure = .rejected("Late refusal") }
+        let store = store(hosts(), service: service); let entry = try #require(store.projectEntries.first)
+        let task = Task { await store.setLinkedProject(entry, pinned: true) }
+        while service.gate == nil { await Task.yield() }
+        store.shutdown(); service.release(); await task.value
+        #expect(!store.canChangeLinkedProjectState(entry) && store.projectStateError == nil)
+        #expect(store.hosts.allSatisfy { $0.projectState?["copy"]?.pinned == false })
+        let count = service.sent.count
+        await store.setLinkedProject(entry, inactive: true)
+        #expect(service.sent.count == count)
+    }
+
 }
