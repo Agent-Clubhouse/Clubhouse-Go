@@ -44,10 +44,15 @@ struct CompanionRootView: View {
     }
 
     var body: some View {
-        TabView(selection: Binding(get: { navigation.tab }, set: { navigation.select($0); mirrorSelection() })) {
+        TabView(selection: Binding(get: { navigation.tab }, set: {
+            if let action = navigation.selectFromTabBar($0) {
+                CompanionUIActions.record(action.control, on: action.screen)
+            }
+            mirrorSelection()
+        })) {
             Tab("Home", systemImage: "house", value: CompanionTab.home) {
                 stack(.home) {
-                    CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); onSettings() },
+                    CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); CompanionUIActions.record(.openSettings, on: .home); onSettings() },
                                       onNewAgent: { target, hostID in navigation.interact(); spawnLaunch = .init(project: target, hostID: hostID) }, isPreview: isPreview,
                                       onInteraction: { navigation.interact() })
                 }

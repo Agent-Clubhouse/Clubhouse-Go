@@ -465,3 +465,21 @@ The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swif
 | [ ] | [FeedbackModel.swift:260](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L260) | Send held reports confirmation — upstream callback, then re-vendor. |
 | [ ] | [FeedbackModel.swift:265](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L265) | Clear held reports confirmation — upstream callback, then re-vendor. |
 | [ ] | [FeedbackModel.swift:269](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift#L269) | Clear enrollment confirmation — upstream callback, then re-vendor. |
+
+## Tabs and Settings follow-up (Refs #433)
+
+The tab selection binding now records one typed intent for an actual user tab switch.
+`screen` is the source tab (Home, Dispatch, Needs you or Search); `control` is the destination tab.
+The legacy Agents destination maps to Search and `searchTab`; the existing `agentsTab` raw value remains readable.
+Restoration, deep links, programmatic navigation and taps on the active tab do not fabricate tab-switch intents.
+
+Home's Settings button and the feedback invitation banner record `openSettings` at their callbacks
+(on `home` and `feedbackPrompt`, respectively). The production Settings list has no appearance event,
+so returning from a child page does not count another opening. The production-root diagnostics UI test
+clears capture, switches tabs, opens Settings, returns twice from Name on desktops and checks the reviewed JSON:
+one opening, the four expected tab switches, and no legacy `settings` appearance event.
+
+This is a partial slice. The remaining chat menu items, Review Done, Root actions, Needs-you/helper/grant
+decisions, managed-create callbacks, missing chat/Search contexts, Framebriar upstream callback, native
+openings and expand/collapse callbacks, and observed live dashboard query remain open under #433.
+The complete pinned static audit is in issue #433's criteria-audit comment.

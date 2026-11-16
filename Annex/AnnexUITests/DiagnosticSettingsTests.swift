@@ -32,12 +32,92 @@ import XCTest
         app.terminate()
     }
 
-    private func exportedActions(_ app: XCUIApplication) throws -> [String: Int] {
+    /// Uses the production AppRoot/Settings sheet, not the standalone diagnostics fixture.
+    /// Returning from a NavigationLink must not fabricate a Settings open or a legacy settings event.
+    func testRootTabIntentsAndSettingsReturnDoNotRefireOpening() throws {
+        continueAfterFailure = false
+        let app = launchReadyApplication(arguments: ["--companion-root-ui-testing", "--ui-testing-fast"])
+        let settings = app.navigationBars["Settings"]
+        let diagnostics = app.navigationBars["Diagnostics"]
+        func openSettings() {
+            app.buttons["Settings"].tap()
+            XCTAssertTrue(settings.waitForExistence(timeout: 10))
+        }
+        func openDiagnostics() {
+            let link = app.buttons["settings-connection-diagnostics"]
+            for _ in 0..<6 {
+                if link.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(link.isHittable)
+            link.tap()
+            XCTAssertTrue(diagnostics.waitForExistence(timeout: 5))
+        }
+        openSettings()
+        openDiagnostics()
+        let capture = app.descendants(matching: .any).matching(identifier: "diagnostics.capture").firstMatch
+        capture.tap()
+        app.buttons["This session"].tap()
+        app.buttons["Clear captured diagnostics"].tap() // Discard the capture-mode configuration event.
+        diagnostics.buttons["Settings"].tap()
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.buttons["settings-close"].tap()
+        XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
+        for title in ["Needs you", "Home"] {
+            let tab = app.tabBars.buttons[title]
+            XCTAssertTrue(tab.waitForExistence(timeout: 5))
+            tab.tap()
+            XCTAssertTrue(tab.wait(for: \.isSelected, toEqual: true, timeout: 5))
+        }
+        app.tabBars.buttons["Search"].tap()
+        // Native Search replaces its tab button with a search field and a collapsed previous-tab control.
+        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.searchFields.firstMatch.exists)
+        app.tabBars.buttons["Home"].tap() // Expand the native bar before selecting Home.
+        XCTAssertTrue(app.tabBars.buttons["Needs you"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Home"].tap()
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
+        openSettings()
+        for _ in 0..<2 {
+            let name = app.buttons["settings-phone-name"]
+            for _ in 0..<4 {
+                if name.isHittable { break }
+                app.swipeUp()
+            }
+            XCTAssertTrue(name.isHittable)
+            name.tap()
+            let child = app.navigationBars["Name on desktops"]
+            XCTAssertTrue(child.waitForExistence(timeout: 5))
+            child.buttons["Settings"].tap()
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        }
+        openDiagnostics()
+        app.buttons["Review diagnostic export"].tap()
+        let actions = try exportedActions(app)
+        XCTAssertEqual(actions["home.openSettings"], 1, "Only the explicit Settings opening counts")
+        XCTAssertEqual(actions["home.searchTab"], 1)
+        XCTAssertEqual(actions["home.needsYouTab"], 1)
+        XCTAssertEqual(actions["needsYou.homeTab"], 1)
+        XCTAssertEqual(actions["search.homeTab"], 1)
+        let records = try exportedRecords(app)
+        XCTAssertFalse(records.contains { $0["operation"] as? String == "settings" },
+                       "Returning from Settings subpages cannot emit legacy appearance events")
+        app.buttons["Done"].tap()
+        capture.tap()
+        app.buttons["Off"].tap()
+        app.terminate()
+    }
+
+    private func exportedRecords(_ app: XCUIApplication) throws -> [[String: Any]] {
         let text = app.staticTexts["diagnostics-export-json"]
         XCTAssertTrue(text.waitForExistence(timeout: 5))
         let data = try XCTUnwrap(text.label.data(using: .utf8))
         let snapshot = try XCTUnwrap(JSONSerialization.jsonObject(with: data) as? [String: Any])
-        let records = try XCTUnwrap(snapshot["records"] as? [[String: Any]])
+        return try XCTUnwrap(snapshot["records"] as? [[String: Any]])
+    }
+
+    private func exportedActions(_ app: XCUIApplication) throws -> [String: Int] {
+        let records = try exportedRecords(app)
         var counts: [String: Int] = [:]
         for record in records where record["operation"] as? String == "uiAction" {
             let action = try XCTUnwrap(record["uiAction"] as? [String: String])
