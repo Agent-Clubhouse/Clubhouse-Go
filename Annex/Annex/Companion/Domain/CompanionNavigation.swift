@@ -1,4 +1,5 @@
 import Foundation
+import ClubhouseTransport
 
 enum CompanionTab: String, CaseIterable, Sendable {
     case home, dispatcher, needsYou, agents, search
@@ -69,6 +70,28 @@ struct CompanionNavigation {
         interact()
         pendingDispatcherLink = nil
         self.tab = tabs.contains(tab.destination) ? tab.destination : .home
+    }
+
+    /// A tab-control intent belongs to the source tab. Restoration, deep links and repeated
+    /// selection of the active tab are not tab switches. Keep programmatic select(_:) silent.
+    mutating func selectFromTabBar(_ requested: CompanionTab) -> AnnexUIAction? {
+        let source = tab
+        let available = tabs.contains(requested.destination)
+        select(requested)
+        guard available, source != tab else { return nil }
+        let screen: AnnexUIAction.Screen = switch source {
+        case .home: .home
+        case .dispatcher: .dispatcher
+        case .needsYou: .needsYou
+        case .agents, .search: .search
+        }
+        let control: AnnexUIAction.Control = switch tab {
+        case .home: .homeTab
+        case .dispatcher: .dispatcherTab
+        case .needsYou: .needsYouTab
+        case .agents, .search: .searchTab
+        }
+        return .init(screen: screen, control: control)
     }
 
     mutating func chooseDispatcher(hostID: String) {

@@ -12,7 +12,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
     }
 
     public enum Control: String, Codable, CaseIterable, Sendable {
-        case homeTab, dispatcherTab, needsYouTab, agentsTab
+        case homeTab, dispatcherTab, needsYouTab, agentsTab, searchTab
         case openSearch, openSettings, openAgent, openProject, openAgentDetails, openAgentSettings, openContext
         case newAgent, wakeAgent, wakeAndResume, startNewSession, sleepAgent, refreshSleepState
         case openTerminal, openAgentTerminal, openProjectTerminal, restartTerminal, copyTerminalOutput, toggleTerminalKeyboard

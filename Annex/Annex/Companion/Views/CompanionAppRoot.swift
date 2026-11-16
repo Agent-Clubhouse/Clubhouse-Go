@@ -348,7 +348,10 @@ struct CompanionAppRoot: View {
                 // retry on their own, and Settings shows the state.
                 if let feedback = runtime.feedback, let status = feedback.status,
                    status.canSubmit && [.expired, .accessRequired].contains(status.access) {
-                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { openSettings() }
+                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") {
+                        CompanionUIActions.record(.openSettings, on: .feedbackPrompt)
+                        openSettings()
+                    }
                         .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
                 }
             }
@@ -415,7 +418,6 @@ struct CompanionSettingsSheet: View {
                 if let error { Section { Text(error).foregroundStyle(.red) } }
                 CompanionBuildInfoSection()
             }
-            .onAppear { AnnexTelemetry.shared.record(.settings) }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ClubhouseTransport
 @testable import CompanionDomain
 
 @Suite struct CompanionNavigationTests {
@@ -9,6 +10,28 @@ import Testing
         agent.isDispatcher = true
         return .init(id: id, name: id, endpoint: "", connection: connection, projects: [],
                      dispatcher: .init(enabled: enabled, flagOn: flagOn, agent: agent))
+    }
+
+    @Test func tabControlEmitsOneTypedIntentFromTheSourceTab() {
+        var navigation = CompanionNavigation()
+        navigation.update(hosts: [host()])
+        let switches: [(CompanionTab, AnnexUIAction)] = [
+            (.dispatcher, .init(screen: .home, control: .dispatcherTab)),
+            (.needsYou, .init(screen: .dispatcher, control: .needsYouTab)),
+            (.search, .init(screen: .needsYou, control: .searchTab)),
+            (.home, .init(screen: .search, control: .homeTab)),
+            (.agents, .init(screen: .home, control: .searchTab)),
+        ]
+        for (tab, expected) in switches {
+            #expect(navigation.selectFromTabBar(tab) == expected)
+            #expect(navigation.tab == tab.destination)
+            #expect(navigation.selectFromTabBar(tab) == nil, "An active-tab tap is not another switch")
+        }
+        navigation.select(.needsYou) // Programmatic navigation changes state without returning an intent.
+        #expect(navigation.selectFromTabBar(.needsYou) == nil)
+        var unavailable = CompanionNavigation()
+        #expect(unavailable.selectFromTabBar(.dispatcher) == nil)
+        #expect(unavailable.tab == .home)
     }
 
     @Test func tabsDependOnReportedFlagsAndNotConnection() {
