@@ -21,7 +21,7 @@ import XCTest
         screenshot(app, "Settings runtime — \(name)")
         let usage = app.descendants(matching: .any).matching(identifier: "agent-settings-context-usage").firstMatch
         XCTAssertTrue(scrollTo(usage, in: app, maxSwipes: 20))
-        XCTAssertTrue(app.staticTexts["84k of 200k"].exists)
+        XCTAssertTrue(usage.label.contains("84k of 200k"), usage.label)
         screenshot(app, "Settings context — \(name)")
         let sleep = app.buttons["agent-sleep"]
         XCTAssertTrue(scrollTo(sleep, in: app, maxSwipes: 24))
