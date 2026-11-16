@@ -418,35 +418,35 @@ struct CompanionSettingsSheet: View {
                 }
             }
             .companionTelemetryScreen(.settings)
-            .confirmationDialog("Forget \(hostToForget?.name ?? "desktop")?", isPresented: Binding(get: { hostToForget != nil }, set: { if !$0 { hostToForget = nil } }), titleVisibility: .visible) {
-                if let host = hostToForget {
-                    Button("Forget desktop", role: .destructive) {
-                        CompanionUIActions.record(.confirm, on: .desktopSettings)
-                        Task {
-                            removingHostID = host.id
-                            defer { removingHostID = nil }
-                            do { try await runtime.forget(hostID: host.id) }
-                            catch { self.error = CompanionLiveService.readableError(error) }
-                            hostToForget = nil
-                        }
-                    }
-                }
-            } message: { Text("This removes access from this device. Desktop trust remains until you disconnect this device in desktop settings or stop Annex for a session-only pairing. Running agents are unaffected.") }
-            .confirmationDialog("End this session pairing?", isPresented: Binding(get: { hostToEnd != nil }, set: { if !$0 { hostToEnd = nil } }), titleVisibility: .visible) {
-                if let host = hostToEnd {
-                    Button("End session pairing", role: .destructive) {
-                        CompanionUIActions.record(.confirm, on: .desktopSettings)
-                        Task {
-                            removingHostID = host.id
-                            defer { removingHostID = nil }
-                            do { try await runtime.endSession(hostID: host.id) }
-                            catch { self.error = CompanionLiveService.readableError(error) }
-                            hostToEnd = nil
-                        }
-                    }
-                }
-            } message: { Text("This asks the desktop to revoke this device's session access, then removes it here. Your agents keep running.") }
         }
+        .confirmationDialog("Forget \(hostToForget?.name ?? "desktop")?", isPresented: Binding(get: { hostToForget != nil }, set: { if !$0 { hostToForget = nil } }), titleVisibility: .visible) {
+            if let host = hostToForget {
+                Button("Forget desktop", role: .destructive) {
+                    CompanionUIActions.record(.confirm, on: .desktopSettings)
+                    Task {
+                        removingHostID = host.id
+                        defer { removingHostID = nil }
+                        do { try await runtime.forget(hostID: host.id) }
+                        catch { self.error = CompanionLiveService.readableError(error) }
+                        hostToForget = nil
+                    }
+                }
+            }
+        } message: { Text("This removes access from this device. Desktop trust remains until you disconnect this device in desktop settings or stop Annex for a session-only pairing. Running agents are unaffected.") }
+        .confirmationDialog("End this session pairing?", isPresented: Binding(get: { hostToEnd != nil }, set: { if !$0 { hostToEnd = nil } }), titleVisibility: .visible) {
+            if let host = hostToEnd {
+                Button("End session pairing", role: .destructive) {
+                    CompanionUIActions.record(.confirm, on: .desktopSettings)
+                    Task {
+                        removingHostID = host.id
+                        defer { removingHostID = nil }
+                        do { try await runtime.endSession(hostID: host.id) }
+                        catch { self.error = CompanionLiveService.readableError(error) }
+                        hostToEnd = nil
+                    }
+                }
+            }
+        } message: { Text("This asks the desktop to revoke this device's session access, then removes it here. Your agents keep running.") }
     }
 }
 

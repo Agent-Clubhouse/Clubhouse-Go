@@ -101,15 +101,6 @@ struct CompanionPreviewRoot: View {
                         CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
-                    .confirmationDialog("Forget \(desktopToForget?.name ?? "desktop")?",
-                        isPresented: Binding(get: { desktopToForget != nil }, set: { if !$0 { desktopToForget = nil } }),
-                        titleVisibility: .visible) {
-                        Button("Forget desktop", role: .destructive) {
-                            CompanionUIActions.record(.confirm, on: .desktopSettings)
-                            store.apply(.hosts(store.hosts.filter { $0.id != desktopToForget?.id }))
-                            desktopToForget = nil
-                        }
-                    } message: { Text("This removes access from this device. Running agents are unaffected.") }
                     .toolbar {
                         ToolbarItem(placement: .cancellationAction) {
                             Button("Close", systemImage: "xmark") {
@@ -121,6 +112,15 @@ struct CompanionPreviewRoot: View {
                     }
                     .companionTelemetryScreen(.settings)
                 }
+                .confirmationDialog("Forget \(desktopToForget?.name ?? "desktop")?",
+                    isPresented: Binding(get: { desktopToForget != nil }, set: { if !$0 { desktopToForget = nil } }),
+                    titleVisibility: .visible) {
+                    Button("Forget desktop", role: .destructive) {
+                        CompanionUIActions.record(.confirm, on: .desktopSettings)
+                        store.apply(.hosts(store.hosts.filter { $0.id != desktopToForget?.id }))
+                        desktopToForget = nil
+                    }
+                } message: { Text("This removes access from this device. Running agents are unaffected.") }
                 .companionTheme(preferences.sharedTheme(hosts: store.hosts))
             }
             .companionFeedbackEntryPoints(feedback)

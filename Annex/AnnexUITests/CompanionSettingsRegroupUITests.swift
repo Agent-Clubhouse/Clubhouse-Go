@@ -22,11 +22,15 @@ import XCTest
         XCTAssertFalse(app.staticTexts["Start screen"].exists)
         XCTAssertFalse(app.switches["Shake to open feedback"].exists, "Shortcuts belong on Feedback options")
         capture(app, "451 Settings top - \(name)")
-        waitAndTap(desktop, until: app.buttons["desktop-connection-retry"])
+        waitAndTap(desktop, until: app.navigationBars["Studio Mac"])
         XCTAssertTrue(app.staticTexts["Verified desktop identity"].exists)
+        if name == "accessibility XXXL" { capture(app, "451 Desktop identity - \(name)") }
+        let retry = app.buttons["desktop-connection-retry"]
+        XCTAssertTrue(scrollTo(retry, in: app, maxSwipes: 10))
+        XCTAssertTrue(retry.isEnabled && retry.isHittable && retry.frame.height >= 44)
         let forget = app.buttons["desktop-connection-forget"]
         XCTAssertTrue(scrollTo(forget, in: app))
-        XCTAssertTrue(forget.isEnabled && forget.isHittable)
+        XCTAssertTrue(forget.isEnabled && forget.isHittable && forget.frame.height >= 44)
         capture(app, "451 Desktop detail - \(name)")
         app.navigationBars.buttons.firstMatch.tap()
         let options = app.buttons["settings-feedback-options"]
