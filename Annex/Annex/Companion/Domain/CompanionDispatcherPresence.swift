@@ -59,8 +59,8 @@ struct CompanionDispatcherSwitcherRow: Identifiable {
     var desktop: CompanionDispatcherDesktop?
     var presence: CompanionDispatcherPresence.Remote?
     var label: String { desktop?.accessibilityLabel ?? presence?.chatLabel ?? CompanionDispatcher.name }
-    var detail: String? { presence?.detailText() }
-    var accessibilityLabel: String { [label, detail].compactMap { $0 }.joined(separator: ", ") }
+    var detail: String? { presence?.presentation().menuDetail }
+    var accessibilityLabel: String { [label, presence?.detailText()].compactMap { $0 }.joined(separator: ", ") }
 
     static func rows(desktops: [CompanionDispatcherDesktop], hosts: [CompanionHost]) -> [Self] {
         var reports: [String: (remote: CompanionDispatcherPresence.Remote, received: Date, source: String)] = [:]

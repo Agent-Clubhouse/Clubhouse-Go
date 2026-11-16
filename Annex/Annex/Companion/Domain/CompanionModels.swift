@@ -76,6 +76,12 @@ struct CompanionMachineStatePresentation: Equatable, Sendable {
     let label: String
     let symbol: String?
     let detail: String
+
+    /// Native menu subtitles honor explicit breaks but otherwise truncate this warning at phone widths.
+    /// Keep the full unbroken wording in `detail` for accessibility and other presentation surfaces.
+    var menuDetail: String {
+        detail.replacingOccurrences(of: Self.unreachableFromPhone, with: "Can't reach\nfrom this phone")
+    }
 }
 
 enum CompanionConnection: Equatable, Sendable {
