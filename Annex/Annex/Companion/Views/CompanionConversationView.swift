@@ -608,13 +608,11 @@ struct CompanionConversationView: View {
             // of their own gestures. Blank transcript space also ends editing.
             .contentShape(Rectangle())
             .simultaneousGesture(TapGesture().onEnded { dismissComposer() })
-            .overlay(alignment: .bottomTrailing) {
-                let next = nextAssistantMessageID
-                CompanionTranscriptNavigation(hasPrevious: !stops.isEmpty, hasNext: next != nil, followsLatest: followLatest,
-                                              showsLatest: showsLatestControl,
-                    previous: { jump(stops: stops, forward: false, proxy: proxy) },
-                    next: { jump(to: next, forward: true, proxy: proxy) })
-                    .padding(8)
+            .overlay(alignment: .bottom) {
+                if showsLatestControl {
+                    CompanionTranscriptLatest { jump(to: nil, forward: true, proxy: proxy) }
+                        .padding(8)
+                }
             }
             .onChange(of: conversation.itemsRevision) { _, _ in
                 if followLatest && !readingViewport.isScrollingToTop {
@@ -1052,39 +1050,27 @@ private struct CompanionOfferedWidth: ViewModifier {
     }
 }
 
-private struct CompanionTranscriptNavigation: View {
-    let hasPrevious: Bool
-    let hasNext: Bool
-    let followsLatest: Bool
-    let showsLatest: Bool
-    let previous: () -> Void
-    let next: () -> Void
+private struct CompanionTranscriptLatest: View {
+    let action: () -> Void
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
-        HStack(spacing: 8) {
-            if hasPrevious {
-                Button(action: previous) { icon("chevron.up") }
-                    .accessibilityLabel("Previous assistant message")
-                    .accessibilityIdentifier("companion-previous-message")
+        Button(action: action) {
+            HStack(spacing: 6) {
+                Text("Latest")
+                Image(systemName: "arrow.down")
             }
-            if hasPrevious || showsLatest {
-                Button(action: next) { icon("chevron.down") }
-                    .accessibilityLabel(hasNext ? "Next message" : "Latest")
-                    .accessibilityValue(followsLatest ? "Following latest" : "Reading earlier messages")
-                    .accessibilityHint(hasNext ? "Jumps to the next assistant message" : "Jumps to the end and follows new replies")
-                    .accessibilityIdentifier("companion-next-message")
-            }
+            .font(.subheadline.weight(.semibold))
+            .padding(.horizontal, 14)
+            .frame(minWidth: 44, minHeight: 44)
+            .companionCardGlass(Capsule(), interactive: true)
         }
         .buttonStyle(.plain)
         .foregroundStyle(Color(palette.label))
-    }
-
-    private func icon(_ name: String) -> some View {
-        Image(systemName: name)
-            .font(.body.weight(.semibold))
-            .frame(width: 44, height: 44)
-            .companionCardGlass(Circle(), interactive: true)
+        .accessibilityLabel("Latest")
+        .accessibilityValue("Reading earlier messages")
+        .accessibilityHint("Jumps to the end and follows new replies")
+        .accessibilityIdentifier("companion-latest")
     }
 }
 
