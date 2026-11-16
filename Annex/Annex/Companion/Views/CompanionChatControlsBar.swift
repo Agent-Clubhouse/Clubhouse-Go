@@ -218,7 +218,7 @@ struct CompanionLevelBadge: View {
     let level: CompanionPermissionLevel
     @Environment(\.companionPalette) private var palette
     var body: some View {
-        Label(level.label, systemImage: level >= .auto ? "exclamationmark.shield" : "shield")
+        Text(level.label)
             .font(.caption)
             .foregroundStyle(level >= .auto ? Color(palette.warning) : Color(palette.secondaryLabel))
             .lineLimit(nil)

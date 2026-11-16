@@ -849,8 +849,6 @@ struct CompanionAgentSettingsForm: View {
 /// A compact usage amount; the ring repeats no raw token string and adds no chat dependency.
 private struct CompanionSettingsContextUsage: View {
     let usage: CompanionContextUsage
-    @Environment(\.companionPalette) private var palette
-    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 18
 
     private func amount(_ tokens: Int) -> String {
         tokens.formatted(.number.notation(.compactName)).lowercased()
@@ -859,15 +857,7 @@ private struct CompanionSettingsContextUsage: View {
     var body: some View {
         LabeledContent("Context used") {
             HStack(spacing: 6) {
-                if let percent = usage.percent {
-                    ZStack {
-                        Circle().stroke(Color(palette.fill), lineWidth: 3)
-                        Circle().trim(from: 0, to: CGFloat(max(0, min(100, percent))) / 100)
-                            .stroke(Color(percent >= 90 ? palette.error : palette.secondaryLabel), style: .init(lineWidth: 3, lineCap: .round))
-                            .rotationEffect(.degrees(-90))
-                    }
-                    .frame(width: size, height: size).accessibilityHidden(true)
-                }
+                CompanionContextRing(percent: usage.percent).accessibilityHidden(true)
                 Text("\(amount(usage.used)) of \(amount(usage.size))")
                     .monospacedDigit().fixedSize(horizontal: false, vertical: true)
             }

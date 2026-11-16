@@ -474,7 +474,7 @@ struct CompanionHomeView: View {
             HStack {
                 Text("Needs you").font(.title3.bold()).foregroundStyle(Color(palette.label))
                 Spacer()
-                CompanionReviewButton(needsYouOnly: false).labelStyle(.titleAndIcon).font(.subheadline.weight(.semibold))
+                CompanionReviewButton(needsYouOnly: false)
             }
             .textCase(nil)
         }
@@ -530,10 +530,10 @@ struct CompanionHomeView: View {
                         Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }
                     }
                 } label: {
-                    Label(preferences.projectSort.label, systemImage: "chevron.up.chevron.down")
-                        .labelStyle(.titleAndIcon).font(.subheadline.weight(.semibold))
+                    CompanionAccessoryLabel(title: preferences.projectSort.label, isMenu: true)
                 }
                 .accessibilityLabel("Sort projects, \(preferences.projectSort.label)")
+                .accessibilityIdentifier("project-sort-menu")
             }
             .textCase(nil)
         }
@@ -964,7 +964,7 @@ struct CompanionNeedsYouView: View {
         .companionListStyle()
         .navigationTitle("Needs you")
         .navigationSubtitle(subtitle(requestCount: items.count))
-        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true, showsTitle: true) } }
+        .toolbar { ToolbarItem(placement: .topBarTrailing) { CompanionReviewButton(needsYouOnly: true) } }
         .safeAreaInset(edge: .bottom) {
             VStack(spacing: 8) {
                 ForEach(decisions.pending) { pending in

@@ -209,7 +209,7 @@ struct CompanionConversationView: View {
                         Menu {
                             Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                             Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                            Button("Context and plan limits", systemImage: "chart.pie") { showContextSettings = true }
+                            Button("Context and plan limits", systemImage: "circle") { showContextSettings = true }
                                 .accessibilityIdentifier("companion-context-settings-menu")
                             if let agentSettings { CompanionAgentMenuItems(target: target, actions: agentSettings) }
                             CompanionSleepAction(store: store, target: target) { confirmSleep = true }
@@ -340,8 +340,7 @@ struct CompanionConversationView: View {
     private var contextButton: some View {
         Button { showContextSettings = true } label: {
             HStack(spacing: 0) {
-                if let percent = agent.contextUsage?.percent { CompanionContextRing(percent: percent, monochrome: true) }
-                else { Image(systemName: "chart.pie").font(.caption) }
+                CompanionContextRing(percent: agent.contextUsage?.percent, monochrome: true)
             }
             .dynamicTypeSize(...DynamicTypeSize.xxLarge)
             .frame(width: 44, height: 44)
@@ -981,27 +980,6 @@ struct CompanionConversationView: View {
     }
 
 
-}
-
-/// Context fill as a small ring with its percentage, like the desktop's usage ring. Hot from 90%.
-struct CompanionContextRing: View {
-    let percent: Int
-    var monochrome = false
-    @Environment(\.companionPalette) private var palette
-    @ScaledMetric(relativeTo: .caption) private var size: CGFloat = 18
-    var body: some View {
-        let hot = percent >= 90
-        ZStack {
-            Circle().stroke(Color(palette.separator), lineWidth: 2)
-            Circle().trim(from: 0, to: CGFloat(percent) / 100)
-                .stroke(Color(monochrome ? palette.label : (hot ? palette.error : palette.secondaryLabel)), style: .init(lineWidth: 2, lineCap: .round))
-                .rotationEffect(.degrees(-90))
-        }
-        .frame(width: size, height: size)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Context \(percent)% full")
-        .accessibilityIdentifier("companion-context-usage")
-    }
 }
 
 private struct CompanionTranscriptEndSpacer: View {
