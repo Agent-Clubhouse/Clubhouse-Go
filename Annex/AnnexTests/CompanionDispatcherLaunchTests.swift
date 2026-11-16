@@ -3,6 +3,16 @@ import UIKit
 @testable import ClubhouseGo
 
 @MainActor final class CompanionDispatcherLaunchTests: XCTestCase {
+    func testInitialCatalogIsUnknownButAnActualEmptyReportIsKnown() {
+        let store = CompanionStore(service: CompanionLiveService())
+        XCTAssertTrue(store.hosts.isEmpty)
+        XCTAssertFalse(store.hasReceivedHostReport)
+        store.apply(.hosts([]))
+        XCTAssertTrue(store.hosts.isEmpty)
+        XCTAssertTrue(store.hasReceivedHostReport, "A known empty report must still reconcile authority")
+        store.shutdown()
+    }
+
     func testColdAndWarmShortcutUseOneRetainedHandoffAndUnknownActionsDoNothing() {
         let inbox = CompanionDispatcherLaunchInbox()
         XCTAssertFalse(inbox.handleQuickAction("unknown"))

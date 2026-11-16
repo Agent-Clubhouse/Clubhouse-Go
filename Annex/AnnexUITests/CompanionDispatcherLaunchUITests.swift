@@ -40,7 +40,7 @@ import XCTest
         action.tap()
     }
 
-    func testARealSpringBoardColdQuickActionSurvivesRestoreWithNoPairings() {
+    func testARealSpringBoardColdQuickActionSurvivesRestoreWithNoPairings() throws {
         // XCTest installs and opens the app once. The NEXT launch comes from SpringBoard,
         // with a terminated process, not an injected intent or a synthesized ConnectionOptions.
         let app = launchApp(["--companion-preview"], attempts: 1)
@@ -56,10 +56,34 @@ import XCTest
             XCTAssertTrue(restoreError.waitForNonExistence(timeout: 5))
         }
         XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 20))
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch.exists)
+        let guidance = app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch
+        XCTAssertTrue(guidance.exists)
         XCTAssertFalse(app.keyboards.firstMatch.exists)
         screenshot(app, "native-cold-quick-action-no-pairings")
-        XCTAssertFalse(unexpectedRestoreFailure, "Clean-install production restoration failed; the error is a separate finding even if the external handoff recovers")
+        let json = try XCTUnwrap(guidance.value as? String, "The actual Runtime must publish status-only probe/restore evidence")
+        let data = Data(json.utf8)
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "Actual Runtime Keychain capability probe and restore statuses"
+        attachment.lifetime = .keepAlways; add(attachment)
+        let statuses = try XCTUnwrap(try JSONSerialization.jsonObject(with: data) as? [String: Any])
+        let probeAdd = try XCTUnwrap(statuses["probeAdd"] as? Int)
+        let probeDelete = statuses["probeDelete"] as? Int
+        let restoreKind = try XCTUnwrap(statuses["restoreKind"] as? String)
+        let restoreStatus = statuses["restoreStatus"] as? Int
+        if probeAdd == -34018 {
+            XCTContext.runActivity(named: "Entitlement-recovery coverage; not a production cold-restore PASS") { _ in
+                XCTAssertNil(probeDelete, "A rejected add created no probe item")
+                XCTAssertEqual(restoreKind, "persistenceFailed")
+                XCTAssertEqual(restoreStatus, -34018, "Probe and real restore must match exactly")
+                XCTAssertTrue(unexpectedRestoreFailure, "The entitlement error must remain visible before guidance")
+            }
+        } else {
+            XCTAssertEqual(probeAdd, 0, "Every other probe error fails; no signing or environment opt-out")
+            XCTAssertEqual(probeDelete, 0, "A capable probe must remove its throwaway item")
+            XCTAssertEqual(restoreKind, "success", "A capable probe cannot excuse a restore failure")
+            XCTAssertNil(restoreStatus)
+            XCTAssertFalse(unexpectedRestoreFailure, "Clean-install production restoration failed; the error is a separate finding even if the external handoff recovers")
+        }
     }
 
     func testColdSingleDispatcherFocusesWithoutSendingAndWarmNativeActionKeepsDraft() {

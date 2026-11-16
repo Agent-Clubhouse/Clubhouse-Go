@@ -1,6 +1,39 @@
 import AppIntents
 import SwiftUI
 import UIKit
+#if DEBUG
+import Security
+import ClubhouseTransport
+
+/// Status-only evidence from this app process. No signing/configuration flag decides capability.
+/// The probe uses a unique test-only item, never a pairing or credential service.
+nonisolated struct CompanionLaunchKeychainDiagnostic: Codable, Sendable {
+    let probeAdd: Int32
+    let probeDelete: Int32?
+    var restoreKind = "pending"
+    var restoreStatus: Int32?
+
+    static func probe() -> Self {
+        let query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: "com.Agent-Clubhouse.Go.tests.dispatcher-launch-capability",
+            kSecAttrAccount as String: UUID().uuidString, kSecAttrSynchronizable as String: false]
+        let add = SecItemAdd(query.merging([kSecValueData as String: Data([0]),
+            kSecAttrAccessible as String: kSecAttrAccessibleWhenUnlockedThisDeviceOnly]) { _, new in new } as CFDictionary, nil)
+        // A rejected add created nothing. A successful probe must also prove cleanup succeeded.
+        let delete: OSStatus? = add == errSecSuccess ? SecItemDelete(query as CFDictionary) : nil
+        return .init(probeAdd: add, probeDelete: delete)
+    }
+    mutating func restored() { restoreKind = "success"; restoreStatus = nil }
+    mutating func failed(_ error: any Error) {
+        if let transportError = error as? AnnexTransportError, case .persistenceFailed(let status) = transportError {
+            restoreKind = "persistenceFailed"; restoreStatus = status
+        } else {
+            restoreKind = "otherFailure"; restoreStatus = nil
+        }
+    }
+    var json: String? { (try? JSONEncoder().encode(self)).map { String(decoding: $0, as: UTF8.self) } }
+}
+#endif
 
 /// SwiftUI retains scene ownership; these delegates only hand off the external action.
 @MainActor final class CompanionLaunchAppDelegate: NSObject, UIApplicationDelegate {

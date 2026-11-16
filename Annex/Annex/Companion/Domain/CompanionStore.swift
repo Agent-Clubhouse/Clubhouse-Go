@@ -10,6 +10,8 @@ import Observation
     var hosts: [CompanionHost] = [] {
         didSet { rebuildProjectCatalog() }
     }
+    /// Initial empty storage is unknown; an actual empty report is authoritative.
+    private(set) var hasReceivedHostReport = false
     @ObservationIgnored private(set) var cachedProjectEntries: [CompanionProjectEntry] = []
     private(set) var projectCatalogRevision: UInt64 = 0
     private var projectLinksSourceID: String? {
@@ -1609,6 +1611,7 @@ import Observation
         switch event {
         case .helperStartWarning(let warning): helperStartWarning = warning
         case .hosts(let incoming):
+            hasReceivedHostReport = true
             reconcileAccessDefaults(in: incoming)
             for host in incoming {
                 if let previous = hosts.first(where: { $0.id == host.id }) {

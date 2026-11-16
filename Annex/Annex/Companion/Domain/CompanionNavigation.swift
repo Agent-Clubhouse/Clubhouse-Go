@@ -101,6 +101,7 @@ struct CompanionNavigation {
         paths[.dispatcher] = []
     }
 
+    /// Call only with known pairing authority, never an unknown initial catalog.
     /// Saved UI state cannot restore a session-only or forgotten pairing on the next launch.
     mutating func retainPairedDesktops(_ ids: Set<String>) {
         let selectedWasRemoved = dispatcherHostID.map { !ids.contains($0) } ?? false

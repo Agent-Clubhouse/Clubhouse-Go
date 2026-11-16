@@ -9,6 +9,8 @@ struct CompanionRootView: View {
     var onPair: () -> Void
     var onSettings: () -> Void
     var isPreview = false
+    /// nil preserves cached selection while authority is unknown. Only a known set,
+    /// including a known empty set, may prune it; external launches also wait for readiness.
     var pairedHostIDs: Set<String>?
     var externalLaunchRestoreFailed: Bool
     var externalLaunchReady: Bool

@@ -69,7 +69,8 @@ struct CompanionPreviewRoot: View {
             $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
         },
                           isPreview: !ProcessInfo.processInfo.arguments.contains("--companion-preview-hide-banner"),
-                          pairedHostIDs: Set(store.hosts.map(\.id)), externalLaunchReady: !store.hosts.isEmpty)
+                          pairedHostIDs: store.hasReceivedHostReport ? Set(store.hosts.map(\.id)) : nil,
+                          externalLaunchReady: store.hasReceivedHostReport)
             .task {
                 await CompanionWakeFocusDiagnostics.prepare()
                 CompanionUnicodeFocusFixture.seed(store)

@@ -33,6 +33,16 @@ import ClubhouseTransport
     var isRestoring = false
     private(set) var sessionHosts: Set<String> = []
     private(set) var restoredHostIDs: Set<String>?
+    #if DEBUG
+    private(set) var launchKeychainDiagnostic: CompanionLaunchKeychainDiagnostic?
+    #endif
+    var externalLaunchDiagnosticJSON: String? {
+        #if DEBUG
+        launchKeychainDiagnostic?.json
+        #else
+        nil
+        #endif
+    }
     private var externalRestoreFailureAcknowledged = false
     var externalLaunchRestorationReady: Bool {
         (restoredHostIDs != nil || externalRestoreFailureAcknowledged) && !isRestoring && restoreError == nil
@@ -76,6 +86,9 @@ import ClubhouseTransport
     func start() async {
         guard !started else { return }
         started = true; isRestoring = true
+        #if DEBUG
+        launchKeychainDiagnostic = .probe()
+        #endif
         store.start()
         service.onUnreachable = { [weak self] hostID in Task { await self?.rediscover(hostID: hostID) } }
         service.onRoutes = { [weak self] hostID, routes in
@@ -108,8 +121,16 @@ import ClubhouseTransport
             let restored = try await registry.restoreSaved()
             #endif
             restoredHostIDs = Set(restored.map { $0.host.hostID })
+            #if DEBUG
+            launchKeychainDiagnostic?.restored()
+            #endif
             for registration in restored { await service.register(await answeringRoute(for: registration)) }
-        } catch { restoreError = CompanionLiveService.readableError(error) }
+        } catch {
+            #if DEBUG
+            launchKeychainDiagnostic?.failed(error)
+            #endif
+            restoreError = CompanionLiveService.readableError(error)
+        }
     }
     private func syncNetworkRegistrations() async {
         guard !syncingNetworkRegistrations else { return }
@@ -285,6 +306,7 @@ struct CompanionAppRoot: View {
                               externalLaunchReady: runtime.externalLaunchRestorationReady
                                 && settingsCapture == nil && !showPairing && !showDemo && !externalLaunchDismissal,
                               externalLaunchRestoreFailed: runtime.externalLaunchRestorationFailed)
+                .environment(\.companionDispatcherLaunchDiagnostics, runtime.externalLaunchDiagnosticJSON)
                 .companionFeedbackEntryPoints(runtime.feedbackPresenter)
             if showsWelcome && !welcomeDone && runtime.store.hosts.isEmpty && !runtime.isRestoring {
                 CompanionWelcomeView(onPair: { welcomeDone = true; showPairing = true }, onDemo: { showDemo = true })
