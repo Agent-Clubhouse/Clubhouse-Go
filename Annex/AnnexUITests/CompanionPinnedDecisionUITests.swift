@@ -213,6 +213,14 @@ import Vision
         XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash", "Every original request is still pending")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
         XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].exists)
+        let close = app.buttons["companion-approval-review-close"]
+        openReview(app, until: close)
+        XCTAssertTrue(app.scrollViews["companion-approval-review-scroll"].exists, "The final title node retains its long-press Review menu")
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(summary(app).label, "Run preview build")
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash", "Review dismissal also sends nothing")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
         capture(app, "Swipe selection and title jump send no decision")
     }
 

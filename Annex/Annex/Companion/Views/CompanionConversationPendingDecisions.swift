@@ -71,16 +71,17 @@ struct CompanionConversationPendingDecisions: View {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel(decision.summary)
-        .accessibilityValue(subtitle)
-        .accessibilityHint("Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.")
-        .accessibilityIdentifier("companion-decision-show-in-chat")
+
         .contextMenu {
             Button("Review request") { openReview(decision, presentation: presentation) }
                 .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
                 .accessibilityIdentifier("companion-review-approval")
         }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(decision.summary)
+        .accessibilityValue(subtitle)
+        .accessibilityHint("Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.")
+        .accessibilityIdentifier("companion-decision-show-in-chat")
         .accessibilityAction(named: "Review request") { openReview(decision, presentation: presentation) }
     }
 
