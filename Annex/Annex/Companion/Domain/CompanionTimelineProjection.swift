@@ -25,7 +25,7 @@ import Foundation
 
     func rows(for conversation: CompanionConversation) -> [CompanionTimelineRow] {
         guard revision != conversation.itemsRevision else { return rows }
-        rows = CompanionTimelineFolding.rows(for: conversation.items)
+        rows = CompanionTimelineFolding.rows(for: conversation.items, collapseDesktopQuestions: true)
         let indices = Dictionary(conversation.items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { _, last in last })
         assistantIndices = [:]
         toolIndices = [:]

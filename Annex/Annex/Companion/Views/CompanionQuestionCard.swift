@@ -90,3 +90,24 @@ struct CompanionQuestionCard: View {
         }
     }
 }
+
+/// Read-only summary; each original request still has its existing full review and response gates.
+struct CompanionDesktopQuestionsCard: View {
+    let group: CompanionDesktopQuestions
+    let hostName: String?
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label(group.title, systemImage: "questionmark.bubble")
+                .font(.headline).foregroundStyle(Color(palette.warning))
+            Text(group.message(hostName: hostName)).font(.subheadline).foregroundStyle(.secondary)
+        }
+        .padding(18).frame(maxWidth: .infinity, alignment: .leading)
+        .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous)
+            .stroke(Color(palette.warning).opacity(0.7), lineWidth: 1.5))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("companion-desktop-questions")
+    }
+}

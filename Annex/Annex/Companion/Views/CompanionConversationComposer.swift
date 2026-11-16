@@ -652,6 +652,7 @@ struct CompanionComposerApprovalReviewSheet: View {
 
     var body: some View {
         NavigationStack {
+            GeometryReader { viewport in
             TimelineView(.periodic(from: .now, by: 1)) { context in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 16) {
@@ -673,6 +674,8 @@ struct CompanionComposerApprovalReviewSheet: View {
                                     Task { await answer(presentation, answers: answers) }
                                 }
                                 .id(question.id)
+                                .accessibilityElement(children: .contain)
+                                .accessibilityIdentifier("companion-approval-review-question-card")
                             }
                         } else {
                             Text("This approval is no longer available.")
@@ -684,9 +687,13 @@ struct CompanionComposerApprovalReviewSheet: View {
                         }
                     }
                     .padding()
+                    // Keep keyboard-driven detent changes from proposing the error's
+                    // ideal text width to the whole card instead of the sheet viewport.
+                    .frame(width: viewport.size.width, alignment: .leading)
                 }
+                .accessibilityIdentifier("companion-approval-review-scroll")
             }
-            .accessibilityIdentifier("companion-approval-review-scroll")
+            }
             // The card's Allow and full-event review use the same store.canApprove gate as the transcript.
             .companionContentPreviews(store: store, target: target)
             .navigationTitle(isQuestion ? "Review question" : "Review approval")
@@ -698,7 +705,7 @@ struct CompanionComposerApprovalReviewSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
     }
     private var isQuestion: Bool {
         if case .question = selection?.presentation?.decision { return true }

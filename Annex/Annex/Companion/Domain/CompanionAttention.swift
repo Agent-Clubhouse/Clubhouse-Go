@@ -208,10 +208,12 @@ enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     case tools([CompanionTool])
     case activity([CompanionActivityPart])
     case routed(CompanionMessage, Int)
+    case desktopQuestions(CompanionDesktopQuestions)
 
     var id: String {
         switch self {
         case .item(let item): item.id
+        case .desktopQuestions(let group): group.id
         case .tools(let tools): "tools:\(tools.first?.id ?? "")"
         case .activity(let parts): "activity:\(parts.first?.id ?? "")"
         case .routed(let message, let index): "routed:\(message.id):\(index)"
@@ -219,6 +221,7 @@ enum CompanionTimelineRow: Identifiable, Sendable, Equatable {
     }
     func contains(entryID: String) -> Bool {
         if id == entryID { return true }
+        if case .desktopQuestions(let group) = self { return group.contains(entryID: entryID) }
         if case .item(.message(let message)) = self, message.role != .user, entryID.hasPrefix(id + "#") { return true }
         if case .activity(let parts) = self { return parts.contains { "activity:\($0.id)" == entryID } }
         return false
@@ -302,7 +305,8 @@ extension CompanionTool {
 /// The desktop's folding (`buildStreamBlocks`, `exploreLabel` in `view-model.ts`).
 enum CompanionTimelineFolding {
     /// Routine tools fold together; routed messages remain readable in chronological order.
-    static func rows(for items: [CompanionTimelineItem]) -> [CompanionTimelineRow] {
+    static func rows(for items: [CompanionTimelineItem], collapseDesktopQuestions: Bool = false) -> [CompanionTimelineRow] {
+        let desktopQuestions = collapseDesktopQuestions ? CompanionDesktopQuestions(items: items) : nil
         let waitingToolIDs = Set(items.compactMap { item -> String? in
             guard case .approval(let approval) = item,
                   [.pending, .submitting, .uncertain].contains(approval.resolution) else { return nil }
@@ -332,6 +336,11 @@ enum CompanionTimelineFolding {
         }
         for item in items {
             switch item {
+            case .question(let question) where desktopQuestions?.contains(entryID: item.id) == true:
+                flush()
+                if let desktopQuestions, question.id == desktopQuestions.questions.first?.id {
+                    rows.append(.desktopQuestions(desktopQuestions))
+                }
             case .tool(var tool) where waitingToolIDs.contains(tool.id):
                 flush()
                 tool.awaitsApproval = true
