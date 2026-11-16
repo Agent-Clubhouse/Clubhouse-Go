@@ -11,10 +11,15 @@ import XCTest
         super.tearDown()
     }
 
+    private func screenshot(_ app: XCUIApplication, _ name: String) {
+        let image = XCTAttachment(screenshot: app.screenshot())
+        image.name = name; image.lifetime = .keepAlways; add(image)
+    }
+
     private func nativeAction() {
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let icon = springboard.icons["Clubhouse Go"].firstMatch
+        let icon = springboard.icons.matching(identifier: "Clubhouse Go").firstMatch
         XCTAssertTrue(icon.waitForExistence(timeout: 10), "The installed app has a native Home Screen icon")
         icon.press(forDuration: 1)
         let action = springboard.buttons["Message Dispatcher"]
