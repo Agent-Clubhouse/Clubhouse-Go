@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 struct CompanionDispatcherComposerFocus: Equatable {
     let id: UUID
