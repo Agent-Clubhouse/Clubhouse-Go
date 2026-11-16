@@ -143,9 +143,10 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
 
     private func dismissKeyboard(_ app: XCUIApplication) {
         guard app.keyboards.firstMatch.exists else { return }
-        // The header lives in the navigation bar now: start halfway between it and the composer, in the transcript.
-        let top = app.navigationBars.firstMatch.frame.maxY
-        let bottom = element(app, "companion-composer-region").frame.minY
+        // Use the transcript's actual visible bounds: chips and preview report controls can sit above it.
+        let transcript = element(app, "companion-transcript").frame
+        let top = max(app.navigationBars.firstMatch.frame.maxY, transcript.minY)
+        let bottom = min(element(app, "companion-composer-region").frame.minY, transcript.maxY)
         XCTAssertGreaterThan(bottom - top, 48, "Some transcript stays visible above the composer")
         let start = app.coordinate(withNormalizedOffset: .zero)
             .withOffset(CGVector(dx: app.frame.width * 0.5, dy: (top + bottom) / 2 - app.frame.minY))

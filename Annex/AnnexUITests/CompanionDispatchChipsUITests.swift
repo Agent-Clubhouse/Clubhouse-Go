@@ -78,5 +78,18 @@ import XCTest
         app.launch()
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.buttons["dispatcher-desktop-preview-studio"].isSelected)
+        capture(app, "444 Saved Dispatcher restored after Home selection")
+        // A connected report with no Dispatchers is authoritative and clears the saved choice.
+        app.terminate()
+        app.launchArguments = ["--companion-preview", "--companion-preview-keep-preferences", "--ui-testing-fast"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
+        XCTAssertFalse(app.tabBars.buttons["Dispatch"].exists)
+        app.terminate()
+        app.launchArguments = args + ["--companion-preview-keep-preferences", "--ui-testing-fast"]
+        app.launch()
+        XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 15), "A cleared choice uses the deterministic first Dispatcher")
+        XCTAssertTrue(app.buttons["dispatcher-desktop-preview-laptop"].isSelected)
+        capture(app, "444 Removed Dispatcher preference falls back safely")
     }
 }

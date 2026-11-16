@@ -110,7 +110,13 @@ struct CompanionNavigation {
             let order = $0.displayName.localizedStandardCompare($1.displayName)
             return (order == .orderedSame ? $0.name.localizedStandardCompare($1.name) : order) == .orderedAscending
         }
-        if !dispatcherDesktops.contains(where: { $0.id == dispatcherHostID }) { dispatcherHostID = dispatcherDesktops.first?.id }
+        // An unknown catalog before the first report cannot invalidate a saved choice.
+        // A real report (including removal of all previously observed hosts) still can.
+        let canResolve = !removed.isEmpty || hosts.contains { $0.dispatcher != nil || $0.connection.canOperate }
+        if !dispatcherDesktops.contains(where: { $0.id == dispatcherHostID }),
+           canResolve || !dispatcherDesktops.isEmpty {
+            dispatcherHostID = dispatcherDesktops.first?.id
+        }
         if awaitingFirstReport, hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
             awaitingFirstReport = false
             if !dispatcherDesktops.isEmpty { tab = .dispatcher }

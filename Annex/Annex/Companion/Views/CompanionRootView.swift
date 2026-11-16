@@ -126,6 +126,7 @@ struct CompanionRootView: View {
             let removedHost = !Set(previous.map(\.id)).isSubset(of: Set(hosts.map(\.id)))
             if removedHost || hosts.contains(where: { $0.dispatcher != nil || $0.connection.canOperate }) {
                 preferences.dispatcherDesktops = navigation.dispatcherDesktops
+                if !hosts.isEmpty, preferences.lastDispatcherHostID != navigation.dispatcherHostID { preferences.lastDispatcherHostID = navigation.dispatcherHostID }
             }
             mirrorSelection()
         }
