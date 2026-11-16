@@ -101,6 +101,16 @@ jobs:
       - name: Check coverage ratchet
         run: scripts/coverage.sh --skip-tests --check
 
+      # These availability-gated tests must run on macOS 26, with a constrained cooperative pool.
+      # The intentional icon hold has a private thread source; it must not starve that pool.
+      - name: Verify icon holds on a constrained cooperative pool
+        shell: bash {0}
+        run: |
+          set -euo pipefail
+          BIN_PATH=$(env -u COPILOT_CONNECTION_TOKEN GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.bareRepository GIT_CONFIG_VALUE_0=all swift build -c debug -j 2 --show-bin-path)
+          python3 scripts/ci/run_icon_hold_probe.py "$BIN_PATH" 2>&1 | tee icon-hold-tests.log
+          python3 scripts/ci/check_icon_hold_execution.py icon-hold-tests.log
+
       - name: Test bundled Framebriar package
         run: swift test --package-path Vendor/Framebriar
 
