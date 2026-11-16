@@ -47,7 +47,7 @@ private actor ResumePreparationGate {
         lifecycle.update(.background)
         await lifecycle.settle()
         lifecycle.update(.active)
-        #require(try await wait { await preparation.waiting })
+        try #require(try await wait { await preparation.waiting })
         lifecycle.update(.background)
         let suspendedWhileHeld = try await wait { transitions == [false, true, false] }
         #expect(suspendedWhileHeld, "Background must start before the held foreground preparation returns")
@@ -74,9 +74,9 @@ private actor ResumePreparationGate {
         lifecycle.update(.background)
         await lifecycle.settle()
         lifecycle.update(.active)
-        #require(try await wait { await preparation.waiting })
+        try #require(try await wait { await preparation.waiting })
         lifecycle.update(.background)
-        #require(try await wait { await disconnect.waiting })
+        try #require(try await wait { await disconnect.waiting })
         lifecycle.update(.active)
         #expect(foregrounds == 1, "A fresh foreground cannot overtake the held disconnect")
         await disconnect.release()
@@ -98,7 +98,7 @@ private actor ResumePreparationGate {
             return [LiveServiceHarness.hostID]
         }
         let oldResume = Task { await h.service.resume() }
-        #require(try await wait { await preparation.waiting })
+        try #require(try await wait { await preparation.waiting })
         oldResume.cancel()
         await h.service.suspend()
         h.service.prepareResume = nil
@@ -121,7 +121,7 @@ private actor ResumePreparationGate {
         await h.service.suspend()
         h.service.prepareResume = { await preparation.hold(); return [] }
         let oldResume = Task { await h.service.resume() }
-        #require(try await wait { await preparation.waiting })
+        try #require(try await wait { await preparation.waiting })
         // Even a caller that does not propagate cancellation cannot revive an old lifecycle generation.
         await h.service.suspend()
         h.service.prepareResume = nil
