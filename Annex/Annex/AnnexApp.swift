@@ -4,6 +4,7 @@ import ClubhouseTransport
 
 @main
 struct ClubhouseGoApp: App {
+    @UIApplicationDelegateAdaptor(CompanionLaunchAppDelegate.self) private var launchDelegate
     @Environment(\.scenePhase) private var scenePhase
     /// The process owns clients and transports; reconnecting a scene only mounts another view.
     @State private var runtimeLifetime: CompanionStateLifetime<CompanionRuntime>

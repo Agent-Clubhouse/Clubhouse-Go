@@ -10,6 +10,17 @@
 		<key>UISceneConfigurations</key>
 		<dict/>
 	</dict>
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>com.Agent-Clubhouse.Go.message-dispatcher</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Message Dispatcher</string>
+			<key>UIApplicationShortcutItemIconSymbolName</key>
+			<string>bubble.left.and.text.bubble.right</string>
+		</dict>
+	</array>
 	<key>CFBundleDisplayName</key>
 	<string>Clubhouse Go</string>
 	<key>CFBundleURLTypes</key>
