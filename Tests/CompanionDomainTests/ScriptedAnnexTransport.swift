@@ -22,6 +22,8 @@ actor ScriptedAnnexTransport: AnnexTransporting {
     private(set) var disconnectCount = 0
     private var connectErrors: [AnnexTransportError] = []
 
+    init() {}
+
     // Capabilities.
     private var epoch = "epoch"
     private var controlAvailable = true

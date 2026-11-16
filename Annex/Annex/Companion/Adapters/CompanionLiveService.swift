@@ -84,19 +84,24 @@ import ClubhouseTransport
         }
     }
 
-    func register(_ registration: AnnexTransportRegistry.Registration) async {
+    /// The optional barrier is scoped to this call (never retained) so tests can hold initial
+    /// registration before icon work without blocking an actor thread or changing platform coverage.
+    func register(_ registration: AnnexTransportRegistry.Registration,
+                  beforeIconWork: (@Sendable () async -> Void)? = nil) async {
         guard !Task.isCancelled else { return }
-        let lifecycle = lifecycleGeneration
+        // Pairing/restore registration remains authoritative across phase changes. Only cancelled
+        // work is abandoned; current suspension decides whether the retained host may connect.
         let id = registration.host.hostID
+        await beforeIconWork?()
         await iconStore.activate(host: id)
-        guard !Task.isCancelled, lifecycleGeneration == lifecycle else { return }
+        guard !Task.isCancelled else { return }
         let transport = registration.transport
         await iconStore.setFetcher(for: id) { key, _ in
             let response = try await transport.icon(kind: key.kind.rawValue, id: key.id, version: key.version, ifNoneMatch: nil)
             return .init(status: response.status, contentType: response.contentType ?? "", data: response.data,
                          version: CompanionIconMetadata.version(etag: response.etag))
         }
-        guard !Task.isCancelled, lifecycleGeneration == lifecycle else { return }
+        guard !Task.isCancelled else { return }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         registeredTransportIDs[id] = registration.transportID
@@ -108,7 +113,7 @@ import ClubhouseTransport
         hosts[id] = host
         emitHosts()
         guard let generation = await subscribe(to: registration.transport, hostID: id), eventGenerations[id] == generation else { return }
-        guard !Task.isCancelled, !isSuspended, lifecycleGeneration == lifecycle else {
+        guard !Task.isCancelled, !isSuspended else {
             if isSuspended { hosts[id]?.connection = .offline; emitHosts() }
             return
         }
