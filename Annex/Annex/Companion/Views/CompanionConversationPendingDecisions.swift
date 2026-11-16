@@ -7,59 +7,68 @@ struct CompanionConversationPendingDecisions: View {
     let maximumHeight: CGFloat
     let compactHeight: Bool
     let showInChat: (String) -> Void
+    @State private var expiryBoundary = Date.distantPast
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let queue = CompanionPendingDecision.pending(in: store.conversation(for: target).items, at: context.date)
+        // Native Menu identity/content must not be rebuilt by a per-second expiry tick.
+        let queue = CompanionPendingDecision.pending(in: store.conversation(for: target).items, at: max(.now, expiryBoundary))
+        let nextDeadline = queue.compactMap { decision -> Date? in
+            guard case .approval(let approval) = decision, approval.resolution == .pending else { return nil }
+            return approval.deadline
+        }.min()
+        // Keep the task and sheet host mounted when the final pending request leaves the queue.
+        return VStack(spacing: 0) {
             if let decision = CompanionPendingDecision.selected(in: queue, id: selectedID),
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
-                let compact = compactHeight || maximumHeight < 120 || dynamicTypeSize.isAccessibilitySize
-                VStack(alignment: .leading, spacing: 0) {
-                    ViewThatFits(in: .horizontal) {
+                Group {
+                    if usesSingleRow {
                         HStack(spacing: 8) {
-                            summaryAndPager(decision, queue: queue, index: index)
-                                .fixedSize(horizontal: true, vertical: false)
-                            decisionActions(decision, presentation: presentation, index: index, count: queue.count, compact: compact)
+                            identity(decision, presentation: presentation, index: index, queue: queue)
+                            actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
                         }
-                        VStack(alignment: .leading, spacing: 0) {
-                            summaryAndPager(decision, queue: queue, index: index)
-                            ViewThatFits(in: .horizontal) {
-                                HStack(spacing: 12) {
-                                    decisionActions(decision, presentation: presentation, index: index, count: queue.count, compact: compact)
-                                }
-                                VStack(alignment: .leading, spacing: 0) {
-                                    decisionActions(decision, presentation: presentation, index: index, count: queue.count, compact: compact)
-                                }
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) {
+                                identity(decision, presentation: presentation, index: index, queue: queue)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                Spacer(minLength: 0)
+                                actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
+                            }
+                            VStack(alignment: .leading, spacing: usesTightAccessibilityRows ? 0 : 8) {
+                                identity(decision, presentation: presentation, index: index, queue: queue)
+                                HStack { Spacer(minLength: 0); actions(decision, presentation: presentation, index: index, count: queue.count) }
                             }
                         }
                     }
-                    .labelStyle(.iconOnly)
-                    .font(.system(size: 18))
-                    .buttonBorderShape(.capsule)
-                    .controlSize(.regular)
-                    .buttonStyle(DecisionButtonStyle())
-                    if decision.isSubmitting {
-                        ProgressView("Sending decision…").font(.caption)
-                    } else if !compact, case .approval(let approval) = decision {
-                        CompanionApprovalActions(approval: approval, canRespond: canRespond(.approve),
-                            canAllow: store.canApprove(approval, target: target),
-                            persistentApprovals: store.canAnswerPersistentApprovals(target), compact: true) { option in
-                            Task { await store.respond(presentation, option: option) }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .trailing)
-                    }
                 }
+                .highPriorityGesture(selectionGesture(queue: queue, index: index))
+                .accessibilityAction(named: "Previous request") { select(-1, queue: queue, index: index) }
+                .accessibilityAction(named: "Next request") { select(1, queue: queue, index: index) }
                 .disabled(review != nil)
-                .padding(.horizontal, 12).padding(.vertical, 4)
+                .padding(.horizontal, 12).padding(.vertical, usesTightAccessibilityRows ? 1 : 4)
                 .companionCardGlass(RoundedRectangle(cornerRadius: 20))
                 .padding(.horizontal, 16).padding(.vertical, 4)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("companion-pinned-decision")
+                .accessibilityValue(isCompactPresentation ? "Compact request controls" : "Expanded request controls")
             }
+        }
+        .task(id: nextDeadline) {
+            guard let nextDeadline else { return }
+            let delay = nextDeadline.timeIntervalSinceNow
+            if delay > 0 {
+                do { try await Task.sleep(for: .seconds(delay)) }
+                catch { return }
+            }
+            guard !Task.isCancelled else { return }
+            // One update at the next actual expiry; no per-second polling or retained task handle.
+            expiryBoundary = max(.now, nextDeadline)
         }
         .sheet(isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
             CompanionComposerApprovalReviewSheet(store: store, target: target, selection: $review)
@@ -74,55 +83,148 @@ struct CompanionConversationPendingDecisions: View {
         }
     }
 
-    private func summaryAndPager(_ decision: CompanionPendingDecision, queue: [CompanionPendingDecision], index: Int) -> some View {
-        HStack(spacing: 0) {
-            HStack(spacing: 4) {
-                Text(decision.summary).font(.caption.weight(.semibold)).lineLimit(1)
-                    .accessibilityIdentifier("companion-pinned-decision-summary")
-                if queue.count > 1 {
-                    Text("\(index + 1) of \(queue.count)").font(.caption2.monospacedDigit())
-                        .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-                        .fixedSize()
-                        .accessibilityLabel("Request \(index + 1) of \(queue.count)")
-                        .accessibilityIdentifier("companion-pinned-decision-position")
+    private func identity(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, queue: [CompanionPendingDecision]) -> some View {
+        let count = queue.count
+        let kind: String
+        switch decision {
+        case .approval(let approval): kind = approval.toolName
+        case .question: kind = "Question"
+        }
+        let subtitle = "\(index + 1) of \(count) waiting · \(kind)"
+        return CompanionPendingDecisionTitle(key: .init(storeIdentity: ObjectIdentifier(store), presentation: presentation,
+            queue: queue, index: index, title: decision.summary, subtitle: subtitle,
+            reviewLabel: "Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)",
+            hint: "Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.",
+            reviewActionLabel: "Review request", singleRow: usesSingleRow, showsSubtitle: !usesSingleRow && !hasCompactRoom,
+            compact: isCompactPresentation, dynamicTypeSize: dynamicTypeSize, colorScheme: colorScheme),
+            showInChat: {
+                guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision else { return }
+                showInChat(decision.id)
+            }, openReview: { openReview(decision, presentation: presentation) },
+            selectionGesture: selectionGesture(queue: queue, index: index))
+            .equatable()
+    }
+
+    @ViewBuilder private func actions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int) -> some View {
+        if decision.isSubmitting {
+            ProgressView("Sending decision…").font(.caption)
+        } else {
+            switch decision {
+            case .question:
+                Button("Answer") { openReview(decision, presentation: presentation) }
+                    .buttonStyle(DecisionActionStyle(primary: true))
+                    .accessibilityHint("Opens the full question. Opening sends nothing.")
+                    .accessibilityIdentifier("companion-decision-answer")
+            case .approval(let approval):
+                if isCompactPresentation {
+                    // Preserve #522's user-approved keyboard-up contract: decisions live in Review.
+                    reviewButton(decision, presentation: presentation, index: index, count: count)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { approvalActions(approval, presentation: presentation) }
+                            .fixedSize(horizontal: true, vertical: false)
+                        VStack(alignment: .trailing, spacing: 8) { approvalActions(approval, presentation: presentation) }
+                    }
                 }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            if queue.count > 1 {
-                Button("Previous request", systemImage: "chevron.left") { selectedID = queue[index - 1].id }
-                    .disabled(index == 0)
-                    .accessibilityIdentifier("companion-pinned-decision-previous")
-                Button("Next request", systemImage: "chevron.right") { selectedID = queue[index + 1].id }
-                    .disabled(index + 1 == queue.count)
-                    .accessibilityIdentifier("companion-pinned-decision-next")
             }
         }
     }
 
-    @ViewBuilder private func decisionActions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int, compact: Bool) -> some View {
-        Button(compact ? "Chat" : "Show in chat") { showInChat(decision.id) }
-            .accessibilityLabel("Show in chat")
-            .font(.subheadline).fixedSize(horizontal: true, vertical: false)
-            .accessibilityHint("Scrolls to the original request and its full context. Sends nothing.")
-            .accessibilityIdentifier("companion-decision-show-in-chat")
-        Button(compact ? "Review" : "Review request") {
-            let requestID: String
-            switch decision {
-            case .approval(let approval): requestID = approval.id
-            case .question(let question): requestID = question.id
-            }
-            review = .init(target: target, approvalID: requestID, presentation: presentation)
+    @ViewBuilder private func approvalActions(_ approval: CompanionApproval, presentation: CompanionDecisionPresentation) -> some View {
+        let decision = CompanionPendingDecision.approval(approval)
+        // Exact one-off kinds only. Broader/custom choices remain in full review,
+        // where the existing capability checks and confirmations still own them.
+        if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
+            Button("Deny", role: .destructive) { Task { await respond(decision, presentation: presentation, option: deny) } }
+                .buttonStyle(DecisionActionStyle(primary: false))
+                .disabled(!canRespond(.approve))
         }
-            .font(.subheadline).fixedSize(horizontal: true, vertical: false)
-            .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary)\(count > 1 ? ", \(index + 1) of \(count)" : "")")
+        if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
+            Button("Allow once") { Task { await respond(decision, presentation: presentation, option: allow) } }
+                .buttonStyle(DecisionActionStyle(primary: true))
+                .disabled(!canRespond(.approve) || !store.canApprove(approval, target: target))
+        } else {
+            Button("Review") { openReview(decision, presentation: presentation) }
+                .buttonStyle(DecisionActionStyle(primary: false))
+                .accessibilityLabel("Review approval: \(decision.summary)")
+                .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
+                .accessibilityIdentifier("companion-review-approval")
+        }
+    }
+
+    private func reviewButton(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int) -> some View {
+        Button("Review") { openReview(decision, presentation: presentation) }
+            .buttonStyle(DecisionActionStyle(primary: false))
+            .accessibilityLabel("Review approval: \(decision.summary)\(count > 1 ? ", \(index + 1) of \(count)" : "")")
             .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
             .accessibilityIdentifier("companion-review-approval")
+    }
+
+    /// Resolve at activation, not menu-open: expiry, replacement and selection can change while it is open.
+    static func currentSelection(_ presentation: CompanionDecisionPresentation, in store: CompanionStore,
+                                 selectedID: String?) -> CompanionPendingDecision? {
+        guard let current = store.currentDecision(for: presentation),
+              CompanionPendingDecision.selected(in: CompanionPendingDecision.pending(in: store.conversation(for: presentation.target).items),
+                                                id: selectedID) == current else { return nil }
+        return current
+    }
+    private func respond(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation,
+                         option: CompanionApprovalOption) async {
+        guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision,
+              canRespond(.approve), case .approval(let approval) = decision,
+              !option.allows || store.canApprove(approval, target: target) else { return }
+        // Store keeps the existing option/capability/submitting/confirmation and expiry guards.
+        await store.respond(presentation, option: option)
+    }
+    private func openReview(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation) {
+        guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision else { return }
+        let requestID: String
+        switch decision {
+        case .approval(let approval): requestID = approval.id
+        case .question(let question): requestID = question.id
+        }
+        review = .init(target: target, approvalID: requestID, presentation: presentation)
+    }
+    private func select(_ direction: Int, queue: [CompanionPendingDecision], index: Int) {
+        let currentQueue = CompanionPendingDecision.pending(in: store.conversation(for: target).items)
+        guard currentQueue == queue,
+              CompanionPendingDecision.selected(in: currentQueue, id: selectedID)?.id == queue[index].id else { return }
+        selectedID = currentQueue[max(0, min(currentQueue.count - 1, index + direction))].id
+    }
+    private func selectionGesture(queue: [CompanionPendingDecision], index: Int) -> AnyGesture<DragGesture.Value> {
+        AnyGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
+            guard abs(gesture.translation.width) > max(44, abs(gesture.translation.height)) else { return }
+            // Both hit surfaces resolve from the captured index, so one drag cannot skip a request.
+            select(gesture.translation.width < 0 ? 1 : -1, queue: queue, index: index)
+        })
     }
 
     private var pendingIDs: [String] {
         CompanionPendingDecision.pending(in: store.conversation(for: target).items).map(\.id)
     }
+    private var isCompactPresentation: Bool {
+        hasCompactRoom || dynamicTypeSize.isAccessibilitySize
+    }
+    // Use the existing compact-room policy at every text size. The complete subtitle
+    // remains the title's AX value when the keyboard leaves no room for visible metadata.
+    private var hasCompactRoom: Bool { compactHeight || maximumHeight < 120 }
+    // Keep both full-width AX rows and their text styles when the keyboard limits room.
+    // Regular-height only: standard text, roomy AX and compact-height layouts retain their spacing.
+    private var usesTightAccessibilityRows: Bool {
+        hasCompactRoom && dynamicTypeSize.isAccessibilitySize && verticalSizeClass == .regular
+    }
+    private var usesSingleRow: Bool {
+        verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
+    }
     private func resetPresentation() { selectedID = nil; review = nil }
+    #if DEBUG
+    /// Seed only the initial value for a mounted sheet-lifecycle test; no callback or owner is retained.
+    func withInitialReviewForTesting(_ selection: CompanionComposerApprovalReviewSelection) -> Self {
+        var tray = self
+        tray._review = State(initialValue: selection)
+        return tray
+    }
+    #endif
     private func isApproval(_ decision: CompanionPendingDecision) -> Bool {
         if case .approval = decision { return true }
         return false
@@ -131,11 +233,74 @@ struct CompanionConversationPendingDecisions: View {
         store.canOperate(target) && store.agent(for: target)?.capabilities.contains(capability) == true
             && !store.pendingCommands.contains(target)
     }
-    private struct DecisionButtonStyle: ButtonStyle {
+    private struct DecisionActionStyle: ButtonStyle {
+        let primary: Bool
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.companionPalette) private var palette
         func makeBody(configuration: Configuration) -> some View {
-            configuration.label.frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle()).opacity(configuration.isPressed ? 0.6 : 1)
+            configuration.label.font(.subheadline.weight(.semibold))
+                .fixedSize(horizontal: true, vertical: false)
+                .padding(.horizontal, 12)
+                .frame(minWidth: 44, minHeight: 44)
+                .foregroundStyle(Color(isEnabled ? (primary ? palette.onTint : palette.label) : palette.secondaryLabel))
+                .background(Color(primary && isEnabled ? palette.tint : palette.fill), in: Capsule())
+                .contentShape(Capsule()).opacity(configuration.isPressed ? 0.6 : 1)
         }
     }
 }
 
+/// Like ChatControlsBar, transcript-only updates must not rebuild an open native menu.
+/// Every rendered/AX input and presentation identity participates; callbacks revalidate live state.
+private struct CompanionPendingDecisionTitle: View, Equatable {
+    struct Key: Equatable {
+        let storeIdentity: ObjectIdentifier
+        let presentation: CompanionDecisionPresentation
+        let queue: [CompanionPendingDecision]
+        let index: Int
+        let title: String
+        let subtitle: String
+        let reviewLabel: String
+        let hint: String
+        let reviewActionLabel: String
+        let singleRow: Bool
+        let showsSubtitle: Bool
+        let compact: Bool
+        let dynamicTypeSize: DynamicTypeSize
+        let colorScheme: ColorScheme
+    }
+    let key: Key
+    let showInChat: @MainActor () -> Void
+    let openReview: @MainActor () -> Void
+    let selectionGesture: AnyGesture<DragGesture.Value>
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
+
+    var body: some View {
+        Menu {
+            Button(key.reviewActionLabel, action: openReview)
+                .accessibilityLabel(key.reviewLabel)
+                .accessibilityIdentifier("companion-decision-review-menu")
+        } label: {
+            VStack(alignment: .leading, spacing: key.singleRow ? 0 : 2) {
+                Text(key.title).font((key.singleRow ? Font.caption : .subheadline).weight(.semibold))
+                    .lineLimit(key.singleRow ? 1 : 2)
+                if key.showsSubtitle {
+                    Text(key.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .highPriorityGesture(selectionGesture.exclusively(before: TapGesture().onEnded { _ in showInChat() }))
+        } primaryAction: {
+            showInChat()
+        }
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .accessibilityAction { showInChat() }
+        .accessibilityLabel(key.title)
+        .accessibilityValue(key.subtitle)
+        .accessibilityHint(key.hint)
+        .accessibilityIdentifier("companion-decision-show-in-chat")
+        .accessibilityAction(named: key.reviewActionLabel) { openReview() }
+    }
+}

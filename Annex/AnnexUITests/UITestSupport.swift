@@ -391,5 +391,64 @@ class ReliableUITestCase: XCTestCase {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
+    /// #448 keeps full Review in the request title's native long-press menu.
+    /// The popup and the visible compact Review must have distinct, unique identifiers.
+    func openPinnedDecisionReview(in app: XCUIApplication, until destination: XCUIElement,
+                                  file: StaticString = #filePath, line: UInt = #line) {
+        let title = app.buttons["companion-decision-show-in-chat"]
+        XCTAssertTrue(title.waitForExistence(timeout: 5), file: file, line: line)
+        let requestTitle = title.label
+        let visibleReviewCount = app.buttons.matching(identifier: "companion-review-approval").count
+        XCTAssertLessThanOrEqual(visibleReviewCount, 1, "One visible Review control before opening the menu", file: file, line: line)
+        title.press(forDuration: 0.8)
+        let item = app.buttons["companion-decision-review-menu"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5), file: file, line: line)
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-decision-review-menu").count, 1,
+                       "One native Review item", file: file, line: line)
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-review-approval").count, visibleReviewCount,
+                       "The separate compact Review ID remains unique with the menu open", file: file, line: line)
+        XCTAssertTrue(item.label.contains(requestTitle), "Review retains the selected request identity", file: file, line: line)
+        // Like WakeFocus's native menu admission, require stable visible geometry before ONE touch.
+        // iOS 26 may report the visible native popup item as not hittable in landscape only.
+        let landscape = app.frame.width > app.frame.height
+        var lastFrame: CGRect?
+        var unchangedSince = ContinuousClock.now
+        let started = ContinuousClock.now
+        let settled = waitFor(item, NSPredicate { _, _ in
+            guard item.exists && (landscape || item.isHittable) else {
+                lastFrame = nil
+                return false
+            }
+            let frame = item.frame
+            guard !frame.isEmpty, frame.minX.isFinite, frame.minY.isFinite,
+                  frame.maxX.isFinite, frame.maxY.isFinite, self.pixelContains(app.frame, frame) else {
+                lastFrame = nil
+                return false
+            }
+            if lastFrame != frame {
+                lastFrame = frame
+                unchangedSince = .now
+                return false
+            }
+            return unchangedSince.duration(to: .now) >= .milliseconds(500)
+        }, timeout: 5)
+        let frame = item.frame
+        let hittable = item.isHittable
+        let readiness = "settled=\(settled) elapsed=\(started.duration(to: .now)) frame=\(frame) hittable=\(hittable) landscape=\(landscape) label=\(item.label)"
+        print("PINNED_REVIEW_READY \(readiness)")
+        let details = XCTAttachment(string: readiness)
+        details.name = "Native Review readiness before ONE measured touch"; details.lifetime = .keepAlways; add(details)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        shot.name = "Native Review menu before ONE measured touch"; shot.lifetime = .keepAlways; add(shot)
+        guard settled, frame == lastFrame, frame == item.frame, !frame.isEmpty,
+              frame.minX.isFinite, frame.minY.isFinite, frame.maxX.isFinite, frame.maxY.isFinite,
+              pixelContains(app.frame, frame), landscape || hittable else {
+            XCTFail("The native Review item must stay contained and unchanged for at least 500ms within 5s", file: file, line: line)
+            return
+        }
+        app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+        XCTAssertTrue(destination.waitForExistence(timeout: 10), "Review opens after ONE measured menu-item touch", file: file, line: line)
+    }
+
     private func failureMessage(_ message: String, default fallback: String) -> String { message.isEmpty ? fallback : message }
 }

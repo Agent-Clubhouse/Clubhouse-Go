@@ -386,12 +386,22 @@ import ClubhouseTransport
                 pinnedDecisionStep = pinnedStep
                 if pinnedStep == 20 {
                     for (id, title) in [("pinned-first", "Run preview build"), ("pinned-second", "Edit preview notes")] {
-                        continuation?.yield(.upsert(Self.target, .approval(.init(id: id, toolName: "Bash", summary: "Synthetic request for \(title). Full context stays in chat.",
-                            title: title, deadline: .now.addingTimeInterval(600), options: [
-                                .init(id: "allow", label: "Allow once", kind: .allowOnce),
-                                .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
-                                .init(id: "deny", label: "Deny", kind: .rejectOnce)
-                            ])), sequence: nil))
+                        let arguments = ProcessInfo.processInfo.arguments
+                        var options: [CompanionApprovalOption] = [
+                            .init(id: "allow", label: "Allow once", kind: .allowOnce),
+                            .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
+                            .init(id: "deny", label: "Deny", kind: .rejectOnce)
+                        ]
+                        if arguments.contains("--companion-preview-pinned-broader-only") {
+                            options.removeAll { $0.kind == .allowOnce }
+                            // A misleading label must never turn a custom kind into a one-off allow.
+                            options.append(.init(id: "custom", label: "Allow once", kind: .other))
+                        }
+                        let summary = arguments.contains("--companion-preview-pinned-incomplete")
+                            ? "Incomplete input: synthetic request needs full review."
+                            : "Synthetic request for \(title). Full context stays in chat."
+                        continuation?.yield(.upsert(Self.target, .approval(.init(id: id, toolName: "Bash", summary: summary,
+                            title: title, deadline: .now.addingTimeInterval(600), options: options)), sequence: nil))
                     }
                     continuation?.yield(.upsert(Self.target, .question(.init(id: "pinned-question", prompts: [
                         .init(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")],
@@ -668,11 +678,18 @@ import ClubhouseTransport
             ], capabilities: [.chat, .answer])
         }
         if showsReadingScenario {
-            return .init(items: (1...180).map { .message(.init(id: "reading-\($0)", role: .assistant,
+            var history = CompanionHistory(items: (1...180).map { .message(.init(id: "reading-\($0)", role: .assistant,
                 text: "Reading marker \($0).\n\nA stable preview paragraph for testing history, keyboard and streaming position.")) } + [
                     .tool(.init(id: "reading-failure", name: "Preview command", summary: "swift test", output: (1...12).map { "Failure output line \($0)" }.joined(separator: "\n") + "\nPreview error: build failed", state: .failed, exitCode: 2)),
                     .message(.init(id: "reading-helper", role: .assistant, text: "Preview helper streamed update.", isStreaming: true, subagentID: "preview-helper"))
                 ])
+            #if DEBUG
+            if Self.showsPinnedDecisions, target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-pinned-incomplete") {
+                // Live incomplete requests belong to a session; nil/nil review admission is tracked in #512.
+                history.sessionID = "preview-pinned-incomplete"
+            }
+            #endif
+            return history
         }
         return .init(items: [
             .notice(id: "preview", text: "Preview conversation · no desktop commands are sent"),

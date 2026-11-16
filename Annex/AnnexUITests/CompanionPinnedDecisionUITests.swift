@@ -13,13 +13,26 @@ import Vision
         waitAndTap(river, until: element(app, "companion-composer"), attempts: 1)
         return app
     }
+    private func summary(_ app: XCUIApplication) -> XCUIElement { app.buttons["companion-decision-show-in-chat"] }
+    private func swipe(_ app: XCUIApplication, next: Bool) {
+        let frame = summary(app).frame
+        let from = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.minX + frame.width * (next ? 0.85 : 0.15), dy: frame.midY))
+        let distance = frame.width * 0.7 * (next ? -1.0 : 1.0)
+        XCTAssertGreaterThan(abs(distance), 44, "A real horizontal swipe must cross the selection threshold")
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: distance, dy: 0)),
+                   withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+    private func openReview(_ app: XCUIApplication, until close: XCUIElement) {
+        openPinnedDecisionReview(in: app, until: close)
+    }
     private func awaitApproval(_ app: XCUIApplication) {
         XCTAssertTrue(element(app, "companion-pinned-decision").waitForExistence(timeout: 20))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Run preview build")
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 1 of 3")
+        XCTAssertEqual(summary(app).label, "Run preview build")
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     private func assertVisibleLabel(_ button: XCUIElement, text: String) throws {
         let image = try XCTUnwrap(button.screenshot().image.cgImage)
@@ -29,7 +42,7 @@ import Vision
         let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         XCTAssertTrue(lines.contains(text), "The visible action label is whole: \(text), OCR \(lines)")
     }
-    private func assertPinned(_ app: XCUIApplication, keyboard: Bool = false) {
+    private func assertPinned(_ app: XCUIApplication, keyboard: Bool = false, compact: Bool = false) {
         let tray = element(app, "companion-pinned-decision")
         let composer = element(app, "companion-composer-region")
         let top = app.navigationBars.firstMatch.frame.maxY
@@ -37,9 +50,22 @@ import Vision
         let visible = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: bottom - top)
         XCTAssertTrue(pixelContains(visible, tray.frame), "The pending card stays above the composer: \(tray.frame), \(visible)")
         XCTAssertLessThanOrEqual(tray.frame.maxY, composer.frame.minY)
-        XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable")
-        for id in ["companion-review-approval", "companion-decision-show-in-chat", "companion-pinned-decision-next"] {
-            XCTAssertEqual(app.buttons.matching(identifier: id).count, 1, "Only the fitting action layout is exposed")
+        XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable: \(composer.frame), \(visible)")
+        let title = summary(app).label
+        let position = summary(app).value as? String ?? ""
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", title, "\(title), \(position)")).count, 1,
+                       "VoiceOver exposes one title button, with no second popup child")
+        let compactActions = keyboard || compact
+        if compactActions {
+            XCTAssertFalse(app.buttons["Deny"].exists, "Option A keeps compact decisions inside Review")
+            XCTAssertFalse(app.buttons["Allow once"].exists, "Option A keeps compact decisions inside Review")
+        }
+        let actionIDs = compactActions
+            ? ["companion-decision-show-in-chat", "companion-review-approval"]
+            : ["companion-decision-show-in-chat", "Deny", "Allow once"]
+        for id in actionIDs {
+            XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", id, id)).count, 1,
+                           "Only the fitting action layout is exposed")
             let button = app.buttons[id]
             XCTAssertTrue(button.isHittable, id)
             // This tray's controls retain >=44pt targets in both expanded and compact layouts.
@@ -63,30 +89,30 @@ import Vision
         capture(app, "After: approval stays pinned after 30 streaming tool updates")
     }
 
-    func testPinnedAnswersPagerQuestionsAndCloseShareOneDecisionState() {
+    func testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState() {
         let app = openRiver()
         awaitApproval(app)
-        app.buttons["companion-pinned-decision-next"].tap()
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Edit preview notes")
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 2 of 3")
-        app.buttons["companion-pinned-decision-previous"].tap()
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Edit preview notes")
+        XCTAssertEqual(summary(app).value as? String, "2 of 3 waiting · Bash", "One swipe advances exactly one request")
+        swipe(app, next: false)
         app.buttons["Allow once"].tap()
-        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.staticTexts["companion-pinned-decision-summary"].label == "Edit preview notes" }, timeout: 5))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 1 of 2")
-        app.buttons["companion-pinned-decision-next"].tap()
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in self.summary(app).label == "Edit preview notes" }, timeout: 5))
+        XCTAssertEqual(summary(app).value as? String, "1 of 2 waiting · Bash")
+        swipe(app, next: true)
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        waitAndTap(app.buttons["companion-decision-answer"], until: close, attempts: 1)
         XCTAssertTrue(app.buttons["Red"].exists)
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Which color?", "Dismissal sends nothing")
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        XCTAssertEqual(summary(app).label, "Which color?", "Dismissal sends nothing")
+        waitAndTap(app.buttons["companion-decision-answer"], until: close, attempts: 1)
         app.buttons["Red"].tap()
         app.buttons["send-answers-pinned-question"].tap()
         XCTAssertTrue(app.staticTexts["Answered"].waitForExistence(timeout: 5))
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Edit preview notes")
+        XCTAssertEqual(summary(app).label, "Edit preview notes")
         app.buttons["Deny"].tap()
         XCTAssertTrue(element(app, "companion-pinned-decision").waitForNonExistence(timeout: 5))
     }
@@ -112,9 +138,17 @@ import Vision
         assertPinned(app)
         let tray = element(app, "companion-pinned-decision")
         let expandedHeight = tray.frame.height
+        XCTAssertEqual(tray.value as? String, "Expanded request controls")
+        let roomyTitle = summary(app).frame
+        let roomyDeny = app.buttons["Deny"].frame
+        let roomyAllow = app.buttons["Allow once"].frame
+        let roomyIsSingleRow = pixelAligned(roomyTitle.midY) == pixelAligned(roomyDeny.midY)
+            && pixelAligned(roomyDeny.midY) == pixelAligned(roomyAllow.midY)
         XCTAssertTrue(app.buttons["Allow once"].exists && app.buttons["Deny"].exists, "Roomy reading retains expanded decisions")
-        try assertVisibleLabel(app.buttons["companion-decision-show-in-chat"], text: "Show in chat")
-        try assertVisibleLabel(app.buttons["companion-review-approval"], text: "Review request")
+        // #448 makes the request title itself the Chat action; Review also remains in its native menu.
+        try assertVisibleLabel(summary(app), text: "Run preview build")
+        try assertVisibleLabel(app.buttons["Deny"], text: "Deny")
+        try assertVisibleLabel(app.buttons["Allow once"], text: "Allow once")
         capture(app, "Roomy expanded tray before keyboard")
         let composer = element(app, "companion-composer")
         composer.tap()
@@ -122,14 +156,27 @@ import Vision
         composer.typeText("Keep this draft")
         awaitApproval(app)
         assertPinned(app, keyboard: true)
-        XCTAssertLessThan(tray.frame.height, expandedHeight, "The keyboard uses the compact tray rather than compressing the draft")
+        // Equal height is legitimate only when the new roomy layout already fits one minimum-height row.
+        // Keep strict shrinkage everywhere else: an arbitrary equal-height/taller compact tray still fails.
+        if pixelAligned(tray.frame.height) == pixelAligned(expandedHeight) {
+            let singleRowFloor: CGFloat = 44 + 2 * 4 // minimum target plus the card's vertical insets
+            XCTAssertEqual(pixelAligned(expandedHeight), singleRowFloor)
+            XCTAssertEqual(pixelAligned(tray.frame.height), singleRowFloor)
+            XCTAssertTrue(roomyIsSingleRow, "Equality requires a genuinely single-row roomy layout")
+        } else {
+            XCTAssertLessThan(tray.frame.height, expandedHeight, "The keyboard uses the compact tray rather than compressing the draft")
+        }
+        XCTAssertEqual(tray.value as? String, "Compact request controls", "The actual compact policy must activate")
+        XCTAssertLessThanOrEqual(tray.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        XCTAssertLessThanOrEqual(element(app, "companion-composer-region").frame.maxY, app.keyboards.firstMatch.frame.minY)
         XCTAssertFalse(app.buttons["Allow once"].exists, "Keyboard-up decisions remain available through compact Review")
         XCTAssertFalse(app.buttons["Deny"].exists)
         let show = app.buttons["companion-decision-show-in-chat"]
         let review = app.buttons["companion-review-approval"]
-        XCTAssertEqual(show.label, "Show in chat", "Compact visible text keeps the full AX meaning")
+        XCTAssertEqual(show.label, "Run preview build", "The compact title keeps the full request identity")
+        XCTAssertEqual(show.value as? String, "1 of 3 waiting · Bash")
         XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
-        try assertVisibleLabel(show, text: "Chat")
+        try assertVisibleLabel(show, text: "Run preview build")
         try assertVisibleLabel(review, text: "Review")
         if app.frame.width < 390 {
             XCTAssertFalse(app.buttons["Allow once"].exists, "Small phones use compact Review while the keyboard is up")
@@ -154,17 +201,29 @@ import Vision
         awaitApproval(app)
     }
 
-    func testLandscapeAndAX5KeepCompactReviewContextAndPagerReachable() {
+    func testLandscapeAndAX5KeepReviewContextAndDecisionsReachable() throws {
         let app = openRiver(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         awaitApproval(app)
-        assertPinned(app)
+        assertPinned(app, compact: true)
         capture(app, "AX5: bounded pending request and composer")
         XCUIDevice.shared.orientation = .landscapeLeft
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
-        assertPinned(app)
+        capture(app, "AX5 landscape: pending bar and composer containment")
+        assertPinned(app, compact: true)
+        // Option A preserves Review at AX sizes; full-card decisions are checked below.
+        for label in ["Review"] {
+            let button = app.buttons["companion-review-approval"]
+            XCTAssertEqual(button.label, "Review approval: Run preview build, 1 of 3")
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = false
+            try VNImageRequestHandler(cgImage: XCTUnwrap(button.screenshot().image.cgImage)).perform([request])
+            let text = try XCTUnwrap(request.results).compactMap { $0.topCandidates(1).first?.string }
+            XCTAssertTrue(text.contains(label), "The landscape action is visibly whole, without ellipsis: \(text)")
+        }
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        openReview(app, until: close)
         let review = app.scrollViews["companion-approval-review-scroll"]
         XCTAssertTrue(review.exists)
         let allow = review.buttons["Allow once"]
@@ -174,5 +233,173 @@ import Vision
         }
         capture(app, "AX5 landscape: scrollable approval decisions")
         XCTAssertTrue(allow.isEnabled && allow.isHittable, "The review's decision stays reachable: \(allow.frame), \(review.frame)")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists,
+                       "Opening the native menu and Review sends nothing")
     }
+    func testSwipesAndTitleTapsNeverSendADecision() {
+        let app = openRiver()
+        awaitApproval(app)
+        swipe(app, next: false)
+        XCTAssertEqual(summary(app).label, "Run preview build", "The first boundary does not wrap")
+        let titleFrame = summary(app).frame
+        let verticalStart = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: titleFrame.midX, dy: titleFrame.midY))
+        verticalStart.press(forDuration: 0.05, thenDragTo: verticalStart.withOffset(CGVector(dx: 0, dy: -60)),
+                            withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertEqual(summary(app).label, "Run preview build", "A mostly vertical drag never changes selection")
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Edit preview notes")
+        XCTAssertEqual(summary(app).value as? String, "2 of 3 waiting · Bash", "One swipe advances exactly one request")
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Which color?")
+        XCTAssertEqual(summary(app).value as? String, "3 of 3 waiting · Question")
+        XCTAssertTrue(app.buttons["companion-decision-answer"].exists)
+        XCTAssertFalse(app.buttons["Deny"].exists || app.buttons["Allow once"].exists)
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Which color?", "The last boundary does not wrap")
+        swipe(app, next: false); swipe(app, next: false)
+        awaitManyUpdates(app)
+        summary(app).tap()
+        XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].waitForExistence(timeout: 5))
+        XCTAssertEqual(summary(app).label, "Run preview build")
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash", "Every original request is still pending")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].exists)
+        let close = app.buttons["companion-approval-review-close"]
+        openReview(app, until: close)
+        XCTAssertTrue(app.scrollViews["companion-approval-review-scroll"].exists, "The final title node retains its long-press Review menu")
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(summary(app).label, "Run preview build")
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash", "Review dismissal also sends nothing")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        capture(app, "Swipe selection and title jump send no decision")
+    }
+
+    func testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch() {
+        let app = openRiver()
+        awaitApproval(app)
+        awaitManyUpdates(app)
+        summary(app).press(forDuration: 0.8)
+        let item = app.buttons["companion-decision-review-menu"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-decision-review-menu").count, 1)
+        var readyFrame: CGRect?
+        var unchangedSince = ContinuousClock.now
+        let ready = waitFor(item, NSPredicate { _, _ in
+            let frame = item.frame
+            guard !frame.isEmpty, frame.minX.isFinite, frame.minY.isFinite,
+                  frame.maxX.isFinite, frame.maxY.isFinite, self.pixelContains(app.frame, frame), item.isHittable else {
+                readyFrame = nil
+                return false
+            }
+            if readyFrame != frame {
+                readyFrame = frame
+                unchangedSince = .now
+                return false
+            }
+            return unchangedSince.duration(to: .now) >= .milliseconds(500)
+        }, timeout: 5)
+        guard ready else { XCTFail("The native menu must finish opening before the stability observation"); return }
+        let initialFrame = item.frame
+        let started = ContinuousClock.now
+        var samples: [String] = []
+        // Regression observation, not a settling sleep: every sample across >2 former 1s ticks must be valid.
+        repeat {
+            let frame = item.frame
+            let sample = "elapsed=\(started.duration(to: .now)) frame=\(frame)"
+            print("PINNED_MENU_STABILITY \(sample)"); samples.append(sample)
+            XCTAssertTrue(frame.minX.isFinite && frame.minY.isFinite && frame.maxX.isFinite && frame.maxY.isFinite)
+            XCTAssertFalse(frame.isEmpty)
+            XCTAssertTrue(pixelContains(app.frame, frame))
+            XCTAssertEqual(frame, initialFrame, "The open native item cannot be replaced by a countdown tick")
+            XCTAssertTrue(item.isHittable)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        } while started.duration(to: .now) < .milliseconds(2200)
+        XCTAssertGreaterThanOrEqual(samples.count, 3)
+        let frames = XCTAttachment(string: samples.joined(separator: "\n"))
+        frames.name = "Native Review finite unchanged frames across two former ticks"; frames.lifetime = .keepAlways; add(frames)
+        capture(app, "Stable native Review menu before ONE touch")
+        XCTAssertEqual(item.frame, initialFrame)
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: initialFrame.midX, dy: initialFrame.midY)).tap()
+        let close = app.buttons["companion-approval-review-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 10), "One touch opens full Review")
+        XCTAssertTrue(app.scrollViews["companion-approval-review-scroll"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+    }
+
+    func testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation() {
+        let app = openRiver(extra: ["--companion-preview-pinned-broader-only"])
+        awaitApproval(app)
+        XCTAssertFalse(app.buttons["Allow once"].exists, "Neither Always nor a custom kind with this label may become inline Allow once")
+        XCTAssertFalse(app.buttons["Always allow"].exists)
+        XCTAssertTrue(app.buttons["Deny"].isEnabled)
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        let review = app.scrollViews["companion-approval-review-scroll"]
+        let always = review.buttons["companion-approval-option-always"]
+        XCTAssertTrue(scrollTo(always, in: app) && always.isHittable)
+        XCTAssertEqual(always.label, "Always allow, preview:*", "Full review retains the permission label and scope")
+        always.tap()
+        XCTAssertTrue(app.staticTexts["Always allow?"].waitForExistence(timeout: 5), "A broader permission keeps its existing confirmation")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        // iOS 26 presents this shared confirmation as a popover without a Cancel button.
+        let popover = app.popovers.firstMatch
+        XCTAssertTrue(popover.exists)
+        let popoverFrame = popover.frame
+        let outside = CGPoint(x: (popoverFrame.maxX + app.frame.maxX) / 2,
+                              y: popoverFrame.midY)
+        XCTAssertFalse(popoverFrame.contains(outside), "Dismissal must land outside the measured confirmation popover")
+        XCTAssertTrue(app.frame.contains(outside))
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: outside.x, dy: outside.y)).tap()
+        XCTAssertTrue(app.staticTexts["Always allow?"].waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        close.tap()
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
+    }
+
+    func testIncompleteRequestDisablesAllowButKeepsDenyAvailable() {
+        let app = openRiver(extra: ["--companion-preview-pinned-incomplete"])
+        awaitApproval(app)
+        XCTAssertFalse(app.buttons["Allow once"].isEnabled)
+        XCTAssertTrue(app.buttons["Deny"].isEnabled)
+        app.buttons["Deny"].tap()
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in self.summary(app).label == "Edit preview notes" }, timeout: 5))
+        XCTAssertEqual(summary(app).value as? String, "1 of 2 waiting · Bash")
+    }
+
+    func testLightDecisionBar() { appearance("light", flags: ["--companion-preview-light"]) }
+    func testDarkDecisionBar() { appearance("dark", flags: ["--companion-preview-dark"]) }
+    func testLatteDecisionBar() { appearance("Catppuccin Latte", flags: ["--companion-preview-light", "--companion-preview-theme-latte"]) }
+    func testMochaDecisionBar() { appearance("Catppuccin Mocha", flags: ["--companion-preview-dark", "--companion-preview-theme-mocha"]) }
+    func testAccessibilityDecisionBar() {
+        appearance("accessibility XXXL", flags: ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+    }
+    private func appearance(_ name: String, flags: [String]) {
+        let app = openRiver(extra: flags)
+        awaitApproval(app)
+        let compact = flags.contains("UICTContentSizeCategoryAccessibilityXXXL")
+        assertPinned(app, compact: compact)
+        if compact {
+            XCTAssertEqual(app.buttons["companion-review-approval"].label, "Review approval: Run preview build, 1 of 3")
+        } else {
+            let deny = app.buttons["Deny"].frame
+            let allow = app.buttons["Allow once"].frame
+            if deny.maxY <= allow.minY {
+                XCTAssertLessThan(deny.midY, allow.midY, "The vertical fallback keeps Deny above Allow once")
+            } else {
+                XCTAssertLessThan(deny.midX, allow.midX, "The horizontal layout keeps Deny before Allow once")
+            }
+        }
+        XCTAssertFalse(app.buttons["companion-pinned-decision-previous"].exists)
+        XCTAssertFalse(app.buttons["companion-pinned-decision-next"].exists)
+        capture(app, "Decision bar — \(name)")
+    }
+
 }

@@ -67,15 +67,14 @@ import UIKit
         XCTAssertTrue(controls.label.contains("Chat controls"))
         // User-approved option A replaces #297's inline editing contract with compact Chat/Review.
         let pinned = element(app, "companion-pinned-decision")
-        let summary = pinned.staticTexts["companion-pinned-decision-summary"]
-        let position = pinned.staticTexts["companion-pinned-decision-position"]
         let chat = app.buttons["companion-decision-show-in-chat"]
         let review = app.buttons["companion-review-approval"]
         func assertCompactRequest() {
             XCTAssertTrue(pinned.exists, "The approval remains pinned while editing")
-            XCTAssertEqual(summary.label, "Run xcodebuild")
-            XCTAssertEqual(position.label, "Request 1 of 2")
-            XCTAssertEqual(chat.label, "Show in chat")
+            // #448 merges the summary, queue position and Chat action into one title node.
+            XCTAssertEqual(chat.label, "Run xcodebuild")
+            XCTAssertEqual(chat.value as? String, "1 of 2 waiting · Bash")
+            XCTAssertEqual(app.buttons.matching(identifier: "companion-decision-show-in-chat").count, 1)
             XCTAssertEqual(review.label, "Review approval: Run xcodebuild, 1 of 2")
             for action in [chat, review] {
                 XCTAssertTrue(action.isEnabled && action.isHittable, "Compact Chat/Review stays reachable")
