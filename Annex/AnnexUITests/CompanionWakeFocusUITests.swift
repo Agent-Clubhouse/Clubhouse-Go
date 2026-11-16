@@ -66,7 +66,9 @@ import XCTest
         let wake = app.buttons["project-wake"]
         XCTAssertTrue(wake.isHittable && wake.isEnabled)
         let frame = wake.frame
-        XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        // Wake is a native toolbar-menu item, which can overlay the large navigation title.
+        // Its entire target must stay inside the screen and accept the checked center tap.
+        assertMinimumTarget(wake, "Wake menu action")
         XCTAssertTrue(app.frame.contains(frame))
         // After reactivation, XCTest once synthesized the AX activation point inside Terminal instead.
         // Use one checked on-screen point, never a repeated tap or a message-field focus rescue.
