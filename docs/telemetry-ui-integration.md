@@ -186,12 +186,12 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [x] | [CompanionDispatcherSettingsSections.swift:341](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L341) | ux-structure leaf callbacks | `Button("Clear chat", role: .destructive) {` |
 | [x] | [CompanionDispatcherSettingsSections.swift:347](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L347) | ux-structure leaf callbacks | `Button("Forget everything", role: .destructive) {` |
 | [x] | [CompanionDispatcherSettingsSections.swift:364](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L364) | ux-structure leaf callbacks | `Button(prompt.reset.action, role: .destructive) {` |
-| [x] | [CompanionDispatcherSettingsSections.swift:364](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L364) | ux-structure leaf callbacks | `Button(prompt.reset.action, role: .destructive) {` |
+| [x] | [CompanionDispatcherSettingsSections.swift:368](../Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift#L368) | ux-structure leaf callbacks | `Button("Cancel", role: .cancel) {` |
 | [ ] | [CompanionFeedback.swift:127](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L127) | Native opening hook pending | `NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }` |
 | [ ] | [CompanionFeedback.swift:129](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L129) | Native opening hook pending | `NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }` |
 | [x] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | ux-structure leaf callbacks | `Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in` |
-| [x] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | ux-structure leaf callbacks | `Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in` |
-| [x] | [CompanionFeedback.swift:150](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L150) | ux-structure leaf callbacks | `Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in` |
+| [x] | [CompanionFeedback.swift:154](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L154) | ux-structure leaf callbacks | `Toggle("Attach a screenshot when you shake", isOn: Binding(get: { shakeAttachesScreenshot }, set: { value in` |
+| [x] | [CompanionFeedback.swift:158](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L158) | ux-structure leaf callbacks | `Toggle("Offer feedback when you take a screenshot", isOn: Binding(get: { screenshotOffersFeedback }, set: { value in` |
 | [ ] | [CompanionFeedback.swift:290](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L290) | Native opening hook pending | `DisclosureGroup("Feedback diagnostics test") {` |
 | [ ] | [CompanionFeedback.swift:291](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L291) | Native opening hook pending | `NavigationLink("Prepare one diagnostics test report…") {` |
 | [ ] | [CompanionFeedback.swift:311](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L311) | Native opening hook pending | `NavigationLink("Prepare test report") { CompanionFeedbackComposer(model: model, isDiagnosticsTest: true) }` |
@@ -215,7 +215,7 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [x] | [CompanionGuidedProviderScreen.swift:85](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L85) | ux-structure leaf callbacks | `Button("Save provider") {` |
 | [x] | [CompanionGuidedProviderScreen.swift:94](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L94) | ux-structure leaf callbacks | `Button("Start new session") {` |
 | [x] | [CompanionGuidedProviderScreen.swift:115](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L115) | ux-structure leaf callbacks | `Button("Start new session") {` |
-| [x] | [CompanionGuidedProviderScreen.swift:115](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L115) | ux-structure leaf callbacks | `Button("Start new session") {` |
+| [x] | [CompanionGuidedProviderScreen.swift:119](../Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift#L119) | ux-structure leaf callbacks | `Button("Cancel", role: .cancel) { CompanionUIActions.record(.cancel, on: .providerSettings) }` |
 | [ ] | [CompanionHelperPresetsView.swift:15](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L15) | Native opening hook pending | `NavigationLink {` |
 | [ ] | [CompanionHelperPresetsView.swift:60](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L60) | Native opening hook pending | `DisclosureGroup {` |
 | [x] | [CompanionHelperPresetsView.swift:89](../Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift#L89) | ux-structure leaf callbacks | `Button("Reset all presets") { reset(.init(), control: .resetAllHelperPresets) }.disabled(!canEdit)` |
@@ -354,8 +354,8 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [x] | [CompanionTerminalView.swift:67](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L67) | ux-structure leaf callbacks | `Button {` |
 | [ ] | [CompanionTerminalView.swift:77](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L77) | Native opening hook pending | `Menu {` |
 | [x] | [CompanionTerminalView.swift:78](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L78) | ux-structure leaf callbacks | `Button("Copy all", systemImage: "doc.on.doc") {` |
-| [x] | [CompanionTerminalView.swift:83](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L83) | ux-structure leaf callbacks | `if case .exited = session.state {` |
-| [x] | [CompanionTerminalView.swift:83](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L83) | ux-structure leaf callbacks | `if case .exited = session.state {` |
+| [x] | [CompanionTerminalView.swift:84](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L84) | ux-structure leaf callbacks | `Button(restartLabel, systemImage: "arrow.clockwise") {` |
+| [x] | [CompanionTerminalView.swift:90](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L90) | ux-structure leaf callbacks | `Button("Try again", systemImage: "arrow.clockwise") {` |
 | [x] | [CompanionTerminalView.swift:203](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L203) | ux-structure leaf callbacks | `if let action {` |
 | [x] | [CompanionTerminalView.swift:256](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L256) | ux-structure leaf callbacks | `PasteButton(payloadType: String.self) { strings in` |
 | [x] | [CompanionTerminalView.swift:262](../Annex/Annex/Companion/Views/CompanionTerminalView.swift#L262) | ux-structure leaf callbacks | `Button {` |
@@ -380,7 +380,7 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [x] | [CompanionWelcome.swift:33](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L33) | ux-structure leaf callbacks | `Button {` |
 | [x] | [CompanionWelcome.swift:38](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L38) | ux-structure leaf callbacks | `Button("Look around first") {` |
 | [x] | [CompanionWelcome.swift:85](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L85) | ux-structure leaf callbacks | `Button("Pair your Mac") {` |
-| [x] | [CompanionWelcome.swift:85](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L85) | ux-structure leaf callbacks | `Button("Pair your Mac") {` |
+| [x] | [CompanionWelcome.swift:89](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L89) | ux-structure leaf callbacks | `Button("Close demo", systemImage: "xmark") {` |
 
 ## Completion evidence
 
