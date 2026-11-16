@@ -305,7 +305,7 @@ struct CompanionAgentSettingsForm: View {
             }
             .confirmationDialog("Use \(pendingAccess?.label ?? "elevated Access")?", isPresented: $confirmAccess, titleVisibility: .visible) {
                 Button("Use \(pendingAccess?.label ?? "elevated Access")", role: .destructive) {
-                    if let pendingAccess { save(.init(access: pendingAccess)) }
+                    if let pendingAccess { save(.init(access: pendingAccess), control: .confirm) }
                     pendingAccess = nil
                 }
                 Button("Cancel", role: .cancel) {
@@ -317,7 +317,7 @@ struct CompanionAgentSettingsForm: View {
             }
             .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
                 Button("Change CLI", role: .destructive) {
-                    if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator)) }
+                    if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator), control: .confirm) }
                     pendingOrchestrator = nil
                 }
                 Button("Cancel", role: .cancel) {
@@ -471,6 +471,7 @@ struct CompanionAgentSettingsForm: View {
                     Button {
                         guard choice.available, choice.id != (settings.orchestrator.value ?? settings.resolvedOrchestrator) else { return }
                         if settings.orchestratorChangeWarning(to: choice.id, agentName: settings.name.value) != nil {
+                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .selectProvider)
                             pendingOrchestrator = choice.id
                             confirmOrchestratorChange = true
                         } else { save(.init(orchestrator: choice.id)) }
@@ -541,6 +542,7 @@ struct CompanionAgentSettingsForm: View {
                     Picker("Access", selection: Binding(get: { access.value }, set: { level in
                         guard level != (agent?.access ?? access.value), access.choices.contains(where: { $0.id == level }) else { return }
                         if accessNeedsConfirmation(level, saved: access) {
+                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .selectAccess)
                             pendingAccess = level
                             confirmAccess = true
                         } else { save(.init(access: level)) }

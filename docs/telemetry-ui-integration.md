@@ -22,7 +22,7 @@ The mapper emits one unparented `app.action` log with `screen`, `control`, `app.
 ## Adopted here
 
 - Project page: New agent, Wake with a message, Terminal, retained-run Dismiss (swipe, context menu and accessibility action share one action), Clear all, and the Wake sheet's Cancel/Wake.
-- Agent details/settings sheets: Done, retry, cancellation of settings confirmation, and saved identity, color, emoji, provider/model/runtime, access, auto-sleep, context-window and behavior controls. Only the fixed control category is recorded, never its value.
+- Agent details/settings sheets: Done, retry, cancellation of settings confirmation, and saved identity, color, emoji, provider/model/runtime, access, auto-sleep, context-window and behavior controls. Only the fixed control category is recorded, never its value. A setting choice that opens a warning is counted immediately, even when later cancelled; accepting the warning records a separate `.confirm` intent, without double-counting the selection.
 - Shared agent menu items, Terminal entries, Dispatcher switch and new-agent notice actions: explicit screen context from `.companionTelemetryScreen(_:)`. A missing context records nothing, rather than guessing which Root/chat screen opened the control. Project page and settings form supply it; Root/chat adoption is still required. Shared terminal entries, Dispatcher switch and created-agent notice also require their actual originating screen context; do not add a duplicate record in the caller.
 
 ## Required Root/settings follow-up
