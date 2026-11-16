@@ -142,26 +142,65 @@ struct CompanionCompactConnectionBanner<Actions: View>: View {
 struct CompanionDesktopConnectionBanner: View {
     @Bindable var store: CompanionStore
     let identifierPrefix: String
+    @State private var retryAttempts: [String: UUID] = [:]
+
+    #if DEBUG
+    /// Hosted tests exercise the mounted banner's actual action and disabled predicate.
+    /// Public in-process AX traversal does not reliably expose SwiftUI buttons.
+    struct HostedTestSeam {
+        let retryHostIDs: [String]
+        let retryDisabled: Bool
+        let retry: () -> Void
+    }
+    var hostedTestSeam: ((HostedTestSeam) -> Void)? = nil
+    #endif
 
     var body: some View {
         let notice = CompanionConnectionNotice(hosts: store.hosts)
-        if notice.isVisible {
-            CompanionCompactConnectionBanner(title: notice.title, isInProgress: notice.isInProgress,
-                                             titleIdentifier: "\(identifierPrefix)-connection-title") {
-                if !notice.retryHostIDs.isEmpty {
-                    Button {
-                        for hostID in notice.retryHostIDs {
-                            Task { await store.reconnect(hostID: hostID) }
+        #if DEBUG
+        let _ = hostedTestSeam?(HostedTestSeam(retryHostIDs: notice.retryHostIDs,
+                                              retryDisabled: retryDisabled(notice.retryHostIDs),
+                                              retry: { retry(notice.retryHostIDs) }))
+        #endif
+        Group {
+            if notice.isVisible {
+                CompanionCompactConnectionBanner(title: notice.title, isInProgress: notice.isInProgress,
+                                                 titleIdentifier: "\(identifierPrefix)-connection-title") {
+                    if !notice.retryHostIDs.isEmpty {
+                        Button { retry(notice.retryHostIDs) } label: {
+                            Text("Retry").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                         }
-                    } label: {
-                        Text("Retry").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+                        .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                        .disabled(retryDisabled(notice.retryHostIDs))
+                        .accessibilityLabel(notice.retryLabel)
+                        .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
                     }
-                    .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                    .accessibilityLabel(notice.retryLabel)
-                    .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
                 }
+                .accessibilityElement(children: .contain)
             }
-            .accessibilityElement(children: .contain)
+        }
+        .onChange(of: store.hosts) { oldHosts, newHosts in
+            retryAttempts = retryAttempts.filter { hostID, _ in
+                guard let old = oldHosts.first(where: { $0.id == hostID }),
+                      let new = newHosts.first(where: { $0.id == hostID }) else { return false }
+                return old.connection == new.connection
+            }
+        }
+    }
+
+    private func retryDisabled(_ hostIDs: [String]) -> Bool {
+        hostIDs.allSatisfy { retryAttempts[$0] != nil }
+    }
+
+    private func retry(_ hostIDs: [String]) {
+        for hostID in hostIDs where retryAttempts[hostID] == nil {
+            let attempt = UUID()
+            retryAttempts[hostID] = attempt
+            Task {
+                await store.reconnect(hostID: hostID)
+                // An old attempt must not clear a newer latch after a reported state change.
+                if retryAttempts[hostID] == attempt { retryAttempts[hostID] = nil }
+            }
         }
     }
 }

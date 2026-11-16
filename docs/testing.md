@@ -35,6 +35,8 @@ Home's first scrolling content row keeps its live Working and Needs you counts u
 
 `CompanionNeedsYouActionCardUITests` checks action-first permission cards, tool/timeout alignment, visible text Review and multiple requests on two connected desktops with two other desktops unavailable. It captures light, dark, Latte, Mocha and accessibility XXXL, including the offline section. Missing action data gets a neutral "Review permission request" fallback; question text leads its own card. The existing Deny/Allow once routing is unchanged. `CompanionReviewButton.showsTitle` is additive for the Needs you toolbar; the default Label presentation used by Home is retained.
 
+`CompanionConnectionRetryLatchTests` mounts the actual banner with a held reconnect service. Back-to-back activations issue one reconnect per host until completion or a reported connection-state change. The tests also cover a newly unavailable host joining a combined Retry and an old completion that must not clear a newer attempt. Fixture teardown closes admission and drains every held continuation; no desktop is contacted.
+
 Saved Access uses the desktop's `access.version >= 1` contract and its per-CLI choices, labels and descriptions.
 Agent rows suppress saved Access only when it matches a known default; unknown defaults keep their badges.
 `CompanionAgentRowTests` covers this rule, host disambiguation, the single-state status line, existing-read
@@ -868,3 +870,11 @@ Physical-device checks aren't automated. These still need to be done by hand: mu
 `CompanionPermissionMenuUITests` uses the socket-free chat fixture to check all five permission rows and their full VoiceOver labels. At standard portrait size every row must be wholly within the native clipping pane above a visibly onscreen software keyboard without scrolling. Every run first proves a visible software keyboard and an entered draft. Standard landscape and portrait accessibility XXXL retain the same vertical menu and may require scrolling; the native menu may dismiss the keyboard, which is asserted and logged rather than mistaking an offscreen AX keyboard for a visible one. each level must remain readable and reachable, and Full access must retain its confirmation and the draft. The matrix covers light, dark, Catppuccin Latte/Mocha, and XXXL. `CompanionChatChromeUITests` also checks the compact control's actual 44pt accessibility target at XXXL.
 
 The new permission-menu matrix excludes only combined XXXL + landscape pending [#483](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/483): on plain main the composer control starts partly under the keyboard and is not hittable. Existing Chrome XXXL assertions remain unchanged. Screen attachments use the full display capture so landscape evidence includes the entire rotated screen.
+
+The #476 hosted Retry latch tests use a `#if DEBUG` `HostedTestSeam` on the actual mounted
+`CompanionDesktopConnectionBanner`, following the managed-sheet test seam. It publishes the
+same disabled predicate used by the button and invokes the exact production Retry method.
+Back-to-back calls deliberately bypass the disabled UI to verify zero duplicate reconnects.
+Initial screenshot/OCR checks prove the real banner and Retry render; UI reachability remains
+with the existing offline-banner UI classes. The seam is absent from Release. Test teardown
+clears the observed seam and drains all held reconnects, including failure paths.
