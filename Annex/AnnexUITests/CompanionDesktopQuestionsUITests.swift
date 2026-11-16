@@ -28,9 +28,13 @@ import XCTest
                 show.tap()
                 XCTAssertTrue(waitFor(summary, NSPredicate { _, _ in
                     let tray = app.descendants(matching: .any).matching(identifier: "companion-pinned-decision").firstMatch.frame
-                    return abs(summary.frame.minY - transcript.frame.minY) <= 24
-                        && summary.frame.minY < tray.minY
-                        && summary.frame.maxY > transcript.frame.minY
+                    let top = max(transcript.frame.minY, app.navigationBars.firstMatch.frame.maxY)
+                    let visible = CGRect(x: transcript.frame.minX, y: top, width: transcript.frame.width, height: max(0, tray.minY - top))
+                    // Short transcripts clamp at their scroll extent; fitting rows must be
+                    // fully visible. Oversized AX rows instead expose their jump anchor.
+                    if summary.frame.height <= visible.height { return self.pixelContains(visible, summary.frame) }
+                    return abs(summary.frame.minY - top) <= 24
+                        && summary.frame.minY < visible.maxY && summary.frame.maxY > top
                 }, timeout: 5), "Original request \(index) jumps to the grouped summary: \(summary.frame), \(transcript.frame)")
                 if index == 2 { capture(app, "\(name) later-member jump and grouped summary") }
                 next.tap()
