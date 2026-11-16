@@ -6,8 +6,11 @@ import UIKit
 @MainActor final class CompanionLaunchAppDelegate: NSObject, UIApplicationDelegate {
     func application(_ application: UIApplication, configurationForConnecting session: UISceneSession,
                      options: UIScene.ConnectionOptions) -> UISceneConfiguration {
-        let configuration = UISceneConfiguration(name: nil, sessionRole: session.role)
-        if session.role == .windowApplication { configuration.delegateClass = CompanionLaunchSceneDelegate.self }
+        Self.sceneConfiguration(role: session.role)
+    }
+    static func sceneConfiguration(role: UISceneSession.Role) -> UISceneConfiguration {
+        let configuration = UISceneConfiguration(name: nil, sessionRole: role)
+        if role == .windowApplication { configuration.delegateClass = CompanionLaunchSceneDelegate.self }
         return configuration
     }
 }

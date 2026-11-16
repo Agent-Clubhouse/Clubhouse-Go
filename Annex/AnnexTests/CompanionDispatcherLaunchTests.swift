@@ -28,12 +28,23 @@ import UIKit
         inbox.consume(request.id)
     }
 
+    func testWarmSceneDelegateUsesTheSamePendingRequest() async throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
+        let inbox = CompanionDispatcherLaunchInbox.shared
+        let handled = await CompanionLaunchSceneDelegate().windowScene(scene,
+            performActionFor: UIApplicationShortcutItem(type: CompanionDispatcherLaunchInbox.quickActionType, localizedTitle: "Message Dispatcher"))
+        XCTAssertTrue(handled)
+        let request = try XCTUnwrap(inbox.pending)
+        XCTAssertEqual(request.source, .quickAction)
+        inbox.consume(request.id)
+    }
+
     func testSwiftUISceneDelegateConfigurationKeepsTheExistingWindowScene() throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.first as? UIWindowScene)
-        let configuration = CompanionLaunchAppDelegate().application(UIApplication.shared,
-            configurationForConnecting: scene.session, options: UIScene.ConnectionOptions())
+        let configuration = CompanionLaunchAppDelegate.sceneConfiguration(role: scene.session.role)
         XCTAssertEqual(configuration.role, scene.session.role)
-        XCTAssertTrue(configuration.delegateClass === CompanionLaunchSceneDelegate.self)
+        XCTAssertEqual(ObjectIdentifier(try XCTUnwrap(configuration.delegateClass)), ObjectIdentifier(CompanionLaunchSceneDelegate.self))
+        XCTAssertNotNil(scene.windows.first?.rootViewController, "The adaptor leaves SwiftUI's existing window ownership intact")
         XCTAssertNil(configuration.storyboard)
     }
 }
