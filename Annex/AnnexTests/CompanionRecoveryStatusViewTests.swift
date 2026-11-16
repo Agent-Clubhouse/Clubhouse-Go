@@ -50,6 +50,26 @@ import SwiftUI
         XCTAssertEqual(size(status: status).height, 0)
     }
 
+    func testLongMachineNamesWrapAtXXXLWithoutWidthOverflow() {
+        let status = CompanionRecoveryStatus(connection: .offline, isLoading: false, requiresResync: false, error: nil)
+        let host = UIHostingController(rootView: CompanionRecoveryStatusView(status: status,
+            hostName: "Workshop MacBook with a long machine name", onRetry: { _ in })
+            .dynamicTypeSize(.accessibility5))
+        let measured = host.sizeThatFits(in: CGSize(width: 320, height: CGFloat.greatestFiniteMagnitude))
+        XCTAssertLessThanOrEqual(measured.width, 320)
+        XCTAssertGreaterThan(measured.height, 100, "XXXL grows to keep the name and actions readable")
+    }
+
+    func testSeveralOfflineMachinesKeepRetryBesideWrappedStandardText() {
+        let host = UIHostingController(rootView:
+            CompanionCompactConnectionBanner(title: "Office Mac and Workshop Mac aren't connected") {
+                Button("Retry") {}.frame(minWidth: 44, minHeight: 44)
+            })
+        let measured = host.sizeThatFits(in: CGSize(width: 390, height: CGFloat.greatestFiniteMagnitude))
+        XCTAssertLessThanOrEqual(measured.width, 390)
+        XCTAssertLessThanOrEqual(measured.height, 70, "Standard-size long names wrap beside Retry instead of adding an action row")
+    }
+
     func testRecoveryCardsLeaveBackgroundVisibleAtBothEdges() throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let window = UIWindow(windowScene: scene)

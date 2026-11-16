@@ -9,7 +9,8 @@ struct CompanionHomeSummary: Equatable, Sendable {
     var desktops: Int
 
     init(hosts: [CompanionHost], needsYou: Int) {
-        working = hosts.flatMap(\.allAgents).filter { $0.status == .working }.count
+        // Cached agents on unavailable desktops describe the last snapshot, not live work.
+        working = hosts.filter(\.connection.canOperate).flatMap(\.allAgents).filter { $0.status == .working }.count
         self.needsYou = needsYou
         connected = hosts.filter(\.connection.canOperate).count
         desktops = hosts.count

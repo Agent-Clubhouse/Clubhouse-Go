@@ -363,10 +363,10 @@ struct CompanionConversationView: View {
     private var connectionBanner: some View {
         let presentedTarget = target
         #if DEBUG
-        let banner = CompanionRecoveryStatusView(status: recoveryStatus, initiallyShowsDetails: initiallyShowsRecoveryDetails,
+        let banner = CompanionRecoveryStatusView(status: recoveryStatus, hostName: store.host(for: target)?.name, initiallyShowsDetails: initiallyShowsRecoveryDetails,
                                                  onRetry: recoveryRetryAction)
         #else
-        let banner = CompanionRecoveryStatusView(status: recoveryStatus, onRetry: recoveryRetryAction)
+        let banner = CompanionRecoveryStatusView(status: recoveryStatus, hostName: store.host(for: target)?.name, onRetry: recoveryRetryAction)
         #endif
         // Reset only recovery presentation when a retained page becomes inactive; never reset transcript identity.
         return banner.id(CompanionRecoveryPresentationID(target: presentedTarget, isActive: showsActions && isVisible != false))

@@ -18,7 +18,7 @@ import XCTest
         XCTAssertTrue(scrollUntilExists(retry, in: app))
         XCTAssertEqual(retry.label, "Retry Travel MacBook")
         XCTAssertTrue(app.staticTexts["Travel MacBook is offline"].exists)
-        XCTAssertTrue(app.staticTexts["Pending items are unknown until this desktop is ready."].exists)
+        XCTAssertFalse(app.staticTexts["Pending items are unknown until this desktop is ready."].exists, "The banner keeps only its compact connection summary")
         XCTAssertFalse(app.staticTexts["Cached offline request"].exists)
         scrollUntilExists(request, in: app, up: false)
         XCTAssertTrue(request.exists, "The reachable desktop's request remains in the flat list")
@@ -26,39 +26,32 @@ import XCTest
         attach(app, "Needs you with one offline desktop")
     }
 
-    func testNoReachableDesktopsQualifiesEmptyStateAndKeepsBothRetries() {
+    func testNoReachableDesktopsQualifiesEmptyStateAndCombinesRetryTargets() {
         let app = open("all-unavailable", largeText: true)
         let empty = app.staticTexts["No requests to show"]
         XCTAssertTrue(empty.waitForExistence(timeout: 10))
         XCTAssertEqual(empty.label, "No requests to show")
         XCTAssertGreaterThan(empty.frame.height, 60, "The full AccessibilityL title must wrap, rather than truncate or shrink to one line on the narrow iPhone")
         attach(app, "Needs you unavailable empty state — AccessibilityL")
-        let studioTitle = app.staticTexts["Studio Mac is offline"]
-        XCTAssertTrue(revealNoticeElement(studioTitle, in: app))
-        XCTAssertEqual(studioTitle.label, "Studio Mac is offline")
-        XCTAssertGreaterThan(studioTitle.frame.width, app.frame.width * 0.65, "Accessibility text must use the card width, not a narrow column beside Retry")
-        attach(app, "Needs you first unavailable title — AccessibilityL")
-        let studio = app.buttons["needs-you-retry-preview-studio"]
-        XCTAssertTrue(revealNoticeElement(studio, in: app))
-        XCTAssertEqual(studio.label, "Retry Studio Mac")
-        attach(app, "Needs you first unavailable desktop — AccessibilityL")
-        let laptopTitle = app.staticTexts["Travel MacBook has a connection issue"]
-        XCTAssertTrue(revealNoticeElement(laptopTitle, in: app))
-        XCTAssertEqual(laptopTitle.label, "Travel MacBook has a connection issue")
-        XCTAssertGreaterThan(laptopTitle.frame.width, app.frame.width * 0.65)
-        attach(app, "Needs you second unavailable title — AccessibilityL")
-        let laptop = app.buttons["needs-you-retry-preview-laptop"]
-        XCTAssertTrue(revealNoticeElement(laptop, in: app))
-        XCTAssertEqual(laptop.label, "Retry Travel MacBook")
+        let title = app.staticTexts["needs-you-connection-title"]
+        XCTAssertTrue(revealNoticeElement(title, in: app))
+        XCTAssertEqual(title.label, "Studio Mac and Travel MacBook aren't connected")
+        XCTAssertGreaterThan(title.frame.width, app.frame.width * 0.65, "Accessibility text gets the full banner width")
+        let retry = app.buttons["needs-you-retry-all"]
+        XCTAssertTrue(revealNoticeElement(retry, in: app))
+        XCTAssertEqual(retry.label, "Retry disconnected desktops")
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'needs-you-retry-'")).count, 1)
+        assertMinimumTarget(retry, "Retry disconnected desktops")
         XCTAssertFalse(app.staticTexts["Cached offline request"].exists)
         XCTAssertFalse(app.staticTexts["All caught up"].exists)
-        attach(app, "Needs you second unavailable desktop — AccessibilityL")
+        attach(app, "Needs you combined unavailable desktops — AccessibilityL")
     }
 
     func testConnectionInProgressShowsUnknownWithoutDuplicateRetry() {
         let app = open("progress")
-        XCTAssertTrue(app.staticTexts["Looking for Studio Mac…"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Connecting to Travel MacBook…"].exists)
+        let title = app.staticTexts["needs-you-connection-title"]
+        XCTAssertTrue(title.waitForExistence(timeout: 10))
+        XCTAssertEqual(title.label, "Reconnecting… · Studio Mac and Travel MacBook")
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Retry")).count, 0,
                        "No Retry is offered while either desktop is already connecting, regardless of inherited identifiers")
         XCTAssertFalse(app.staticTexts["Cached offline request"].exists)

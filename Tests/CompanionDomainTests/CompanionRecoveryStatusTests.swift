@@ -1,6 +1,45 @@
 import Testing
 @testable import CompanionDomain
 
+struct CompanionConnectionNoticeTests {
+    private func host(_ id: String, _ name: String, _ connection: CompanionConnection) -> CompanionHost {
+        .init(id: id, name: name, endpoint: "", connection: connection, projects: [])
+    }
+
+    @Test func singleOfflineAndFailedDesktopsKeepTheirNamesAndRetryIdentity() {
+        let offline = CompanionConnectionNotice(hosts: [host("travel", "Travel MacBook", .offline)])
+        #expect(offline.title == "Travel MacBook is offline")
+        #expect(offline.retryHostIDs == ["travel"] && offline.retryLabel == "Retry Travel MacBook")
+        #expect(!offline.isInProgress)
+        let failed = CompanionConnectionNotice(hosts: [host("office", "Office Mac", .failed("Socket closed"))])
+        #expect(failed.title == "Office Mac isn't connected")
+        #expect(failed.retryHostIDs == ["office"])
+    }
+
+    @Test func severalDisconnectedDesktopsShareOneNoticeAndRetryAllIdleTargets() {
+        let notice = CompanionConnectionNotice(hosts: [host("online", "Studio", .connected), host("office", "Office Mac", .offline), host("workshop", "Workshop Mac", .failed("Away"))])
+        #expect(notice.title == "Office Mac and Workshop Mac aren't connected")
+        #expect(notice.retryHostIDs == ["office", "workshop"])
+        #expect(notice.retryLabel == "Retry disconnected desktops")
+    }
+
+    @Test func recoveryNeverOffersAnotherRetryForTheSameDesktop() {
+        for state in [CompanionConnection.connecting, .reconnecting, .synchronizing] {
+            let notice = CompanionConnectionNotice(hosts: [host("busy", "Studio", state), host("idle", "Travel", .offline)])
+            #expect(notice.isInProgress && notice.retryHostIDs == ["idle"])
+            #expect(notice.title.contains("Travel is offline"))
+            #expect(notice.title.contains(state == .reconnecting ? "Reconnecting…" : "Connecting…"))
+            let progressOnly = CompanionConnectionNotice(hosts: [host("busy", "Studio", state)])
+            #expect(progressOnly.isVisible && progressOnly.retryHostIDs.isEmpty)
+        }
+    }
+
+    @Test func noNoticeWhenEveryDesktopIsConnectedOrThereAreNoPairings() {
+        #expect(!CompanionConnectionNotice(hosts: []).isVisible)
+        #expect(!CompanionConnectionNotice(hosts: [host("online", "Studio", .connected)]).isVisible)
+    }
+}
+
 struct CompanionRecoveryStatusTests {
     private let connections: [CompanionConnection] = [
         .offline, .connecting, .reconnecting, .synchronizing, .connected, .failed("TLS failed")

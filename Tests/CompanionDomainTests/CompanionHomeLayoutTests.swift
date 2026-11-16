@@ -21,6 +21,22 @@ private func entries(_ projects: [(String, [CompanionAgent])]) -> [CompanionProj
 private func key(_ project: String) -> String { CompanionProjectOrdering.key(.init(hostID: "mac", projectID: project)) }
 
 struct CompanionHomeSummaryTests {
+    @Test func unavailableDesktopsCachedWorkingAgentsDoNotCountAsLiveWork() {
+        let online = entries([("p1", [agent("live", .working)])])[0].host
+        var cached = CompanionHost(id: "offline", name: "Offline Mac", endpoint: "", connection: .offline,
+                                   projects: [.init(id: "p2", name: "p2", agents: [
+                                    CompanionAgent(id: .init(hostID: "offline", projectID: "p2", agentID: "cached"),
+                                                   name: "Cached", subtitle: "", status: .working)
+                                   ])])
+        for connection: CompanionConnection in [.offline, .connecting, .reconnecting, .synchronizing, .failed("Unavailable")] {
+            cached.connection = connection
+            #expect(CompanionHomeSummary(hosts: [cached], needsYou: 0).working == 0)
+            #expect(CompanionHomeSummary(hosts: [online, cached], needsYou: 0).working == 1)
+        }
+        cached.connection = .connected
+        #expect(CompanionHomeSummary(hosts: [online, cached], needsYou: 0).working == 2)
+    }
+
     @Test func attentionGrammarIncludesZeroOneAndMany() {
         let hosts = entries([("p1", [agent("busy", .working), agent("done", .completed)])]).map(\.host)
         for (count, label) in [(0, "0 need you"), (1, "1 needs you"), (2, "2 need you")] {

@@ -33,7 +33,7 @@ import XCTest
     }
 
     func testOfflineHeaderKeepsFloatingGlassInLightAndDark() {
-        recoveryAppearance("--companion-header-offline", title: "Offline")
+        recoveryAppearance("--companion-header-offline", title: "Studio Mac is offline")
     }
 
     func testReconnectingHeaderKeepsFloatingGlassInLightAndDark() {

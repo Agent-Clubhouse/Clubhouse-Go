@@ -49,7 +49,7 @@ struct CompanionPreviewRoot: View {
         if CompanionConversationHeaderFixture.isEnabled {
             CompanionConversationHeaderFixture()
         } else if CompanionRecoveryFixture.isEnabled {
-            CompanionRecoveryFixture()
+            CompanionRecoveryFixture().preferredColorScheme(Self.forcedColorScheme)
         } else {
             // `--companion-preview-dark` / `-light`: that appearance for this launch only. Changing the simulator's
             // appearance from a UI test doesn't reliably reach the app on every runtime.

@@ -123,7 +123,7 @@ struct CompanionRecoveryFixtureConversation: View {
                 }
             }
         }
-        .companionTheme(.clubhouse)
+        .companionTheme(CompanionPreviewService.appearanceTheme ?? .clubhouse)
         // A plain list rather than a native menu, so UI tests can scroll to any action at large text sizes.
         .sheet(isPresented: $showsActions) {
             List(actions, id: \.id) { action in
