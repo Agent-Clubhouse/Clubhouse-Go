@@ -30,6 +30,7 @@ import XCTest
         XCTAssertLessThanOrEqual(tray.frame.maxY, composer.frame.minY)
         XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable")
         for id in ["companion-review-approval", "companion-decision-show-in-chat", "companion-pinned-decision-next"] {
+            XCTAssertEqual(app.buttons.matching(identifier: id).count, 1, "Only the fitting action layout is exposed")
             let button = app.buttons[id]
             XCTAssertTrue(button.isHittable, id)
             assertMinimumTarget(button, id)
