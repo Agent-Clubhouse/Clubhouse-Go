@@ -319,14 +319,28 @@ private actor UpdateDesktop: AnnexTransporting {
         #expect(store.hosts.first?.appUpdate?.state == .downloading)
         #expect(store.hosts.first?.appUpdate?.downloadProgress == 50)
         #expect(store.appUpdateCheckErrors.isEmpty)
+        // A new subscriber immediately snapshots authoritative service state, even if
+        // the store has not consumed its queued events. Check before a fresh receipt
+        // can conceal a stale rollback.
+        var events = service.events().makeAsyncIterator()
+        guard case .hosts(let latest) = await events.next() else {
+            Issue.record("Missing authoritative app-update snapshot")
+            return
+        }
+        let liveUpdate = try #require(latest.first(where: { $0.id == Self.id })?.appUpdate)
+        #expect(liveUpdate.state == .downloading)
+        #expect(liveUpdate.downloadProgress == 50)
         guard case .object(var ready) = try #require(ContractFixtures.json("app-update-check-events.json")["frames"].arrayValue.last?["payload"]) else {
             throw AnnexTransportError.malformedResponse
         }
         ready["reason"] = .string("The downloaded installer is missing. It was not downloaded again.")
+        let expected = try AnnexJSON.object(ready).decode(AnnexAppUpdate.self)
         await desktop.setCheckResult(.object(ready))
         await store.checkAppUpdate(hostID: Self.id)
         #expect(await desktop.sent.last?.commandID != sent[0].commandID)
-        #expect(store.hosts.first?.appUpdate == (try AnnexJSON.object(ready).decode(AnnexAppUpdate.self)))
+        // Receipt completion queues a host event; the store consumes it in a separate task.
+        try await wait { store.hosts.first?.appUpdate == expected }
+        #expect(store.hosts.first?.appUpdate == expected)
     }
 
     @Test func alreadyCheckingWaitsForFreshStatusAndOtherRefusalsShowTheDesktopMessage() async throws {
