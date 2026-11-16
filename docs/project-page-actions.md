@@ -10,7 +10,7 @@ Linked Pin and Mark inactive are deliberately left at their existing Home behavi
 
 ## Integration pending
 
-- Root owns the Home changes: remove its header overflow, use the shared menu from a project-header long press, and wire chips/filtering under #439/#440. `CompanionProjectMenuItems` supplies Wake and Info and the single-project state items; Root owns presentation and concrete machine routing.
+- Root owns the Home changes: remove its header overflow, use the shared menu from a project-header long press, and wire chips/filtering under #439/#440. `CompanionProjectMenuItems` supplies Wake and Info and the single-project state items; Root owns presentation and concrete machine routing. For linked entries this component intentionally supplies only Wake/Info: Root must retain its existing per-copy Pin/Inactive entry points until the desktop-backed group contract is adopted, rather than dropping them during menu wiring.
 - Root adopts `CompanionDesktopChips` and the extended `CompanionAgentTreeQuietFold` signatures documented beside this file.
 - Rebase onto the landed #441 machine presentation, #432 contrast helpers and #433 typed telemetry before validation. The prepared stack currently references #441's optional presentation API.
 - #442 stays open while the Root criteria and desktop linked-state adoption remain outstanding; use Refs #442.
