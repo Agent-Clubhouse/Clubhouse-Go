@@ -154,8 +154,31 @@ import UIKit
         XCTAssertTrue(pixelContains(navigation.frame, context.frame), "Context \(context.frame) stays in navigation \(navigation.frame)")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["companion-context-settings-menu"])
         let picker = app.buttons["agent-settings-context-window"]
-        waitAndTap(app.buttons["companion-context-settings-menu"], until: app.buttons["companion-context-settings-row"])
-        waitAndTap(app.buttons["companion-context-settings-row"], until: picker)
+        let sheetTitle = app.navigationBars["Context and limits"]
+        waitAndTap(app.buttons["companion-context-settings-menu"], until: sheetTitle, attempts: 1)
+        let settings = app.buttons["companion-context-settings-row"]
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.waitForExistence(timeout: 5))
+        let beforeScroll = XCTAttachment(screenshot: app.screenshot())
+        beforeScroll.name = "XXXL context sheet before normal List scroll, hidden preview banner \(hidePreviewBanner)"
+        beforeScroll.lifetime = .keepAlways; add(beforeScroll)
+        for _ in 0..<4 {
+            let frame = list.frame.intersection(app.frame)
+            let top = max(frame.minY, sheetTitle.frame.maxY)
+            let visible = CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, frame.maxY - top))
+            if settings.exists && settings.isHittable && pixelContains(visible, settings.frame) { break }
+            // This gesture starts inside the sheet List, never in the background composer or tray.
+            list.swipeUp(velocity: .slow)
+        }
+        let frame = list.frame.intersection(app.frame)
+        let top = max(frame.minY, sheetTitle.frame.maxY)
+        let visible = CGRect(x: frame.minX, y: top, width: frame.width, height: max(0, frame.maxY - top))
+        XCTAssertTrue(settings.exists && settings.isHittable, "Normal scrolling inside the sheet reaches Context settings at XXXL")
+        XCTAssertTrue(pixelContains(visible, settings.frame), "Context settings is inside the sheet viewport, clear of background controls")
+        let afterScroll = XCTAttachment(screenshot: app.screenshot())
+        afterScroll.name = "XXXL context settings reached by normal List scroll, hidden preview banner \(hidePreviewBanner)"
+        afterScroll.lifetime = .keepAlways; add(afterScroll)
+        waitAndTap(settings, until: picker, attempts: 1)
         XCTAssertTrue(picker.isHittable, "Context remains reachable from Conversation actions")
     }
 
