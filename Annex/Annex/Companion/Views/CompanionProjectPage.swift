@@ -54,7 +54,7 @@ struct CompanionProjectPage: View {
                                 ForEach(entry.members) { member in
                                     Menu(entry.label(for: member)) {
                                         CompanionSingleProjectStateMenuItems(store: store, preferences: preferences,
-                                            entry: .init(host: member.host, project: member.project))
+                                            entry: .init(host: member.host, project: member.project), legacyLinkID: entry.linkID)
                                     }
                                 }
                             }
@@ -295,6 +295,7 @@ private struct CompanionSingleProjectStateMenuItems: View {
     @Bindable var store: CompanionStore
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
+    var legacyLinkID: String? = nil
 
     @Environment(\.companionTelemetryScreen) private var screen
 
@@ -329,7 +330,13 @@ private struct CompanionSingleProjectStateMenuItems: View {
     }
 
     private func change(local: () -> Void, remote: @escaping () async -> Void) {
-        guard let current = store.projectEntry(containing: entry.id), !current.isLinked else { return }
+        guard let current = store.projectEntry(containing: entry.id) else { return }
+        if current.isLinked {
+            // Only the explicitly rendered old-host group may use per-copy state. Recheck
+            // authority and identity at the action, so a stale menu cannot bypass migration.
+            guard let legacyLinkID, current.linkID == legacyLinkID,
+                  store.linkedProjectState(current) == nil else { return }
+        }
         if store.sharedProjectState(entry.id) == nil { local() }
         else { Task { await remote() } }
     }

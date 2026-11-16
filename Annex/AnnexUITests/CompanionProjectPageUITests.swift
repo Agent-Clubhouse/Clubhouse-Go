@@ -135,6 +135,17 @@ import XCTest
         stateMenu(app, showing: "Studio Mac")
         waitAndTap(app.buttons["Studio Mac"], until: app.buttons["Unpin from Home"], attempts: 1)
         XCTAssertFalse(app.buttons["Mark inactive"].exists)
+        app.buttons["Unpin from Home"].tap()
+        stateMenu(app, showing: "Studio Mac")
+        waitAndTap(app.buttons["Studio Mac"], until: app.buttons["Pin to top of Home"], attempts: 1)
+        XCTAssertTrue(app.buttons["Mark inactive"].isEnabled)
+        app.buttons["Mark inactive"].tap()
+        stateMenu(app, showing: "Studio Mac")
+        waitAndTap(app.buttons["Studio Mac"], until: app.buttons["Mark active"], attempts: 1)
+        app.buttons["Mark active"].tap()
+        stateMenu(app, showing: "Studio Mac")
+        waitAndTap(app.buttons["Studio Mac"], until: app.buttons["Mark inactive"], attempts: 1)
+        XCTAssertTrue(app.buttons["Pin to top of Home"].isEnabled)
         captureState(app, "Project old-host per-copy state fallback")
     }
 
