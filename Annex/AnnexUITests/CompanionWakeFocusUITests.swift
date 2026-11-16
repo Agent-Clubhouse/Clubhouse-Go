@@ -53,16 +53,22 @@ import XCTest
         let project = app.descendants(matching: .any).matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
         XCTAssertTrue(scrollUntilExists(project, in: app) && scrollTo(project, in: app))
         project.tap()
-        XCTAssertTrue(app.buttons["project-wake"].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.buttons["project-page-options"].waitForExistence(timeout: 10))
         return app
     }
 
     private func presentAndType(_ text: String, in app: XCUIApplication) -> XCUIElement {
         phase("present-\(text)")
+        let options = app.buttons["project-page-options"]
+        XCTAssertTrue(options.isHittable)
+        options.tap()
+        XCTAssertTrue(app.buttons["project-wake"].waitForExistence(timeout: 5))
         let wake = app.buttons["project-wake"]
         XCTAssertTrue(wake.isHittable && wake.isEnabled)
         let frame = wake.frame
-        XCTAssertGreaterThanOrEqual(frame.minY, app.navigationBars.firstMatch.frame.maxY)
+        // Wake is a native toolbar-menu item, which can overlay the large navigation title.
+        // Its entire target must stay inside the screen and accept the checked center tap.
+        assertMinimumTarget(wake, "Wake menu action")
         XCTAssertTrue(app.frame.contains(frame))
         // After reactivation, XCTest once synthesized the AX activation point inside Terminal instead.
         // Use one checked on-screen point, never a repeated tap or a message-field focus rescue.
