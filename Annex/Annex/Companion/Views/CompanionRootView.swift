@@ -633,6 +633,10 @@ struct CompanionHomeView: View {
                             }
                         }
                     projectLink(entry)
+                        .contextMenu { projectContextMenuItems(group) }
+                        .accessibilityActions { projectContextMenuItems(group) }
+                        .accessibilityLabel("Open \(entry.project.name)")
+                        .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
                     if group.isPinned {
                         Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
                             .accessibilityLabel("Pinned")
@@ -653,15 +657,19 @@ struct CompanionHomeView: View {
                         .buttonStyle(.borderless)
                         .frame(minWidth: 44, minHeight: 44)
                         .disabled(!entry.canSpawn)
+                        .contextMenu { projectContextMenuItems(group) }
+                        .accessibilityActions { projectContextMenuItems(group) }
+                        .accessibilityIdentifier("project-new-agent-\(projectID)")
                         .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
                 }
             }
             .font(.subheadline.weight(.semibold))
             .textCase(nil)
             .opacity(group.isIdle ? 0.7 : 1)
+            .contentShape(Rectangle())
+            .contextMenu { projectContextMenuItems(group) }
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("project-\(projectID)")
-            .contextMenu { projectContextMenuItems(group) }
         }
     }
 
@@ -891,8 +899,6 @@ extension CompanionHomeView {
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
-        .accessibilityLabel("Open \(entry.project.name)")
-        .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
     }
 }
 

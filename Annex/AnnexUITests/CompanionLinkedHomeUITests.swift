@@ -18,8 +18,29 @@ import XCTest
     private func openHeaderMenu(_ app: XCUIApplication) {
         let header = app.descendants(matching: .any).matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
         reveal(header, in: app)
+        XCTAssertEqual(header.label, "Open Clubhouse")
+        XCTAssertEqual(app.buttons.matching(identifier: "open-project-preview-studio-clubhouse").count, 1)
         longPressUntilMenu(header, shows: app.buttons["project-wake"], attempts: 1)
         XCTAssertFalse(app.buttons["project-menu-preview-studio-clubhouse"].exists, "The header has no overflow button")
+    }
+
+    func testHeaderLinkTapStillOpensProjectAndPlusKeepsItsMenu() {
+        let app = launchApp(["--companion-preview", "--companion-preview-linked-projects"], attempts: 1)
+        let link = app.buttons["open-project-preview-studio-clubhouse"]
+        reveal(link, in: app)
+        XCTAssertEqual(link.label, "Open Clubhouse")
+        link.tap()
+        XCTAssertTrue(app.buttons["project-page-options"].waitForExistence(timeout: 5), "An ordinary tap still opens the Project page")
+        app.navigationBars.buttons["BackButton"].tap()
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        let plus = app.buttons["project-new-agent-preview-studio-clubhouse"]
+        reveal(plus, in: app)
+        XCTAssertEqual(plus.label, "New agent in Clubhouse")
+        longPressUntilMenu(plus, shows: app.buttons["project-wake"], attempts: 1)
+        XCTAssertEqual(app.buttons["project-wake"].label, "Wake with a message")
+        XCTAssertTrue(app.buttons["Project info"].exists)
+        XCTAssertTrue(app.buttons["Terminal"].exists)
+        capture(app, "Home project plus exposes the same named actions without losing its label")
     }
 
     func testHeaderActionsChooseOneMachineForAllAndSelectedWakeIsDirect() {

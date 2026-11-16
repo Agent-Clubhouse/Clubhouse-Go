@@ -1032,3 +1032,5 @@ controls and its connection hint. A selected desktop still edits group state, wh
 and Terminal remain constrained to the selected copy. Old hosts keep per-copy menus and
 their existing days-idle Mark active behavior. The existing LinkedProjectState UI methods
 now open the same controls from the header long press; their assertions are unchanged.
+
+Home header menus (#440) are bound directly to the project NavigationLink and plus as well as the header's rectangular hit shape. The same guarded menu builder supplies public SwiftUI accessibilityActions on the link and plus; no alternate command closure or capability predicate is introduced. Labels and IDs are applied after these wrappers. The corrected risk spot checks ordinary link tap navigation, real long presses on link/header/plus, menu accessibility labels, the existing scope regression, and every failed migrated menu method. This is declarative accessibility exposure plus XCTest AX assertions, not a physical VoiceOver session.
