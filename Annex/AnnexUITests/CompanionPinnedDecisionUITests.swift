@@ -243,7 +243,13 @@ import Vision
         always.tap()
         XCTAssertTrue(app.staticTexts["Always allow?"].waitForExistence(timeout: 5), "A broader permission keeps its existing confirmation")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
-        app.buttons["Cancel"].tap()
+        // iOS 26 presents this shared confirmation as a popover without a Cancel button.
+        // The review navigation bar is outside the anchored option popover.
+        let outside = app.navigationBars["Review approval"].frame
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: outside.midX, dy: outside.midY)).tap()
+        XCTAssertTrue(app.staticTexts["Always allow?"].waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
         close.tap()
         XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
     }
