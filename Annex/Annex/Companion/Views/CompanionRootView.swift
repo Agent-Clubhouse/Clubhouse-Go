@@ -596,6 +596,7 @@ struct CompanionHomeView: View {
         return Section {
             projectHeader(group)
                 .buttonStyle(.borderless)
+                .navigationLinkIndicatorVisibility(.hidden)
                 .listRowSeparator(.hidden)
                 .listRowBackground(CompanionCardBackground())
             if entry.isLinked {
@@ -642,6 +643,7 @@ struct CompanionHomeView: View {
                         }
                     }
                 projectLink(entry)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                     .contextMenu { projectContextMenuItems(group) }
                     .accessibilityActions { projectContextMenuItems(group) }
                     .accessibilityLabel("Open \(entry.project.name)")
@@ -905,6 +907,7 @@ extension CompanionHomeView {
                     .fixedSize(horizontal: false, vertical: true)
                 Image(systemName: "chevron.right").font(.caption2.weight(.bold)).foregroundStyle(Color(palette.secondaryLabel))
             }
+            .frame(maxWidth: .infinity, alignment: .leading)
             .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
