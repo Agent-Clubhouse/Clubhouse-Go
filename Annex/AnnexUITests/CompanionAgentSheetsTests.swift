@@ -22,10 +22,11 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
     private func finishNameEditing(_ app: XCUIApplication) {
         let keyboard = app.keyboards.firstMatch
         guard keyboard.exists else { return }
-        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
-        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
-        start.press(forDuration: 0.05, thenDragTo: end)
+        let submit = keyboard.buttons["Return"]
+        XCTAssertTrue(submit.exists, "The name field offers the keyboard's Return key")
+        submit.tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5), "Finish editing the name before opening form options")
+        XCTAssertTrue(app.navigationBars["New agent"].exists, "Submitting the name keeps the new-agent sheet open")
     }
 
     func testNewAgentDefaultsToDurableAndChecksTheName() {
