@@ -1,5 +1,45 @@
 import Foundation
 
+/// One notice across unavailable desktops. A Retry never targets a connected or already-recovering host.
+struct CompanionConnectionNotice: Equatable, Sendable {
+    let title: String
+    let isInProgress: Bool
+    let retryHostIDs: [String]
+    let retryLabel: String
+
+    init(hosts: [CompanionHost]) {
+        let unavailable = hosts.filter { !$0.connection.canOperate }
+        let recovering = unavailable.filter { Self.isRecovering($0.connection) }
+        let idle = unavailable.filter { !Self.isRecovering($0.connection) }
+        isInProgress = !recovering.isEmpty
+        retryHostIDs = idle.map(\.id)
+        retryLabel = idle.count == 1 ? "Retry \(idle[0].name)" : "Retry disconnected desktops"
+
+        let offline: String
+        if idle.count == 1 {
+            offline = idle[0].connection == .offline ? "\(idle[0].name) is offline" : "\(idle[0].name) isn't connected"
+        } else if !idle.isEmpty {
+            offline = "\(idle.map(\.name).formatted(.list(type: .and))) aren't connected"
+        } else { offline = "" }
+        let progress: String
+        if recovering.isEmpty { progress = "" }
+        else {
+            let state = recovering.contains { $0.connection == .reconnecting } ? "Reconnecting…" : "Connecting…"
+            progress = "\(state) · \(recovering.map(\.name).formatted(.list(type: .and)))"
+        }
+        title = [offline, progress].filter { !$0.isEmpty }.joined(separator: " · ")
+    }
+
+    var isVisible: Bool { !title.isEmpty }
+
+    private static func isRecovering(_ connection: CompanionConnection) -> Bool {
+        switch connection {
+        case .connecting, .reconnecting, .synchronizing: true
+        default: false
+        }
+    }
+}
+
 /// Presentation only: a stale conversation does not establish that recovery is running.
 /// The caller continues to own retry execution, command gating, and recovery scheduling.
 struct CompanionRecoveryStatus: Equatable, Sendable {

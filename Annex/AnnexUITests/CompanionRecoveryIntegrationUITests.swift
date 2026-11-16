@@ -68,14 +68,41 @@ import XCTest
         capture(app, "recovered transcript")
     }
 
+    func testConnectionBannerAppearanceMatrixAndReadableXXXL() {
+        let variants: [(String, [String])] = [
+            ("light", ["--companion-preview-light"]),
+            ("dark", ["--companion-preview-dark"]),
+            ("Catppuccin Latte", ["--companion-preview-light", "--companion-preview-theme-latte"]),
+            ("Catppuccin Mocha", ["--companion-preview-dark", "--companion-preview-theme-mocha"]),
+            ("accessibility XXXL", ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        ]
+        for (name, flags) in variants {
+            let app = launch(flags)
+            XCTAssertTrue(app.buttons["companion-recovery-details"].waitForExistence(timeout: 10))
+            fixture(app, "connection-failure")
+            let title = app.staticTexts["Fixture One isn't connected"]
+            XCTAssertTrue(title.waitForExistence(timeout: 5))
+            assertClearOfHeader(title, in: app)
+            XCTAssertGreaterThanOrEqual(title.frame.minX, app.frame.minX)
+            XCTAssertLessThanOrEqual(title.frame.maxX, app.frame.maxX)
+            let retry = app.buttons["companion-recovery-retry"]
+            XCTAssertEqual(retry.label, "Retry connection")
+            XCTAssertTrue(retry.isHittable)
+            assertMinimumTarget(retry, "Retry")
+            assertMinimumTarget(app.buttons["companion-recovery-details"], "Details")
+            capture(app, "connection banner \(name)")
+            app.terminate()
+        }
+    }
+
     func testLargeTextKeepsFullErrorsSeparateWarningAndTargetDetailsReachable() {
         let app = launch(["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"])
         XCTAssertTrue(app.buttons["companion-recovery-details"].waitForExistence(timeout: 10))
         fixture(app, "fail")
         fixture(app, "operation")
         fixture(app, "connection-failure")
-        XCTAssertTrue(app.staticTexts["Connection issue"].waitForExistence(timeout: 5))
-        assertClearOfHeader(app.staticTexts["Connection issue"], in: app)
+        XCTAssertTrue(app.staticTexts["Fixture One isn't connected"].waitForExistence(timeout: 5))
+        assertClearOfHeader(app.staticTexts["Fixture One isn't connected"], in: app)
         let warning = app.staticTexts["Synthetic operation warning stays separate."]
         XCTAssertTrue(warning.exists)
         let retry = app.buttons["companion-recovery-retry"]
@@ -84,7 +111,7 @@ import XCTest
         assertMinimumTarget(retry, "Retry")
         capture(app, "AX warning and connection retry")
         retry.tap() // Synthetic reconnect records intent; no invented connection success follows.
-        XCTAssertTrue(app.staticTexts["Connection issue"].exists)
+        XCTAssertTrue(app.staticTexts["Fixture One isn't connected"].exists)
         waitAndTap(app.buttons["companion-recovery-details"], until: element(app, "companion-recovery-explanation"), attempts: 1)
         var explanation = element(app, "companion-recovery-explanation")
         XCTAssertTrue(explanation.label.contains("Synthetic connection failure."))

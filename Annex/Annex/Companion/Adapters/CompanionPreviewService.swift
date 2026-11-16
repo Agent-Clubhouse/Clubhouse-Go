@@ -6,6 +6,27 @@ import ClubhouseTransport
 /// Sample desktop for the welcome screen's "Look around first" demo (and App Review), and the DEBUG preview launch.
 /// Never selected by pairing; every command fails with "Preview only".
 @MainActor final class CompanionPreviewService: CompanionService {
+    #if DEBUG
+    /// Shared synthetic desktop payloads for normal and recovery-fixture appearance evidence.
+    static var appearanceTheme: CompanionDesktopTheme? {
+        let theme: CompanionDesktopTheme?
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-latte") {
+            theme = .init(id: "catppuccin-latte", name: "Catppuccin Latte", source: "Preview", mode: .light,
+                colors: ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69",
+                         "subtext0": "#6c6f85", "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5",
+                         "accent2": "#209fb5", "warning": "#7e5700", "error": "#c4122f", "success": "#347d22"], gradient: [])
+        } else if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-mocha") {
+            theme = .init(id: "catppuccin-mocha", name: "Catppuccin Mocha", source: "Preview", mode: .dark,
+                colors: ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4",
+                         "subtext0": "#a6adc8", "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa",
+                         "accent2": "#74c7ec", "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"], gradient: [])
+        } else {
+            theme = nil
+        }
+        return theme
+    }
+    #endif
+
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     private var continuation: AsyncStream<CompanionEvent>.Continuation?
@@ -110,20 +131,7 @@ import ClubhouseTransport
                     .init(id: "preview-workshop", name: "Workshop Mac", endpoint: "", connection: .offline, projects: [])
                 ]
             }
-            let theme: CompanionDesktopTheme?
-            if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-latte") {
-                theme = .init(id: "catppuccin-latte", name: "Catppuccin Latte", source: "Preview", mode: .light,
-                    colors: ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69",
-                             "subtext0": "#6c6f85", "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5",
-                             "accent2": "#209fb5", "warning": "#7e5700", "error": "#c4122f", "success": "#347d22"], gradient: [])
-            } else if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-mocha") {
-                theme = .init(id: "catppuccin-mocha", name: "Catppuccin Mocha", source: "Preview", mode: .dark,
-                    colors: ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4",
-                             "subtext0": "#a6adc8", "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa",
-                             "accent2": "#74c7ec", "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"], gradient: [])
-            } else {
-                theme = nil
-            }
+            let theme = Self.appearanceTheme
             if let theme {
                 for index in hosts.indices { hosts[index].theme = theme }
             }

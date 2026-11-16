@@ -353,7 +353,11 @@ struct CompanionHomeView: View {
                 ForEach(store.hosts.filter(\.hasAppUpdateAffordance)) { host in
                     CompanionAppUpdateLink(store: store, host: host)
                 }
-                ForEach(store.hosts.filter { !isListed($0) }) { host in offlineCard(host) }
+                if CompanionConnectionNotice(hosts: store.hosts).isVisible {
+                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home")
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                }
                 needsYou
                 dispatchers
                 projects
@@ -370,7 +374,6 @@ struct CompanionHomeView: View {
         .alert("Couldn't change the project", isPresented: Binding(get: { store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(store.projectStateError ?? "") }
-        .safeAreaInset(edge: .top) { reconnectingBanner }
         .toolbar {
             ToolbarItem(placement: .topBarLeading) {
                 Button("Settings", systemImage: "gearshape", action: onSettings)
@@ -414,30 +417,6 @@ struct CompanionHomeView: View {
             Text("\(status)\n\(Text($0).foregroundColor(Color(palette.secondaryLabel)))")
         } ?? status
         return text.font(.subheadline).accessibilityLabel(counts.accessibilityLabel)
-    }
-
-    private func offlineCard(_ host: CompanionHost) -> some View {
-        Section {
-            HStack(spacing: 12) {
-                Image(systemName: "wifi.slash").foregroundStyle(Color(palette.secondaryLabel))
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(host.connection.sentence(hostName: host.name)).font(.headline)
-                    Text(host.connection.detail).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                }
-                Spacer(minLength: 8)
-                Button("Retry") { Task { await store.reconnect(hostID: host.id) } }
-                    .buttonStyle(.bordered).buttonBorderShape(.capsule)
-            }
-            .listRowBackground(CompanionCardBackground())
-        }
-    }
-
-    @ViewBuilder private var reconnectingBanner: some View {
-        if let host = store.hosts.first(where: { [.connecting, .reconnecting, .synchronizing].contains($0.connection) }) {
-            CompanionGlassBanner(systemImage: "arrow.triangle.2.circlepath",
-                                 text: Text("\(host.connection.label) · \(host.name)")) { EmptyView() }
-                .padding(.bottom, 4)
-        }
     }
 
     @ViewBuilder private var needsYou: some View {
@@ -844,7 +823,6 @@ struct CompanionNeedsYouView: View {
     @Bindable var store: CompanionStore
     var decisions: CompanionDecisionQueue
     @Environment(\.companionPalette) private var palette
-    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         let items = store.attentionItems()
@@ -873,9 +851,11 @@ struct CompanionNeedsYouView: View {
                         .accessibilityIdentifier("needs-you-project-\(project.id.hostID)-\(project.id.projectID)")
                 }
             }
-            ForEach(availability.unavailableHosts) { host in
+            if CompanionConnectionNotice(hosts: store.hosts).isVisible {
                 Section {
-                    unavailableNotice(host).listRowBackground(CompanionCardBackground())
+                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "needs-you")
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
                 }
             }
         }
@@ -914,50 +894,6 @@ struct CompanionNeedsYouView: View {
                     Button("Deny", systemImage: "xmark") { schedule(item, option) }.tint(Color(palette.error))
                 }
             }
-    }
-
-    @ViewBuilder private func unavailableNotice(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
-        if dynamicTypeSize.isAccessibilitySize {
-            VStack(alignment: .leading, spacing: 12) {
-                unavailableText(host)
-                HStack {
-                    connectionSymbol(host)
-                    Spacer(minLength: 8)
-                    retry(host)
-                }
-            }
-        } else {
-            HStack(spacing: 12) {
-                connectionSymbol(host)
-                unavailableText(host)
-                Spacer(minLength: 8)
-                retry(host)
-            }
-        }
-    }
-
-    private func unavailableText(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(host.title).font(.headline).fixedSize(horizontal: false, vertical: true)
-            Text(CompanionAttentionAvailability.UnavailableHost.detail)
-                .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-
-    @ViewBuilder private func connectionSymbol(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
-        if host.isConnecting { ProgressView().accessibilityLabel("Connecting") }
-        else { Image(systemName: "wifi.slash").foregroundStyle(Color(palette.secondaryLabel)) }
-    }
-
-    @ViewBuilder private func retry(_ host: CompanionAttentionAvailability.UnavailableHost) -> some View {
-        if let hostID = host.retryHostID {
-            Button("Retry") { Task { await store.reconnect(hostID: hostID) } }
-                .buttonStyle(.bordered).buttonBorderShape(.capsule)
-                .accessibilityLabel("Retry \(host.name)")
-                .accessibilityIdentifier("needs-you-retry-\(hostID)")
-        }
     }
 
     private func swipeOption(_ item: CompanionAttentionItem, kind: CompanionApprovalOption.Kind) -> CompanionApprovalOption? {
