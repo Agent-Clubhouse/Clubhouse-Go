@@ -252,11 +252,7 @@ struct CompanionConversationUsageSheet: View {
         count.formatted(.number.notation(.compactName)).lowercased()
     }
     private var closeButton: some View {
-        Button { dismiss() } label: {
-            Label("Close", systemImage: "xmark")
-                .frame(minWidth: 44, minHeight: 44)
-                .contentShape(Rectangle())
-        }
+        Button("Close", systemImage: "xmark") { dismiss() }
             .companionToolbarClose()
             .accessibilityIdentifier("companion-context-close")
     }

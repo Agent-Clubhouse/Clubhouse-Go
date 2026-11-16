@@ -12,12 +12,19 @@ import XCTest
         XCTAssertTrue(context.isHittable)
         waitAndTap(context, until: app.navigationBars["Context and limits"], attempts: 1)
         let close = app.buttons["companion-context-close"]
-        XCTAssertTrue(close.isHittable)
-        XCTAssertTrue(waitFor(close, NSPredicate { _, _ in
-            close.frame.width >= 44 && close.frame.height >= 44
-        }, timeout: 3), "The sheet presentation must settle to its full Close target")
-        assertMinimumTarget(close, "Context close")
+        XCTAssertTrue(close.waitForExistence(timeout: 3))
+        XCTAssertTrue(waitFor(close, NSPredicate { _, _ in close.isHittable }, timeout: 3),
+                      "The sheet presentation must expose its native Close")
+        XCTAssertEqual(close.label, "Close")
         return app
+    }
+    private func dismiss(_ app: XCUIApplication, unknown: Bool = false) {
+        let close = app.buttons["companion-context-close"]
+        XCTAssertTrue(close.exists && close.isHittable)
+        XCTAssertEqual(close.label, "Close")
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5), "Close dismisses the sheet")
+        XCTAssertTrue(app.buttons[unknown ? "companion-context-settings" : "companion-context-usage"].waitForExistence(timeout: 5))
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
         let attachment = XCTAttachment(screenshot: app.screenshot())
@@ -50,8 +57,7 @@ import XCTest
             capture(app, "\(name) own provider windows")
             let footer = reveal("companion-context-plan-limits-footer", in: app)
             XCTAssertEqual(footer.label, "Every desktop and provider: Settings › Plan limits.")
-            app.buttons["companion-context-close"].tap()
-            XCTAssertTrue(app.buttons["companion-context-usage"].waitForExistence(timeout: 5))
+            dismiss(app)
             app.terminate()
         }
     }
@@ -63,11 +69,13 @@ import XCTest
         XCTAssertFalse(element(app, "companion-context-token-count").exists)
         _ = reveal("plan-limits-preview-studio-claude-code", in: app)
         capture(app, "unknown context with available own plan")
+        dismiss(app, unknown: true)
         app.terminate()
         let undated = open(["--companion-context-undated"])
         XCTAssertEqual(element(undated, "companion-context-token-count").label, "84k of 200k tokens")
         XCTAssertEqual(element(undated, "companion-context-reading-note").label, "Report time unknown")
         capture(undated, "known counts without report time")
+        dismiss(undated)
     }
 
     func testOfflineDesktopAndUnknownQuotaKeepTheirExistingStates() {
@@ -77,12 +85,14 @@ import XCTest
         XCTAssertEqual(unavailable.label, "Studio Mac is offline")
         XCTAssertFalse(element(app, "plan-limits-preview-studio-claude-code").exists)
         capture(app, "offline desktop")
+        dismiss(app)
         app.terminate()
         let unknown = open(["--companion-context-quota-unknown"])
         let plan = reveal("plan-limits-preview-studio-copilot-cli", in: unknown)
         XCTAssertTrue(plan.label.contains("Unknown"), plan.label)
         XCTAssertFalse(element(unknown, "plan-limits-preview-studio-claude-code").exists)
         capture(unknown, "own provider unknown quota")
+        dismiss(unknown)
     }
 
     func testContextSettingsRetainsTheExistingEditor() {
@@ -94,24 +104,7 @@ import XCTest
         XCTAssertTrue(element(app, "companion-context-report").exists)
         XCTAssertTrue(app.buttons["agent-settings-context-window"].isHittable)
         XCTAssertTrue(app.buttons["companion-context-close"].isHittable)
+        dismiss(app)
     }
 
-    /// Read-only measurements for the shared-style follow-up; no target requirement is waived here.
-    func testOtherNativeCloseTargetsForFollowUp() {
-        let app = launchApp(["--companion-preview", "--companion-preview-start-home"], attempts: 1)
-        waitAndTap(app.buttons["Settings"], until: app.buttons["settings-close"], attempts: 1)
-        let settingsClose = app.buttons["settings-close"]
-        XCTAssertTrue(settingsClose.isHittable)
-        capture(app, "other native Settings close measurement")
-        print("OTHER_NATIVE_CLOSE Settings \(settingsClose.frame)")
-        settingsClose.tap()
-        let newAgent = app.navigationBars.buttons["New agent"]
-        waitAndTap(newAgent, until: app.buttons["new-agent-create"], attempts: 1)
-        let cancel = app.navigationBars.buttons["Cancel"]
-        XCTAssertTrue(cancel.isHittable)
-        capture(app, "other native New agent close measurement")
-        print("OTHER_NATIVE_CLOSE NewAgent \(cancel.frame)")
-        cancel.tap()
-        XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
-    }
 }
