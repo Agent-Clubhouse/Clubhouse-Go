@@ -208,10 +208,12 @@ struct CompanionAgentSettingsSheet: View {
             CompanionAgentSettingsForm(store: store, target: target, focusContext: focusContext)
                 .toolbar {
                     ToolbarItem(placement: .confirmationAction) {
-                        Button("Done") {
+                        Button("Done", systemImage: "checkmark") {
                             AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .done)
                             dismiss()
                         }
+                            .labelStyle(.iconOnly).buttonStyle(.glassProminent).companionProminentLabel()
+                            .accessibilityIdentifier("agent-settings-done")
                     }
                 }
         }
@@ -267,14 +269,6 @@ struct CompanionAgentSettingsForm: View {
     var body: some View {
         ScrollViewReader { proxy in
             Form {
-                if store.canSleep(target) || store.sleepRequests.contains(target) {
-                    Section("Session") {
-                        CompanionSleepControl(store: store, target: target)
-                        if let error = store.operationErrors[target] { Text(error).foregroundStyle(.red) }
-                    }
-                } else if let error = store.operationErrors[target] {
-                    Section { Text(error).foregroundStyle(.red) }
-                }
                 if let settings { form(settings).disabled(store.sleepRequests.contains(target)) }
                 else if let loadError {
                     contextSection(nil)
@@ -288,6 +282,14 @@ struct CompanionAgentSettingsForm: View {
                     }
                 } else {
                     ProgressView("Loading settings…").frame(maxWidth: .infinity)
+                }
+                if store.canSleep(target) || store.sleepRequests.contains(target) {
+                    Section {
+                        CompanionSleepControl(store: store, target: target)
+                        if let error = store.operationErrors[target] { Text(error).foregroundStyle(.red) }
+                    }
+                } else if let error = store.operationErrors[target] {
+                    Section { Text(error).foregroundStyle(.red) }
                 }
             }
             .navigationTitle(agent?.name ?? "Agent settings")
@@ -339,7 +341,7 @@ struct CompanionAgentSettingsForm: View {
             Section("Context") {
                 if let settings, let context = settings.contextWindow, !hides("contextWindow", settings) { contextWindow(context, sleeping: settings.sleeping) }
                 if let usage = agent?.contextUsage {
-                    LabeledContent("Context used", value: "\(usage.used.formatted()) / \(usage.size.formatted()) tokens")
+                    CompanionSettingsContextUsage(usage: usage)
                 }
                 if let report = agent?.chatControls?.context {
                     VStack(alignment: .leading, spacing: 4) {
@@ -357,14 +359,9 @@ struct CompanionAgentSettingsForm: View {
 
     @ViewBuilder private func form(_ settings: CompanionAgentSettings) -> some View {
         let sleeping = settings.sleeping
+        identityHeader(settings)
+        if saveError != nil || loadError != nil || settings.contextWindowReset?.message != nil {
         Section {
-            Text(summary(settings)).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                .accessibilityIdentifier("agent-settings-summary")
-            if settings.hasLockedSettings {
-                Label(CompanionAgentSettings.lockedHint, systemImage: "lock")
-                    .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-                    .accessibilityIdentifier("agent-settings-locked-hint")
-            }
             if let saveError {
                 Label(saveError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-error")
@@ -384,7 +381,7 @@ struct CompanionAgentSettingsForm: View {
             }
         }
 
-        contextSection(settings)
+        }
 
         if let routing = settings.routing, store.host(for: target)?.helperRouting != nil {
             Section("Helper routing") {
@@ -416,7 +413,7 @@ struct CompanionAgentSettingsForm: View {
 
         if !isDispatcher {
         Section {
-            LabeledContent("Name") {
+            LabeledContent {
                 TextField("Name", text: $nameDraft)
                     .multilineTextAlignment(.trailing).textInputAutocapitalization(.never).autocorrectionDisabled()
                     .submitLabel(.done)
@@ -426,14 +423,14 @@ struct CompanionAgentSettingsForm: View {
                     }
                     .disabled(!settings.name.canEdit(sleeping: sleeping) || saving)
                     .accessibilityIdentifier("agent-settings-name")
-            }
+            } label: { settingTitle("Name", locked: settings.name.isLocked(sleeping: sleeping)) }
             VStack(alignment: .leading, spacing: 8) {
-                Text("Color")
+                settingTitle("Color", locked: settings.color.isLocked(sleeping: sleeping))
                 CompanionColorSwatches(colors: settings.options.colors,
                                        selection: Binding(get: { settings.color.value }, set: { if $0 != settings.color.value { save(.init(color: $0)) } }),
                                        disabled: !settings.color.canEdit(sleeping: sleeping) || saving)
             }
-            LabeledContent("Emoji") {
+            LabeledContent {
                 HStack {
                     TextField("None", text: $emojiDraft)
                         .multilineTextAlignment(.trailing).submitLabel(.done)
@@ -450,7 +447,7 @@ struct CompanionAgentSettingsForm: View {
                     }
                 }
                 .disabled(!settings.emoji.canEdit(sleeping: sleeping) || saving)
-            }
+            } label: { settingTitle("Emoji", locked: settings.emoji.isLocked(sleeping: sleeping)) }
         } header: { Text("Identity") } footer: {
             if settings.hasImageIcon { Text("This agent has an image icon. Setting an emoji replaces it.") }
         }
@@ -482,7 +479,9 @@ struct CompanionAgentSettingsForm: View {
                     .disabled(!choice.available)
                 }
             } label: {
-                LabeledContent("Runs on", value: settings.orchestratorName)
+                LabeledContent { Text(settings.orchestratorName) } label: {
+                    settingTitle("Runs on", locked: settings.orchestrator.isLocked(sleeping: sleeping))
+                }
             }
             .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-orchestrator")
@@ -494,28 +493,34 @@ struct CompanionAgentSettingsForm: View {
                 LabeledContent("Session", value: difference.sessionLabel)
                     .accessibilityIdentifier("agent-settings-model-session")
             }
-            Picker(difference == nil ? "Model" : "Saved", selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
+            Picker(selection: Binding(get: { settings.model.value }, set: { if $0 != settings.model.value { save(.init(model: $0)) } })) {
                 ForEach(models) { option in
                     let label = option.id == settings.model.value ? difference?.savedLabel ?? option.label : option.label
                     Text(difference == nil ? label : "\(label) (next start)").tag(option.id)
                 }
-            }
+            } label: { settingTitle(difference == nil ? "Model" : "Saved", locked: settings.model.isLocked(sleeping: sleeping)) }
             .companionModelPickerStyle(count: models.count)
             .disabled(!settings.model.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-model")
             }
             if !hides("runtime", settings) {
-            Picker("Runtime", selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {
+            Picker(selection: Binding(get: { settings.runtime.value }, set: { if $0 != settings.runtime.value { save(.init(runtime: $0)) } })) {
                 Text("Provider default").tag("default")
                 Text("Chat").tag("chat")
                 Text("Terminal").tag("terminal")
-            }
+            } label: { settingTitle("Runtime", locked: settings.runtime.isLocked(sleeping: sleeping)) }
             .disabled(!settings.runtime.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-runtime")
             }
+            accessRows(settings)
         } header: { Text("Runtime") } footer: {
             Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
             Text("Sign-in and remaining quota aren't reported by this provider list.")
+            accessFooter(settings)
+            if settings.hasLockedSettings {
+                Text(CompanionAgentSettings.lockedHint)
+                    .accessibilityIdentifier("agent-settings-locked-hint")
+            }
         }
 
         Section {
@@ -526,20 +531,55 @@ struct CompanionAgentSettingsForm: View {
             }
             .disabled(!settings.idleSleep.canEdit(sleeping: sleeping) || saving)
             .accessibilityIdentifier("agent-settings-auto-sleep")
-        } footer: {
+        } header: { Text("Behavior") } footer: {
             Text(settings.idleSleepApplies
                  ? "\(settings.autoSleepSummary). \(settings.idleSleep.value.source(appMinutes: settings.appIdleMinutes))."
                  : "Only agents running in chat sleep when idle. \(settings.idleSleep.value.source(appMinutes: settings.appIdleMinutes)).")
         }
 
+
+        contextSection(settings)
+
+        if let orchestration = orchestration(settings) {
+            orchestrateSection(orchestration, name: settings.name.value, running: !sleeping,
+                               isHelper: settings.parentAgentID != nil || agent?.parentAgentID != nil)
+        }
+    }
+
+    @ViewBuilder private func identityHeader(_ settings: CompanionAgentSettings) -> some View {
+        if let agent {
+            Section {
+                VStack(spacing: 8) {
+                    CompanionAgentAvatar(agent: agent, size: 64)
+                    Text(agent.displayName).font(.title2.weight(.semibold))
+                    (Text("\(settings.orchestratorName) · \(settings.modelLabel) · ")
+                        .foregroundStyle(Color(palette.secondaryLabel))
+                     + Text(agent.status.label).foregroundStyle(agent.status.color(in: palette)))
+                        .font(.subheadline).multilineTextAlignment(.center)
+                        .accessibilityIdentifier("agent-settings-summary")
+                }
+                .frame(maxWidth: .infinity).padding(.vertical, 8)
+            }
+            .listRowBackground(Color.clear)
+        }
+    }
+
+    @ViewBuilder private func settingTitle(_ title: String, locked: Bool) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+            if locked { Image(systemName: "lock").font(.caption).foregroundStyle(Color(palette.secondaryLabel)).accessibilityHidden(true) }
+        }
+    }
+
+    @ViewBuilder private func accessRows(_ settings: CompanionAgentSettings) -> some View {
+        let sleeping = settings.sleeping
         if !hides("freeAgentMode", settings) && !hides("access", settings) {
-        Section {
             if let access = settings.access, canSetAccess {
                 if access.editable == .never {
                     LabeledContent("Access", value: "Set by the CLI")
                         .accessibilityIdentifier("agent-settings-access")
                 } else {
-                    Picker("Access", selection: Binding(get: { access.value }, set: { level in
+                    Picker(selection: Binding(get: { access.value }, set: { level in
                         guard level != (agent?.access ?? access.value), access.choices.contains(where: { $0.id == level }) else { return }
                         if accessNeedsConfirmation(level, saved: access) {
                             AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .selectAccess)
@@ -551,7 +591,7 @@ struct CompanionAgentSettingsForm: View {
                             Text(access.selectedLabel).tag(access.value)
                         }
                         ForEach(access.choices) { choice in Text(choice.label).tag(choice.id) }
-                    }
+                    } label: { settingTitle("Access", locked: access.editable == .sleeping && !sleeping) }
                     .disabled(!access.canEdit(sleeping: sleeping) || saving)
                     .accessibilityIdentifier("agent-settings-access")
                 }
@@ -559,7 +599,11 @@ struct CompanionAgentSettingsForm: View {
                 LabeledContent("Access", value: settings.access?.selectedLabel ?? "Desktop default")
                     .accessibilityIdentifier("agent-settings-access")
             }
-        } header: { Text("Access") } footer: {
+        }
+    }
+
+    @ViewBuilder private func accessFooter(_ settings: CompanionAgentSettings) -> some View {
+        if !hides("freeAgentMode", settings) && !hides("access", settings) {
             VStack(alignment: .leading, spacing: 4) {
                 if let access = settings.access, canSetAccess {
                     if access.editable == .never { Text(CompanionFreeAgentMode.unsupported) }
@@ -568,16 +612,9 @@ struct CompanionAgentSettingsForm: View {
                         Text(CompanionSavedAccess.applicationNote)
                         if access.value != access.startsAt { Text("Starts at \(access.startsAt.label) on this CLI.") }
                         if let live = agent?.liveAccess { Text(access.applicationSummary(live: live)) }
-                        if !access.canEdit(sleeping: sleeping) { Text(CompanionAgentSettings.lockedHint) }
                     }
                 } else { Text("Access follows the desktop default. Change it on the desktop.") }
             }
-        }
-        }
-
-        if let orchestration = orchestration(settings) {
-            orchestrateSection(orchestration, name: settings.name.value, running: !sleeping,
-                               isHelper: settings.parentAgentID != nil || agent?.parentAgentID != nil)
         }
     }
 
@@ -588,7 +625,7 @@ struct CompanionAgentSettingsForm: View {
         let canReset = context.canReset(sleeping: sleeping, isDispatcher: isDispatcher) && store.canEditSettings(target)
             && store.host(for: target)?.canSetContextWindow == true && !saving
         return VStack(alignment: .leading, spacing: 6) {
-            Picker(context.displayLabel, selection: Binding<String?>(get: { context.value }, set: {
+            Picker(selection: Binding<String?>(get: { context.value }, set: {
                 if let change = context.change(to: $0) { save(change) }
             })) {
                 Text(context.displayDefaultLabel).tag(String?.none)
@@ -598,7 +635,7 @@ struct CompanionAgentSettingsForm: View {
                 if let value = context.value, !context.choices.contains(where: { $0.id == value }) {
                     Text(context.selectedLabel).tag(Optional(value)).disabled(true)
                 }
-            }
+            } label: { settingTitle(context.displayLabel, locked: context.isLocked(sleeping: sleeping)) }
             .disabled(!canEdit)
             .accessibilityIdentifier("agent-settings-context-window")
             if let description = context.description {
@@ -716,13 +753,6 @@ struct CompanionAgentSettingsForm: View {
         level.needsConfirmation(from: agent?.access ?? saved.value)
     }
 
-    /// "Chat · Opus · Sleeps after 30 min", as the Settings card's one line.
-    private func summary(_ settings: CompanionAgentSettings) -> String {
-        var parts = [settings.resolvedRuntime == "terminal" ? "Terminal" : "Chat", settings.orchestratorName, settings.modelLabel]
-        if settings.idleSleepApplies { parts.append(settings.autoSleepSummary) }
-        return parts.joined(separator: " · ")
-    }
-
     private func orchestratorChoices(_ settings: CompanionAgentSettings) -> [(id: String, label: String, available: Bool)] {
         var choices = settings.options.orchestrators.map {
             (id: $0.id, label: $0.available ? $0.displayName : "\($0.displayName) (\($0.unavailableReason ?? "Unavailable on this desktop"))", available: $0.available)
@@ -803,6 +833,37 @@ struct CompanionAgentSettingsForm: View {
         settings = loaded
         if !keepName { nameDraft = loaded.name.value }
         if !keepEmoji { emojiDraft = loaded.emoji.value ?? "" }
+    }
+}
+
+/// A compact usage amount; the ring repeats no raw token string and adds no chat dependency.
+private struct CompanionSettingsContextUsage: View {
+    let usage: CompanionContextUsage
+    @Environment(\.companionPalette) private var palette
+    @ScaledMetric(relativeTo: .body) private var size: CGFloat = 18
+
+    private func amount(_ tokens: Int) -> String {
+        tokens.formatted(.number.notation(.compactName)).lowercased()
+    }
+
+    var body: some View {
+        LabeledContent("Context used") {
+            HStack(spacing: 6) {
+                if let percent = usage.percent {
+                    ZStack {
+                        Circle().stroke(Color(palette.fill), lineWidth: 3)
+                        Circle().trim(from: 0, to: CGFloat(max(0, min(100, percent))) / 100)
+                            .stroke(Color(percent >= 90 ? palette.error : palette.secondaryLabel), style: .init(lineWidth: 3, lineCap: .round))
+                            .rotationEffect(.degrees(-90))
+                    }
+                    .frame(width: size, height: size).accessibilityHidden(true)
+                }
+                Text("\(amount(usage.used)) of \(amount(usage.size))")
+                    .monospacedDigit().fixedSize(horizontal: false, vertical: true)
+            }
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("agent-settings-context-usage")
     }
 }
 
