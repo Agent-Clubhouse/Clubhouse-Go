@@ -26,11 +26,21 @@ import ClubhouseTransport
         #expect(navigation.dispatcherTitle(hosts: hosts) == "Navi")
     }
 
-    @Test func missingUnavailableAndBlankNamesFallBackToDispatcher() {
+    @Test func cachedNamesSurviveMissingReportsAndReportedUnavailableOrUnknownNamesUseTheGenericFallback() throws {
         let named = host()
         let cached = [CompanionDispatcherDesktop(host: named)!]
         var navigation = CompanionNavigation(lastTab: .dispatcher, cached: cached)
-        #expect(navigation.dispatcherTitle(hosts: []) == "Dispatcher")
+        // #444 keeps paired/cached Dispatchers visible while the current report is absent.
+        // A missing report preserves known identity; a reported loading/unavailable state below does not.
+        #expect(navigation.dispatcherTitle(hosts: []) == "Navi", "Use the selected paired desktop's cached Dispatcher name")
+        let unknown = CompanionNavigation(lastTab: .dispatcher, cached: [])
+        #expect(unknown.dispatcherTitle(hosts: []) == "Dispatcher", "No live or cached name means the generic role")
+        // Preferences decode through this initializer, which canonicalizes persisted blank names.
+        let blankCache = try JSONDecoder().decode([CompanionDispatcherDesktop].self,
+            from: Data(#"[{"id":"studio","name":"studio","displayName":" \n\t"}]"#.utf8))
+        #expect(blankCache.first?.displayName == "Dispatcher")
+        let unnamed = CompanionNavigation(lastTab: .dispatcher, cached: blankCache)
+        #expect(unnamed.dispatcherTitle(hosts: []) == "Dispatcher", "An empty cached name cannot produce a blank title")
         var loading = named
         loading.dispatcher?.agent = nil
         navigation.update(hosts: [loading])
