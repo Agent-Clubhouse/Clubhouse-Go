@@ -408,6 +408,19 @@ The helper and quiet disclosures introduced by #434 are instrumented in their ex
 | [ ] | [CompanionDiagnosticsView.swift](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift) | Native export ShareLink needs the separately verified interaction hook. |
 | [ ] | [CompanionAppUpdateView.swift](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift) | Root/settings owner supplies originating context to inline shared Check for updates actions; the standalone update page supplies `.desktopUpdate` itself. |
 
+## Native link, share and photo-picker callbacks still pending
+
+These native controls retain their system activation behavior. They need the separately verified hook or their owning lane's explicit selection callback; no content or destination value may enter telemetry.
+
+| Pending | File | Interaction / owner |
+|---|---|---|
+| [ ] | [CompanionWelcome.swift:45](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L45) | Website Link opening; native hook spike/decision. |
+| [ ] | [CompanionQRPairing.swift:29](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L29) | System Settings Link opening; native hook spike/decision. |
+| [ ] | [CompanionDiagnosticsView.swift:99](../Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift#L99) | Reviewed export ShareLink; native hook spike/decision. |
+| [ ] | [CompanionMarkdownBlockViews.swift:284](../Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift#L284) | Preview ShareLink; chat owner plus verified native hook. |
+| [ ] | [CompanionContentView.swift:176](../Annex/Annex/Companion/Views/CompanionContentView.swift#L176) | Image ShareLink; content/chat owner plus verified native hook. |
+| [ ] | [CompanionAttachments.swift:33](../Annex/Annex/Companion/Views/CompanionAttachments.swift#L33) | Native photo-picker opening and explicit selection; chat owner. Never export image/content/selection identifiers. |
+
 ## Embedded feedback SDK controls
 
 The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swift`; the composer and screenshot editor controls themselves live in the vendored FramebriarUI sources below. They are remaining integration sites, not instrumented by changing the vendor in this PR. **Requires an upstream Framebriar change (optional enum-only interaction callback), then re-vendor.** This includes the enrollment controls in `FeedbackModel.swift`. CI verifies the vendored directory byte-for-byte against `Vendor/Framebriar/SOURCE.json`; never instrument those files in place. After the upstream tag is re-vendored, the app-owned boundary can adopt its callback without forwarding any SDK data. Never forward feedback text, screenshots, marks, ink values or identifiers into telemetry.
