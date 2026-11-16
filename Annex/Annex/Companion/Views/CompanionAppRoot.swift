@@ -408,93 +408,55 @@ struct CompanionSettingsSheet: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Your desktops") {
-                    ForEach(runtime.store.hosts) { host in
-                        VStack(alignment: .leading, spacing: 10) {
-                            Label(host.name, systemImage: "desktopcomputer").font(.headline)
-                            Text(host.endpoint).font(.subheadline).foregroundStyle(.secondary)
-                            Text(host.connection.label).font(.caption)
-                            CompanionAppUpdateLink(store: runtime.store, host: host)
-                            if case .failed(let message) = host.connection {
-                                Text(message).font(.subheadline).foregroundStyle(.secondary)
-                            }
-                            Text(runtime.sessionHosts.contains(host.id) ? "Session-only pairing" : "Remembered desktop").font(.caption).foregroundStyle(.secondary)
-                            DisclosureGroup("Connection details") {
-                                CompanionDesktopConnectionActions(host: host, isSessionOnly: runtime.sessionHosts.contains(host.id),
-                                    retry: { Task { await runtime.store.reconnect(hostID: host.id) } },
-                                    forget: { hostToForget = host }, endSession: { hostToEnd = host })
-                            }.font(.subheadline)
-                        }.padding(.vertical, 6).disabled(removingHostID == host.id)
-                    }
-                    Button("Pair another desktop", systemImage: "plus", action: pair)
-                }
-                CompanionPlanLimitsLink(store: runtime.store)
-                CompanionHelperPresetLinks(store: runtime.store)
-                let dispatcherHosts = runtime.store.hosts.filter { $0.dispatcher != nil }
-                if !dispatcherHosts.isEmpty {
-                    Section("Dispatcher") {
-                        ForEach(dispatcherHosts) { host in
-                            CompanionDispatcherSwitch(store: runtime.store, hostID: host.id, label: dispatcherHosts.count > 1 || runtime.store.hosts.count > 1 ? "\(host.dispatcherDisplayName) on \(host.name)" : nil)
-                        }
-                    }
-                }
-                Section {
-                    Picker("Fold idle projects after", selection: Bindable(runtime.preferences).idleDays) {
-                        ForEach(CompanionIdleRule.dayChoices, id: \.self) { days in
-                            Text(days == 0 ? "Never" : "\(days) days").tag(days)
-                        }
-                    }
-                } header: { Text("Home") } footer: {
-                    let shared = runtime.store.hosts.filter(\.sharesProjectState).map(\.name)
-                    Text("Unpinned projects with no running agent and no activity for this long fold into one idle section. Kept on this phone."
-                         + (shared.isEmpty ? "" : " \(shared.formatted(.list(type: .and))) \(shared.count == 1 ? "shares its" : "share their") pins and idle projects, and \(shared.count == 1 ? "uses its" : "use their") own setting."))
-                }
-                Section {
-                    CompanionDeviceNameField(preferences: runtime.preferences)
-                } header: { Text("This phone") } footer: {
-                    Text(CompanionDeviceNameField.footer + " Desktops paired before a change keep the old name until you pair again.")
-                }
-                CompanionFeedbackSettings(model: runtime.feedback, initialCapture: initialCapture)
-                Section("Advanced") {
-                    NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }
-                    Label("Direct connection", systemImage: "network")
-                    Text("Connect over the same local network or a direct Tailscale address. Your agents keep running on your desktop when you leave the app.")
-                        .font(.subheadline).foregroundStyle(.secondary)
-                }
-                CompanionBuildInfoSection()
+                CompanionSettingsSections(store: runtime.store, preferences: runtime.preferences,
+                    feedback: runtime.feedback, initialCapture: initialCapture, exporter: runtime.telemetryExporter,
+                    sessionHosts: runtime.sessionHosts, removingHostID: removingHostID, operationError: error, pair: pair,
+                    forget: { hostToForget = $0 }, endSession: { hostToEnd = $0 })
                 if let error { Section { Text(error).foregroundStyle(.red) } }
+                CompanionBuildInfoSection()
             }
             .onAppear { AnnexTelemetry.shared.record(.settings) }
             .navigationTitle("Settings")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
-            .confirmationDialog("Forget \(hostToForget?.name ?? "desktop")?", isPresented: Binding(get: { hostToForget != nil }, set: { if !$0 { hostToForget = nil } }), titleVisibility: .visible) {
-                if let host = hostToForget {
-                    Button("Forget desktop", role: .destructive) {
-                        Task {
-                            removingHostID = host.id
-                            defer { removingHostID = nil }
-                            do { try await runtime.forget(hostID: host.id) }
-                            catch { self.error = CompanionLiveService.readableError(error) }
-                            hostToForget = nil
-                        }
-                    }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close", systemImage: "xmark") {
+                        CompanionUIActions.record(.close, on: .settings)
+                        dismiss()
+                    }.labelStyle(.iconOnly)
+                        .accessibilityIdentifier("settings-close")
                 }
-            } message: { Text("This removes access from this device. Desktop trust remains until you disconnect this device in desktop settings or stop Annex for a session-only pairing. Running agents are unaffected.") }
-            .confirmationDialog("End this session pairing?", isPresented: Binding(get: { hostToEnd != nil }, set: { if !$0 { hostToEnd = nil } }), titleVisibility: .visible) {
-                if let host = hostToEnd {
-                    Button("End session pairing", role: .destructive) {
-                        Task {
-                            removingHostID = host.id
-                            defer { removingHostID = nil }
-                            do { try await runtime.endSession(hostID: host.id) }
-                            catch { self.error = CompanionLiveService.readableError(error) }
-                            hostToEnd = nil
-                        }
-                    }
-                }
-            } message: { Text("This asks the desktop to revoke this device's session access, then removes it here. Your agents keep running.") }
+            }
+            .companionTelemetryScreen(.settings)
         }
+        .confirmationDialog("Forget \(hostToForget?.name ?? "desktop")?", isPresented: Binding(get: { hostToForget != nil }, set: { if !$0 { hostToForget = nil } }), titleVisibility: .visible) {
+            if let host = hostToForget {
+                Button("Forget desktop", role: .destructive) {
+                    CompanionUIActions.record(.confirm, on: .desktopSettings)
+                    Task {
+                        removingHostID = host.id
+                        defer { removingHostID = nil }
+                        do { try await runtime.forget(hostID: host.id) }
+                        catch { self.error = CompanionLiveService.readableError(error) }
+                        hostToForget = nil
+                    }
+                }
+            }
+        } message: { Text("This removes access from this device. Desktop trust remains until you disconnect this device in desktop settings or stop Annex for a session-only pairing. Running agents are unaffected.") }
+        .confirmationDialog("End this session pairing?", isPresented: Binding(get: { hostToEnd != nil }, set: { if !$0 { hostToEnd = nil } }), titleVisibility: .visible) {
+            if let host = hostToEnd {
+                Button("End session pairing", role: .destructive) {
+                    CompanionUIActions.record(.confirm, on: .desktopSettings)
+                    Task {
+                        removingHostID = host.id
+                        defer { removingHostID = nil }
+                        do { try await runtime.endSession(hostID: host.id) }
+                        catch { self.error = CompanionLiveService.readableError(error) }
+                        hostToEnd = nil
+                    }
+                }
+            }
+        } message: { Text("This asks the desktop to revoke this device's session access, then removes it here. Your agents keep running.") }
     }
 }
 
@@ -505,29 +467,39 @@ struct CompanionDesktopConnectionActions: View {
     var retry: () -> Void
     var forget: () -> Void
     var endSession: () -> Void = {}
-    @Environment(\.companionPalette) private var palette
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        Section("Connection details") {
             Text("Verified desktop identity").font(.caption).foregroundStyle(.secondary)
             Text(host.id).font(.caption.monospaced()).textSelection(.enabled)
             if let notice = host.snapshotTruncationNotice {
                 Text(notice).font(.caption).foregroundStyle(.secondary)
                     .accessibilityIdentifier("snapshot-truncation-\(host.id)")
             }
-            // Borderless keeps sibling actions independent inside one List row.
-            Button("Retry", action: retry)
-                .buttonStyle(.borderless).foregroundStyle(Color(palette.tint))
-                .accessibilityIdentifier("desktop-connection-retry")
+        }
+        Section {
+            Button {
+                CompanionUIActions.record(.retry, on: .desktopSettings)
+                retry()
+            } label: {
+                CompanionSettingsRowLabel("Retry", symbol: "arrow.clockwise", tone: .accent)
+            }.accessibilityIdentifier("desktop-connection-retry")
             if isSessionOnly, host.canRevokeSession {
-                Button("End session pairing", role: .destructive, action: endSession)
-                    .buttonStyle(.borderless).foregroundStyle(.red)
-                    .disabled(!host.connection.canOperate)
+                Button(role: .destructive) {
+                    CompanionUIActions.record(.revokeSession, on: .desktopSettings)
+                    endSession()
+                } label: {
+                    CompanionSettingsRowLabel("End session pairing", symbol: "link.badge.plus", tone: .error)
+                }.foregroundStyle(.red).disabled(!host.connection.canOperate)
             }
-            Button("Forget on this device", role: .destructive, action: forget)
-                .buttonStyle(.borderless).foregroundStyle(.red)
-                .accessibilityIdentifier("desktop-connection-forget")
-        }.padding(.vertical, 8)
+        }
+        Section {
+            Button(role: .destructive) {
+                CompanionUIActions.record(.forgetDesktop, on: .desktopSettings)
+                forget()
+            } label: {
+                CompanionSettingsRowLabel("Forget on this device", symbol: "trash", tone: .error)
+            }.accessibilityIdentifier("desktop-connection-forget")
+        }
     }
 }
 
@@ -537,10 +509,12 @@ struct CompanionBuildInfoSection: View {
 
     var body: some View {
         let text = CompanionBuildInfo.settingsVersion(version: version.version, build: version.build, sha: sha)
-        Section("About") {
+        Section {
             Text(text)
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity).multilineTextAlignment(.center)
+                .listRowBackground(Color.clear)
                 .textSelection(.enabled)
                 .contextMenu {
                     if let sha {

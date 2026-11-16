@@ -883,6 +883,7 @@ struct CompanionDispatcherSwitch: View {
     let hostID: String
     /// The Dispatcher name and its desktop, when more than one is paired.
     var label: String?
+    var settingsRow = false
     @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionPalette) private var palette
 
@@ -897,9 +898,13 @@ struct CompanionDispatcherSwitch: View {
                         CompanionUIActions.record(.toggleDispatcher, on: screen)
                         Task { await store.setDispatcher(enabled: on, hostID: hostID) }
                     })) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Turn on Dispatcher")
-                            if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                        if settingsRow {
+                            CompanionSettingsRowLabel("Dispatcher", symbol: "point.3.connected.trianglepath.dotted", tone: .info, value: label)
+                        } else {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Turn on Dispatcher")
+                                if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
+                            }
                         }
                     }
                     // Turning it off is always allowed; turning it on needs the desktop's flag and layout.

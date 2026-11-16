@@ -347,7 +347,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         // Opening Settings also dismisses the keyboard before the desktop report.
         app.buttons["Settings"].tap()
         app.buttons["Disconnect desktop"].tap()
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         XCTAssertTrue(tab(app, "Dispatch").exists, "A dropped connection isn't off")
         XCTAssertTrue(app.navigationBars["Dispatcher"].exists)
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
@@ -356,7 +356,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         app.buttons["Settings"].tap()
         app.buttons["Reconnect desktop"].tap()
         app.buttons["Report Dispatcher off"].tap()
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         XCTAssertFalse(tab(app, "Dispatch").exists)
         tab(app, "Search").tap()
@@ -364,7 +364,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         tab(app, "Home").tap()
         app.buttons["Settings"].tap()
         app.buttons["Report Dispatcher on"].tap()
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         XCTAssertTrue(app.navigationBars["Clubhouse"].exists, "Turning on never switches tabs during use")
         tab(app, "Dispatch").tap()
         XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", "A draft for this desktop"), timeout: 5))
@@ -382,7 +382,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["companion-start-screen"].exists)
         XCTAssertFalse(app.staticTexts["Start screen"].exists)
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         func assertSelectedTab(_ title: String) {
             if title == "Search" {
                 // The native Search role replaces its collapsed tab button with the search field.

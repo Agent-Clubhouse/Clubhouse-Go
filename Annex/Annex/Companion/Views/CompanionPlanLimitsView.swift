@@ -3,15 +3,18 @@ import ClubhouseTransport
 
 struct CompanionPlanLimitsLink: View {
     @Bindable var store: CompanionStore
+    var settingsRows = false
     var body: some View {
         if !store.hosts.isEmpty {
-            Section {
-                NavigationLink { CompanionPlanLimitsView(store: store) } label: {
-                    Label("Plan limits", systemImage: "chart.bar")
-                }
-                .accessibilityIdentifier("settings-plan-limits")
-            }
+            if settingsRows { row } else { Section { row } }
         }
+    }
+    private var row: some View {
+        NavigationLink { CompanionPlanLimitsView(store: store) } label: {
+            if settingsRows {
+                CompanionSettingsRowLabel("Plan limits", symbol: "chart.bar", tone: .success)
+            } else { Label("Plan limits", systemImage: "chart.bar") }
+        }.accessibilityIdentifier("settings-plan-limits")
     }
 }
 

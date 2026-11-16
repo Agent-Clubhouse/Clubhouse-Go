@@ -49,6 +49,12 @@ The shared swatch button owns `.selectColor`, so agent and Dispatcher settings n
 
 App-owned feedback code can record settings toggles, held/queued-report prompts and confirmations, the screenshot offer, and enrollment-sheet Done. The SDK composer, editor and enrollment controls remain blocked on the upstream callback and re-vendor described below. Native/system dismissal and debug fixture controls are excluded; no synthetic Cancel event is inferred from state changes.
 
+## Deferred native-opening experiment
+
+The public PrimitiveButtonStyle / configuration.trigger() comparison spike is deferred to free simulator capacity (orchestrator decision, November 16). Its unvalidated DEBUG-only experiment is preserved on `ux-433/native-hook-spike` at `1630522736bc3453d22c1913439659081ad17e88`; no product control adopts it. Native Menu, NavigationLink, ShareLink and implicit DisclosureGroup openings remain unchecked follow-ups. Run the untouched-versus-wrapped accessibility/default-action comparison and obtain a decision before any rollout.
+
+#451 uses shared Settings sections in production and preview. Its moved explicit Pair, Close, idle-selection, Retry, Forget/revoke prompt and confirmation callbacks are adopted with fixed settings/desktopSettings intent; phone-name submit now inherits the settings context. Feedback consent, options and shortcut callbacks remain byte-identical. New Settings navigation destinations still await the deferred native-opening hook; no tap gesture or appearance inference is added.
+
 ## Required Root/settings follow-up
 
 - Replace the undifferentiated Root `.navigation` tap event with explicit screen/control intents at each tab and navigation action. Set context separately for Home, Dispatcher, Needs you and Agents; do not apply one Home context around the whole tab tree.
@@ -76,16 +82,16 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [ ] | [CompanionAgentTreeRows.swift:129](../Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift#L129) | Follow-up owner to assign | `NavigationLink(value: row.id) {` |
 | [ ] | [CompanionAppRoot.swift:293](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L293) | Root/settings owner (shared file) | `Button("OK") { runtime.restoreError = nil }` |
 | [ ] | [CompanionAppRoot.swift:341](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L341) | Root/settings owner (shared file) | `Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") { openSettings() }` |
-| [ ] | [CompanionAppRoot.swift:412](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L412) | Root/settings owner (shared file) | `DisclosureGroup("Connection details") {` |
-| [ ] | [CompanionAppRoot.swift:419](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L419) | Root/settings owner (shared file) | `Button("Pair another desktop", systemImage: "plus", action: pair)` |
-| [ ] | [CompanionAppRoot.swift:432](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L432) | Root/settings owner (shared file) | `Picker("Fold idle projects after", selection: Bindable(runtime.preferences).idleDays) {` |
-| [ ] | [CompanionAppRoot.swift:449](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L449) | Root/settings owner (shared file) | `NavigationLink("Connection diagnostics") { CompanionDiagnosticsView(exporter: runtime.telemetryExporter) }` |
-| [ ] | [CompanionAppRoot.swift:460](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L460) | Root/settings owner (shared file) | `.toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }` |
-| [ ] | [CompanionAppRoot.swift:463](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L463) | Root/settings owner (shared file) | `Button("Forget desktop", role: .destructive) {` |
-| [ ] | [CompanionAppRoot.swift:476](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L476) | Root/settings owner (shared file) | `Button("End session pairing", role: .destructive) {` |
-| [ ] | [CompanionAppRoot.swift:509](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L509) | Root/settings owner (shared file) | `Button("Retry", action: retry)` |
-| [ ] | [CompanionAppRoot.swift:513](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L513) | Root/settings owner (shared file) | `Button("End session pairing", role: .destructive, action: endSession)` |
-| [ ] | [CompanionAppRoot.swift:517](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L517) | Root/settings owner (shared file) | `Button("Forget on this device", role: .destructive, action: forget)` |
+| [ ] | [CompanionSettingsSections.swift:22](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L22) | Native opening hook deferred | `CompanionSettingsDesktopPage(store: store, hostID: host.id,` |
+| [x] | [CompanionSettingsSections.swift:33](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L33) | ux-structure #451 callbacks | `CompanionUIActions.record(.connectDesktop, on: .settings)` |
+| [x] | [CompanionSettingsSections.swift:96](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L96) | ux-structure #451 callbacks | `Picker("Fold idle projects after", selection: Binding(get: { preferences.idleDays }, set: {` |
+| [ ] | [CompanionSettingsSections.swift:72](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L72) | Native opening hook deferred | `NavigationLink { CompanionDiagnosticsView(exporter: exporter) } label: {` |
+| [x] | [CompanionAppRoot.swift:413](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L413) | ux-structure #451 callbacks | `Button("Close", systemImage: "xmark") {` |
+| [x] | [CompanionAppRoot.swift:423](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L423) | ux-structure #451 callbacks | `Button("Forget desktop", role: .destructive) {` |
+| [x] | [CompanionAppRoot.swift:437](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L437) | ux-structure #451 callbacks | `Button("End session pairing", role: .destructive) {` |
+| [x] | [CompanionAppRoot.swift:471](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L471) | ux-structure #451 callbacks | `CompanionUIActions.record(.retry, on: .desktopSettings)` |
+| [x] | [CompanionAppRoot.swift:478](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L478) | ux-structure #451 callbacks | `CompanionUIActions.record(.revokeSession, on: .desktopSettings)` |
+| [x] | [CompanionAppRoot.swift:487](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L487) | ux-structure #451 callbacks | `CompanionUIActions.record(.forgetDesktop, on: .desktopSettings)` |
 | [ ] | [CompanionAppRoot.swift:537](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L537) | Root/settings owner (shared file) | `Button("Copy build SHA", systemImage: "doc.on.doc") { UIPasteboard.general.string = sha }` |
 | [ ] | [CompanionAppRoot.swift:539](../Annex/Annex/Companion/Views/CompanionAppRoot.swift#L539) | Root/settings owner (shared file) | `Button("Copy version", systemImage: "doc.on.doc") { UIPasteboard.general.string = text }` |
 | [x] | [CompanionAppUpdateView.swift:13](../Annex/Annex/Companion/Views/CompanionAppUpdateView.swift#L13) | ux-structure leaf callbacks | `Button(alreadyChecking ? "Already checking" : checking ? "Checking…" : "Check for updates") {` |
@@ -381,6 +387,11 @@ Checked entries identify callbacks adopted by the API or app-owned leaf follow-u
 | [x] | [CompanionWelcome.swift:38](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L38) | ux-structure leaf callbacks | `Button("Look around first") {` |
 | [x] | [CompanionWelcome.swift:85](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L85) | ux-structure leaf callbacks | `Button("Pair your Mac") {` |
 | [x] | [CompanionWelcome.swift:89](../Annex/Annex/Companion/Views/CompanionWelcome.swift#L89) | ux-structure leaf callbacks | `Button("Close demo", systemImage: "xmark") {` |
+
+| [ ] | [CompanionSettingsSections.swift:52](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L52) | Native opening hook deferred | `CompanionIdleProjectSettings(store: store, preferences: preferences)` |
+| [ ] | [CompanionSettingsSections.swift:68](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L68) | Native opening hook deferred | `}.accessibilityIdentifier("settings-phone-name")` |
+| [ ] | [CompanionSettingsSections.swift:82](../Annex/Annex/Companion/Views/CompanionSettingsSections.swift#L82) | Native opening hook deferred | `}.navigationTitle("Direct connection").navigationBarTitleDisplayMode(.inline)` |
+| [ ] | [CompanionFeedback.swift:130](../Annex/Annex/Companion/Views/CompanionFeedback.swift#L130) | Native opening hook deferred | `Form { CompanionFeedbackOptions(model: model, initialCapture: initialCapture, showsSend: false) }` |
 
 ## Completion evidence
 

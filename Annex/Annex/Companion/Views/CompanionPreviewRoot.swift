@@ -76,24 +76,6 @@ struct CompanionPreviewRoot: View {
             .sheet(item: $settingsCapture.releasingFeedbackScreenshot) { capture in
                 NavigationStack {
                     Form {
-                        if store.hosts.contains(where: \.canUpdateApp) {
-                            Section("Your desktops") {
-                                ForEach(store.hosts.filter(\.canUpdateApp)) { host in
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        Label(host.name, systemImage: "desktopcomputer").font(.headline)
-                                        CompanionAppUpdateLink(store: store, host: host)
-                                        DisclosureGroup("Connection details") {
-                                            CompanionDesktopConnectionActions(host: host,
-                                                retry: { Task { await store.reconnect(hostID: host.id) } },
-                                                forget: { desktopToForget = host })
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        CompanionPlanLimitsLink(store: store)
-                        CompanionHelperPresetLinks(store: store)
-                        if let feedback { CompanionFeedbackSettings(model: feedback.model, initialCapture: capture) }
                         if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-controls") {
                             Section("Preview desktop reports") {
                                 Button("Report Dispatcher off") { report(enabled: false) }
@@ -121,19 +103,33 @@ struct CompanionPreviewRoot: View {
                                 Button("Report Studio offline") { report(connection: .offline) }
                             }
                         }
+                        CompanionSettingsSections(store: store, preferences: preferences, feedback: feedback?.model,
+                            initialCapture: capture, pair: {}, forget: { desktopToForget = $0 })
                         CompanionBuildInfoSection()
                     }
                     .navigationTitle("Settings")
-                    .confirmationDialog("Forget \(desktopToForget?.name ?? "desktop")?",
-                        isPresented: Binding(get: { desktopToForget != nil }, set: { if !$0 { desktopToForget = nil } }),
-                        titleVisibility: .visible) {
-                        Button("Forget desktop", role: .destructive) {
-                            store.apply(.hosts(store.hosts.filter { $0.id != desktopToForget?.id }))
-                            desktopToForget = nil
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Close", systemImage: "xmark") {
+                                CompanionUIActions.record(.close, on: .settings)
+                                $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil
+                            }
+                                .labelStyle(.iconOnly).accessibilityIdentifier("settings-close")
                         }
-                    } message: { Text("This removes access from this device. Running agents are unaffected.") }
-                    .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { $settingsCapture.releasingFeedbackScreenshot.wrappedValue = nil } } }
+                    }
+                    .companionTelemetryScreen(.settings)
                 }
+                .confirmationDialog("Forget \(desktopToForget?.name ?? "desktop")?",
+                    isPresented: Binding(get: { desktopToForget != nil }, set: { if !$0 { desktopToForget = nil } }),
+                    titleVisibility: .visible) {
+                    Button("Forget desktop", role: .destructive) {
+                        CompanionUIActions.record(.confirm, on: .desktopSettings)
+                        store.apply(.hosts(store.hosts.filter { $0.id != desktopToForget?.id }))
+                        desktopToForget = nil
+                    }
+                } message: { Text("This removes access from this device. Running agents are unaffected.") }
+                .companionTheme(preferences.sharedTheme(hosts: store.hosts))
             }
             .companionFeedbackEntryPoints(feedback)
             .companionFeedbackShake(feedback, enabled: true)

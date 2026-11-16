@@ -28,13 +28,16 @@ struct CompanionAppUpdateCheckAction: View {
 struct CompanionAppUpdateLink: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
+    var settingsRow = false
     var body: some View {
         if host.hasAppUpdateAffordance {
             NavigationLink {
                 CompanionAppUpdateView(store: store, hostID: host.id)
             } label: {
-                Label(host.appUpdate.map { CompanionAppUpdateText.indicator($0, desktop: host.name) } ?? "Desktop updates on \(host.name)",
-                      systemImage: "arrow.down.circle")
+                let title = host.appUpdate.map { CompanionAppUpdateText.indicator($0, desktop: host.name) } ?? "Desktop updates on \(host.name)"
+                if settingsRow {
+                    CompanionSettingsRowLabel(title, symbol: "arrow.down.circle", tone: .info)
+                } else { Label(title, systemImage: "arrow.down.circle") }
             }
             .accessibilityIdentifier("app-update-\(host.id)")
         } else if host.canUpdateApp, let update = host.appUpdate {

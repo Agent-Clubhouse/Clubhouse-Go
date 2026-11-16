@@ -33,7 +33,7 @@ import XCTest
         for _ in 0..<2 {
             let settings = app.navigationBars["Settings"]
             waitAndTap(app.buttons["Settings"], until: settings, timeout: 10)
-            settings.buttons["Done"].tap()
+            settings.buttons["settings-close"].tap()
             XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
         }
     }

@@ -4,25 +4,33 @@ import ClubhouseTransport
 /// Shared by Settings and the preview's Settings sheet. One page per desktop: presets are app-wide.
 struct CompanionHelperPresetLinks: View {
     @Bindable var store: CompanionStore
-    var body: some View {
-        let hosts = store.hosts.filter {
+    var settingsRows = false
+    private var hosts: [CompanionHost] {
+        store.hosts.filter {
             guard let feature = $0.helperRouting, feature.version == 1 else { return false }
             return feature.supportsPresets || feature.modes.contains("auto") || feature.quota
         }
+    }
+    var body: some View {
         if !hosts.isEmpty {
-            Section("Helpers") {
-                ForEach(hosts) { host in
-                    NavigationLink {
-                        CompanionHelperPresetsView(store: store, hostID: host.id)
-                    } label: {
-                        VStack(alignment: .leading) {
-                            Text("Helper presets")
-                            if store.hosts.count > 1 { Text(host.name).font(.caption).foregroundStyle(.secondary) }
-                        }
+            if settingsRows { rows } else { Section("Helpers") { rows } }
+        }
+    }
+    private var rows: some View {
+        ForEach(hosts) { host in
+            NavigationLink {
+                CompanionHelperPresetsView(store: store, hostID: host.id)
+            } label: {
+                if settingsRows {
+                    CompanionSettingsRowLabel("Helper presets", symbol: "person.2", tone: .warning,
+                        value: store.hosts.count > 1 ? host.name : nil)
+                } else {
+                    VStack(alignment: .leading) {
+                        Text("Helper presets")
+                        if store.hosts.count > 1 { Text(host.name).font(.caption).foregroundStyle(.secondary) }
                     }
-                    .accessibilityIdentifier("helper-presets-\(host.id)")
                 }
-            }
+            }.accessibilityIdentifier("helper-presets-\(host.id)")
         }
     }
 }

@@ -21,14 +21,14 @@ import XCTest
         let report = app.buttons["Report two requests and no working agents"]
         XCTAssertTrue(scrollUntilExists(report, in: app) && scrollTo(report, in: app))
         report.tap()
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         XCTAssertTrue(waitFor(counts, NSPredicate(format: "label CONTAINS '0 working' AND label CONTAINS '2 need you'"), timeout: 5))
         capture(app, "Home subtitle updates to plural attention count")
         app.buttons["Settings"].tap()
         let offline = app.buttons["Report Studio offline"]
         XCTAssertTrue(scrollUntilExists(offline, in: app) && scrollTo(offline, in: app))
         offline.tap()
-        app.buttons["Done"].tap()
+        app.buttons["settings-close"].tap()
         XCTAssertTrue(waitFor(counts, NSPredicate(format: "label CONTAINS '0 need you'"), timeout: 5))
     }
 
