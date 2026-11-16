@@ -86,7 +86,7 @@ struct CompanionHelperPresetsView: View {
                     }
                     if page.providers.values.contains(where: { $0.cells.values.contains { $0.custom != nil } }) {
                         Section {
-                            Button("Reset all presets") { reset(.init()) }.disabled(!canEdit)
+                            Button("Reset all presets") { reset(.init(), control: .resetAllHelperPresets) }.disabled(!canEdit)
                                 .accessibilityIdentifier("helper-presets-reset-all")
                         }
                     }
@@ -111,7 +111,10 @@ struct CompanionHelperPresetsView: View {
             } catch { }
         }
         .onChange(of: host?.connection.canOperate) { _, connected in if connected == true { Task { await load() } } }
-        .refreshable { await load() }
+        .refreshable {
+            CompanionUIActions.record(.refresh, on: .helperPresets)
+            await load()
+        }
         .onChange(of: scenePhase) { _, phase in if phase == .active { Task { await load() } } }
     }
 
@@ -135,7 +138,7 @@ struct CompanionHelperPresetsView: View {
                 }
             }
             if provider.cells.values.contains(where: { $0.custom != nil }) {
-                Button("Reset provider presets") { reset(.init(provider: id)) }.disabled(!canEdit)
+                Button("Reset provider presets") { reset(.init(provider: id), control: .resetProviderPresets) }.disabled(!canEdit)
             }
         } header: { Text(providerName(id)) } footer: {
             if let capability = host?.helperRouting {
@@ -168,7 +171,8 @@ struct CompanionHelperPresetsView: View {
         guard host?.helperRouting != nil else { return }
         await screen.load { try await store.helperRouting(hostID: hostID, projectID: projectID, agentID: agentID) }
     }
-    private func reset(_ reset: AnnexHelperRoutingUpdate.Reset) {
+    private func reset(_ reset: AnnexHelperRoutingUpdate.Reset, control: AnnexUIAction.Control) {
+        CompanionUIActions.record(control, on: .helperPresets)
         Task { await screen.save { revision in try await store.updateHelperRouting(.init(revision: revision, reset: reset), hostID: hostID) } }
     }
 }
@@ -202,7 +206,10 @@ private struct CompanionHelperPresetEditor: View {
                     if let fallback = cell.fallback, fallback != "none" { Text(page.label("fallback", fallback)) }
                 }
                 Section {
-                    Picker("Model", selection: Binding(get: { model }, set: { model = $0; effort = nil })) {
+                    Picker("Model", selection: Binding(get: { model }, set: {
+                        if $0 != model { CompanionUIActions.record(.selectModel, on: .helperPresets) }
+                        model = $0; effort = nil
+                    })) {
                         ForEach(provider?.models ?? []) { model in Text(model.label).tag(model.id) }
                     }
                     .accessibilityIdentifier("helper-preset-model")
@@ -210,13 +217,17 @@ private struct CompanionHelperPresetEditor: View {
                         Text("This model has no effort levels.")
                             .accessibilityIdentifier("helper-preset-no-effort")
                     } else {
-                        Picker("Effort", selection: $effort) {
+                        Picker("Effort", selection: Binding(get: { effort }, set: {
+                            if $0 != effort { CompanionUIActions.record(.selectEffort, on: .helperPresets) }
+                            effort = $0
+                        })) {
                             Text("CLI default").tag(String?.none)
                             ForEach(offered?.efforts ?? [], id: \.self) { Text($0).tag(Optional($0)) }
                         }
                         .accessibilityIdentifier("helper-preset-effort")
                     }
                     Button(screen.saving ? "Saving…" : "Save preset") {
+                        CompanionUIActions.record(.save, on: .helperPresets)
                         Task {
                             await screen.save { revision in
                                 try await store.updateHelperRouting(.init(revision: revision, cells: [.init(provider: providerID, difficulty: difficulty, model: model, effort: effort)]), hostID: hostID)
@@ -230,6 +241,7 @@ private struct CompanionHelperPresetEditor: View {
                 if cell.custom != nil {
                     Section {
                         Button("Reset preset") {
+                            CompanionUIActions.record(.resetHelperPreset, on: .helperPresets)
                             Task { await screen.save { revision in try await store.updateHelperRouting(.init(revision: revision, reset: .init(provider: providerID, difficulty: difficulty)), hostID: hostID) } }
                         }
                         .disabled(!canEdit).accessibilityIdentifier("helper-preset-reset")

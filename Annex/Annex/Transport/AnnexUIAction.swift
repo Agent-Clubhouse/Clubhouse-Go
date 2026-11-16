@@ -7,7 +7,7 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case home, dispatcher, needsYou, agents, search, project, conversation
         case agentDetails, agentSettings, newAgent, workspaceTools, projectInfo, wakeAgent, review, archive, changes
         case settings, desktopSettings, dispatcherSettings, planLimits, helperPresets
-        case feedback, feedbackEnrollment, feedbackDiagnostics, connectionDiagnostics, diagnosticsExport
+        case feedback, feedbackEnrollment, feedbackDiagnostics, connectionDiagnostics, diagnosticsExport, telemetryDestination
         case welcome, demo, pairing, providerSignIn, terminal, content, markdownFile
     }
 
@@ -27,11 +27,15 @@ nonisolated public struct AnnexUIAction: Codable, Equatable, Sendable {
         case retry, reconnect, refresh, copy, share, forgetDesktop, revokeSession, checkForUpdates, restartForUpdate
         case selectDesktop, selectProject, selectProvider, selectModel, selectRuntime, selectAccess, selectColor
         case selectContextWindow, resetContextWindow, selectAutoSleep, selectHelperPreset, selectBehavior
+        case selectEffort, toggleModelSelection, renameDispatcher, selectPersonality, savePersonality, revertPersonality
+        case clearDispatcherChat, forgetDispatcherMemory
+        case resetAllHelperPresets, resetProviderPresets, resetHelperPreset, toggleHelperFallback
         case toggleDispatcher, renameAgent, selectEmoji, openWorkspaceTools, selectMCP, toggleWorktree, toggleHelpers
         case expandHelpers, expandQuietAgents, expandSleepingAgents, expandFinishedAgents
         case connectDesktop, scanPairingCode, enterPairingAddress, trustDesktop, pairDesktop
         case inspectDesktop, toggleRememberDesktop, renamePhone
         case enrollFeedback, clearFeedback, sendHeldFeedback, clearHeldFeedback, prepareDiagnosticsReport
+        case selectDiagnosticCapture, openDiagnosticExport, clearDiagnostics, saveTelemetryDestination, toggleCollectorExport, removeTelemetryDestination
         case openArchive, openChanges, openContent, openLink, openRouting, openProviderSignIn, signOutProvider
     }
 

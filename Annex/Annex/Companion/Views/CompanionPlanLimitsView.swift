@@ -50,6 +50,7 @@ struct CompanionPlanLimitsView: View {
         }
         .refreshable {
             guard scenePhase == .active else { return }
+            CompanionUIActions.record(.refresh, on: .planLimits)
             await screen.refresh(hosts: store.hosts) { try await store.helperRouting(hostID: $0) }
         }
     }

@@ -43,6 +43,7 @@ struct CompanionHelperAutoSection: View {
                 }
                 if scopeID == "app", capability.copilotAuto == true, let copilotAuto = page.copilotAuto {
                     Toggle("Allow Copilot as a last resort", isOn: Binding(get: { copilotAuto }, set: { value in
+                        if value != copilotAuto { CompanionUIActions.record(.toggleHelperFallback, on: .helperPresets) }
                         Task {
                             await screen.save { revision in
                                 try await store.updateHelperRouting(.init(revision: revision, copilotAuto: value), hostID: hostID)
@@ -84,6 +85,7 @@ struct CompanionHelperAutoSection: View {
     }
     private func change(_ value: CompanionHelperAuto.Value) {
         guard canEdit else { return }
+        CompanionUIActions.record(.toggleHelpers, on: .helperPresets)
         Task {
             await screen.save { revision in
                 if let agentID, let target = host?.allAgents.first(where: { $0.id.agentID == agentID })?.id {
