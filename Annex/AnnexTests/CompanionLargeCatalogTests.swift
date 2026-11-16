@@ -25,6 +25,7 @@ import ClubhouseTransport
         window.rootViewController = UIHostingController(rootView: NavigationStack { home }.companionTheme(.clubhouse))
         window.makeKeyAndVisible()
         defer {
+            captured = nil
             window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
             store.shutdown(); defaults.removePersistentDomain(forName: suite)
         }

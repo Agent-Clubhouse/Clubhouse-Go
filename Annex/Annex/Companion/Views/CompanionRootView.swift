@@ -818,9 +818,9 @@ struct CompanionHomeView: View {
     }
 
     private func linkedStateMenu(entry: CompanionProjectEntry, isIdle: Bool) -> CompanionLinkedProjectStateMenuItems {
-        var menu = CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: isIdle)
+        let menu = CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: isIdle)
         #if DEBUG
-        menu.hostedTestSeam = hostedProjectMenu
+        hostedProjectMenu?(menu)
         #endif
         return menu
     }

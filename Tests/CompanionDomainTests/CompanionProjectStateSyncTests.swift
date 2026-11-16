@@ -373,7 +373,8 @@ struct CompanionSharedLayoutTests {
         let revision = store.projectCatalogRevision
         let first = store.projectEntries
         #expect(first.count == 16 * 64 - 8)
-        #expect(first.reduce(0) { $0 + $1.project.agents.count } == 16 * 64 * 24)
+        let agentCount: Int = first.reduce(0) { count, entry in count + entry.project.agents.count }
+        #expect(agentCount == 24_576)
         let target = CompanionProjectTarget(hostID: "synthetic-host-0", projectID: "project-0")
         for _ in 0..<200 {
             let next = store.projectEntries

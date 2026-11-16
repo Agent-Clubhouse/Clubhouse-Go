@@ -271,11 +271,6 @@ struct CompanionLinkedProjectStateMenuItems: View {
     let entry: CompanionProjectEntry
     let isIdle: Bool
 
-    #if DEBUG
-    /// Publishes the mounted production menu; hosted tests invoke its exact guarded actions.
-    var hostedTestSeam: ((Self) -> Void)? = nil
-    #endif
-
     func setPinned(_ pinned: Bool) async {
         guard let current = store.resolveProjectActionEntry(containing: entry.id, expectedLinkID: entry.linkID),
               store.canChangeLinkedProjectState(current) else { return }
@@ -289,9 +284,6 @@ struct CompanionLinkedProjectStateMenuItems: View {
     }
 
     var body: some View {
-        #if DEBUG
-        let _ = hostedTestSeam?(self)
-        #endif
         if let shared = store.linkedProjectState(entry) {
             Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
                 Task { await setPinned(!shared.pinned) }
