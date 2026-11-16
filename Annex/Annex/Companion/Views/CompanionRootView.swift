@@ -638,58 +638,72 @@ struct CompanionHomeView: View {
     private func projectHeader(_ group: CompanionProjectGroup) -> some View {
         let entry = group.entry
         let projectID = "\(entry.host.id)-\(entry.project.id)"
+        // Bound the Debug builder's generic value storage. Reuse one erased menu for
+        // all three gesture targets and both accessibility action surfaces.
+        let menu = CompanionHomeProjectHeaderMenu(content: AnyView(projectContextMenuItems(group)))
         let headerLayout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
                 : AnyLayout(HStackLayout(spacing: 6))
         return headerLayout {
-            HStack(spacing: 6) {
-                CompanionProjectBadge(project: entry.project)
-                    .overlay(alignment: .bottomTrailing) {
-                        if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
-                            Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
-                                .accessibilityHidden(true)
-                        }
-                    }
-                projectLink(entry)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .contextMenu { projectContextMenuItems(group) }
-                    .accessibilityActions { projectContextMenuItems(group) }
-                    .accessibilityLabel("Open \(entry.project.name)")
-                    .accessibilityAddTraits(.isHeader)
-                    .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
-                if group.isPinned {
-                    Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
-                        .accessibilityLabel("Pinned")
-                }
-            }
-            HStack(spacing: 6) {
-                if entry.isLinked {
-                    let count = Set(entry.members.map(\.host.id)).count
-                    Label("\(count)", systemImage: "desktopcomputer")
-                        .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
-                        .padding(.horizontal, 6).padding(.vertical, 1)
-                        .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
-                        .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
-                }
-                if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
-                Spacer(minLength: 0)
-                Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
-                    .buttonStyle(.borderless)
-                    .frame(minWidth: 44, minHeight: 44)
-                    .disabled(!entry.canSpawn)
-                    .contextMenu { projectContextMenuItems(group) }
-                    .accessibilityActions { projectContextMenuItems(group) }
-                    .accessibilityIdentifier("project-new-agent-\(projectID)")
-                    .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
-            }
+            projectHeaderTitle(group, menu: menu)
+            projectHeaderActions(group, menu: menu)
         }
         .font(.subheadline.weight(.semibold))
         .textCase(nil)
         .opacity(group.isIdle ? 0.7 : 1)
         .contentShape(Rectangle())
-        .contextMenu { projectContextMenuItems(group) }
+        .contextMenu { menu }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("project-\(projectID)")
+    }
+
+    private func projectHeaderTitle(_ group: CompanionProjectGroup, menu: CompanionHomeProjectHeaderMenu) -> AnyView {
+        let entry = group.entry
+        return AnyView(HStack(spacing: 6) {
+            CompanionProjectBadge(project: entry.project)
+                .overlay(alignment: .bottomTrailing) {
+                    if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                        Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
+                            .accessibilityHidden(true)
+                    }
+                }
+            projectLink(entry)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .contextMenu { menu }
+                .accessibilityActions { menu }
+                .accessibilityLabel("Open \(entry.project.name)")
+                .accessibilityAddTraits(.isHeader)
+                .accessibilityIdentifier("open-project-\(entry.host.id)-\(entry.project.id)")
+            if group.isPinned {
+                Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
+                    .accessibilityLabel("Pinned")
+            }
+        })
+    }
+
+    private func projectHeaderActions(_ group: CompanionProjectGroup, menu: CompanionHomeProjectHeaderMenu) -> AnyView {
+        let entry = group.entry
+        let projectID = "\(entry.host.id)-\(entry.project.id)"
+        return AnyView(HStack(spacing: 6) {
+            if entry.isLinked {
+                let count = Set(entry.members.map(\.host.id)).count
+                Label("\(count)", systemImage: "desktopcomputer")
+                    .font(.caption2.weight(.semibold)).foregroundStyle(Color(palette.secondaryLabel))
+                    .padding(.horizontal, 6).padding(.vertical, 1)
+                    .background(Color(palette.fill), in: RoundedRectangle(cornerRadius: 6))
+                    .accessibilityLabel("\(count) desktop\(count == 1 ? "" : "s")")
+            }
+            if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
+            Spacer(minLength: 0)
+            Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
+                .buttonStyle(.borderless)
+                .frame(minWidth: 44, minHeight: 44)
+                .disabled(!entry.canSpawn)
+                .contextMenu { menu }
+                .accessibilityActions { menu }
+                .accessibilityIdentifier("project-new-agent-\(projectID)")
+                .accessibilityLabel(entry.isLinked || !multipleHosts ? "New agent in \(entry.project.name)" : "New agent in \(entry.project.name) on \(entry.host.name)")
+        })
     }
 
     private func observeConnectedHosts(_ hosts: [CompanionHost]) {
@@ -880,6 +894,12 @@ struct CompanionHomeView: View {
             }
         }
     }
+}
+
+/// A concrete boundary keeps the Home header's menu out of its inline generic row type.
+private struct CompanionHomeProjectHeaderMenu: View {
+    let content: AnyView
+    var body: AnyView { content }
 }
 
 /// A row that opens and closes a fold, with a turning chevron.
