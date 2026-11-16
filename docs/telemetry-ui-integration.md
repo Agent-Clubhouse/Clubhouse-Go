@@ -19,6 +19,19 @@ content.companionTelemetryScreen(.home)
 
 The mapper emits one unparented `app.action` log with `screen`, `control`, `app.action.name=uiAction`, and `app.action.result=accepted`. This is the accepted UI intent, not successful completion of a desktop command. Existing operation spans continue to report command outcomes separately. UI intent does not supply an incident span reference. Existing capture/enrollment gates, generation fencing and ring bounds apply unchanged.
 
+## Dashboard grouping recipe
+
+At the collector, filter `app.action` logs to `app.action.name == "uiAction"`, then count by the two string attributes `screen` and `control`. In the collector's native query syntax, express this logical query:
+
+```text
+logs
+  filter event == "app.action" and attributes["app.action.name"] == "uiAction"
+  group by attributes["screen"], attributes["control"]
+  count as taps
+```
+
+This deliberately separates tap intent from command-outcome `app.action` logs. `dashboardCanCountTheSameControlSeparatelyByScreen` exercises the actual mapper output: two project / openAgentSettings intents and one conversation / openAgentSettings intent produce counts 2 and 1. This is a local schema/grouping proof; deploying and observing the query in the live dashboard remains on the completion checklist.
+
 ## Adopted here
 
 - Project page: New agent, Wake with a message, Terminal, retained-run Dismiss (swipe, context menu and accessibility action share one action), Clear all, and the Wake sheet's Cancel/Wake.
