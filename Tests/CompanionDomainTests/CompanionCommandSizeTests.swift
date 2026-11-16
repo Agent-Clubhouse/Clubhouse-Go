@@ -32,7 +32,7 @@ private actor CommandSizeIO: AnnexIO {
 @Suite @MainActor struct CompanionCommandSizeTests {
     @Test(arguments: [true, false])
     func questionSurvivesLocalRefusalButNetworkFailureIsUncertain(oversized: Bool) async throws {
-        let catalog = ScriptedAnnexTransport()
+        let catalog = await ScriptedAnnexTransport()
         await catalog.setRead("chat", LiveServiceHarness.chatSnapshot(fields: ["capabilities": .object(["chat": .bool(true), "questions": .bool(true)])]))
         let host = try LiveServiceHarness.trustedHost()
         let io = CommandSizeIO(capabilities: try JSONEncoder().encode(await catalog.read(.capabilities)))

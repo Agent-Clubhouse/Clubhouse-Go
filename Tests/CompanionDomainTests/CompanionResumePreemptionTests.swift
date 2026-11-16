@@ -109,7 +109,7 @@ private actor ResumePreparationGate {
     @Test(arguments: [false, true])
     func firstRegistrationSurvivesPhaseChangesDuringIconPreparation(returnToForeground: Bool) async throws {
         let preparation = ResumePreparationGate()
-        let transport = ScriptedAnnexTransport()
+        let transport = await ScriptedAnnexTransport()
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("resume-registration-\(UUID().uuidString)")
         let service = CompanionLiveService(iconStore: CompanionIconStore(directory: directory))
         let store = CompanionStore(service: service)
@@ -152,7 +152,7 @@ private actor ResumePreparationGate {
         let h = try await LiveServiceHarness.start()
         let preparation = ResumePreparationGate()
         await h.service.suspend()
-        let stale = ScriptedAnnexTransport()
+        let stale = await ScriptedAnnexTransport()
         h.service.prepareResume = {
             await preparation.hold()
             await h.service.register(.init(host: try! LiveServiceHarness.trustedHost(), alias: "Stale resume", transport: stale))
