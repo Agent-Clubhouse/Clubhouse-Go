@@ -98,10 +98,16 @@ struct CompanionCompactConnectionBanner<Actions: View>: View {
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 0) {
                     titleText.frame(maxWidth: .infinity, alignment: .leading)
-                    HStack(spacing: 8) {
-                        symbol
-                        Spacer(minLength: 0)
-                        actions
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) {
+                            symbol
+                            Spacer(minLength: 0)
+                            actions
+                        }
+                        VStack(alignment: .leading, spacing: 0) {
+                            symbol
+                            actions.frame(maxWidth: .infinity, alignment: .trailing)
+                        }
                     }
                     .frame(minHeight: 44)
                 }
