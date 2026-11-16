@@ -7,6 +7,7 @@ struct CompanionRecoveryStatusView: View {
     let onRetry: (CompanionRecoveryStatus.RetryAction) -> Void
     @State private var showsDetails = false
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     #if DEBUG
     /// Seed once when this component identity is created. Later input changes never control presentation.
@@ -24,6 +25,7 @@ struct CompanionRecoveryStatusView: View {
             CompanionCompactConnectionBanner(title: headline, systemImage: symbol,
                                              isInProgress: status.isInProgress) { actions }
             .padding(.horizontal, 16)
+            .padding(.top, dynamicTypeSize.isAccessibilitySize ? 8 : 0)
             .padding(.bottom, 6)
             .accessibilityElement(children: .contain)
             // Keep identifiers on leaves: a container identifier can mask child selectors (#311).
@@ -95,11 +97,13 @@ struct CompanionCompactConnectionBanner<Actions: View>: View {
             }
             if dynamicTypeSize.isAccessibilitySize {
                 VStack(alignment: .leading, spacing: 0) {
-                    headline(wrapping: true)
+                    titleText.frame(maxWidth: .infinity, alignment: .leading)
                     HStack(spacing: 8) {
+                        symbol
                         Spacer(minLength: 0)
                         actions
                     }
+                    .frame(minHeight: 44)
                 }
             } else {
                 HStack(spacing: 8) {
@@ -116,13 +120,21 @@ struct CompanionCompactConnectionBanner<Actions: View>: View {
 
     private func headline(wrapping: Bool) -> some View {
         HStack(alignment: .center, spacing: 8) {
-            if isInProgress { ProgressView().controlSize(.small).accessibilityHidden(true) }
-            else { Image(systemName: systemImage).foregroundStyle(Color(palette.secondaryLabel)).accessibilityHidden(true) }
-            Text(title).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
-                .accessibilityIdentifier(titleIdentifier)
+            symbol
+            titleText
         }
         .fixedSize(horizontal: !wrapping, vertical: true)
         .frame(minHeight: 44)
+    }
+
+    private var titleText: some View {
+        Text(title).lineLimit(nil).fixedSize(horizontal: false, vertical: true)
+            .accessibilityIdentifier(titleIdentifier)
+    }
+
+    @ViewBuilder private var symbol: some View {
+        if isInProgress { ProgressView().controlSize(.small).accessibilityHidden(true) }
+        else { Image(systemName: systemImage).foregroundStyle(Color(palette.secondaryLabel)).accessibilityHidden(true) }
     }
 }
 
