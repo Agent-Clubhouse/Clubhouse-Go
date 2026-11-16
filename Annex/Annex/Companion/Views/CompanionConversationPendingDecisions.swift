@@ -100,7 +100,7 @@ struct CompanionConversationPendingDecisions: View {
                 guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision else { return }
                 showInChat(decision.id)
             }, openReview: { openReview(decision, presentation: presentation) },
-            selectionGesture: AnyGesture(selectionGesture(queue: queue, index: index)))
+            selectionGesture: selectionGesture(queue: queue, index: index))
             .equatable()
     }
 
@@ -190,12 +190,12 @@ struct CompanionConversationPendingDecisions: View {
               CompanionPendingDecision.selected(in: currentQueue, id: selectedID)?.id == queue[index].id else { return }
         selectedID = currentQueue[max(0, min(currentQueue.count - 1, index + direction))].id
     }
-    private func selectionGesture(queue: [CompanionPendingDecision], index: Int) -> some Gesture {
-        DragGesture(minimumDistance: 24).onEnded { gesture in
+    private func selectionGesture(queue: [CompanionPendingDecision], index: Int) -> AnyGesture<DragGesture.Value> {
+        AnyGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
             guard abs(gesture.translation.width) > max(44, abs(gesture.translation.height)) else { return }
             // Both hit surfaces resolve from the captured index, so one drag cannot skip a request.
             select(gesture.translation.width < 0 ? 1 : -1, queue: queue, index: index)
-        }
+        })
     }
 
     private var pendingIDs: [String] {
