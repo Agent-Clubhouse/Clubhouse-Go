@@ -698,7 +698,7 @@ struct CompanionComposerApprovalReviewSheet: View {
                 }
             }
         }
-        .presentationDetents([.large])
+        .presentationDetents([.medium, .large])
     }
     private var isQuestion: Bool {
         if case .question = selection?.presentation?.decision { return true }

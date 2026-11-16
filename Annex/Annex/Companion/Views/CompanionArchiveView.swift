@@ -135,6 +135,8 @@ private struct CompanionArchivedSessionView: View {
         switch entry {
         case .row(.item(let item)): archiveItem(item)
         case .row(.tools): EmptyView()
+        case .row(.desktopQuestions(let group)):
+            ForEach(group.questions) { archiveItem(.question($0)) }
         case .row(.activity(let parts)):
             CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target, sessionID: session.id))
         case .row(.routed(let message, let index)):

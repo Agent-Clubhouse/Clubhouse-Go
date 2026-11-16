@@ -185,6 +185,15 @@ enum CompanionTimelineEntry: Identifiable, Equatable, Sendable {
         case .slice(_, let slice): slice.id
         }
     }
+    /// Resolve a request alias to its visible row; ordinary question and message IDs stay exact.
+    static func jumpTarget(for entryID: String, in entries: [Self]) -> Self? {
+        entries.first { entry in
+            if entry.id == entryID { return true }
+            guard case .row(let row) = entry, case .desktopQuestions = row else { return false }
+            return row.contains(entryID: entryID)
+        }
+    }
+
     /// The timeline row this entry shows all or part of.
     var rowID: String {
         switch self {

@@ -93,7 +93,7 @@ enum CompanionAssistantNavigation {
         return entries.compactMap { entry in
             let message: CompanionMessage
             switch entry {
-            case .row(.item(.question)): return entry.id
+            case .row(.item(.question)), .row(.desktopQuestions): return entry.id
             case .row(.item(.message(let value))), .slice(let value, _): message = value
             default: return nil
             }

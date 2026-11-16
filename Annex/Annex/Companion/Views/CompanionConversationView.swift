@@ -667,10 +667,11 @@ struct CompanionConversationView: View {
             .task(id: decisionChatJump?.id) {
                 guard let request = decisionChatJump else { return }
                 let allEntries = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: .max).entries
-                guard let index = allEntries.firstIndex(where: { $0.id == request.itemID }) else { return }
+                guard let entry = CompanionTimelineEntry.jumpTarget(for: request.itemID, in: allEntries),
+                      let index = allEntries.firstIndex(where: { $0.id == entry.id }) else { return }
                 setFollowing(false, reason: .messageJump)
                 shownEntries = max(shownEntries, allEntries.count - index)
-                let saved = CompanionReadingPosition(followsLatest: false, entryID: request.itemID,
+                let saved = CompanionReadingPosition(followsLatest: false, entryID: entry.id,
                     offset: readingBookmark.position.offset, shownEntries: shownEntries)
                 readingBookmark.position = saved
                 readingViewport.isRestoring = true
@@ -928,6 +929,8 @@ struct CompanionConversationView: View {
     @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, items: [CompanionTimelineItem]) -> some View {
         switch row {
         case .item(let item): timelineItem(item, items: items)
+        case .desktopQuestions(let group):
+            CompanionDesktopQuestionsCard(group: group, hostName: store.host(for: target)?.name)
         case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
         case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
         case .routed(let message, let index):
