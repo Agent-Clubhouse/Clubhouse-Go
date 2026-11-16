@@ -896,12 +896,7 @@ struct CompanionNeedsYouView: View {
         let connection: String?
         if unavailable.count == 1 {
             let host = unavailable[0]
-            let state: String = switch host.connection {
-            case .offline: "offline"
-            case .reconnecting: "reconnecting"
-            case .connecting, .synchronizing: "connecting"
-            default: "not connected"
-            }
+            let state = host.connection.presentation().label.lowercased()
             connection = "\(host.name) \(state)"
         } else { connection = unavailable.isEmpty ? nil : "\(unavailable.count) desktops not connected" }
         let separator = dynamicTypeSize.isAccessibilitySize ? "\n" : " · "
