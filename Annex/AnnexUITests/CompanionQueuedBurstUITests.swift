@@ -10,10 +10,14 @@ import XCTest
         let river = element("agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element("companion-chat-header"), timeout: 10)
-        for index in 0..<4 {
+        // This fixture is a genuine controller sender, distinct from the Dispatcher chat.
+        let expectedSenders = ["Dispatcher controller:", "Reviewer:", "Clubhouse:", "Another agent:"]
+        for index in expectedSenders.indices {
             let part = element("companion-routed-relay-1-\(index)")
             XCTAssertTrue(scrollUntilExists(part, in: app, up: false, maxSwipes: 8))
-            XCTAssertTrue(part.label.contains(["Dispatcher:", "Reviewer:", "Clubhouse:", "Another agent:"][index]))
+            let label = part.label
+            XCTAssertTrue(label.hasPrefix(expectedSenders[index]),
+                          "Part \(index) expected sender \(expectedSenders[index]); actual label: \(label)")
         }
         XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-routed-relay-1-")).count, 4)
         XCTAssertEqual(app.descendants(matching: .any).matching(NSPredicate(format: "identifier BEGINSWITH %@", "companion-routed-relay-join-")).count, 0)
