@@ -788,23 +788,8 @@ struct CompanionHomeView: View {
         CompanionProjectMenuItems(store: store, preferences: preferences, entry: catalogEntry,
             canWake: entry.members.contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
             onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
-        if let shared = store.linkedProjectState(catalogEntry) {
-            Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
-                Task { await store.setLinkedProject(catalogEntry, pinned: !shared.pinned) }
-            }
-            .disabled(!store.canChangeLinkedProjectState(catalogEntry))
-            if group.isIdle || shared.inactive {
-                Button("Mark active", systemImage: "sun.max") {
-                    Task { await store.setLinkedProject(catalogEntry, inactive: false) }
-                }
-                .disabled(!store.canChangeLinkedProjectState(catalogEntry))
-            } else if !shared.pinned {
-                Button("Mark inactive", systemImage: "moon.zzz") {
-                    Task { await store.setLinkedProject(catalogEntry, inactive: true) }
-                }
-                .disabled(!store.canChangeLinkedProjectState(catalogEntry))
-            }
-            if let hint = store.linkedProjectStateConnectionHint(catalogEntry) { Text(hint) }
+        if store.linkedProjectState(catalogEntry) != nil {
+            CompanionLinkedProjectStateMenuItems(store: store, entry: catalogEntry, isIdle: group.isIdle)
         } else if entry.isLinked {
             // Old hosts retain their per-copy state and days-idle rule.
             ForEach(entry.members) { member in
