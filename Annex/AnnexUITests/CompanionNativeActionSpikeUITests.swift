@@ -11,11 +11,6 @@ import XCTest
     private func sameAX(_ candidate: XCUIElement, _ baseline: XCUIElement) {
         XCTAssertTrue(candidate.waitForExistence(timeout: 10))
         XCTAssertTrue(baseline.exists)
-        XCTAssertEqual(candidate.elementType, baseline.elementType)
-        XCTAssertEqual(candidate.label, baseline.label)
-        XCTAssertEqual(candidate.isEnabled, baseline.isEnabled)
-        XCTAssertTrue(candidate.isHittable && baseline.isHittable)
-        XCTAssertEqual(candidate.frame.height, baseline.frame.height, accuracy: 1)
         let comparison = XCTAttachment(string: """
         Native: type=\(baseline.elementType), label=\(baseline.label), enabled=\(baseline.isEnabled), frame=\(baseline.frame)
         Wrapped: type=\(candidate.elementType), label=\(candidate.label), enabled=\(candidate.isEnabled), frame=\(candidate.frame)
@@ -28,6 +23,11 @@ import XCTest
         image.name = "Native and wrapped controls"
         image.lifetime = .keepAlways
         add(image)
+        XCTAssertEqual(candidate.elementType, baseline.elementType)
+        XCTAssertEqual(candidate.label, baseline.label)
+        XCTAssertEqual(candidate.isEnabled, baseline.isEnabled)
+        XCTAssertTrue(candidate.isHittable && baseline.isHittable)
+        XCTAssertEqual(candidate.frame.height, baseline.frame.height, accuracy: 1)
     }
     private func assertCounts(_ app: XCUIApplication, _ value: String) {
         XCTAssertEqual(element(app, "native-hook-counts").label, value)
