@@ -58,6 +58,7 @@ import ClubhouseTransport
     private var eventDrainTasks: [String: Task<Void, Never>] = [:]
     private let streamDiagnostics = CompanionStreamDiagnostics()
     private var isSuspended = false
+    private var lifecycleGeneration = UUID()
     /// Called when a host stops answering at its saved address while the app is active.
     var onUnreachable: ((String) -> Void)?
     /// Membership arrives only over the host's authenticated transport.
@@ -84,14 +85,18 @@ import ClubhouseTransport
     }
 
     func register(_ registration: AnnexTransportRegistry.Registration) async {
+        guard !Task.isCancelled else { return }
+        let lifecycle = lifecycleGeneration
         let id = registration.host.hostID
         await iconStore.activate(host: id)
+        guard !Task.isCancelled, lifecycleGeneration == lifecycle else { return }
         let transport = registration.transport
         await iconStore.setFetcher(for: id) { key, _ in
             let response = try await transport.icon(kind: key.kind.rawValue, id: key.id, version: key.version, ifNoneMatch: nil)
             return .init(status: response.status, contentType: response.contentType ?? "", data: response.data,
                          version: CompanionIconMetadata.version(etag: response.etag))
         }
+        guard !Task.isCancelled, lifecycleGeneration == lifecycle else { return }
         invalidateEvents(hostID: id)
         transports[id] = registration.transport
         registeredTransportIDs[id] = registration.transportID
@@ -103,7 +108,10 @@ import ClubhouseTransport
         hosts[id] = host
         emitHosts()
         guard let generation = await subscribe(to: registration.transport, hostID: id), eventGenerations[id] == generation else { return }
-        guard !isSuspended else { hosts[id]?.connection = .offline; emitHosts(); return }
+        guard !Task.isCancelled, !isSuspended, lifecycleGeneration == lifecycle else {
+            if isSuspended { hosts[id]?.connection = .offline; emitHosts() }
+            return
+        }
         do { try await registration.transport.connect() }
         catch {
             guard !isSuspended, eventGenerations[id] == generation else { return }
@@ -835,14 +843,14 @@ import ClubhouseTransport
         }
     }
     func reconnect(hostID: String) async {
-        guard !isSuspended, let transport = transports[hostID] else { return }
+        guard !Task.isCancelled, !isSuspended, let transport = transports[hostID] else { return }
         invalidateEvents(hostID: hostID)
         let generation = UUID()
         eventGenerations[hostID] = generation
         await transport.disconnect()
-        guard !isSuspended, eventGenerations[hostID] == generation else { return }
+        guard !Task.isCancelled, !isSuspended, eventGenerations[hostID] == generation else { return }
         guard let subscription = await subscribe(to: transport, hostID: hostID),
-              !isSuspended, eventGenerations[hostID] == subscription else { return }
+              !Task.isCancelled, !isSuspended, eventGenerations[hostID] == subscription else { return }
         do { try await transport.connect() }
         catch {
             guard !isSuspended, eventGenerations[hostID] == subscription else { return }
@@ -877,6 +885,7 @@ import ClubhouseTransport
         emitHosts()
     }
     func suspend() async {
+        lifecycleGeneration = UUID()
         isSuspended = true
         for (id, transport) in Array(transports) {
             invalidateEvents(hostID: id)
@@ -911,9 +920,15 @@ import ClubhouseTransport
         emitHosts()
     }
     func resume() async {
+        guard !Task.isCancelled else { return }
+        let generation = UUID()
+        lifecycleGeneration = generation
         isSuspended = false
         let reconnected = await prepareResume?() ?? []
-        for id in Array(transports.keys) where !reconnected.contains(id) { await reconnect(hostID: id) }
+        for id in Array(transports.keys) where !reconnected.contains(id) {
+            guard !Task.isCancelled, !isSuspended, lifecycleGeneration == generation else { return }
+            await reconnect(hostID: id)
+        }
     }
 
     private func clearFullReviews(hostID: String) {

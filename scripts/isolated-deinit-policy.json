@@ -182,12 +182,14 @@
     "CompanionLifecycle": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionLifecycle.swift",
-      "reason": "Bool, Sendable task handle and transition closure. The reviewed production constructor captures only the ARC-only CompanionLiveService; no UIKit owner or main-only destruction. Transition execution stays on MainActor and ordered tasks complete unchanged; deinit performs no cancellation, async work or task-local access. New constructor captures require review (#349).",
+      "reason": "Bool, optional Sendable task handles and transition closure capturing only reviewed ARC-only LiveService in production. Resume/suspension handles own tasks, never UI. Background cancels resume on MainActor during update, not during empty deinit; task closures capture only transition and prior suspension by value.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
           "pending": "Task < Void , Never > ?",
+          "resume": "Task < Void , Never > ?",
+          "suspension": "Task < Void , Never > ?",
           "transition": "@ MainActor ( Bool ) async -> Void",
           "wantsActive": "Bool"
         },
@@ -235,7 +237,10 @@
       "source": "Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift",
       "reason": "Stateless Foundation NSObject/URLSessionTaskDelegate guards Markdown image redirects using only request URL values and the transient URLSession completion argument. No stored fields, retained callbacks, constructor captures or UIKit owners; off-main ARC is safe. The structured loading task owns and invalidates/cancels its ephemeral session, not this delegate's deinit. Explicit nonisolated empty teardown preserves the compiler's existing nonisolated Sendable-delegate behavior.",
       "surface": {
-        "bases": ["NSObject", "URLSessionTaskDelegate"],
+        "bases": [
+          "NSObject",
+          "URLSessionTaskDelegate"
+        ],
         "nestedValueProperties": {},
         "properties": {},
         "storageMacros": []
@@ -244,7 +249,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work. Registration transport identities add only a String-to-UUID dictionary, with no callbacks, UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Saved commands are keyed by CompanionCommandKey (#339), a Hashable value of two Strings; values remain Sendable AnnexCommand structs. Grant requests (#337) add only a host-keyed map of String id sets; no callbacks, UI ownership or teardown work.",
+      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work. Registration transport identities add only a String-to-UUID dictionary, with no callbacks, UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Saved commands are keyed by CompanionCommandKey (#339), a Hashable value of two Strings; values remain Sendable AnnexCommand structs. Grant requests (#337) add only a host-keyed map of String id sets; no callbacks, UI ownership or teardown work. Lifecycle UUID is Sendable value state; cancellation/generation checks add no owned resources or callbacks.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -265,10 +270,9 @@
           "dispatcherCatalog": "[ String : AnnexJSON ]",
           "dispatcherFlags": "[ String : ( enabled : Bool , flagOn : Bool ) ]",
           "dispatcherMCPOff": "[ String : CompanionDispatcherMCPOff ]",
+          "eventDrainTasks": "[ String : Task < Void , Never > ]",
           "eventGenerations": "[ String : UUID ]",
           "eventTasks": "[ String : Task < Void , Never > ]",
-          "eventDrainTasks": "[ String : Task < Void , Never > ]",
-          "pendingEvents": "[ String : [ AnnexTransportEvent ] ]",
           "expiredCommandIDs": "Set < CompanionCommandKey >",
           "fullReviews": "[ CompanionTarget : [ String : ( reference : CompanionEventReference , digest : String , epoch : String ) ] ]",
           "helperLabelsCache": "[ String : ( revision : String , labels : CompanionHelperRouting . Labels ) ]",
@@ -278,11 +282,13 @@
           "iconStore": "CompanionIconStore",
           "isSuspended": "Bool",
           "knownCapabilities": "Set < String >",
+          "lifecycleGeneration": "UUID",
           "needsCatchUp": "Set < String >",
           "onNetwork": "( ( String , AnnexNetworkSnapshot ) async -> Void ) ?",
           "onNetworkRefusal": "( ( String ) async -> Void ) ?",
           "onRoutes": "( ( String , AnnexCapabilities . Routes ) -> Void ) ?",
           "onUnreachable": "( ( String ) -> Void ) ?",
+          "pendingEvents": "[ String : [ AnnexTransportEvent ] ]",
           "prepareResume": "( ( ) async -> Set < String > ) ?",
           "projections": "[ CompanionTarget : CompanionChatProjector ]",
           "quickCatalog": "[ String : AnnexJSON ]",
@@ -736,7 +742,9 @@
       "source": "Annex/Annex/Companion/Views/CompanionWakeFocusDiagnostics.swift",
       "reason": "Preview-only NSObject notification target owns Int counters, a ContinuousClock.Instant and the nonisolated Sendable CompanionDiagnosticTrace. That shared writer owns only locked typed Sendable records/output state, a thread-safe Dispatch timer/queue and a Sendable descriptor-opener closure; its deinit only cancels the timer. No UIKit fields, main-actor callbacks or deinit cleanup. MainActor begin/end explicitly register/remove selector observers; the transient transition completion captures only this UI-free observer. Empty nonisolated teardown can release these owners and NSObject base on any thread.",
       "surface": {
-        "bases": ["NSObject"],
+        "bases": [
+          "NSObject"
+        ],
         "nestedValueProperties": {},
         "properties": {
           "presentation": "Int",

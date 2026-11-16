@@ -29,8 +29,10 @@ private actor BackgroundDisconnectIO: AnnexIO {
     private var holdOpen: Bool
     private var openWaiter: CheckedContinuation<Void, Never>?
     private var commandWaiter: CheckedContinuation<Void, Never>?
+    private var preparationWaiter: CheckedContinuation<Void, Never>?
     var opening: Bool { openWaiter != nil }
     var commanding: Bool { commandWaiter != nil }
+    var preparing: Bool { preparationWaiter != nil }
 
     init(holdOpen: Bool = false) { self.holdOpen = holdOpen }
 
@@ -63,13 +65,16 @@ private actor BackgroundDisconnectIO: AnnexIO {
     }
     func releaseOpen() { openWaiter?.resume(); openWaiter = nil }
     func releaseCommand() { commandWaiter?.resume(); commandWaiter = nil }
-    func releaseAll() { releaseOpen(); releaseCommand() }
+    func holdPreparation() async { await withCheckedContinuation { preparationWaiter = $0 } }
+    func releasePreparation() { preparationWaiter?.resume(); preparationWaiter = nil }
+    func releaseAll() { releaseOpen(); releaseCommand(); releasePreparation() }
 }
 
 @MainActor final class CompanionBackgroundDisconnectTests: XCTestCase {
     private struct Harness {
         let runtime: CompanionRuntime
         let transport: AnnexTransport
+        let registration: AnnexTransportRegistry.Registration
         let telemetry: AnnexTelemetry
         let clock: ClubhouseTransport.AnnexManualClock
     }
@@ -89,16 +94,17 @@ private actor BackgroundDisconnectIO: AnnexIO {
         runtime.store.start()
         addTeardownBlock { @MainActor in
             await io.releaseAll()
+            runtime.service.prepareResume = nil
             await runtime.lifecycle.settle()
             await runtime.service.shutdown()
             runtime.store.stop()
         }
         await runtime.service.register(registration)
-        return .init(runtime: runtime, transport: transport, telemetry: telemetry, clock: clock)
+        return .init(runtime: runtime, transport: transport, registration: registration, telemetry: telemetry, clock: clock)
     }
 
-    private func eventually(_ condition: () async -> Bool) async throws -> Bool {
-        let deadline = ContinuousClock.now + .seconds(2)
+    private func eventually(timeout: Duration = .seconds(2), _ condition: () async -> Bool) async throws -> Bool {
+        let deadline = ContinuousClock.now + timeout
         repeat {
             if await condition() { return true }
             try await Task.sleep(for: .milliseconds(5))
@@ -201,5 +207,31 @@ private actor BackgroundDisconnectIO: AnnexIO {
         harness.runtime.lifecycle.update(.background)
         await harness.runtime.lifecycle.settle()
         for socket in await io.sockets { try await assertDisconnected(harness, socket: socket) }
+    }
+
+    func testBackgroundDisconnectsWhileForegroundPreparationIsHeld() async throws {
+        let io = BackgroundDisconnectIO()
+        let harness = try await start(io)
+        try await connected(harness)
+        harness.runtime.lifecycle.update(.background)
+        await harness.runtime.lifecycle.settle()
+        harness.runtime.service.prepareResume = {
+            // Route selection can register one answering desktop before probing the next.
+            await harness.runtime.service.register(harness.registration)
+            await io.holdPreparation()
+            return [harness.registration.host.hostID]
+        }
+        harness.runtime.lifecycle.update(.active)
+        let preparing = try await eventually { await io.preparing }
+        XCTAssertTrue(preparing)
+        try await connected(harness)
+        let sockets = await io.sockets
+        let socket = try XCTUnwrap(sockets.last)
+        harness.runtime.lifecycle.update(.background)
+        let closedPromptly = try await eventually(timeout: .milliseconds(500)) { await socket.closed }
+        XCTAssertTrue(closedPromptly, "Background disconnect must not queue behind foreground network preparation")
+        await io.releasePreparation()
+        await harness.runtime.lifecycle.settle()
+        try await assertDisconnected(harness, socket: socket)
     }
 }
