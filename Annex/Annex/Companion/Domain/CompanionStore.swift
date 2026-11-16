@@ -1449,6 +1449,7 @@ import Observation
             return
         }
         let epoch = source.host.controlEpoch
+        let snapshotRevision = source.host.projectStateRevision
         let previousSource = linkedProjectStateSources[link]
         linkedProjectStateSources[link] = source.id
         pendingLinkedProjectStates[link] = change(current)
@@ -1457,8 +1458,10 @@ import Observation
         do {
             let confirmed = try await send(source.id, UUID().uuidString)
             guard !isShutDown, projectEntry(containing: source.id)?.linkID == link,
-                  let index = hosts.firstIndex(where: { $0.id == source.host.id && $0.controlEpoch == epoch }) else { return }
+                  let index = hosts.firstIndex(where: { $0.id == source.host.id && $0.controlEpoch == epoch
+                      && $0.projectStateRevision == snapshotRevision }) else { return }
             // This receipt acknowledges one receiving desktop, not propagation to offline copies.
+            // A snapshot applied during the request keeps its newer state instead.
             hosts[index].projectState?[source.project.id] = confirmed
         } catch {
             guard !isShutDown, projectEntry(containing: source.id)?.linkID == link,
@@ -1493,11 +1496,12 @@ import Observation
             return
         }
         projectStateError = nil
+        let snapshotRevision = hosts.first { $0.id == project.hostID }?.projectStateRevision
         pendingProjectStates[project] = change(current)
         defer { pendingProjectStates[project] = nil }
         do {
             let confirmed = try await send(UUID().uuidString)
-            if let index = hosts.firstIndex(where: { $0.id == project.hostID }), hosts[index].projectState != nil {
+            if let index = hosts.firstIndex(where: { $0.id == project.hostID && $0.projectStateRevision == snapshotRevision }), hosts[index].projectState != nil {
                 hosts[index].projectState?[project.projectID] = confirmed
             }
         } catch {

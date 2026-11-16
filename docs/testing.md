@@ -947,7 +947,6 @@ one Identifiable value. SwiftUI receives both through the sheet item, avoiding a
 secondary State capture that could reopen All's linked-machine chooser from a selected host.
 The real-sheet regression covers both Home + buttons and All's preserved chooser.
 
-
 #457's retained iPhone 17 Pro artifacts show a 220pt slash menu with five 44pt rows;
 the 43⅔pt measurement was the free transcript gap above it, exactly one native pixel
 below 44pt at 3×. Only that non-target gap admits 1/scale pt of native edge rounding;
@@ -955,3 +954,13 @@ menu and interaction-target minimums/hittability remain strict. HeaderIdentity's
 approval fixture follows #392: Run xcodebuild appears in the approval card/Review,
 with no duplicate activity footer. A separate working fixture retains activity-label
 and footer-position assertions. Neither correction changes production layout.
+
+Project Pin/Inactive receipts (#500) fill the gap before the next desktop snapshot. A
+per-host UUID revision advances only when a project-state snapshot applies; it is local
+projection identity, never a desktop edit clock or a wire field. LiveService and both
+Store receipt paths compare the revision captured before sending, so a late HTTP receipt
+cannot replace an intervening WebSocket snapshot. `CompanionProjectStateReceiptTests`
+holds a real LiveService command, applies an unsequenced snapshot, then releases the
+receipt for plain/linked Pin and Mark active. Controls cover ordinary receipt projection,
+identical snapshot contents and unrelated host publications. The revision lives on the
+value-type CompanionHost; no owning class field or isolated-deinit policy changes.
