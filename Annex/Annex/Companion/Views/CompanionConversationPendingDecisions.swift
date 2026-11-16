@@ -17,16 +17,25 @@ struct CompanionConversationPendingDecisions: View {
             if let decision = CompanionPendingDecision.selected(in: queue, id: selectedID),
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: isCompactHeight ? 8 : 12) {
-                        identity(decision, presentation: presentation, index: index, count: queue.count)
-                            .fixedSize(horizontal: true, vertical: false)
-                        Spacer(minLength: 0)
-                        actions(decision, presentation: presentation).fixedSize()
-                    }
-                    VStack(alignment: .leading, spacing: isCompactHeight ? 0 : 8) {
-                        identity(decision, presentation: presentation, index: index, count: queue.count)
-                        HStack { Spacer(minLength: 0); actions(decision, presentation: presentation) }
+                Group {
+                    if isCompactHeight {
+                        HStack(spacing: 8) {
+                            identity(decision, presentation: presentation, index: index, count: queue.count)
+                            actions(decision, presentation: presentation).fixedSize()
+                        }
+                    } else {
+                        ViewThatFits(in: .horizontal) {
+                            HStack(spacing: 12) {
+                                identity(decision, presentation: presentation, index: index, count: queue.count)
+                                    .fixedSize(horizontal: true, vertical: false)
+                                Spacer(minLength: 0)
+                                actions(decision, presentation: presentation).fixedSize()
+                            }
+                            VStack(alignment: .leading, spacing: 8) {
+                                identity(decision, presentation: presentation, index: index, count: queue.count)
+                                HStack { Spacer(minLength: 0); actions(decision, presentation: presentation) }
+                            }
+                        }
                     }
                 }
                 .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
@@ -65,8 +74,11 @@ struct CompanionConversationPendingDecisions: View {
         let subtitle = "\(index + 1) of \(count) waiting · \(kind)"
         return Button { showInChat(decision.id) } label: {
             VStack(alignment: .leading, spacing: isCompactHeight ? 0 : 2) {
-                Text(decision.summary).font((isCompactHeight ? Font.caption : .subheadline).weight(.semibold)).lineLimit(2)
-                Text(subtitle).font(isCompactHeight ? .caption2 : .caption).foregroundStyle(.secondary).lineLimit(2)
+                Text(decision.summary).font((isCompactHeight ? Font.caption : .subheadline).weight(.semibold))
+                    .lineLimit(isCompactHeight ? 1 : 2)
+                if !isCompactHeight {
+                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())

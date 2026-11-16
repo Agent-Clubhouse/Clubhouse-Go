@@ -173,7 +173,7 @@ import Vision
         awaitApproval(app)
     }
 
-    func testLandscapeAndAX5KeepReviewContextAndDecisionsReachable() {
+    func testLandscapeAndAX5KeepReviewContextAndDecisionsReachable() throws {
         let app = openRiver(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         awaitApproval(app)
         assertPinned(app)
@@ -183,6 +183,16 @@ import Vision
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
         capture(app, "AX5 landscape: pending bar and composer containment")
         assertPinned(app)
+        for label in ["Deny", "Allow once"] {
+            let button = app.buttons[label]
+            XCTAssertEqual(button.label, label)
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            request.usesLanguageCorrection = false
+            try VNImageRequestHandler(cgImage: XCTUnwrap(button.screenshot().image.cgImage)).perform([request])
+            let text = try XCTUnwrap(request.results).compactMap { $0.topCandidates(1).first?.string }
+            XCTAssertTrue(text.contains(label), "The landscape action is visibly whole, without ellipsis: \(text)")
+        }
         let close = app.buttons["companion-approval-review-close"]
         openReview(app, until: close)
         let review = app.scrollViews["companion-approval-review-scroll"]
