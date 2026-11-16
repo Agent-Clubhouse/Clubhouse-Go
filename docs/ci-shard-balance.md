@@ -107,3 +107,9 @@ The method count is unchanged in every row. Sampled is the number of methods wit
 ## First CI observation
 
 Pending the first PR run. Report actual durations for all eight shards and the Release job in the PR; compare Release against the audit median of 8.1 minutes per job (443 seconds for the build step). No speedup is promised before measurement.
+
+## Unsigned Release device SDK
+
+A separate commit switches only the Release job destination from `generic/platform=iOS Simulator` to `generic/platform=iOS`, retaining the Release configuration, project/scheme and `CODE_SIGNING_ALLOWED=NO`. This gains the shipping arm64 iOS device SDK compile with Release optimization and conditional paths, for the configured iPhone and iPad families. It deliberately loses the Release-configuration compile of both simulator slices (arm64 and x86_64). Debug simulator builds, hosted/UI/iPad tests and all existing gate/timeout/retry rules remain unchanged. No archive, signing, launch or install is added.
+
+Validate once locally through FIFO using the actual device destination and unsigned settings. Check effective `Release`, `iphoneos`, `arm64`, `-O`, whole-module compilation, no `DEBUG`, device families 1/2, Mach-O platform iOS and absence of a code signature. The local build is a compile check; the first PR CI run supplies the comparable timing against the audit's 8.1-minute job / 443-second build-step medians.
