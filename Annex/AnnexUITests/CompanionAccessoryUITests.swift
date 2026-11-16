@@ -36,7 +36,17 @@ import XCTest
             XCTAssertTrue(alphabetical.waitForExistence(timeout: 5))
             alphabetical.tap()
             XCTAssertTrue(waitFor(sort, NSPredicate(format: "label == %@", "Sort projects, A–Z"), timeout: 5))
-            app.tabBars.buttons["Needs you"].tap()
+            let needsTab = app.tabBars.buttons["Needs you"]
+            if !needsTab.exists || !needsTab.isHittable {
+                // Scrolling to Sort can minimize the native bar, especially at XXXL.
+                // Tapping its selected Home control expands it just as a user would.
+                let collapsedHome = app.tabBars.buttons["Home"]
+                XCTAssertTrue(collapsedHome.exists && collapsedHome.isHittable)
+                collapsedHome.tap()
+            }
+            XCTAssertTrue(waitFor(needsTab, NSPredicate { _, _ in needsTab.exists && needsTab.isHittable }, timeout: 5),
+                          "Expand the native bar before selecting Needs you")
+            needsTab.tap()
             let needsReview = app.buttons["companion-open-review"]
             XCTAssertTrue(needsReview.waitForExistence(timeout: 5))
             XCTAssertEqual(needsReview.label, "Review")
