@@ -81,10 +81,12 @@ import XCTest
         capture(app, "444 Saved Dispatcher restored after Home selection")
         // A connected report with no Dispatchers is authoritative and clears the saved choice.
         app.terminate()
-        app.launchArguments = ["--companion-preview", "--companion-preview-keep-preferences", "--ui-testing-fast"]
+        // This existing fixture makes both desktops connected, so neither has an unknown offline catalog.
+        app.launchArguments = ["--companion-preview", "--companion-preview-needs-you-multiple-desktops",
+            "--companion-preview-keep-preferences", "--ui-testing-fast"]
         app.launch()
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
-        XCTAssertFalse(app.tabBars.buttons["Dispatch"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Dispatch"].waitForNonExistence(timeout: 15))
         app.terminate()
         app.launchArguments = args + ["--companion-preview-keep-preferences", "--ui-testing-fast"]
         app.launch()
