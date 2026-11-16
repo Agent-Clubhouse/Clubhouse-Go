@@ -183,6 +183,7 @@ Framebriar v0.7.1's Swift `Telemetry` (vendored from tag `v0.7.1`, commit
 | Commands (send, interrupt, permission, …) | also an `app.action` log with `app.action.name` and `app.action.result` (`accepted`, `rejected`, `outcome_unknown`) |
 | `foreground`, `background` | `app.lifecycle` log (`app.lifecycle.state`), not a span |
 | `navigation`, `settings` | `app.action` log |
+| `uiAction` | unparented `app.action` intent log with closed `screen`/`control` attributes, `app.action.name=uiAction`, `app.action.result=accepted`; no incident span |
 | Any failure except cancellation | `error.type` on the span and an `app.error` log with `app.error.class` (the `AnnexDiagnosticFailure` value) |
 | `statusCode`; other numbers | `http.response.status_code`; `annex.<name>` |
 | Counted pings | `app.performance.summary` log (`app.performance.kind=ping`, `count`, `mean_ms`, `max_ms`, `over_threshold`) and `app.pings` counter by `app.outcome` |

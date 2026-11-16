@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// One project, opened from its header on Home: New agent and Wake with a message, the quick agents that
 /// finished and wait to be read, the project's agents, and its Changes. The desktop's project start page
@@ -35,6 +36,7 @@ struct CompanionProjectPage: View {
             }
         }
         .companionListStyle()
+        .companionTelemetryScreen(.project)
         .onScrollPhaseChange { _, phase in
             if phase == .idle { hold = nil }
             else if hold == nil { hold = entry?.project.agents.map(\.id) }
@@ -46,7 +48,10 @@ struct CompanionProjectPage: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Project info", systemImage: "info.circle") { showingInfo = true }
+                    Button("Project info", systemImage: "info.circle") {
+                        AnnexTelemetry.shared.recordAction(screen: .project, control: .openProjectInfo)
+                        showingInfo = true
+                    }
                 } label: { Label("Project options", systemImage: "ellipsis") }
                 .accessibilityIdentifier("project-page-options")
             }
@@ -96,13 +101,19 @@ private struct CompanionMachineProjectSections: View {
         let sleeping = store.sleepingAgents(in: project)
         return Section {
             HStack(spacing: 10) {
-                Button { onNewAgent(spawnProject) } label: {
+                Button {
+                    AnnexTelemetry.shared.recordAction(screen: .project, control: .newAgent)
+                    onNewAgent(spawnProject)
+                } label: {
                     Label("New agent", systemImage: "plus").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.borderedProminent).companionProminentLabel()
                 .disabled(!canOperate || host?.canSpawn != true)
                 .accessibilityIdentifier("project-new-agent")
-                Button { waking = true } label: {
+                Button {
+                    AnnexTelemetry.shared.recordAction(screen: .project, control: .wakeAgent)
+                    waking = true
+                } label: {
                     Label("Wake with a message", systemImage: "sun.max").frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -128,7 +139,10 @@ private struct CompanionMachineProjectSections: View {
     /// A shell at the project root, as the desktop's Terminal tab opens with the project selected.
     @ViewBuilder private var terminalButton: some View {
         if let terminal, case let availability = terminal.availability(.project(project)), availability.isShown {
-            Button { terminal.open(.project(project)) } label: {
+            Button {
+                AnnexTelemetry.shared.recordAction(screen: .project, control: .openProjectTerminal)
+                terminal.open(.project(project))
+            } label: {
                 Label("Terminal", systemImage: "terminal").frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered).buttonBorderShape(.capsule).controlSize(.large)
@@ -150,7 +164,10 @@ private struct CompanionMachineProjectSections: View {
                     Text("Finished, waiting on you").font(.headline).foregroundStyle(Color(palette.label))
                     Text("\(runs.count)").font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
                     Spacer()
-                    Button("Clear all") { Task { await store.clearFinished(in: project) } }
+                    Button("Clear all") {
+                        AnnexTelemetry.shared.recordAction(screen: .project, control: .clearFinished)
+                        Task { await store.clearFinished(in: project) }
+                    }
                         .font(.subheadline)
                         .accessibilityIdentifier("finished-clear-all")
                 }
@@ -190,6 +207,7 @@ private struct CompanionMachineProjectSections: View {
     }
 
     private func dismiss(_ run: CompanionFinishedRun) {
+        AnnexTelemetry.shared.recordAction(screen: .project, control: .dismissFinished)
         Task { await store.dismissFinished(run.target) }
     }
 
@@ -316,10 +334,16 @@ struct CompanionWakeSheet: View {
             .navigationTitle("Wake with a message")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) { Button("Cancel", systemImage: "xmark") { dismiss() } }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel", systemImage: "xmark") {
+                        AnnexTelemetry.shared.recordAction(screen: .wakeAgent, control: .cancel)
+                        dismiss()
+                    }
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Wake") {
                         guard let target = selection else { return }
+                        AnnexTelemetry.shared.recordAction(screen: .wakeAgent, control: .wakeAgent)
                         onWake(target, message)
                         dismiss()
                     }

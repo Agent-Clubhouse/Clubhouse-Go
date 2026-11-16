@@ -56,7 +56,7 @@ nonisolated public enum AnnexAppTelemetry {
     public static func isAction(_ operation: AnnexDiagnosticOperation) -> Bool {
         switch operation {
         case .start, .send, .steer, .queued, .interrupt, .permission, .question, .spawn, .removeQueued, .wake, .upload,
-             .createAgent, .updateAgent, .command, .helperRequest, .grantRequest, .updateProject, .finishedQuick, .revoke, .forget: true
+             .createAgent, .updateAgent, .command, .helperRequest, .grantRequest, .updateProject, .finishedQuick, .revoke, .forget, .uiAction: true
         default: false
         }
     }
@@ -80,7 +80,7 @@ nonisolated public enum AnnexAppTelemetry {
     /// navigation records become unparented logs, so their local-only span IDs cannot be joined.
     public static func exportsSpan(for operation: AnnexDiagnosticOperation) -> Bool {
         switch operation {
-        case .appLaunch, .foreground, .background, .navigation, .settings: false
+        case .appLaunch, .foreground, .background, .navigation, .settings, .uiAction: false
         default: true
         }
     }
@@ -93,6 +93,12 @@ nonisolated public enum AnnexAppTelemetry {
         case .foreground, .background:
             // Zero-work spans locally; a lifecycle log for telemetry.
             return [.log(event: "app.lifecycle", severity: .info, attributes: ["app.lifecycle.state": .string(record.operation.rawValue)],
+                         traceID: nil, spanID: nil)]
+        case .uiAction:
+            guard let action = record.uiAction else { return [] }
+            return [.log(event: "app.action", severity: .info,
+                         attributes: ["app.action.name": .string(record.operation.rawValue), "app.action.result": .string("accepted"),
+                                      "screen": .string(action.screen.rawValue), "control": .string(action.control.rawValue)],
                          traceID: nil, spanID: nil)]
         case .navigation, .settings:
             return [.log(event: "app.action", severity: .info,

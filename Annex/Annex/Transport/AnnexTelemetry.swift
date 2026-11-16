@@ -4,7 +4,7 @@ import Foundation
 
 /// Closed vocabulary: no API accepts URLs, identities, paths, prompts or error descriptions.
 nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable, Sendable {
-    case appLaunch, foreground, background, navigation, settings, discovery, resolve, manualAddress
+    case appLaunch, foreground, background, navigation, settings, uiAction, discovery, resolve, manualAddress
     case handshake, trustInspection, pairing, restore, revoke, forget, connection, disconnect, reconnect, backoff
     case identity, status, projects, agents, capabilities, history, archive, media, command
     case start, send, steer, queued, interrupt, permission, question, spawn, removeQueued, wake, upload
@@ -102,6 +102,8 @@ nonisolated public struct AnnexDiagnosticRecord: Codable, Sendable, Identifiable
     public let events: [String]
     /// When each of `events` happened, in milliseconds after `startedAt`. Nil in snapshots from older builds.
     public let eventOffsetsMs: [Double]?
+    /// Optional for compatibility with earlier diagnostic snapshots. Both values are closed enums.
+    public var uiAction: AnnexUIAction? = nil
 }
 /// Routine work counted instead of recorded span by span; see `AnnexTelemetry.measureRoutine`.
 nonisolated public struct AnnexDiagnosticSummary: Sendable, Equatable {
@@ -188,12 +190,19 @@ nonisolated final class AnnexLocalSpanExporter: SpanExporter, @unchecked Sendabl
                     AnnexDiagnosticEvent(rawValue: event.name).map { ($0.rawValue, min(durationMs, max(0, event.timestamp.timeIntervalSince(span.startTime) * 1000))) }
                 }
                 if records.count == capacity { records.removeFirst(); dropped = min(Int.max - 1, dropped + 1) }
+                let uiAction: AnnexUIAction?
+                if operation == .uiAction,
+                   case .string(let screen) = span.attributes["ui.screen"],
+                   case .string(let control) = span.attributes["ui.control"],
+                   let screen = AnnexUIAction.Screen(rawValue: screen), let control = AnnexUIAction.Control(rawValue: control) {
+                    uiAction = .init(screen: screen, control: control)
+                } else { uiAction = nil }
                 let record = AnnexDiagnosticRecord(serviceName: "clubhouse-go", serviceInstanceID: instanceID.uuidString.lowercased(), identifiers: identifiers,
                     traceID: span.traceId.hexString, id: span.spanId.hexString,
                     parentID: span.parentSpanId?.hexString, operation: operation, startedAt: span.startTime,
                     durationMs: durationMs,
                     spanKind: span.kind == .client ? 3 : span.kind == .consumer ? 5 : 1,
-                    failure: failure, measurements: numbers, events: events.map(\.0), eventOffsetsMs: events.map(\.1))
+                    failure: failure, measurements: numbers, events: events.map(\.0), eventOffsetsMs: events.map(\.1), uiAction: uiAction)
                 records.append(record); accepted.append(record)
             }
             return (accepted, Array(observers.values) + (sink.map { [$0] } ?? []))
@@ -249,6 +258,13 @@ nonisolated public final class AnnexDiagnosticSpan: @unchecked Sendable {
         lock.withLock { if !ended { span?.setAttribute(key: key.rawValue, value: .string(value.uuidString.lowercased())) } }
     }
     public func event(_ event: AnnexDiagnosticEvent) { lock.withLock { if !ended { span?.addEvent(name: event.rawValue) } } }
+    fileprivate func uiAction(_ action: AnnexUIAction) {
+        lock.withLock {
+            guard !ended else { return }
+            span?.setAttribute(key: "ui.screen", value: .string(action.screen.rawValue))
+            span?.setAttribute(key: "ui.control", value: .string(action.control.rawValue))
+        }
+    }
     public func fail(_ error: Error) { fail(AnnexDiagnosticFailure.classify(error)) }
     public func fail(_ failure: AnnexDiagnosticFailure) {
         lock.withLock {
@@ -380,6 +396,13 @@ nonisolated public final class AnnexTelemetry: @unchecked Sendable {
     }
     public func record(_ operation: AnnexDiagnosticOperation, event: AnnexDiagnosticEvent? = nil) {
         let span = begin(operation); if let event { span.event(event) }; span.end()
+    }
+    /// Call once inside the user action, before its work. This counts intent, not command completion or view appearance.
+    /// It uses the same capture/enrollment generation fence and bounded ring as every other diagnostic record.
+    public func recordAction(screen: AnnexUIAction.Screen, control: AnnexUIAction.Control) {
+        let span = begin(.uiAction)
+        span.uiAction(.init(screen: screen, control: control))
+        span.end()
     }
     public func measure<T>(_ operation: AnnexDiagnosticOperation, isolation: isolated (any Actor)? = #isolation,
                            body: () async throws -> T) async rethrows -> T {

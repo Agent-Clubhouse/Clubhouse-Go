@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// One state, followed by the desktop's request or task rather than a second state label.
 struct CompanionAgentStatusLine: Equatable {
@@ -78,12 +79,13 @@ struct CompanionAgentTreeRows: View {
     let rows: [CompanionAgentTreeRow]
     let preferences: CompanionPreferences
     var parentLines: [CompanionTarget: String] = [:]
+    @Environment(\.companionTelemetryScreen) private var screen
 
     var body: some View {
         let collapsed = preferences.collapsedAgents(in: rows)
         let hasDisclosureColumn = rows.contains { $0.rollup.count > 0 }
         ForEach(tree.visible(rows, collapsed: collapsed)) { row in
-            CompanionAgentTreeNavigationRow(row: row, collapsed: row.rollup.count > 0 && collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn,
+            CompanionAgentTreeNavigationRow(row: row, collapsed: row.rollup.count > 0 && collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn, screen: screen,
                                             toggle: { preferences.toggleAgentCollapsed(row.id) })
                 .equatable()
                 .listRowBackground(CompanionCardBackground())
@@ -96,17 +98,21 @@ private struct CompanionAgentTreeNavigationRow: View, Equatable {
     let collapsed: Bool
     let parentLine: String?
     let hasDisclosureColumn: Bool
+    let screen: AnnexUIAction.Screen?
     let toggle: () -> Void
     @Environment(\.companionPalette) private var palette
 
     static func == (lhs: Self, rhs: Self) -> Bool {
-        lhs.row == rhs.row && lhs.collapsed == rhs.collapsed && lhs.parentLine == rhs.parentLine && lhs.hasDisclosureColumn == rhs.hasDisclosureColumn
+        lhs.row == rhs.row && lhs.collapsed == rhs.collapsed && lhs.parentLine == rhs.parentLine && lhs.hasDisclosureColumn == rhs.hasDisclosureColumn && lhs.screen == rhs.screen
     }
 
     var body: some View {
         HStack(spacing: 0) {
             if row.rollup.count > 0 {
-                Button(action: toggle) {
+                Button {
+                    CompanionUIActions.record(.expandHelpers, on: screen)
+                    toggle()
+                } label: {
                     Image(systemName: "chevron.right").font(.caption.weight(.semibold))
                         .rotationEffect(.degrees(collapsed ? 0 : 90))
                         .foregroundStyle(Color(palette.secondaryLabel))
@@ -139,12 +145,19 @@ struct CompanionAgentTreeFold: View {
     let rows: [CompanionAgentTreeRow]
     let preferences: CompanionPreferences
     var parentLines: [CompanionTarget: String] = [:]
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         let key = "\(kind):\(projectID)"
         let isOpen = preferences.expandedFolds.contains(key)
         Button {
+            switch kind {
+            case "sleeping": CompanionUIActions.record(.expandSleepingAgents, on: screen)
+            case "finished": CompanionUIActions.record(.expandFinishedAgents, on: screen)
+            case "quiet": CompanionUIActions.record(.expandQuietAgents, on: screen)
+            default: break
+            }
             withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
         } label: {
             CompanionFoldLabel(text: text, isOpen: isOpen)

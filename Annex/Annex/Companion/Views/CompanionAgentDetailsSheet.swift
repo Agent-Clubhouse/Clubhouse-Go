@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// An agent's details, as the desktop's hover card and Details pane: what it runs on, where it works, its access,
 /// MCP servers and changes. Built from the snapshot and the chat session straight away; a durable agent's settings
@@ -33,10 +34,18 @@ struct CompanionAgentDetailsSheet: View {
             }
             .navigationTitle(agent?.name ?? "Agent details")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        AnnexTelemetry.shared.recordAction(screen: .agentDetails, control: .done)
+                        dismiss()
+                    }
+                }
+            }
             .task(id: refreshKey) { await load() }
         }
         .accessibilityIdentifier("agent-details-sheet")
+        .companionTelemetryScreen(.agentDetails)
     }
 
     @ViewBuilder private func list(_ details: CompanionAgentDetails) -> some View {

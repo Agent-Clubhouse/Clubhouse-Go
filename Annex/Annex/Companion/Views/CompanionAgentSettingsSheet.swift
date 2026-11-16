@@ -7,16 +7,23 @@ struct CompanionSleepAction: View {
     let target: CompanionTarget
     var title = "Sleep agent"
     var confirm: () -> Void = {}
+    @Environment(\.companionTelemetryScreen) private var screen
 
     var body: some View {
         if store.sleepRequests.contains(target) {
             Label("Sleep requested. Waiting for the desktop to confirm.", systemImage: "moon")
                 .accessibilityIdentifier("agent-sleep-pending")
-            Button("Check sleep status", systemImage: "arrow.clockwise") { Task { await store.refreshSleepState(target) } }
+            Button("Check sleep status", systemImage: "arrow.clockwise") {
+                CompanionUIActions.record(.refreshSleepState, on: screen)
+                Task { await store.refreshSleepState(target) }
+            }
                 .disabled(store.sleepRefreshes.contains(target) || store.host(for: target)?.connection.canOperate != true)
                 .accessibilityIdentifier("agent-sleep-refresh")
         } else if store.canSleep(target) {
-            Button(title, systemImage: "moon", action: confirm)
+            Button(title, systemImage: "moon") {
+                CompanionUIActions.record(.sleepAgent, on: screen)
+                confirm()
+            }
                 .accessibilityIdentifier("agent-sleep")
         }
     }
@@ -26,10 +33,14 @@ struct CompanionSleepConfirmation: ViewModifier {
     let store: CompanionStore
     let target: CompanionTarget
     @Binding var isPresented: Bool
+    @Environment(\.companionTelemetryScreen) private var screen
     func body(content: Content) -> some View {
         content.confirmationDialog("Sleep \(store.agent(for: target)?.name ?? "agent")?", isPresented: $isPresented, titleVisibility: .visible) {
-            Button("Sleep agent", role: .destructive) { Task { await store.sleepAgent(target) } }
-            Button("Cancel", role: .cancel) {}
+            Button("Sleep agent", role: .destructive) {
+                CompanionUIActions.record(.confirm, on: screen)
+                Task { await store.sleepAgent(target) }
+            }
+            Button("Cancel", role: .cancel) { CompanionUIActions.record(.cancel, on: screen) }
         } message: {
             Text("This stops the agent's session on \(store.host(for: target)?.name ?? "the desktop"). Wait for Sleeping before changing its provider. Starting again is a separate action.")
         }
@@ -92,6 +103,7 @@ struct CompanionAgentMenu: ViewModifier {
     @Environment(\.companionAgentSettings) private var settings
     @Environment(\.companionAgentWake) private var wake
     @Environment(\.companionTerminal) private var terminal
+    @Environment(\.companionTelemetryScreen) private var screen
     func body(content: Content) -> some View {
         let choices = wake?.choices(target) ?? []
         let hasSettingsItems = settings.map { $0.openDetails != nil || $0.canOpen(target) } ?? false
@@ -100,7 +112,10 @@ struct CompanionAgentMenu: ViewModifier {
             content.contextMenu {
                 if let wake {
                     ForEach(choices) { choice in
-                        Button(choice.label, systemImage: choice.systemImage) { wake.wake(target, choice) }
+                        Button(choice.label, systemImage: choice.systemImage) {
+                            CompanionUIActions.wake(choice, on: screen)
+                            wake.wake(target, choice)
+                        }
                     }
                 }
                 if let settings { CompanionAgentMenuItems(target: target, actions: settings) }
@@ -116,10 +131,14 @@ struct CompanionAgentMenu: ViewModifier {
 struct CompanionWakeButtons: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
+    @Environment(\.companionTelemetryScreen) private var screen
     var body: some View {
         let choices = store.wakeChoices(for: target)
         ForEach(Array(choices.enumerated()), id: \.element) { index, choice in
-            let button = Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(target, choice) } }
+            let button = Button(choice.label, systemImage: choice.systemImage) {
+                CompanionUIActions.wake(choice, on: screen)
+                Task { await store.wake(target, choice) }
+            }
                 .disabled(!store.canWake(target))
                 .accessibilityIdentifier(index == 0 ? "companion-wake" : "companion-wake-\(choice.rawValue)")
             if index == 0 { button.buttonStyle(.glassProminent).companionProminentLabel() } else { button.buttonStyle(.bordered).buttonBorderShape(.capsule) }
@@ -131,12 +150,19 @@ struct CompanionWakeButtons: View {
 struct CompanionAgentMenuItems: View {
     let target: CompanionTarget
     let actions: CompanionAgentSettingsAction
+    @Environment(\.companionTelemetryScreen) private var screen
     var body: some View {
         if let openDetails = actions.openDetails {
-            Button("Agent details", systemImage: "info.circle") { openDetails(target) }
+            Button("Agent details", systemImage: "info.circle") {
+                CompanionUIActions.record(.openAgentDetails, on: screen)
+                openDetails(target)
+            }
         }
         if actions.canOpen(target) {
-            Button("Agent settings", systemImage: "slider.horizontal.3") { actions.open(target) }
+            Button("Agent settings", systemImage: "slider.horizontal.3") {
+                CompanionUIActions.record(.openAgentSettings, on: screen)
+                actions.open(target)
+            }
         }
     }
 }
@@ -180,7 +206,14 @@ struct CompanionAgentSettingsSheet: View {
     var body: some View {
         NavigationStack {
             CompanionAgentSettingsForm(store: store, target: target, focusContext: focusContext)
-                .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") {
+                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .done)
+                            dismiss()
+                        }
+                    }
+                }
         }
     }
 }
@@ -248,13 +281,17 @@ struct CompanionAgentSettingsForm: View {
                     ContentUnavailableView {
                         Label("Settings unavailable", systemImage: "slider.horizontal.3")
                     } description: { Text(loadError) } actions: {
-                        Button("Try again") { Task { await load() } }
+                        Button("Try again") {
+                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .retry)
+                            Task { await load() }
+                        }
                     }
                 } else {
                     ProgressView("Loading settings…").frame(maxWidth: .infinity)
                 }
             }
             .navigationTitle(agent?.name ?? "Agent settings")
+            .companionTelemetryScreen(.agentSettings)
             .navigationBarTitleDisplayMode(.inline)
             .task(id: refreshKey) { await load() }
             .task(id: showsDispatcherSettings) {
@@ -268,19 +305,25 @@ struct CompanionAgentSettingsForm: View {
             }
             .confirmationDialog("Use \(pendingAccess?.label ?? "elevated Access")?", isPresented: $confirmAccess, titleVisibility: .visible) {
                 Button("Use \(pendingAccess?.label ?? "elevated Access")", role: .destructive) {
-                    if let pendingAccess { save(.init(access: pendingAccess)) }
+                    if let pendingAccess { save(.init(access: pendingAccess), control: .confirm) }
                     pendingAccess = nil
                 }
-                Button("Cancel", role: .cancel) { pendingAccess = nil }
+                Button("Cancel", role: .cancel) {
+                    AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .cancel)
+                    pendingAccess = nil
+                }
             } message: {
                 Text(settings?.access?.choices.first { $0.id == pendingAccess }?.description ?? "")
             }
             .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
                 Button("Change CLI", role: .destructive) {
-                    if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator)) }
+                    if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator), control: .confirm) }
                     pendingOrchestrator = nil
                 }
-                Button("Cancel", role: .cancel) { pendingOrchestrator = nil }
+                Button("Cancel", role: .cancel) {
+                    AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .cancel)
+                    pendingOrchestrator = nil
+                }
             } message: {
                 if let pendingOrchestrator, let settings,
                    let warning = settings.orchestratorChangeWarning(to: pendingOrchestrator, agentName: settings.name.value) {
@@ -329,7 +372,10 @@ struct CompanionAgentSettingsForm: View {
             if let loadError {
                 Label(loadError, systemImage: "exclamationmark.circle").font(.subheadline).foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("agent-settings-refresh-error")
-                Button("Retry") { Task { await load() } }
+                Button("Retry") {
+                    AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .retry)
+                    Task { await load() }
+                }
                     .accessibilityIdentifier("agent-settings-refresh-retry")
             }
             if let contextResetNotice = settings.contextWindowReset?.message {
@@ -425,6 +471,7 @@ struct CompanionAgentSettingsForm: View {
                     Button {
                         guard choice.available, choice.id != (settings.orchestrator.value ?? settings.resolvedOrchestrator) else { return }
                         if settings.orchestratorChangeWarning(to: choice.id, agentName: settings.name.value) != nil {
+                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .selectProvider)
                             pendingOrchestrator = choice.id
                             confirmOrchestratorChange = true
                         } else { save(.init(orchestrator: choice.id)) }
@@ -495,6 +542,7 @@ struct CompanionAgentSettingsForm: View {
                     Picker("Access", selection: Binding(get: { access.value }, set: { level in
                         guard level != (agent?.access ?? access.value), access.choices.contains(where: { $0.id == level }) else { return }
                         if accessNeedsConfirmation(level, saved: access) {
+                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .selectAccess)
                             pendingAccess = level
                             confirmAccess = true
                         } else { save(.init(access: level)) }
@@ -574,7 +622,7 @@ struct CompanionAgentSettingsForm: View {
             if let costNote = context.costNote { Text(costNote).font(.footnote).foregroundStyle(Color(palette.secondaryLabel)) }
             if let notice = context.notice { Text(notice).font(.footnote).foregroundStyle(Color(palette.secondaryLabel)) }
             if context.value != nil {
-                Button("Reset to Default") { if let change = context.change(to: nil) { save(change) } }
+                Button("Reset to Default") { if let change = context.change(to: nil) { save(change, control: .resetContextWindow) } }
                     .buttonStyle(.borderless)
                     .disabled(!canReset)
                     .accessibilityIdentifier("agent-settings-context-window-reset")
@@ -713,8 +761,21 @@ struct CompanionAgentSettingsForm: View {
         }
     }
 
-    private func save(_ change: CompanionSettingsChange) {
+    private func save(_ change: CompanionSettingsChange, control selectedControl: AnnexUIAction.Control? = nil) {
         guard !saving else { return }
+        // Only the field's fixed control name is recorded; values, target and payload stay local.
+        let control: AnnexUIAction.Control
+        if change.name != nil { control = .renameAgent }
+        else if change.color != nil { control = .selectColor }
+        else if change.emoji != nil { control = .selectEmoji }
+        else if change.orchestrator != nil { control = .selectProvider }
+        else if change.model != nil { control = .selectModel }
+        else if change.contextWindow != nil { control = .selectContextWindow }
+        else if change.runtime != nil { control = .selectRuntime }
+        else if change.access != nil || change.freeAgentMode != nil { control = .selectAccess }
+        else if change.idleSleep != nil { control = .selectAutoSleep }
+        else { control = .selectBehavior }
+        AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: selectedControl ?? control)
         saving = true
         saveError = nil
         Task {
@@ -751,6 +812,7 @@ struct CompanionDispatcherSwitch: View {
     let hostID: String
     /// The Dispatcher name and its desktop, when more than one is paired.
     var label: String?
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
@@ -759,7 +821,11 @@ struct CompanionDispatcherSwitch: View {
             VStack(alignment: .leading, spacing: 6) {
                 if dispatcher.mcpOff == nil {
                     Toggle(isOn: Binding(get: { dispatcher.enabled },
-                                         set: { on in Task { await store.setDispatcher(enabled: on, hostID: hostID) } })) {
+                                         set: { on in
+                        guard on != dispatcher.enabled else { return }
+                        CompanionUIActions.record(.toggleDispatcher, on: screen)
+                        Task { await store.setDispatcher(enabled: on, hostID: hostID) }
+                    })) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("Turn on Dispatcher")
                             if let label { Text(label).font(.caption).foregroundStyle(Color(palette.secondaryLabel)) }
@@ -792,6 +858,7 @@ struct CompanionCreatedAgentNotice: View {
     @Bindable var store: CompanionStore
     let agent: CompanionAgent
     var onWakeWithMessage: () -> Void
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionPalette) private var palette
 
     var body: some View {
@@ -807,19 +874,28 @@ struct CompanionCreatedAgentNotice: View {
                 Image(systemName: "checkmark.circle").foregroundStyle(Color(palette.success))
                 VStack(alignment: .leading, spacing: 8) {
                     text("\(agent.name) is ready", "It sleeps until you wake it.")
-                    Button("Wake with a message", systemImage: "text.bubble", action: onWakeWithMessage)
+                    Button("Wake with a message", systemImage: "text.bubble") {
+                        CompanionUIActions.record(.wakeAgent, on: screen)
+                        onWakeWithMessage()
+                    }
                         .buttonStyle(.glassProminent).companionProminentLabel()
                         .accessibilityIdentifier("companion-wake-with-message")
                     // Or wake it without one. A new agent has no session yet, so this is Start New Session.
                     ForEach(store.wakeChoices(for: agent.id)) { choice in
-                        Button(choice.label, systemImage: choice.systemImage) { Task { await store.wake(agent.id, choice) } }
+                        Button(choice.label, systemImage: choice.systemImage) {
+                            CompanionUIActions.wake(choice, on: screen)
+                            Task { await store.wake(agent.id, choice) }
+                        }
                             .buttonStyle(.glass).disabled(!store.mayWake(agent.id))
                             .accessibilityIdentifier("companion-created-wake-\(choice.rawValue)")
                     }
                 }
             }
             Spacer(minLength: 0)
-            Button("Dismiss", systemImage: "xmark") { store.justCreated = nil }
+            Button("Dismiss", systemImage: "xmark") {
+                CompanionUIActions.record(.close, on: screen)
+                store.justCreated = nil
+            }
                 .labelStyle(.iconOnly).buttonStyle(.borderless).foregroundStyle(Color(palette.secondaryLabel))
         }
         .padding(16).frame(maxWidth: .infinity, alignment: .leading)
