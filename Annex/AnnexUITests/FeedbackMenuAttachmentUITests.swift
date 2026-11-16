@@ -13,12 +13,17 @@ import XCTest
         XCTAssertTrue(app.images["framebriar-attachment"].waitForExistence(timeout: 5),
                       "Settings retains the pre-sheet screenshot for review")
         app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Send feedback"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
     func testSettingsFeedbackReopensWithItsPreSettingsScreenshot() {
         let app = launchApp(["--companion-preview", "--companion-preview-feedback"], attempts: 1)
         openSettings(app)
         openSettingsFeedback(app)
+        app.buttons["settings-close"].tap()
+        XCTAssertTrue(app.navigationBars["Settings"].waitForNonExistence(timeout: 5))
+        // Cancel releases the first holder's pixels. Reopening Settings must freeze a new screen.
+        openSettings(app)
         openSettingsFeedback(app)
     }
     func testChatMenuAttachesAfterSettingsFeedbackDismisses() {
@@ -26,7 +31,8 @@ import XCTest
         openSettings(app)
         openSettingsFeedback(app)
         app.buttons["settings-close"].tap()
-        let river = app.buttons["agent-preview-studio-river"]
+        XCTAssertTrue(app.navigationBars["Settings"].waitForNonExistence(timeout: 5))
+        let river = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         XCTAssertTrue(scrollUntilExists(river, in: app, maxSwipes: 4))
         XCTAssertTrue(scrollTo(river, in: app, maxSwipes: 4))
         let actions = app.buttons["conversation-actions-menu"]
