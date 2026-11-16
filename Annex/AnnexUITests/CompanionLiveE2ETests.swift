@@ -144,7 +144,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         }
         let row = agentRow(app, agentID)
         if row.waitForExistence(timeout: 3) { scrollTo(row, in: app, file: file, line: line); return row }
-        let fold = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'fold-sleeping-'")).firstMatch
+        let fold = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'fold-quiet-'")).firstMatch
         XCTAssertTrue(fold.waitForExistence(timeout: 10), "The agent must be on Home or in the sleeping fold", file: file, line: line)
         expandFold(fold, revealing: row, in: app, file: file, line: line)
         XCTAssertTrue(row.waitForExistence(timeout: 10), "The agent's row must show", file: file, line: line)
@@ -537,7 +537,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         func row(_ label: String) -> XCUIElement {
             any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'agent-' AND label BEGINSWITH %@", "\(label),")).firstMatch
         }
-        let fold = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'fold-sleeping-'")).firstMatch
+        let fold = any(app).matching(NSPredicate(format: "identifier BEGINSWITH 'fold-quiet-'")).firstMatch
         XCTAssertTrue(fold.waitForExistence(timeout: 20))
         expandFold(fold, revealing: row(name), in: app)
         XCTAssertTrue(row(name).waitForExistence(timeout: 20), "Home lists the new agent from the desktop")

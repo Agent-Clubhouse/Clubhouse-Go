@@ -919,3 +919,11 @@ appearance matrix also selects an offline host and requires a non-actionable pla
 instead of cached live rows. Scope regression tests retain exited quick runs only in the
 authoritative shared quiet fold. Home header/card styling and linked activity ranking
 remain with #440; no new desktop sync or Store cache mutation is introduced.
+
+Home #439 carries an explicit launch-host scope into New agent. The defaulted
+`CompanionSpawnSheet.initialHostID` constrains its real project entries and machine
+choices; nil preserves All's linked chooser. Removing that launch desktop never widens
+the open sheet to another host. The real-sheet UI regression opens both Home + entry
+points from Laptop and verifies only Laptop's project is offered, then checks All
+still offers both machines. Existing Home tests migrate separate sleeping/finished
+selectors to the shared quiet fold without removing their content/routing assertions.

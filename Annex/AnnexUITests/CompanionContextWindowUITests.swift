@@ -16,7 +16,7 @@ import XCTest
         if home.exists && !home.isSelected { home.tap() }
         let row = element(app, rowID)
         if sleeping {
-            expandFold(element(app, "fold-sleeping-preview-studio-clubhouse"), revealing: row, in: app)
+            expandFold(element(app, "fold-quiet-preview-studio-clubhouse"), revealing: row, in: app)
         }
         XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app))
         let settings = app.buttons["Agent settings"]

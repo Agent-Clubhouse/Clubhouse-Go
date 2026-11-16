@@ -22,7 +22,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         if home.waitForExistence(timeout: 5), !home.isSelected { home.tap() }
         let any = app.descendants(matching: .any)
         let row = any.matching(identifier: sleeping ? "agent-preview-studio-juniper" : "agent-preview-studio-river").firstMatch
-        if sleeping { expandFold(any.matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch, revealing: row, in: app) }
+        if sleeping { expandFold(any.matching(identifier: "fold-quiet-preview-studio-clubhouse").firstMatch, revealing: row, in: app) }
         scrollTo(row, in: app)
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(row, shows: settings)
@@ -495,11 +495,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         scrollTo(river, in: app, up: false, maxSwipes: 5, velocity: .slow)
         XCTAssertTrue(river.label.contains("Ask first"), "Rows show saved Access, not the live Auto-accept edits level")
 
-        let sleeping = element("fold-sleeping-preview-studio-clubhouse")
+        let sleeping = element("fold-quiet-preview-studio-clubhouse")
         reveal(sleeping)
         XCTAssertTrue(sleeping.label.contains("1 sleeping"))
         XCTAssertFalse(element("agent-preview-studio-juniper").exists, "Sleeping agents start folded")
-        XCTAssertTrue(element("fold-finished-preview-studio-clubhouse").label.contains("3 finished quick agents"))
+        XCTAssertTrue(element("fold-quiet-preview-studio-clubhouse").label.contains("3 finished quick agents"))
         tapToExpand(sleeping)
         XCTAssertTrue(element("agent-preview-studio-juniper").waitForExistence(timeout: 5), "Opening the fold shows the sleeping agent")
 
@@ -533,7 +533,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let juniper = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-juniper").firstMatch
         // Home folds sleeping agents; open the fold to reach Juniper.
         func unfoldJuniper() {
-            let fold = app.descendants(matching: .any).matching(identifier: "fold-sleeping-preview-studio-clubhouse").firstMatch
+            let fold = app.descendants(matching: .any).matching(identifier: "fold-quiet-preview-studio-clubhouse").firstMatch
             scrollUntilExists(fold, in: app)
             expandFold(fold, revealing: juniper, in: app)
         }
@@ -668,7 +668,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let any = app.descendants(matching: .any)
         func element(_ id: String) -> XCUIElement { any.matching(identifier: id).firstMatch }
         // Sleeping agents start folded on Home.
-        let sleeping = element("fold-sleeping-preview-studio-clubhouse")
+        let sleeping = element("fold-quiet-preview-studio-clubhouse")
         let juniper = element("agent-preview-studio-juniper")
         expandFold(sleeping, revealing: juniper, in: app)
         XCTAssertTrue(juniper.waitForExistence(timeout: 10))

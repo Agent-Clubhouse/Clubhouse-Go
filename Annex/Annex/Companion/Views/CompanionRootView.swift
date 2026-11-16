@@ -12,6 +12,7 @@ struct CompanionRootView: View {
     var pairedHostIDs: Set<String>?
     @State private var navigation: CompanionNavigation
     @State private var spawnProject: CompanionProjectTarget?
+    @State private var spawnHostID: String?
     @State private var settingsTarget: CompanionTarget?
     @State private var detailsTarget: CompanionTarget?
     @State private var review: CompanionReviewLaunch?
@@ -43,7 +44,7 @@ struct CompanionRootView: View {
             Tab("Home", systemImage: "house", value: CompanionTab.home) {
                 stack(.home) {
                     CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); onSettings() },
-                                      onNewAgent: { navigation.interact(); spawnProject = $0 }, isPreview: isPreview,
+                                      onNewAgent: { target, hostID in navigation.interact(); spawnHostID = hostID; spawnProject = target }, isPreview: isPreview,
                                       onInteraction: { navigation.interact() })
                 }
             }
@@ -84,7 +85,7 @@ struct CompanionRootView: View {
             .companionTheme(preferences.sharedTheme(hosts: store.hosts))
         }
         .sheet(item: $spawnProject) { project in
-            CompanionSpawnSheet(store: store, initialProject: project)
+            CompanionSpawnSheet(store: store, initialProject: project, initialHostID: spawnHostID)
                 .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
         }
         .sheet(item: $settingsTarget) { target in
@@ -137,7 +138,7 @@ struct CompanionRootView: View {
                 switch route {
                 case .agent(let target): destination(target)
                 case .project(let project):
-                    CompanionProjectPage(store: store, preferences: preferences, project: project, onNewAgent: { spawnProject = $0 })
+                    CompanionProjectPage(store: store, preferences: preferences, project: project, onNewAgent: { spawnHostID = nil; spawnProject = $0 })
                         .companionTheme(preferences.theme(forHost: project.hostID, hosts: store.hosts))
                 }
             }
@@ -314,7 +315,7 @@ struct CompanionHomeView: View {
     @Bindable var preferences: CompanionPreferences
     var onPair: () -> Void
     var onSettings: () -> Void
-    var onNewAgent: (CompanionProjectTarget) -> Void
+    var onNewAgent: (CompanionProjectTarget, String?) -> Void
     var isPreview = false
     var onInteraction: () -> Void = {}
     @State private var arranging = false
@@ -342,7 +343,7 @@ struct CompanionHomeView: View {
                 summary
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .listRowBackground(CompanionCardBackground())
+                    .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
                     .accessibilityIdentifier("home-summary")
                     .accessibilityAddTraits(.isHeader)
@@ -351,6 +352,7 @@ struct CompanionHomeView: View {
             // removing a selected desktop must restore All before filtering Home.
             CompanionDesktopChips(hosts: store.hosts, selection: $desktopSelection, onSelect: onInteraction)
                 .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             if isPreview { CompanionPreviewLabel().listRowBackground(Color.clear) }
             if store.hosts.isEmpty {
@@ -413,7 +415,7 @@ struct CompanionHomeView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New agent", systemImage: "plus") {
                     // Start in the project at the top of Home, not the desktop's first.
-                    if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn) { onNewAgent(entry.id) }
+                    if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn) { onNewAgent(entry.id, scope.selectedHostID) }
                 }
                 // The toolbar owns the glass; hosted shortcut content must not add automatic button chrome.
                 .buttonStyle(.plain)
@@ -595,7 +597,7 @@ struct CompanionHomeView: View {
                 if multipleHosts && !entry.isLinked { CompanionHostTag(name: entry.host.name) }
                 Spacer()
                 projectMenu(group)
-                Button { onNewAgent(entry.id) } label: { Image(systemName: "plus") }
+                Button { onNewAgent(entry.id, scope.selectedHostID) } label: { Image(systemName: "plus") }
                     .buttonStyle(.borderless)
                     .frame(minWidth: 44, minHeight: 44)
                     .disabled(!entry.canSpawn)
