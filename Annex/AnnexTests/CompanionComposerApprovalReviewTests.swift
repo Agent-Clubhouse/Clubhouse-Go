@@ -60,6 +60,7 @@ import ClubhouseTransport
         XCTAssertEqual(activateOpenedMenu(), .approval(approval))
         let (window, controller, originalKey) = try mountTray(fixture)
         defer { window.isHidden = true; window.rootViewController = nil; originalKey?.makeKey() }
+        try await requireRenderedLabel("Review one-shot", in: window)
         controller.view.layoutIfNeeded()
         let size = CGSize(width: 402, height: 1000)
         XCTAssertGreaterThan(controller.sizeThatFits(in: size).height, 0)
@@ -68,10 +69,45 @@ import ClubhouseTransport
             controller.sizeThatFits(in: size).height == 0
         }, object: nil)
         await fulfillment(of: [retired], timeout: 8)
+        XCTAssertEqual(controller.sizeThatFits(in: size).height, 0)
+        XCTAssertFalse(try renderedText(window).contains("Review one-shot"), "The expired tray is absent from the mounted screen")
         XCTAssertNil(activateOpenedMenu(), "The callback captured before expiry rechecks the deadline at activation")
         XCTAssertEqual(fixture.store.conversation(for: fixture.target).items, originalItems, "No event or source mutation retires the tray")
         XCTAssertTrue(fixture.service.commands.isEmpty)
     }
+
+    #if DEBUG
+    func testMountedReviewStaysOnTheSameControllerWhenTheLastApprovalBecomesUncertain() async throws {
+        let approval = request("last")
+        let fixture = ReviewFixture([approval], selected: approval.id)
+        defer { fixture.tearDown() }
+        let selection = CompanionComposerApprovalReviewSelection(target: fixture.target, approvalID: approval.id,
+            presentation: fixture.store.decisionPresentation(.approval(approval), target: fixture.target))
+        let (window, controller, originalKey) = try mountTray(fixture, initialReview: selection)
+        defer { window.isHidden = true; window.rootViewController = nil; originalKey?.makeKey() }
+        let appeared = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            controller.presentedViewController?.viewIfLoaded?.window === window
+        }, object: nil)
+        await fulfillment(of: [appeared], timeout: 5)
+        let presented = try XCTUnwrap(controller.presentedViewController)
+        try await requireRenderedLabel("Review last", in: window)
+        var uncertain = approval
+        uncertain.resolution = .uncertain
+        fixture.publish([uncertain])
+        XCTAssertTrue(CompanionPendingDecision.pending(in: fixture.store.conversation(for: fixture.target).items).isEmpty)
+        try await requireRenderedLabel("Decision delivery unknown", in: window)
+        XCTAssertTrue(controller.presentedViewController === presented, "The same full Review survives the final pending row disappearing")
+        XCTAssertTrue(presented.view.window === window)
+        XCTAssertEqual(controller.sizeThatFits(in: CGSize(width: 402, height: 1000)).height, 0,
+                       "The empty tray occupies zero height while its Review remains presented")
+        XCTAssertTrue(fixture.service.commands.isEmpty)
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            presented.dismiss(animated: false) { continuation.resume() }
+        }
+        XCTAssertNil(controller.presentedViewController)
+        XCTAssertTrue(fixture.service.commands.isEmpty, "Closing Review sends no decision")
+    }
+    #endif
 
     func testOpenReviewTracksQueueResolutionAndRemovalWithoutDispatch() async throws {
         let first = request("first"), second = request("second"), earlier = request("earlier")
@@ -300,14 +336,21 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.service.commands, ["answer"])
     }
 
-    private func mountTray(_ fixture: ReviewFixture) throws -> (UIWindow, UIHostingController<CompanionConversationPendingDecisions>, UIWindow?) {
+    private func mountTray(_ fixture: ReviewFixture, initialReview: CompanionComposerApprovalReviewSelection? = nil) throws -> (UIWindow, UIHostingController<CompanionConversationPendingDecisions>, UIWindow?) {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         let originalKey = scene.windows.first(where: \.isKeyWindow)
         let window = UIWindow(windowScene: scene)
         window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
-        let controller = UIHostingController(rootView: CompanionConversationPendingDecisions(store: fixture.store, target: fixture.target,
-            maximumHeight: 400, compactHeight: false, showInChat: { _ in }))
+        var tray = CompanionConversationPendingDecisions(store: fixture.store, target: fixture.target,
+            maximumHeight: 400, compactHeight: false, showInChat: { _ in })
+        #if DEBUG
+        if let initialReview { tray = tray.withInitialReviewForTesting(initialReview) }
+        #endif
+        let controller = UIHostingController(rootView: tray)
+        // Production mounts the tray inside a footer, not as a whole screen. Measure its content,
+        // excluding this isolated hosting window's top/bottom safe areas; no tolerance or fixed inset.
+        controller.safeAreaRegions = []
         window.rootViewController = controller
         window.makeKeyAndVisible()
         return (window, controller, originalKey)

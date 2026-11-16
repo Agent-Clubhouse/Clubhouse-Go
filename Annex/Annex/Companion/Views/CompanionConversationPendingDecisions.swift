@@ -21,7 +21,8 @@ struct CompanionConversationPendingDecisions: View {
             guard case .approval(let approval) = decision, approval.resolution == .pending else { return nil }
             return approval.deadline
         }.min()
-        return Group {
+        // Keep the task and sheet host mounted when the final pending request leaves the queue.
+        return VStack(spacing: 0) {
             if let decision = CompanionPendingDecision.selected(in: queue, id: selectedID),
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
@@ -216,6 +217,14 @@ struct CompanionConversationPendingDecisions: View {
         verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
     }
     private func resetPresentation() { selectedID = nil; review = nil }
+    #if DEBUG
+    /// Seed only the initial value for a mounted sheet-lifecycle test; no callback or owner is retained.
+    func withInitialReviewForTesting(_ selection: CompanionComposerApprovalReviewSelection) -> Self {
+        var tray = self
+        tray._review = State(initialValue: selection)
+        return tray
+    }
+    #endif
     private func isApproval(_ decision: CompanionPendingDecision) -> Bool {
         if case .approval = decision { return true }
         return false
