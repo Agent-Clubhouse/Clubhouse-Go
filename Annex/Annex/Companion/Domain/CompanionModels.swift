@@ -196,6 +196,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var canSyncLinkedProjectState = false
     /// Each project's pins, mark and idle flag from the snapshot. Nil until the desktop sends it (after its one-time migration).
     var projectState: [String: CompanionProjectState]?
+    /// Local snapshot identity, never a desktop edit clock or a wire field. Receipts cannot replace a newer snapshot.
+    var projectStateRevision: UUID?
     /// The desktop's idle window in days, for display. 0 is never.
     var idleDays: Int?
     /// Pins and idle projects come from the desktop. Otherwise this phone keeps its own.

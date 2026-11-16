@@ -9,6 +9,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
     /// How the next executed command ends.
     enum Outcome: Sendable {
         case completed(AnnexJSON? = nil)
+        case heldCompleted(AnnexJSON)
         case receipt(AnnexCommandReceipt)
         case heldReceipt(AnnexCommandReceipt)
         case rejected(code: String, message: String)
@@ -165,6 +166,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
             heldReceipt = receipt
             return await withCheckedContinuation { heldCommand = $0 }
         case .completed(let value): status = "completed"; error = .null; result = value ?? .null
+        case .heldCompleted(let value): status = "completed"; error = .null; result = value
         case .rejected(let code, let message):
             status = "rejected"; error = .object(["code": .string(code), "message": .string(message)]); result = .null
         case .failed(let message):
@@ -172,8 +174,13 @@ actor ScriptedAnnexTransport: AnnexTransporting {
             error = message.map { .object(["code": .string("failed"), "message": .string($0)]) } ?? .null
         case .thrown(let thrown): throw thrown
         }
-        return try AnnexJSON.object(["version": .integer(1), "epoch": .string(epoch), "commandId": .string(command.commandID),
+        let receipt = try AnnexJSON.object(["version": .integer(1), "epoch": .string(epoch), "commandId": .string(command.commandID),
                                      "status": .string(status), "error": error, "result": result]).decode(AnnexCommandReceipt.self)
+        if case .heldCompleted = outcome {
+            heldReceipt = receipt
+            return await withCheckedContinuation { heldCommand = $0 }
+        }
+        return receipt
     }
 }
 

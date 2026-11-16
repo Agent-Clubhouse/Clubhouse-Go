@@ -839,12 +839,17 @@ import ClubhouseTransport
         guard capabilities[project.hostID]?.supportsProjectState == true else {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to share pins with your phone.")
         }
+        let snapshotRevision = hosts[project.hostID]?.projectStateRevision
         let receipt = try await execute(kind, id: id, hostID: project.hostID)
-        // A fresh snapshot follows every change; the result covers the moment before it arrives.
+        // The receipt fills the gap before a snapshot. A snapshot applied during the HTTP request
+        // is authoritative even if this older receipt arrives later on its separate connection.
         guard let state = CompanionProjectState(json: receipt.result) else {
             throw CompanionServiceError.uncertain("The desktop took the change but didn't confirm it. It will show when the desktop next updates.")
         }
-        if hosts[project.hostID]?.projectState != nil { hosts[project.hostID]?.projectState?[project.projectID] = state; emitHosts() }
+        if hosts[project.hostID]?.projectState != nil,
+           hosts[project.hostID]?.projectStateRevision == snapshotRevision {
+            hosts[project.hostID]?.projectState?[project.projectID] = state; emitHosts()
+        }
         return state
     }
     nonisolated static func idleDays(from value: AnnexJSON?) -> Int? { value?.int }
@@ -1255,6 +1260,7 @@ import ClubhouseTransport
                 hosts[hostID]?.helperRoutingRevision = payload["helperRoutingRevision"]?.string
                 // Sent only after the desktop's one-time migration; without it the phone keeps its own pins.
                 hosts[hostID]?.projectState = CompanionProjectState.map(from: payload["projectState"])
+                hosts[hostID]?.projectStateRevision = UUID()
                 // Also sent only after the desktop's one-time migration; without it the phone keeps its own finished list.
                 hosts[hostID]?.finishedQuickAgents = CompanionFinishedRun.desktopLists(payload["finishedQuickAgents"], hostID: hostID)
                 hosts[hostID]?.idleDays = Self.idleDays(from: payload["idleDays"])
