@@ -63,12 +63,20 @@ import XCTest
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.buttons["settings-close"].tap()
         XCTAssertTrue(settings.waitForNonExistence(timeout: 5))
-        for title in ["Search", "Needs you", "Home"] {
+        for title in ["Needs you", "Home"] {
             let tab = app.tabBars.buttons[title]
             XCTAssertTrue(tab.waitForExistence(timeout: 5))
             tab.tap()
-            XCTAssertTrue(tab.isSelected)
+            XCTAssertTrue(tab.wait(for: \.isSelected, toEqual: true, timeout: 5))
         }
+        app.tabBars.buttons["Search"].tap()
+        // Native Search replaces its tab button with a search field and a collapsed previous-tab control.
+        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.searchFields.firstMatch.exists)
+        app.tabBars.buttons["Home"].tap() // Expand the native bar before selecting Home.
+        XCTAssertTrue(app.tabBars.buttons["Needs you"].waitForExistence(timeout: 5))
+        app.tabBars.buttons["Home"].tap()
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         openSettings()
         for _ in 0..<2 {
             let name = app.buttons["settings-phone-name"]
@@ -88,8 +96,9 @@ import XCTest
         let actions = try exportedActions(app)
         XCTAssertEqual(actions["home.openSettings"], 1, "Only the explicit Settings opening counts")
         XCTAssertEqual(actions["home.searchTab"], 1)
-        XCTAssertEqual(actions["search.needsYouTab"], 1)
+        XCTAssertEqual(actions["home.needsYouTab"], 1)
         XCTAssertEqual(actions["needsYou.homeTab"], 1)
+        XCTAssertEqual(actions["search.homeTab"], 1)
         let records = try exportedRecords(app)
         XCTAssertFalse(records.contains { $0["operation"] as? String == "settings" },
                        "Returning from Settings subpages cannot emit legacy appearance events")

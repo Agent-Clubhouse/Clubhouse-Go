@@ -477,7 +477,7 @@ Home's Settings button and the feedback invitation banner record `openSettings` 
 (on `home` and `feedbackPrompt`, respectively). The production Settings list has no appearance event,
 so returning from a child page does not count another opening. The production-root diagnostics UI test
 clears capture, switches tabs, opens Settings, returns twice from Name on desktops and checks the reviewed JSON:
-one opening, the three expected tab switches, and no legacy `settings` appearance event.
+one opening, the four expected tab switches, and no legacy `settings` appearance event.
 
 This is a partial slice. The remaining chat menu items, Review Done, Root actions, Needs-you/helper/grant
 decisions, managed-create callbacks, missing chat/Search contexts, Framebriar upstream callback, native
