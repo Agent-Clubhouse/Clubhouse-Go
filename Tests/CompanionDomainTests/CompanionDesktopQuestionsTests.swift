@@ -1,3 +1,4 @@
+import Foundation
 import Testing
 @testable import CompanionDomain
 
@@ -97,4 +98,33 @@ import Testing
         #expect(group.message(hostName: nil) == "Answer it in Clubhouse on your desktop.")
         #expect(group.message(hostName: "") == group.message(hostName: nil))
     }
+    @Test(arguments: ["question:first", "question:later"], [-20.0, 15.0, 500.0])
+    func legacyMemberBookmarksClampInsideVisibleSummaryAndFinish(member: String, distance: Double) throws {
+        let all = entries([.question(first), .question(later)])
+        let entry = try #require(all.first)
+        #expect(entry.frameIDs == ["question:first", "question:later"])
+        let bounds = 100.0...180.0
+        let frames = Dictionary(uniqueKeysWithValues: entry.frameIDs.map { ($0, bounds) })
+        var saved = CompanionReadingPosition(followsLatest: false, entryID: member, distanceFromEntry: distance, offset: 900)
+        let rows = all.compactMap { entry -> CompanionTimelineRow? in
+            if case .row(let row) = entry { return row }; return nil
+        }
+        let restored = saved.restoredOffset(frames: frames, rows: rows)
+        #expect(bounds.contains(restored), "A legacy offset cannot spill into the next row")
+        #expect(restored == min(max(100 + distance, 100), 180))
+        let revision = UUID()
+        var restoration = CompanionReadingRestoration(revision: revision, startedAt: 0)
+        let before = CompanionScrollMetrics(offset: 0, contentHeight: 1_000, containerHeight: 400)
+        #expect(restoration.next(now: 0.1, revision: revision, followsLatest: false, metrics: before,
+                                 frameContentHeight: 1_000, proposedOffset: restored) == .scroll(restored))
+        let arrived = CompanionScrollMetrics(offset: restored, contentHeight: 1_000, containerHeight: 400)
+        #expect(restoration.next(now: 0.2, revision: revision, followsLatest: false, metrics: arrived,
+                                 frameContentHeight: 1_000, proposedOffset: restored) == .finish(.arrived))
+        #expect(restoration.attempts == 1, "An alias has real geometry; it does not wait until exhaustion")
+        let ordinary = CompanionTimelineEntry.row(.item(.question(answerable)))
+        #expect(ordinary.frameIDs == ["question:complete"])
+        saved.entryID = "question:complete"
+        #expect(saved.restoredOffset(frames: ["question:complete": bounds], rows: [.item(.question(answerable))]) == max(0, 100 + distance))
+    }
+
 }

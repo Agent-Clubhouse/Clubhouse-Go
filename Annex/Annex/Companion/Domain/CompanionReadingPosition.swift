@@ -81,9 +81,16 @@ struct CompanionReadingPosition: Equatable, Sendable {
             distanceFromEntry = offset - first.value.lowerBound
         }
     }
-    func restoredOffset(frames: [String: ClosedRange<Double>]) -> Double {
+    func restoredOffset(frames: [String: ClosedRange<Double>], rows: [CompanionTimelineRow] = []) -> Double {
         guard let entryID, let frame = frames[entryID] else { return offset }
-        return max(0, frame.lowerBound + distanceFromEntry)
+        let restored = max(0, frame.lowerBound + distanceFromEntry)
+        // A legacy individual-question bookmark now aliases a shorter summary card.
+        // Ordinary rows retain their existing entry-relative restoration behavior.
+        let isSummary = rows.contains { row in
+            if case .desktopQuestions(let group) = row { return group.contains(entryID: entryID) }
+            return false
+        }
+        return isSummary ? min(max(restored, frame.lowerBound), frame.upperBound) : restored
     }
 }
 

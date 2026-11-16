@@ -480,8 +480,9 @@ struct CompanionConversationView: View {
                         .id(entry.id)
                         .background {
                             GeometryReader { geometry in
+                                let frame = geometry.frame(in: .named("companion-transcript-content"))
                                 Color.clear.preference(key: CompanionReadingFrames.self,
-                                    value: [entry.id: geometry.frame(in: .named("companion-transcript-content"))])
+                                    value: Dictionary(uniqueKeysWithValues: entry.frameIDs.map { ($0, frame) }))
                             }
                         }
                     }
@@ -576,7 +577,7 @@ struct CompanionConversationView: View {
                     guard canRecordReadingPosition, !followLatest, !readingViewport.isInteracting, !frames.isEmpty else { return }
                     let saved = readingBookmark.position
                     if let entryID = saved.entryID, frames[entryID] == nil { return }
-                    let offset = saved.restoredOffset(frames: frames)
+                    let offset = saved.restoredOffset(frames: frames, rows: rows)
                     if let metrics = readingViewport.metrics,
                        abs(metrics.contentHeight - (readingViewport.frameContentHeight ?? -1)) < 1,
                        abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 {
@@ -764,7 +765,7 @@ struct CompanionConversationView: View {
             let hasEntry = saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil
             let step = attempt.next(now: ProcessInfo.processInfo.systemUptime, revision: conversation.historyRevision,
                 followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
-                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames) : nil)
+                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames, rows: store.timelineRows(for: target)) : nil)
             readingViewport.restoration = attempt
             switch step {
             case .finish(let outcome):

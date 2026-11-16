@@ -194,6 +194,12 @@ enum CompanionTimelineEntry: Identifiable, Equatable, Sendable {
         }
     }
 
+    /// A grouped card publishes the same visible bounds for every original request bookmark.
+    var frameIDs: [String] {
+        if case .row(.desktopQuestions(let group)) = self { return group.questions.map { CompanionTimelineItem.question($0).id } }
+        return [id]
+    }
+
     /// The timeline row this entry shows all or part of.
     var rowID: String {
         switch self {
