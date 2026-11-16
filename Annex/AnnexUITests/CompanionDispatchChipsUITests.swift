@@ -96,6 +96,11 @@ import XCTest
         app.terminate()
         app.launchArguments = args + ["--companion-preview-keep-preferences", "--ui-testing-fast"]
         app.launch()
+        // A known-empty cache stays on Home; enter the newly available tab before checking its saved choice.
+        let dispatch = app.tabBars.buttons["Dispatch"]
+        XCTAssertTrue(dispatch.waitForExistence(timeout: 15))
+        XCTAssertTrue(dispatch.isHittable)
+        dispatch.tap()
         XCTAssertTrue(app.navigationBars["Echo"].waitForExistence(timeout: 15), "A cleared choice uses the independent Home-host fallback")
         XCTAssertTrue(app.buttons["dispatcher-desktop-preview-laptop"].isSelected)
         capture(app, "444 Removed Dispatcher preference falls back safely")
