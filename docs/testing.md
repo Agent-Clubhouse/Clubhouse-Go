@@ -968,3 +968,9 @@ identical snapshot contents and unrelated host publications. The revision lives 
 value-type CompanionHost; no owning class field or isolated-deinit policy changes.
 
 Toolbar presentation (#429): `CompanionToolbarUITests` checks Home, New agent, Chat, context-sheet close and Agent settings confirmation in light, dark, Latte and Mocha. Inspect the attached screenshots for monochrome secondary glyphs and the single filled primary action. The close/confirmation controls retain their existing accessibility labels and identifiers. `FeedbackTriggersUITests.testSendFeedbackInSettingsAndChatMenu` replaces the removed Home overflow-menu route and keeps the Settings/chat attachment assertions. Dispatch's toolbar is owned by #444 and is validated there.
+
+### Composed chat menu feedback capture (#294)
+
+The chat menu label carries an explicit UIKit marker because SwiftUI exposes the menu's accessibility identifier as a virtual element in its composed toolbar. The capture adapter resolves that marker's enclosing UIControl before the opening press, and installs the existing native menu event hook there. It freezes the underlying screen before the menu, preserving the existing highlight/cancel, scene and secure-field cleanup; selecting feedback never takes a late image of the menu.
+
+`FeedbackMenuAttachmentUITests` exercises the real Settings→feedback→Cancel→chat menu path and reopens Settings feedback twice. The attachment assertions remain required. The missing-hook baseline and association-removal control must fail the chat attachment assertion, with fixed/restored controls passing; no retry or screenshot fallback masks a missing capture. Investigation callback tracing is temporary and excluded from the fix.
