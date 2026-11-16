@@ -16,7 +16,7 @@ import XCTest
         XCTAssertTrue(app.navigationBars["Send feedback"].waitForNonExistence(timeout: 5))
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
     }
-    func testSettingsFeedbackReopensWithItsPreSettingsScreenshot() {
+    func testReopeningSettingsCapturesANewPreSettingsScreenshot() {
         let app = launchApp(["--companion-preview", "--companion-preview-feedback"], attempts: 1)
         openSettings(app)
         openSettingsFeedback(app)
