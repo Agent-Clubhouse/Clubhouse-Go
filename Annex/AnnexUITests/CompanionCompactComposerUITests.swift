@@ -62,12 +62,21 @@ import XCTest
 
     // MARK: Row assertions
 
+    private func captureGeometry(_ layout: Layout, state: String) {
+        let frames = layout.frames.keys.sorted().map { "\($0): \(layout.frames[$0]!)" }.joined(separator: "\n")
+        let attachment = XCTAttachment(string: "window: \(layout.window)\nnavigation: \(layout.navigation)\nkeyboard top: \(String(describing: layout.keyboardTop))\n\(frames)")
+        attachment.name = "Compact composer geometry \(state)"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     /// The action row sits below the full-width draft, in order, with full targets and no overlaps.
     private func assertRow(_ app: XCUIApplication, working: Bool, state: String, editing: Bool = false,
                            dismissButton: Bool = false, reviewButton: Bool = false,
                            file: StaticString = #filePath, line: UInt = #line) throws {
         capture(app, state)
         let layout = try layout(app)
+        captureGeometry(layout, state: state)
         if editing { XCTAssertNotNil(layout.keyboardTop, "\(state): keyboard", file: file, line: line) }
         XCTAssertEqual(layout.counts["companion-composer"], 1, "\(state): one native draft field", file: file, line: line)
         let region = visibleRegion(layout)
@@ -96,7 +105,7 @@ import XCTest
             let aligned = pixelAligned(rect: frame)
             XCTAssertGreaterThanOrEqual(aligned.width, 44, "\(state): \(id) width \(frame)", file: file, line: line)
             XCTAssertGreaterThanOrEqual(aligned.height, 44, "\(state): \(id) height \(frame)", file: file, line: line)
-            XCTAssertTrue(pixelContains(composerRegion, frame), "\(state): \(id) stays in the composer: \(frame)", file: file, line: line)
+            XCTAssertTrue(pixelContains(composerRegion, frame), "\(state): \(id) stays in the composer: \(frame) in \(composerRegion), visible \(region)", file: file, line: line)
             XCTAssertLessThanOrEqual(pixelAligned(editor.maxY), aligned.minY, "\(state): \(id) stays below the draft", file: file, line: line)
             if let previous {
                 XCTAssertLessThanOrEqual(pixelAligned(previous.frame.maxX), aligned.minX,
@@ -418,6 +427,8 @@ import XCTest
         func check(_ state: String, grows: Bool) throws {
             checkTimeLeft("checking the ordinary draft with \(state)")
             let snapshot = try layout(app)
+            captureGeometry(snapshot, state: "ordinary \(state) before growth check")
+            XCTAssertNotNil(snapshot["companion-pinned-decision"], "\(state): growth is measured with the decision still pinned")
             XCTAssertEqual(snapshot.values["companion-composer"], draft, state)
             let height = try XCTUnwrap(snapshot["companion-composer"], state).height
             if grows { XCTAssertGreaterThan(pixelAligned(height), pixelAligned(editorHeight), "\(state): the draft grows") }
