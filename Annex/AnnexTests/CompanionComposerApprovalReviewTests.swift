@@ -1,11 +1,78 @@
 import XCTest
 import SwiftUI
+import UIKit
+import Vision
 import ClubhouseTransport
 @testable import ClubhouseGo
 
 /// No network or native accessibility navigation: exercise the actual sheet projection/button methods
 /// while its presentation binding stays open and synthetic events replace the selected request.
 @MainActor final class CompanionComposerApprovalReviewTests: XCTestCase {
+    func testNativeMenuActivationRevalidatesSelectionReplacementAndExpiry() {
+        let first = request("first"), second = request("second")
+        let fixture = ReviewFixture([first, second], selected: first.id)
+        defer { fixture.tearDown() }
+        let captured = fixture.store.decisionPresentation(.approval(first), target: fixture.target)
+        // Model a callback retained when the native menu opened; selection and Store are read at invocation.
+        var selectedID: String?
+        let activateOpenedMenu = { CompanionConversationPendingDecisions.currentSelection(captured, in: fixture.store, selectedID: selectedID) }
+        XCTAssertEqual(activateOpenedMenu(), .approval(first))
+        selectedID = "approval:second"
+        XCTAssertNil(activateOpenedMenu(),
+                     "An open menu cannot act on the previous selection")
+        selectedID = "approval:first"
+        var replacement = first
+        replacement.summary = "A different same-ID request"
+        fixture.publish([replacement, second])
+        XCTAssertNil(activateOpenedMenu(), "The already-open callback cannot remap a same-ID replacement")
+        var expired = first
+        expired.deadline = .distantPast
+        fixture.publish([expired, second])
+        let expiredPresentation = fixture.store.decisionPresentation(.approval(expired), target: fixture.target)
+        XCTAssertNil(CompanionConversationPendingDecisions.currentSelection(expiredPresentation, in: fixture.store, selectedID: "approval:first"),
+                     "Expiry is checked at activation even if the native item was previously presented")
+        XCTAssertTrue(fixture.service.commands.isEmpty)
+    }
+
+    func testMountedTitleAndQueueLabelsUpdateWhenTheirRealInputsChange() async throws {
+        let first = request("first"), second = request("second")
+        let fixture = ReviewFixture([first], selected: first.id)
+        defer { fixture.tearDown() }
+        let (window, _, originalKey) = try mountTray(fixture)
+        defer { window.isHidden = true; window.rootViewController = nil; originalKey?.makeKey() }
+        try await requireRenderedLabel("Review first", in: window)
+        var changed = first
+        changed.title = "Updated menu title"
+        fixture.publish([changed, second])
+        try await requireRenderedLabel("Updated menu title", in: window)
+        try await requireRenderedLabel("1 of 2 waiting", in: window)
+        XCTAssertFalse(try renderedText(window).contains("Review first"))
+        XCTAssertTrue(fixture.service.commands.isEmpty)
+    }
+
+    func testPinnedTrayRetiresAtItsDeadlineWithoutStoreTrafficOrPeriodicMenuRebuilds() async throws {
+        var approval = request("one-shot")
+        approval.deadline = .now.addingTimeInterval(5)
+        let fixture = ReviewFixture([approval], selected: approval.id)
+        defer { fixture.tearDown() }
+        let openedPresentation = fixture.store.decisionPresentation(.approval(approval), target: fixture.target)
+        let activateOpenedMenu = { CompanionConversationPendingDecisions.currentSelection(openedPresentation, in: fixture.store, selectedID: nil) }
+        XCTAssertEqual(activateOpenedMenu(), .approval(approval))
+        let (window, controller, originalKey) = try mountTray(fixture)
+        defer { window.isHidden = true; window.rootViewController = nil; originalKey?.makeKey() }
+        controller.view.layoutIfNeeded()
+        let size = CGSize(width: 402, height: 1000)
+        XCTAssertGreaterThan(controller.sizeThatFits(in: size).height, 0)
+        let originalItems = fixture.store.conversation(for: fixture.target).items
+        let retired = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            controller.sizeThatFits(in: size).height == 0
+        }, object: nil)
+        await fulfillment(of: [retired], timeout: 8)
+        XCTAssertNil(activateOpenedMenu(), "The callback captured before expiry rechecks the deadline at activation")
+        XCTAssertEqual(fixture.store.conversation(for: fixture.target).items, originalItems, "No event or source mutation retires the tray")
+        XCTAssertTrue(fixture.service.commands.isEmpty)
+    }
+
     func testOpenReviewTracksQueueResolutionAndRemovalWithoutDispatch() async throws {
         let first = request("first"), second = request("second"), earlier = request("earlier")
         let fixture = ReviewFixture([first, second], selected: second.id)
@@ -231,6 +298,40 @@ import ClubhouseTransport
         await fixture.sheet.answer(presentation, answers: ["color": .text("red")])
         XCTAssertEqual(fixture.sheet.currentDecision, .question(question))
         XCTAssertEqual(fixture.service.commands, ["answer"])
+    }
+
+    private func mountTray(_ fixture: ReviewFixture) throws -> (UIWindow, UIHostingController<CompanionConversationPendingDecisions>, UIWindow?) {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let originalKey = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 402, height: 874)
+        let controller = UIHostingController(rootView: CompanionConversationPendingDecisions(store: fixture.store, target: fixture.target,
+            maximumHeight: 400, compactHeight: false, showInChat: { _ in }))
+        window.rootViewController = controller
+        window.makeKeyAndVisible()
+        return (window, controller, originalKey)
+    }
+
+    private func renderedText(_ window: UIWindow) throws -> String {
+        window.layoutIfNeeded()
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+            window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+        }
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        let cgImage = try XCTUnwrap(image.cgImage)
+        try VNImageRequestHandler(cgImage: cgImage).perform([request])
+        return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
+    }
+
+    private func requireRenderedLabel(_ label: String, in window: UIWindow) async throws {
+        let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+            (try? self.renderedText(window).contains(label)) == true
+        }, object: nil)
+        await fulfillment(of: [updated], timeout: 3)
+        XCTAssertTrue(try renderedText(window).contains(label), "The mounted native Menu label updates after a genuine change")
     }
 
     private func request(_ id: String) -> CompanionApproval {

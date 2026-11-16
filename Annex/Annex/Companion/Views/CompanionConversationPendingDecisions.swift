@@ -7,14 +7,21 @@ struct CompanionConversationPendingDecisions: View {
     let maximumHeight: CGFloat
     let compactHeight: Bool
     let showInChat: (String) -> Void
+    @State private var expiryBoundary = Date.distantPast
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.colorScheme) private var colorScheme
 
     var body: some View {
-        TimelineView(.periodic(from: .now, by: 1)) { context in
-            let queue = CompanionPendingDecision.pending(in: store.conversation(for: target).items, at: context.date)
+        // Native Menu identity/content must not be rebuilt by a per-second expiry tick.
+        let queue = CompanionPendingDecision.pending(in: store.conversation(for: target).items, at: max(.now, expiryBoundary))
+        let nextDeadline = queue.compactMap { decision -> Date? in
+            guard case .approval(let approval) = decision, approval.resolution == .pending else { return nil }
+            return approval.deadline
+        }.min()
+        return Group {
             if let decision = CompanionPendingDecision.selected(in: queue, id: selectedID),
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
@@ -51,6 +58,17 @@ struct CompanionConversationPendingDecisions: View {
                 .accessibilityValue(isCompactPresentation ? "Compact request controls" : "Expanded request controls")
             }
         }
+        .task(id: nextDeadline) {
+            guard let nextDeadline else { return }
+            let delay = nextDeadline.timeIntervalSinceNow
+            if delay > 0 {
+                do { try await Task.sleep(for: .seconds(delay)) }
+                catch { return }
+            }
+            guard !Task.isCancelled else { return }
+            // One update at the next actual expiry; no per-second polling or retained task handle.
+            expiryBoundary = max(.now, nextDeadline)
+        }
         .sheet(isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
             CompanionComposerApprovalReviewSheet(store: store, target: target, selection: $review)
         }
@@ -72,33 +90,18 @@ struct CompanionConversationPendingDecisions: View {
         case .question: kind = "Question"
         }
         let subtitle = "\(index + 1) of \(count) waiting · \(kind)"
-        return Menu {
-            Button("Review request") { openReview(decision, presentation: presentation) }
-                .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
-                .accessibilityIdentifier("companion-decision-review-menu")
-        } label: {
-            VStack(alignment: .leading, spacing: usesSingleRow ? 0 : 2) {
-                Text(decision.summary).font((usesSingleRow ? Font.caption : .subheadline).weight(.semibold))
-                    .lineLimit(usesSingleRow ? 1 : 2)
-                if !usesSingleRow && !hasCompactRoom {
-                    Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
-                }
-            }
-            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
-            .contentShape(Rectangle())
-            .highPriorityGesture(selectionGesture(queue: queue, index: index)
-                .exclusively(before: TapGesture().onEnded { _ in showInChat(decision.id) }))
-        } primaryAction: {
-            showInChat(decision.id)
-        }
-        .buttonStyle(.plain)
-        .menuIndicator(.hidden)
-        .accessibilityAction { showInChat(decision.id) }
-        .accessibilityLabel(decision.summary)
-        .accessibilityValue(subtitle)
-        .accessibilityHint("Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.")
-        .accessibilityIdentifier("companion-decision-show-in-chat")
-        .accessibilityAction(named: "Review request") { openReview(decision, presentation: presentation) }
+        return CompanionPendingDecisionTitle(key: .init(storeIdentity: ObjectIdentifier(store), presentation: presentation,
+            queue: queue, index: index, title: decision.summary, subtitle: subtitle,
+            reviewLabel: "Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)",
+            hint: "Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.",
+            reviewActionLabel: "Review request", singleRow: usesSingleRow, showsSubtitle: !usesSingleRow && !hasCompactRoom,
+            compact: isCompactPresentation, dynamicTypeSize: dynamicTypeSize, colorScheme: colorScheme),
+            showInChat: {
+                guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision else { return }
+                showInChat(decision.id)
+            }, openReview: { openReview(decision, presentation: presentation) },
+            selectionGesture: AnyGesture(selectionGesture(queue: queue, index: index)))
+            .equatable()
     }
 
     @ViewBuilder private func actions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int) -> some View {
@@ -131,12 +134,12 @@ struct CompanionConversationPendingDecisions: View {
         // Exact one-off kinds only. Broader/custom choices remain in full review,
         // where the existing capability checks and confirmations still own them.
         if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
-            Button("Deny", role: .destructive) { Task { await store.respond(presentation, option: deny) } }
+            Button("Deny", role: .destructive) { Task { await respond(decision, presentation: presentation, option: deny) } }
                 .buttonStyle(DecisionActionStyle(primary: false))
                 .disabled(!canRespond(.approve))
         }
         if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
-            Button("Allow once") { Task { await store.respond(presentation, option: allow) } }
+            Button("Allow once") { Task { await respond(decision, presentation: presentation, option: allow) } }
                 .buttonStyle(DecisionActionStyle(primary: true))
                 .disabled(!canRespond(.approve) || !store.canApprove(approval, target: target))
         } else {
@@ -156,7 +159,24 @@ struct CompanionConversationPendingDecisions: View {
             .accessibilityIdentifier("companion-review-approval")
     }
 
+    /// Resolve at activation, not menu-open: expiry, replacement and selection can change while it is open.
+    static func currentSelection(_ presentation: CompanionDecisionPresentation, in store: CompanionStore,
+                                 selectedID: String?) -> CompanionPendingDecision? {
+        guard let current = store.currentDecision(for: presentation),
+              CompanionPendingDecision.selected(in: CompanionPendingDecision.pending(in: store.conversation(for: presentation.target).items),
+                                                id: selectedID) == current else { return nil }
+        return current
+    }
+    private func respond(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation,
+                         option: CompanionApprovalOption) async {
+        guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision,
+              canRespond(.approve), case .approval(let approval) = decision,
+              !option.allows || store.canApprove(approval, target: target) else { return }
+        // Store keeps the existing option/capability/submitting/confirmation and expiry guards.
+        await store.respond(presentation, option: option)
+    }
     private func openReview(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation) {
+        guard Self.currentSelection(presentation, in: store, selectedID: selectedID) == decision else { return }
         let requestID: String
         switch decision {
         case .approval(let approval): requestID = approval.id
@@ -165,7 +185,10 @@ struct CompanionConversationPendingDecisions: View {
         review = .init(target: target, approvalID: requestID, presentation: presentation)
     }
     private func select(_ direction: Int, queue: [CompanionPendingDecision], index: Int) {
-        selectedID = queue[max(0, min(queue.count - 1, index + direction))].id
+        let currentQueue = CompanionPendingDecision.pending(in: store.conversation(for: target).items)
+        guard currentQueue == queue,
+              CompanionPendingDecision.selected(in: currentQueue, id: selectedID)?.id == queue[index].id else { return }
+        selectedID = currentQueue[max(0, min(currentQueue.count - 1, index + direction))].id
     }
     private func selectionGesture(queue: [CompanionPendingDecision], index: Int) -> some Gesture {
         DragGesture(minimumDistance: 24).onEnded { gesture in
@@ -214,5 +237,61 @@ struct CompanionConversationPendingDecisions: View {
                 .background(Color(primary && isEnabled ? palette.tint : palette.fill), in: Capsule())
                 .contentShape(Capsule()).opacity(configuration.isPressed ? 0.6 : 1)
         }
+    }
+}
+
+/// Like ChatControlsBar, transcript-only updates must not rebuild an open native menu.
+/// Every rendered/AX input and presentation identity participates; callbacks revalidate live state.
+private struct CompanionPendingDecisionTitle: View, Equatable {
+    struct Key: Equatable {
+        let storeIdentity: ObjectIdentifier
+        let presentation: CompanionDecisionPresentation
+        let queue: [CompanionPendingDecision]
+        let index: Int
+        let title: String
+        let subtitle: String
+        let reviewLabel: String
+        let hint: String
+        let reviewActionLabel: String
+        let singleRow: Bool
+        let showsSubtitle: Bool
+        let compact: Bool
+        let dynamicTypeSize: DynamicTypeSize
+        let colorScheme: ColorScheme
+    }
+    let key: Key
+    let showInChat: @MainActor () -> Void
+    let openReview: @MainActor () -> Void
+    let selectionGesture: AnyGesture<DragGesture.Value>
+
+    static func == (lhs: Self, rhs: Self) -> Bool { lhs.key == rhs.key }
+
+    var body: some View {
+        Menu {
+            Button(key.reviewActionLabel, action: openReview)
+                .accessibilityLabel(key.reviewLabel)
+                .accessibilityIdentifier("companion-decision-review-menu")
+        } label: {
+            VStack(alignment: .leading, spacing: key.singleRow ? 0 : 2) {
+                Text(key.title).font((key.singleRow ? Font.caption : .subheadline).weight(.semibold))
+                    .lineLimit(key.singleRow ? 1 : 2)
+                if key.showsSubtitle {
+                    Text(key.subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+            .contentShape(Rectangle())
+            .highPriorityGesture(selectionGesture.exclusively(before: TapGesture().onEnded { _ in showInChat() }))
+        } primaryAction: {
+            showInChat()
+        }
+        .buttonStyle(.plain)
+        .menuIndicator(.hidden)
+        .accessibilityAction { showInChat() }
+        .accessibilityLabel(key.title)
+        .accessibilityValue(key.subtitle)
+        .accessibilityHint(key.hint)
+        .accessibilityIdentifier("companion-decision-show-in-chat")
+        .accessibilityAction(named: key.reviewActionLabel) { openReview() }
     }
 }

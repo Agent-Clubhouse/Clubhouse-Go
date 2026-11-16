@@ -276,6 +276,63 @@ import Vision
         capture(app, "Swipe selection and title jump send no decision")
     }
 
+    func testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch() {
+        let app = openRiver()
+        awaitApproval(app)
+        awaitManyUpdates(app)
+        summary(app).press(forDuration: 0.8)
+        let item = app.buttons["companion-decision-review-menu"]
+        XCTAssertTrue(item.waitForExistence(timeout: 5))
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-decision-review-menu").count, 1)
+        var readyFrame: CGRect?
+        var unchangedSince = ContinuousClock.now
+        let ready = waitFor(item, NSPredicate { _, _ in
+            let frame = item.frame
+            guard !frame.isEmpty, frame.minX.isFinite, frame.minY.isFinite,
+                  frame.maxX.isFinite, frame.maxY.isFinite, self.pixelContains(app.frame, frame), item.isHittable else {
+                readyFrame = nil
+                return false
+            }
+            if readyFrame != frame {
+                readyFrame = frame
+                unchangedSince = .now
+                return false
+            }
+            return unchangedSince.duration(to: .now) >= .milliseconds(500)
+        }, timeout: 5)
+        guard ready else { XCTFail("The native menu must finish opening before the stability observation"); return }
+        let initialFrame = item.frame
+        let started = ContinuousClock.now
+        var samples: [String] = []
+        // Regression observation, not a settling sleep: every sample across >2 former 1s ticks must be valid.
+        repeat {
+            let frame = item.frame
+            let sample = "elapsed=\(started.duration(to: .now)) frame=\(frame)"
+            print("PINNED_MENU_STABILITY \(sample)"); samples.append(sample)
+            XCTAssertTrue(frame.minX.isFinite && frame.minY.isFinite && frame.maxX.isFinite && frame.maxY.isFinite)
+            XCTAssertFalse(frame.isEmpty)
+            XCTAssertTrue(pixelContains(app.frame, frame))
+            XCTAssertEqual(frame, initialFrame, "The open native item cannot be replaced by a countdown tick")
+            XCTAssertTrue(item.isHittable)
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+        } while started.duration(to: .now) < .milliseconds(2200)
+        XCTAssertGreaterThanOrEqual(samples.count, 3)
+        let frames = XCTAttachment(string: samples.joined(separator: "\n"))
+        frames.name = "Native Review finite unchanged frames across two former ticks"; frames.lifetime = .keepAlways; add(frames)
+        capture(app, "Stable native Review menu before ONE touch")
+        XCTAssertEqual(item.frame, initialFrame)
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: initialFrame.midX, dy: initialFrame.midY)).tap()
+        let close = app.buttons["companion-approval-review-close"]
+        XCTAssertTrue(close.waitForExistence(timeout: 10), "One touch opens full Review")
+        XCTAssertTrue(app.scrollViews["companion-approval-review-scroll"].exists)
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        close.tap()
+        XCTAssertTrue(close.waitForNonExistence(timeout: 5))
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+    }
+
     func testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation() {
         let app = openRiver(extra: ["--companion-preview-pinned-broader-only"])
         awaitApproval(app)
