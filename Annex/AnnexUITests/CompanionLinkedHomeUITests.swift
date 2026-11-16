@@ -114,6 +114,13 @@ import XCTest
                 let extra = desktops == 5 ? ["--companion-preview-home-five-desktops"] : []
                 let app = launchApp(base + ["--companion-preview-linked-home-seen"] + extra + flags, allowance: 360, attempts: 1)
                 XCTAssertTrue(app.buttons["desktop-chip-all"].waitForExistence(timeout: 15))
+                if name == "accessibility XXXL" {
+                    let sort = app.buttons["project-sort-menu"]
+                    reveal(sort, in: app)
+                    XCTAssertEqual(sort.label, "Sort projects, Recent")
+                    XCTAssertTrue(app.staticTexts["Projects"].isHittable)
+                    capture(app, "Linked Home \(desktops) desktops readable Projects and sort XXXL")
+                }
                 let offline = app.buttons["project-machine-preview-laptop-notes"]
                 reveal(offline, in: app)
                 XCTAssertTrue(offline.label.contains("Travel MacBook offline, seen"))
