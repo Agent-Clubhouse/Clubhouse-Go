@@ -78,6 +78,8 @@ struct CompanionConversationPendingDecisions: View {
                 .accessibilityIdentifier("companion-review-approval")
         }
         .accessibilityElement(children: .ignore)
+        .accessibilityAddTraits(.isButton)
+        .accessibilityAction { showInChat(decision.id) }
         .accessibilityLabel(decision.summary)
         .accessibilityValue(subtitle)
         .accessibilityHint("Scrolls to the original request and its full context. Sends nothing. Swipe left or right for another request; use Actions for full review.")

@@ -52,6 +52,10 @@ import Vision
         XCTAssertTrue(pixelContains(visible, tray.frame), "The pending card stays above the composer: \(tray.frame), \(visible)")
         XCTAssertLessThanOrEqual(tray.frame.maxY, composer.frame.minY)
         XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable")
+        let title = summary(app).label
+        let position = summary(app).value as? String ?? ""
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", title, "\(title), \(position)")).count, 1,
+                       "VoiceOver exposes one title button, with no second popup child")
         for id in ["companion-decision-show-in-chat", "Deny", "Allow once"] {
             XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", id, id)).count, 1,
                            "Only the fitting action layout is exposed")
