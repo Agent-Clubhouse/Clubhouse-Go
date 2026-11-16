@@ -317,6 +317,11 @@ import ClubhouseTransport
                 }
             }
             #endif
+            #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-large-catalog") {
+                hosts = CompanionLargeCatalogFixture.hosts()
+            }
+            #endif
             self.sentHosts = hosts
             continuation.yield(.hosts(hosts))
             if self.streamsUpdates { Task { await self.streamToolUpdates() } }

@@ -187,7 +187,9 @@ struct CompanionProjectPage: View {
         }
     }
 
-    private func begin(_ action: CompanionProjectMachineAction, entry: CompanionProjectEntry) {
+    private func begin(_ action: CompanionProjectMachineAction, entry rendered: CompanionProjectEntry) {
+        guard let entry = store.resolveProjectActionEntry(containing: rendered.id, expectedLinkID: rendered.linkID),
+              scopedMembers(entry).contains(where: { action.isAvailable($0, store: store, terminal: terminal) }) else { return }
         let members = scopedMembers(entry)
         if entry.isLinked && (desktop == .all || members.count > 1) { choosingMachine = action }
         else if let target = members.first?.id { perform(action, on: target) }
@@ -269,20 +271,40 @@ struct CompanionLinkedProjectStateMenuItems: View {
     let entry: CompanionProjectEntry
     let isIdle: Bool
 
+    #if DEBUG
+    /// Publishes the mounted production menu; hosted tests invoke its exact guarded actions.
+    var hostedTestSeam: ((Self) -> Void)? = nil
+    #endif
+
+    func setPinned(_ pinned: Bool) async {
+        guard let current = store.resolveProjectActionEntry(containing: entry.id, expectedLinkID: entry.linkID),
+              store.canChangeLinkedProjectState(current) else { return }
+        await store.setLinkedProject(current, pinned: pinned)
+    }
+
+    func setInactive(_ inactive: Bool) async {
+        guard let current = store.resolveProjectActionEntry(containing: entry.id, expectedLinkID: entry.linkID),
+              store.canChangeLinkedProjectState(current) else { return }
+        await store.setLinkedProject(current, inactive: inactive)
+    }
+
     var body: some View {
+        #if DEBUG
+        let _ = hostedTestSeam?(self)
+        #endif
         if let shared = store.linkedProjectState(entry) {
             Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
-                Task { await store.setLinkedProject(entry, pinned: !shared.pinned) }
+                Task { await setPinned(!shared.pinned) }
             }
             .disabled(!store.canChangeLinkedProjectState(entry))
             if isIdle || shared.inactive {
                 Button("Mark active", systemImage: "sun.max") {
-                    Task { await store.setLinkedProject(entry, inactive: false) }
+                    Task { await setInactive(false) }
                 }
                 .disabled(!store.canChangeLinkedProjectState(entry))
             } else if !shared.pinned {
                 Button("Mark inactive", systemImage: "moon.zzz") {
-                    Task { await store.setLinkedProject(entry, inactive: true) }
+                    Task { await setInactive(true) }
                 }
                 .disabled(!store.canChangeLinkedProjectState(entry))
             }
@@ -375,6 +397,9 @@ struct CompanionProjectMachineChooser: View {
                         ForEach(entry.members.filter { selection.hostID == nil || $0.host.id == selection.hostID }) { member in
                             Button {
                                 AnnexTelemetry.shared.recordAction(screen: screen, control: .selectDesktop)
+                                guard let current = store.resolveProjectActionEntry(containing: member.id, expectedLinkID: entry.linkID),
+                                      let fresh = current.members.first(where: { $0.id == member.id }),
+                                      action.isAvailable(fresh, store: store, terminal: terminal) else { return }
                                 onChoose(member.id)
                             } label: {
                                 VStack(alignment: .leading, spacing: 3) {

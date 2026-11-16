@@ -313,6 +313,9 @@ struct CompanionHomeView: View {
     var onNewAgent: (CompanionProjectTarget, String?) -> Void
     var isPreview = false
     var onInteraction: () -> Void = {}
+    #if DEBUG
+    var hostedProjectMenu: ((CompanionLinkedProjectStateMenuItems) -> Void)? = nil
+    #endif
     @State private var arranging = false
     @State private var desktopSelection: CompanionDesktopSelection = .all
     @State private var expandedOfflineHosts: Set<String> = []
@@ -789,7 +792,7 @@ struct CompanionHomeView: View {
             canWake: entry.members.contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
             onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
         if store.linkedProjectState(catalogEntry) != nil {
-            CompanionLinkedProjectStateMenuItems(store: store, entry: catalogEntry, isIdle: group.isIdle)
+            linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
         } else if entry.isLinked {
             // Old hosts retain their per-copy state and days-idle rule.
             ForEach(entry.members) { member in
@@ -800,7 +803,7 @@ struct CompanionHomeView: View {
                         isPinned: state?.pinned ?? preferences.pinnedProjects.contains(single.orderKey),
                         isIdle: state?.idle ?? preferences.idleRule.isIdle(single.orderKey,
                             running: member.host.connection.canOperate && member.project.agents.contains(where: CompanionHomeLayout.isAwake),
-                            lastActivity: projectActivity(member.id), now: Date()), tree: group.tree))
+                            lastActivity: projectActivity(member.id), now: Date()), tree: group.tree), expectedLinkID: catalogEntry.linkID)
                 }
                 .disabled(state != nil && !member.host.connection.canOperate)
             }
@@ -814,7 +817,18 @@ struct CompanionHomeView: View {
         }
     }
 
-    private func beginProjectAction(_ action: CompanionProjectMachineAction, entry: CompanionProjectEntry) {
+    private func linkedStateMenu(entry: CompanionProjectEntry, isIdle: Bool) -> CompanionLinkedProjectStateMenuItems {
+        var menu = CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: isIdle)
+        #if DEBUG
+        menu.hostedTestSeam = hostedProjectMenu
+        #endif
+        return menu
+    }
+
+    private func beginProjectAction(_ action: CompanionProjectMachineAction, entry rendered: CompanionProjectEntry) {
+        guard let entry = store.resolveProjectActionEntry(containing: rendered.id, expectedLinkID: rendered.linkID,
+                                                         hostID: desktopSelection.hostID),
+              entry.members.contains(where: { action.isAvailable($0, store: store, terminal: terminal) }) else { return }
         if entry.isLinked {
             choosingProjectAction = .init(project: entry.id, selection: desktopSelection, action: action)
         } else if let target = entry.members.first?.id { performProjectAction(action, on: target) }
@@ -841,11 +855,13 @@ struct CompanionHomeView: View {
         Task { await store.wake(wake.target, message: wake.message) }
     }
 
-    private func projectMenuItems(_ group: CompanionProjectGroup) -> some View {
+    private func projectMenuItems(_ group: CompanionProjectGroup, expectedLinkID: String? = nil) -> some View {
         let key = group.entry.orderKey, project = group.id
         let shared = store.sharedProjectState(project)
         let isMarked = shared?.inactive ?? preferences.inactiveProjects.contains(key)
         func change(local: @escaping () -> Void, remote: @escaping () async -> Void) {
+            guard let current = store.resolveProjectActionEntry(containing: project, expectedLinkID: expectedLinkID ?? group.entry.linkID),
+                  store.linkedProjectState(current) == nil else { return }
             if store.sharedProjectState(project) == nil { withAnimation(reduceMotion ? nil : .snappy) { local() } }
             else { Task { await remote() } }
         }

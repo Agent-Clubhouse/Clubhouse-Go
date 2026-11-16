@@ -363,3 +363,74 @@ struct CompanionSharedLayoutTests {
     }
 
 }
+
+
+@MainActor struct CompanionLargeCatalogRegressionTests {
+    @Test func repeatedMenuReadsShareOnePrebuiltCatalogAndDoNotAllocateNewEntryBuffers() throws {
+        let hosts = CompanionLargeCatalogFixture.hosts(hostCount: 16, projectsPerHost: 64, agentsPerProject: 24)
+        let store = CompanionStore(service: ProjectStateService())
+        store.apply(.hosts(hosts))
+        let revision = store.projectCatalogRevision
+        let first = store.projectEntries
+        #expect(first.count == 16 * 64 - 8)
+        #expect(first.reduce(0) { $0 + $1.project.agents.count } == 16 * 64 * 24)
+        let target = CompanionProjectTarget(hostID: "synthetic-host-0", projectID: "project-0")
+        for _ in 0..<200 {
+            let next = store.projectEntries
+            first.withUnsafeBufferPointer { a in
+                next.withUnsafeBufferPointer { b in #expect(a.baseAddress == b.baseAddress) }
+            }
+            #expect(store.projectEntry(containing: target)?.linkID == "synthetic-link-0")
+        }
+        #expect(store.projectCatalogRevision == revision, "Reads never build the catalog inside a menu")
+        store.shutdown()
+    }
+
+    @Test func hostLinkAndProjectStateMutationsRebuildBeforeTheNextRead() throws {
+        let store = CompanionStore(service: ProjectStateService())
+        var hosts = CompanionLargeCatalogFixture.hosts()
+        store.apply(.hosts(hosts))
+        let target = CompanionProjectTarget(hostID: "synthetic-host-0", projectID: "project-0")
+        let firstRevision = store.projectCatalogRevision
+        hosts[0].projects[0].agents[0].name = "Updated synthetic agent"
+        store.apply(.hosts(hosts))
+        #expect(store.projectCatalogRevision > firstRevision)
+        #expect(store.projectEntry(containing: target)?.members.first?.project.agents.first?.name == "Updated synthetic agent")
+        let hostRevision = store.projectCatalogRevision
+        for i in hosts.indices { hosts[i].projectLinks = .init(projectLinks: []) }
+        store.apply(.hosts(hosts))
+        #expect(store.projectCatalogRevision > hostRevision)
+        #expect(store.projectEntries.count == 8 * 48)
+        #expect(store.projectEntry(containing: target)?.linkID == nil)
+        let linkRevision = store.projectCatalogRevision
+        store.hosts[0].projectState?["project-0"] = .init(pinned: true)
+        #expect(store.projectCatalogRevision > linkRevision)
+        #expect(store.projectEntry(containing: target)?.host.projectState?["project-0"]?.pinned == true)
+        store.shutdown()
+    }
+
+    @Test func capturedGroupUsesCurrentReceiverAndRefusesChangedIdentityOrCapability() async throws {
+        let service = ProjectStateService()
+        service.confirmation = .init(pinned: true, linked: true)
+        let store = CompanionStore(service: service)
+        var hosts = CompanionLargeCatalogFixture.hosts()
+        store.apply(.hosts(hosts))
+        let captured = try #require(store.projectEntries.first)
+        hosts[0].connection = .offline
+        store.apply(.hosts(hosts))
+        let current = try #require(store.resolveProjectActionEntry(containing: captured.id, expectedLinkID: captured.linkID))
+        #expect(current.members.first?.host.connection == .offline)
+        await store.setLinkedProject(captured, pinned: true)
+        #expect(service.targets == [.init(hostID: "synthetic-host-1", projectID: "project-0")])
+        hosts[1].canSyncLinkedProjectState = false
+        store.apply(.hosts(hosts))
+        await store.setLinkedProject(captured, inactive: true)
+        #expect(service.targets.count == 1, "A stale enabled menu cannot bypass revoked capability")
+        for i in hosts.indices { hosts[i].projectLinks = .init(projectLinks: []) }
+        store.apply(.hosts(hosts))
+        #expect(store.resolveProjectActionEntry(containing: captured.id, expectedLinkID: captured.linkID) == nil)
+        await store.setLinkedProject(captured, pinned: false)
+        #expect(service.targets.count == 1, "An old group identity cannot mutate a newly unlinked copy")
+        store.shutdown()
+    }
+}
