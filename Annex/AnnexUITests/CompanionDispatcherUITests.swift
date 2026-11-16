@@ -593,16 +593,10 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
     /// above the approval/composer dock, and drag within the transcript rather than across that dock.
     private func bringCaptionIntoView(_ caption: XCUIElement, in app: XCUIApplication,
                                       file: StaticString = #filePath, line: UInt = #line) {
-        let height = app.windows.firstMatch.frame.height
-        for _ in 0..<20 {
-            checkTimeLeft("bringing the sender caption into view", file: file, line: line)
-            if caption.exists && caption.frame.minY > height * 0.25 && caption.frame.maxY < height * 0.62 { return }
-            let older = caption.exists && caption.frame.minY <= height * 0.25
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.35 : 0.60))
-            let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: older ? 0.60 : 0.35))
-            start.press(forDuration: 0.05, thenDragTo: end)
-        }
-        XCTFail("Sender caption must be inside the transcript: \(caption.frame)", file: file, line: line)
+        let placed = scrollIntoClearArea(caption, in: app, maxDrags: 20, file: file, line: line)
+        let clear = clearTranscriptArea(in: app)
+        XCTAssertTrue(placed && clear.contains(caption.frame),
+                      "Sender caption must be inside the transcript: \(caption.frame), clear \(clear)", file: file, line: line)
     }
 
     private func expandSender(_ caption: XCUIElement) {

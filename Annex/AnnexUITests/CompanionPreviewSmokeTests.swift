@@ -466,8 +466,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // The explored fold sits above the replies: scroll up to it.
         let fold = app.buttons.matching(identifier: "companion-activity-tool:tool-1").firstMatch
         scrollTo(fold, in: app, up: false, maxSwipes: 8)
-        // Hittable can still mean under the floating header; tap only once the fold is in the clear transcript.
-        XCTAssertTrue(scrollIntoClearArea(fold, in: app), "The fold is clear of the header: \(fold.frame), clear \(clearTranscriptArea(in: app))")
+        // Hittable can still mean under floating chrome; keep the fold clear of the header, Latest and decision tray.
+        XCTAssertTrue(scrollIntoClearArea(fold, in: app), "The fold is clear of the chrome: \(fold.frame), clear \(clearTranscriptArea(in: app))")
         XCTAssertTrue(fold.isHittable, "Read-only lookups must fold into one row")
         XCTAssertTrue(fold.label.contains("4 tool calls"), "The fold counts like the desktop: \(fold.label)")
         XCTAssertFalse(any.matching(NSPredicate(format: "label BEGINSWITH 'Ran '")).firstMatch.exists, "The old \"Ran N tools\" fold is gone")
@@ -476,14 +476,16 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         // Each lookup's link opens from inside the fold, and its preview closes.
         let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "Sources/Companion/Conversation.swift")).firstMatch
-        waitAndTap(fold, until: link, timeout: 5, "An expanded fold offers each lookup's links")
+        fold.tap()
+        XCTAssertTrue(waitFor(fold, NSPredicate(format: "value == %@", "Expanded"), timeout: 5), "The fold must expand after its tap")
+        XCTAssertTrue(link.waitForExistence(timeout: 5), "An expanded fold offers each lookup's links")
         let foldShot = XCTAttachment(screenshot: app.screenshot())
         foldShot.name = "Explored fold expanded"
         foldShot.lifetime = .keepAlways
         add(foldShot)
         // The bookmark keeps the header in place as it expands. Scroll from a safe transcript coordinate;
         // a short drag on the header itself can become a second tap and close the group.
-        XCTAssertTrue(bringTranscriptRowIntoView(link, in: app))
+        XCTAssertTrue(scrollIntoClearArea(link, in: app), "The lookup link is clear of the chrome: \(link.frame), clear \(clearTranscriptArea(in: app))")
         let done = app.buttons["companion-preview-done"]
         waitAndTap(link, until: done, timeout: 5, "A link inside the fold opens its preview")
         waitAndTap(done, untilGone: done, "The preview closes")
