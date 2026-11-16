@@ -4,6 +4,11 @@ import SwiftUI
 /// Changes show once the session's own event arrives, from the phone or the desktop alike.
 /// Equatable on its inputs, so streamed transcript updates don't rebuild the menus (each rebuild is costly mid-stream).
 struct CompanionChatControlsBar: View, Equatable {
+    // iOS 26's regular glass capsule adds 14pt vertically (the 44pt label measured 58pt).
+    // Reserve the rest inside its label; the outer frame alone doesn't enlarge the native AX target.
+    // UI coverage checks the resulting 44pt target in portrait, landscape and at XXXL.
+    private static let compactLabelMinimumHeight: CGFloat = 44 - 14
+
     let agentName: String
     let controls: CompanionChatControls
     let enabled: Bool
@@ -26,14 +31,21 @@ struct CompanionChatControlsBar: View, Equatable {
             if compact {
                 Menu {
                     levelMenu
+                        .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
                     if let label = controls.modelLabel { modelMenu(label) }
                     if controls.showsEffortChip { effortMenu }
                 } label: {
-                    Image(systemName: "slider.horizontal.3").font(.system(size: 20))
+                    ViewThatFits(in: .horizontal) {
+                        compactLabel(includingModel: true).fixedSize(horizontal: true, vertical: false)
+                        compactLabel(includingModel: false)
+                    }
+                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+                    .frame(minHeight: Self.compactLabelMinimumHeight)
+                    .contentShape(Capsule())
                 }
-                .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
+                .buttonStyle(.glass).buttonBorderShape(.capsule).controlSize(.regular)
+                .foregroundStyle(Color(palette.secondaryLabel))
                 .frame(minWidth: 44, minHeight: 44)
-                .contentShape(.circle)
                 .accessibilityLabel("Chat controls")
                 .accessibilityValue([controls.currentLevel.label, controls.modelLabel, controls.effortLabel].compactMap { $0 }.joined(separator: ", "))
                 .accessibilityHint("Permissions, model and reasoning effort")
@@ -49,6 +61,16 @@ struct CompanionChatControlsBar: View, Equatable {
         }
     }
 
+    private func compactLabel(includingModel: Bool) -> some View {
+        HStack(spacing: 5) {
+            Image(systemName: "slider.horizontal.3").font(.system(size: 20))
+            Text([controls.currentLevel.label, includingModel ? controls.modelLabel : nil]
+                .compactMap { $0 }.joined(separator: " · "))
+                .font(.caption)
+                .lineLimit(1)
+        }
+    }
+
     private var levelMenu: some View {
         let current = controls.currentLevel
         return Menu {
@@ -60,7 +82,7 @@ struct CompanionChatControlsBar: View, Equatable {
                         else { setLevel(level) }
                     } label: {
                         Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
-                        Text(subtitle(level))
+                        Text(permissionSummary(level))
                     }
                     // Menus don't read subtitles aloud; the label carries them.
                     .accessibilityLabel("\(level.label), \(subtitle(level))")
@@ -69,13 +91,11 @@ struct CompanionChatControlsBar: View, Equatable {
                 }
             }
         } label: {
-            // The permission name stays visible in the header; don't repeat it in this row.
             if compact { Label(current.label, systemImage: "shield") }
             else {
-                Image(systemName: "shield")
+                chip(current.label, systemImage: "shield", menu: controls.canChangeLevel)
             }
         }
-        .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
         .disabled(!enabled || !controls.canChangeLevel)
         .accessibilityLabel("Permissions: \(current.label)")
         .accessibilityHint(controls.canChangeLevel ? "Changes the permission level" : "This agent can't change permission level mid-session")
@@ -89,6 +109,17 @@ struct CompanionChatControlsBar: View, Equatable {
     /// What the level does, then the driver's own name for it.
     private func subtitle(_ level: CompanionPermissionLevel) -> String {
         controls.levelNames[level].map { "\(level.detail) · \($0)" } ?? level.detail
+    }
+
+    /// Keep native menu rows to one subtitle line; VoiceOver retains the complete description and driver name.
+    private func permissionSummary(_ level: CompanionPermissionLevel) -> String {
+        switch level {
+        case .plan: "Read only"
+        case .ask: "Edits and commands"
+        case .autoEdit: "Ask for commands"
+        case .auto: "Chooses when to ask"
+        case .fullAccess: "No prompts"
+        }
     }
 
     private func modelMenu(_ label: String) -> some View {

@@ -16,6 +16,22 @@ struct CompanionConversationHeaderFixture: View {
     private let target = CompanionPreviewService.target
     private var arguments: [String] { ProcessInfo.processInfo.arguments }
 
+    private var theme: CompanionDesktopTheme {
+        if arguments.contains("--companion-header-latte") {
+            return .init(id: "latte", name: "Catppuccin Latte", source: "Desktop fixture", mode: .light,
+                         colors: ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69", "subtext0": "#6c6f85",
+                                  "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5", "accent2": "#209fb5",
+                                  "warning": "#7e5700", "error": "#c4122f", "success": "#347d22"], gradient: [])
+        }
+        if arguments.contains("--companion-header-mocha") {
+            return .init(id: "mocha", name: "Catppuccin Mocha", source: "Desktop fixture", mode: .dark,
+                         colors: ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4", "subtext0": "#a6adc8",
+                                  "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa", "accent2": "#74c7ec",
+                                  "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"], gradient: [])
+        }
+        return .clubhouse
+    }
+
     var body: some View {
         NavigationStack {
             Group {
@@ -47,7 +63,7 @@ struct CompanionConversationHeaderFixture: View {
                 }
             }
         }
-        .companionTheme(.clubhouse)
+        .companionTheme(theme)
         .preferredColorScheme(arguments.contains("--companion-header-light") ? .light : .dark)
         .task {
             guard !ready else { return }

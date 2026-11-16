@@ -124,6 +124,7 @@ import XCTest
         XCTAssertTrue(header.label.contains("Full access") && !header.label.contains("Auto or Full access") && !header.label.contains("Free Agent"), header.label)
         XCTAssertLessThanOrEqual(header.frame.maxX, app.frame.maxX)
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
+        assertMinimumTarget(app.buttons["companion-level-menu"], "Chat controls at XXXL")
         XCTAssertTrue(app.buttons["companion-context-usage"].isHittable)
         focus(composer, in: app)
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
@@ -134,6 +135,7 @@ import XCTest
         shot.name = "Chat chrome largest accessibility text \(hidePreviewBanner ? "without preview banner" : "with preview banner")"
         shot.lifetime = .keepAlways; add(shot)
         XCTAssertTrue(app.buttons["companion-level-menu"].isHittable)
+        assertMinimumTarget(app.buttons["companion-level-menu"], "Chat controls while editing at XXXL")
         XCTAssertTrue(app.buttons["companion-send"].exists)
         XCTAssertTrue(header.label.contains("Full access") && !header.label.contains("Auto or Full access") && !header.label.contains("Free Agent"), "Safety stays visible while editing")
         XCTAssertTrue(app.buttons["View River, needs you"].isHittable, "The compact other-agent notice stays actionable")
