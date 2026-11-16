@@ -350,7 +350,7 @@ struct CompanionConversationView: View {
         .frame(minWidth: 44, minHeight: 44)
         .accessibilityLabel("Context and plan limits")
         .accessibilityValue(agent.contextUsage?.percent.map { "Latest reported context: \($0)% full" } ?? "Context usage unknown")
-        .accessibilityHint("Opens context settings and plan limits by desktop")
+        .accessibilityHint("Opens this agent’s context and plan limits")
         .accessibilityIdentifier(agent.contextUsage?.percent == nil ? "companion-context-settings" : "companion-context-usage")
     }
 

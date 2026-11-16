@@ -3,6 +3,44 @@ import Testing
 @testable import CompanionDomain
 
 @MainActor @Suite struct CompanionPlanLimitsTests {
+    @Test func agentScopeReadsOnlyItsDesktopAndNeverGuessesAMissingProvider() async throws {
+        let hosts = CompanionPreviewService.hosts(now: .now, helperPresets: true, autoQuota: true) + CompanionPreviewService.planLimitsHosts()
+        let target = CompanionPreviewService.target
+        var agent = try #require(hosts[0].projects.flatMap(\.agents).first { $0.id == target })
+        let scope = CompanionAgentPlanLimitsScope(target: target, agent: agent)
+        #expect(scope.providerID == "claude-code")
+        #expect(scope.readableHosts(in: hosts).map(\.id) == [target.hostID])
+        let screen = CompanionPlanLimitsScreen()
+        var reads: [String] = []
+        await screen.refresh(hosts: scope.readableHosts(in: hosts)) { id in
+            reads.append(id)
+            return CompanionPreviewService.planLimitsPage
+        }
+        #expect(reads == [target.hostID], "Other readable desktops must not be contacted by an agent sheet")
+        #expect(screen.readings.keys.sorted() == [target.hostID])
+        agent.orchestrator = nil
+        #expect(CompanionAgentPlanLimitsScope(target: target, agent: agent).readableHosts(in: hosts).isEmpty)
+        agent.orchestrator = ""
+        #expect(CompanionAgentPlanLimitsScope(target: target, agent: agent).providerID == nil)
+        #expect(CompanionAgentPlanLimitsScope(target: target, agent: nil).readableHosts(in: hosts).isEmpty)
+    }
+
+    @Test func agentScopeKeepsOfflineUnsupportedAndMissingDesktopStates() throws {
+        var hosts = CompanionPreviewService.hosts(now: .now, helperPresets: true, autoQuota: true)
+        let target = CompanionPreviewService.target
+        let agent = try #require(hosts[0].projects.flatMap(\.agents).first { $0.id == target })
+        let scope = CompanionAgentPlanLimitsScope(target: target, agent: agent)
+        hosts[0].connection = .offline
+        #expect(scope.readableHosts(in: hosts).isEmpty)
+        #expect(scope.group(in: hosts)?.unavailableText == "Studio Mac is offline")
+        hosts[0].connection = .connected
+        hosts[0].helperRouting = nil
+        #expect(scope.readableHosts(in: hosts).isEmpty)
+        #expect(scope.group(in: hosts)?.unavailableText == "This desktop doesn’t report plan limits.")
+        #expect(scope.group(in: []) == nil)
+        #expect(scope.readableHosts(in: []).isEmpty)
+    }
+
     @Test func groupsKeepMachineIdentityAndUnavailableStates() throws {
         let hosts = CompanionPreviewService.hosts(now: .now, helperPresets: true, autoQuota: true) + CompanionPreviewService.planLimitsHosts()
         let groups = CompanionPlanLimitsGroup.groups(hosts)

@@ -21,6 +21,18 @@ The native header balances measured side origins with at least 44pt leading and 
 The header matrix checks centering immediately, waits at most five seconds if needed within the existing 1pt tolerance, logs the measured wait,
 and samples each avatar screenshot once, retaining that exact image and its sample geometry.
 
+`CompanionContextLimitsUITests` exercises the production “Context and limits” sheet with synthetic
+`--companion-context-sheet-fixture` inputs inside the existing header preview. It checks the
+“84k of 200k tokens” format, the usage event's reported time (or explicit unknown), only the
+agent's provider windows on its own desktop, offline and unknown readings, Context settings
+navigation and the Settings footer. The sheet starts at medium and also offers large for reading
+and accessibility text; its content scrolls at both detents. Light, dark, Latte, Mocha and AX3
+captures use no real desktop or account. `--companion-context-unknown`, `--companion-context-undated`
+and `--companion-context-quota-unknown` supply missing report states; the existing offline header
+flag supplies the offline desktop. Production preserves only a usage event's own optional `ts`,
+never the local receipt time or another activity's timestamp. Settings retains the all-provider,
+all-desktop Plan limits page. Simulator evidence does not cover a physical device or spoken VoiceOver.
+
 - `ClubhouseGoTests` holds `FramebriarIntegrationTests` and `DiagnosticPrivacyTests`.
 - `ClubhouseGoUITests` launches the app in DEBUG fixture modes that never restore or contact a real paired desktop:
   - `--companion-preview`: `CompanionPreviewSmokeTests`

@@ -20,6 +20,26 @@ struct CompanionPlanLimitsGroup: Identifiable, Sendable {
     }
 }
 
+/// A conversation never guesses a provider or reads another desktop's account.
+struct CompanionAgentPlanLimitsScope: Equatable, Sendable {
+    let hostID: String
+    let providerID: String?
+
+    init(target: CompanionTarget, agent: CompanionAgent?) {
+        hostID = target.hostID
+        providerID = agent?.orchestrator.flatMap { $0.isEmpty ? nil : $0 }
+    }
+
+    func group(in hosts: [CompanionHost]) -> CompanionPlanLimitsGroup? {
+        hosts.first { $0.id == hostID }.map { CompanionPlanLimitsGroup(host: $0) }
+    }
+
+    func readableHosts(in hosts: [CompanionHost]) -> [CompanionHost] {
+        guard providerID != nil, let group = group(in: hosts), group.canRead else { return [] }
+        return [group.host]
+    }
+}
+
 /// Screen-owned snapshots; no retained task, timer, service or callback. SwiftUI owns polling lifetime.
 @MainActor @Observable final class CompanionPlanLimitsScreen {
     private(set) var readings: [String: CompanionHelperPresetsScreen] = [:]

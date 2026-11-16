@@ -33,7 +33,7 @@ struct CompanionPlanLimitsView: View {
             }
             ForEach(groups) { group in
                 Section {
-                    machine(group)
+                    CompanionPlanLimitsMachine(group: group, reading: screen.readings[group.id])
                 } header: {
                     if groups.count > 1 { Text(group.host.name) }
                 }
@@ -57,18 +57,29 @@ struct CompanionPlanLimitsView: View {
             await screen.refresh(hosts: store.hosts) { try await store.helperRouting(hostID: $0) }
         }
     }
-    @ViewBuilder private func machine(_ group: CompanionPlanLimitsGroup) -> some View {
+
+}
+
+/// The Settings page and the agent sheet share unknown, offline and stale-reading presentation.
+private struct CompanionPlanLimitsMachine: View {
+    let group: CompanionPlanLimitsGroup
+    let reading: CompanionHelperPresetsScreen?
+    var providerID: String? = nil
+
+    private func providerIDs(in page: CompanionHelperRouting) -> [String] {
+        providerID.map { [$0] } ?? group.providerIDs(in: page)
+    }
+    @ViewBuilder var body: some View {
         if let unavailable = group.unavailableText {
             Text(unavailable).foregroundStyle(.secondary).accessibilityIdentifier("plan-limits-unavailable-\(group.id)")
             if case .failed(let message) = group.host.connection { Text(message).font(.subheadline) }
         } else {
-            let reading = screen.readings[group.id]
             if let error = reading?.error {
                 Text(error).foregroundStyle(.red).accessibilityIdentifier("plan-limits-error-\(group.id)")
             }
             if let page = reading?.settings {
-                if group.providerIDs(in: page).isEmpty { Text("No connected providers reported by this desktop.").foregroundStyle(.secondary) }
-                ForEach(group.providerIDs(in: page), id: \.self) { id in
+                if providerIDs(in: page).isEmpty { Text("No connected providers reported by this desktop.").foregroundStyle(.secondary) }
+                ForEach(providerIDs(in: page), id: \.self) { id in
                     VStack(alignment: .leading, spacing: 8) {
                         // The desktop catalog supplies displayName/shortName; routing-only IDs have no label in v1.
                         Text(group.host.providers.first { $0.id == id }?.name ?? id).font(.headline)
@@ -87,6 +98,43 @@ struct CompanionPlanLimitsView: View {
                     .accessibilityIdentifier("plan-limits-\(group.id)-\(id)")
                 }
             } else if reading?.error == nil { ProgressView("Checking plan limits…") }
+        }
+    }
+}
+
+/// Only the current agent's provider on its desktop. The endpoint returns a desktop page;
+/// filtering is explicit and never turns a missing provider into another account's reading.
+struct CompanionAgentPlanLimitsSection: View {
+    @Bindable var store: CompanionStore
+    let scope: CompanionAgentPlanLimitsScope
+    @State private var screen = CompanionPlanLimitsScreen()
+    @Environment(\.scenePhase) private var scenePhase
+
+    private var group: CompanionPlanLimitsGroup? { scope.group(in: store.hosts) }
+    private var refreshKey: String {
+        "\(scenePhase == .active)|\(scope.hostID)|\(scope.providerID ?? "")|\(String(describing: group?.host.connection))|\(group?.canRead == true)|\(group?.host.helperRoutingRevision ?? "")"
+    }
+
+    var body: some View {
+        Section {
+            if let group {
+                if let providerID = scope.providerID {
+                    CompanionPlanLimitsMachine(group: group, reading: screen.readings[group.id], providerID: providerID)
+                } else {
+                    Text("This agent’s provider is unknown.").foregroundStyle(.secondary)
+                        .accessibilityIdentifier("companion-context-provider-unknown")
+                    if let unavailable = group.unavailableText { Text(unavailable).foregroundStyle(.secondary) }
+                }
+            } else {
+                Text("Desktop unavailable. Reported values may be out of date.").foregroundStyle(.secondary)
+                    .accessibilityIdentifier("companion-context-desktop-unavailable")
+            }
+        } header: {
+            Text(group.map { "Agent plan · \($0.host.name)" } ?? "Agent plan")
+        }
+        .task(id: refreshKey) {
+            guard scenePhase == .active, let host = scope.readableHosts(in: store.hosts).first else { return }
+            await screen.poll(hostID: host.id) { try await store.helperRouting(hostID: $0) }
         }
     }
 }

@@ -58,15 +58,18 @@ import XCTest
         tapChatStatusBar(in: app)
         XCTAssertEqual(context.frame.minY, before.minY, accuracy: 1, "Reading older messages keeps the header pinned")
         XCTAssertTrue(context.isHittable)
-        waitAndTap(context, until: app.buttons["agent-settings-context-window"])
-        XCTAssertTrue(element(app, "companion-context-report").exists, "Context still opens its reported details")
-        XCTAssertEqual(element(app, "companion-context-reading-note").label, "Latest reported context usage")
-        let limits = app.buttons["companion-context-plan-limits"]
-        XCTAssertTrue(limits.isHittable)
-        assertMinimumTarget(limits, "plan limits", width: 0)
-        waitAndTap(limits, until: app.navigationBars["Plan limits"])
+        waitAndTap(context, until: app.navigationBars["Context and limits"])
+        XCTAssertEqual(element(app, "companion-context-token-count").label, "84k of 300k tokens")
+        XCTAssertEqual(element(app, "companion-context-reading-note").label, "Report time unknown")
         XCTAssertTrue(element(app, "plan-limits-unavailable-preview-studio").exists,
                       "Unsupported plan limits remain explicitly unavailable, independent of context settings")
+        XCTAssertEqual(element(app, "companion-context-plan-limits-footer").label,
+                       "Every desktop and provider: Settings › Plan limits.")
+        let settings = app.buttons["companion-context-settings-row"]
+        XCTAssertTrue(settings.isHittable)
+        assertMinimumTarget(settings, "Context settings", width: 0)
+        waitAndTap(settings, until: app.buttons["agent-settings-context-window"])
+        XCTAssertTrue(element(app, "companion-context-report").exists, "The explicit settings row retains the reported context details")
     }
 
     func testWorkingActivityStillShowsItsLabelInTheFooter() {
@@ -98,7 +101,8 @@ import XCTest
         XCTAssertTrue(status.label.contains("Access: "), status.label)
         let actions = app.buttons["conversation-actions-menu"]
         waitAndTap(actions, until: app.buttons["companion-context-settings-menu"])
-        waitAndTap(app.buttons["companion-context-settings-menu"], until: app.buttons["agent-settings-context-window"])
+        waitAndTap(app.buttons["companion-context-settings-menu"], until: app.buttons["companion-context-settings-row"])
+        waitAndTap(app.buttons["companion-context-settings-row"], until: app.buttons["agent-settings-context-window"])
         // At accessibility sizes the report can sit below the context picker; the form scrolls to it.
         let report = element(app, "companion-context-report")
         XCTAssertTrue(scrollUntilExists(report, in: app, maxSwipes: 3, wait: 1), "Context stays available through conversation actions")
@@ -111,8 +115,10 @@ import XCTest
         XCTAssertTrue(usage.isHittable)
         XCTAssertEqual(usage.value as? String, "Context usage unknown")
         waitAndTap(usage, until: element(app, "companion-context-reading-note"))
-        XCTAssertEqual(element(app, "companion-context-reading-note").label, "Context usage unknown")
-        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"])
+        XCTAssertTrue(app.staticTexts["Context usage unknown"].exists)
+        XCTAssertEqual(element(app, "companion-context-reading-note").label, "Report time unknown")
+        XCTAssertTrue(app.navigationBars["Context and limits"].exists)
+        XCTAssertTrue(element(app, "companion-context-plan-limits-footer").exists)
     }
 
     func testReviewHasOneIdentityPrincipalWithPositionDisclosureAndUsage() {
@@ -136,6 +142,8 @@ import XCTest
         XCTAssertEqual(app.navigationBars.descendants(matching: .any).matching(identifier: "review-title").count, 1)
         let usage = app.navigationBars.buttons["companion-context-settings"]
         waitAndTap(usage, until: element(app, "companion-context-reading-note"), attempts: 1)
-        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"], attempts: 1)
+        XCTAssertTrue(app.navigationBars["Context and limits"].exists)
+        XCTAssertTrue(app.buttons["companion-context-settings-row"].exists)
+        XCTAssertTrue(element(app, "companion-context-plan-limits-footer").exists)
     }
 }

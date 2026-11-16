@@ -1018,6 +1018,11 @@ import ClubhouseTransport
     }
     func helperRouting(hostID: String, projectID: String?, agentID: String?) async throws -> CompanionHelperRouting {
         guard showsHelperPresets else { throw previewError }
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--companion-context-sheet-fixture"), hostID == Self.target.hostID {
+            return Self.planLimitsPage
+        }
+        #endif
         if showsAutoQuota && hostID == "preview-work" { return Self.planLimitsPage }
         return showsAutoQuota ? Self.autoQuotaPage(projectID: projectID, agentID: agentID) : editedHelperPresets ?? Self.helperPresets
     }
