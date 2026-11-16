@@ -146,6 +146,10 @@ import ClubhouseTransport
             guard !Task.isCancelled else { return moved }
             let best = if let resolveRoute { await resolveRoute(registration) } else { await answeringRoute(for: registration) }
             guard !Task.isCancelled else { return moved }
+            let current = await registry.all().first { $0.host.hostID == best.host.hostID }
+            guard !Task.isCancelled else { return moved }
+            // Route resolution suspends: a newer pairing/relocation may now own this host.
+            guard current?.transportID == best.transportID else { continue }
             // A cancelled earlier relocation may have committed its new route only in the registry.
             // The exact transport identity changes with that route; presence alone is insufficient.
             guard !service.hasRegistration(best) else { continue }

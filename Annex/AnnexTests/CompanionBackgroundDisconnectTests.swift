@@ -1,4 +1,5 @@
 import XCTest
+import os
 @testable import ClubhouseGo
 @testable import ClubhouseTransport
 
@@ -24,7 +25,7 @@ private actor BackgroundDisconnectSocket: AnnexWebSocket {
 }
 
 private actor BackgroundDisconnectIO: AnnexIO {
-    let identity = AnnexPairingIdentity()
+    let identity: AnnexPairingIdentity
     private(set) var sockets: [BackgroundDisconnectSocket] = []
     private(set) var openedHosts: [String] = []
     private var holdOpen: Bool
@@ -35,7 +36,10 @@ private actor BackgroundDisconnectIO: AnnexIO {
     var commanding: Bool { commandWaiter != nil }
     var preparing: Bool { preparationWaiter != nil }
 
-    init(holdOpen: Bool = false) { self.holdOpen = holdOpen }
+    init(holdOpen: Bool = false, identity: AnnexPairingIdentity = AnnexPairingIdentity()) {
+        self.holdOpen = holdOpen
+        self.identity = identity
+    }
 
     func perform(_ request: URLRequest) async throws -> AnnexHTTPResponse {
         let value: AnnexJSON
@@ -309,5 +313,68 @@ private actor BackgroundDisconnectIO: AnnexIO {
         XCTAssertTrue(correctRouteConnected)
         let laterOpens = await io.openedHosts
         XCTAssertEqual(laterOpens, [oldEndpoint.host, newEndpoint.host, newEndpoint.host], "An already-current registration gets one reconnect, without a second register/connect")
+    }
+
+    func testHeldRouteResolutionCannotReplaceNewerAuthoritativeTransport() async throws {
+        let oldIO = BackgroundDisconnectIO()
+        let newIO = BackgroundDisconnectIO(identity: oldIO.identity)
+        let hostID = try AnnexPairingIdentity.fingerprint(publicKeyBase64: oldIO.identity.publicKeyBase64)
+        let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 8443), verifiedHostID: hostID,
+                                       verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "01", count: 32)))
+        let credentials = MemoryAnnexCredentialStore()
+        await credentials.save(try AnnexCredential(bearerToken: "fixture-only"), for: hostID)
+        let identity = try AnnexClientIdentity.ephemeral()
+        let nextIO = OSAllocatedUnfairLock(initialState: 0)
+        let registry = AnnexTransportRegistry(credentials: credentials, pairings: nil, pairingIO: { _, _ in
+            nextIO.withLock { count in
+                defer { count += 1 }
+                return count == 0 ? oldIO : newIO
+            }
+        })
+        let old = try await registry.restore(host: host, alias: "Old", clientIdentity: identity)
+        let runtime = CompanionRuntime(registry: registry, persistsDrafts: false)
+        runtime.store.start()
+        var heldResume: Task<Void, Never>?
+        addTeardownBlock { @MainActor in
+            heldResume?.cancel()
+            await oldIO.releaseAll()
+            await newIO.releaseAll()
+            await heldResume?.value
+            runtime.service.prepareResume = nil
+            await runtime.service.shutdown()
+            runtime.store.stop()
+        }
+        await runtime.service.register(old)
+        let oldConnected = try await eventually { runtime.store.hosts.first?.connection == .connected }
+        XCTAssertTrue(oldConnected)
+        await runtime.service.suspend()
+        runtime.service.prepareResume = {
+            await runtime.switchToAnsweringRoutes(resolveRoute: { registration in
+                await oldIO.holdPreparation()
+                return registration
+            })
+        }
+        let pendingResume = Task { await runtime.service.resume() }
+        heldResume = pendingResume
+        let resolving = try await eventually { await oldIO.preparing }
+        XCTAssertTrue(resolving)
+        let newer = try await registry.restore(host: host, alias: "New", clientIdentity: identity)
+        XCTAssertEqual(newer.host.endpoint, old.host.endpoint, "This must cover unchanged endpoints with a newer registration identity")
+        XCTAssertNotEqual(newer.transportID, old.transportID)
+        await runtime.service.register(newer)
+        let newConnected = try await eventually { runtime.store.hosts.first?.connection == .connected }
+        XCTAssertTrue(newConnected)
+        XCTAssertTrue(runtime.service.hasRegistration(newer))
+        XCTAssertFalse(pendingResume.isCancelled, "Cancellation must not be what rejects the stale resolver result")
+        await oldIO.releasePreparation()
+        await pendingResume.value
+        XCTAssertTrue(runtime.service.hasRegistration(newer), "A held resolution must not replace the newer authoritative transport")
+        XCTAssertFalse(runtime.service.hasRegistration(old))
+        let oldOpens = await oldIO.sockets.count
+        XCTAssertEqual(oldOpens, 1, "The stale transport must never reconnect after the newer pairing wins")
+        for socket in await oldIO.sockets {
+            let closed = await socket.closed
+            XCTAssertTrue(closed)
+        }
     }
 }
