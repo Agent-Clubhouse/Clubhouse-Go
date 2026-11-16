@@ -21,3 +21,27 @@ import Observation
     }
     func consume(_ id: UUID) { if pending?.id == id { pending = nil } }
 }
+
+/// Resolution never creates authority or performs reads. Unknown restoration/catalog state keeps the handoff pending.
+enum CompanionDispatcherLaunchResolution: Equatable {
+    case waiting
+    case unavailable
+    case open(CompanionDispatcherDesktop)
+    case choose([CompanionDispatcherDesktop])
+
+    static func resolve(desktops: [CompanionDispatcherDesktop], pairedHostIDs: Set<String>?,
+                        restorationComplete: Bool, hosts: [CompanionHost]) -> Self {
+        guard restorationComplete, let pairedHostIDs else { return .waiting }
+        let choices = desktops.filter { pairedHostIDs.contains($0.id) && $0.target != nil }
+        if choices.count == 1 { return .open(choices[0]) }
+        if choices.count > 1 { return .choose(choices) }
+        let unresolved = pairedHostIDs.contains { id in
+            guard let host = hosts.first(where: { $0.id == id }) else { return true }
+            switch host.connection {
+            case .connecting, .reconnecting, .synchronizing: return host.dispatcher == nil
+            default: return false
+            }
+        }
+        return unresolved ? .waiting : .unavailable
+    }
+}

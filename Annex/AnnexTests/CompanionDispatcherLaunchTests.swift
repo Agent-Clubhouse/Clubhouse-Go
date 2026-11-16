@@ -19,6 +19,21 @@ import UIKit
         XCTAssertNil(inbox.pending)
     }
 
+    func testColdConnectionShortcutWaitsForRestoreBeforeItsRequestCanBeConsumed() throws {
+        let inbox = CompanionDispatcherLaunchInbox.shared
+        if let previous = inbox.pending { inbox.consume(previous.id) }
+        CompanionLaunchSceneDelegate.captureColdShortcut(UIApplicationShortcutItem(
+            type: CompanionDispatcherLaunchInbox.quickActionType, localizedTitle: "Message Dispatcher"))
+        let request = try XCTUnwrap(inbox.pending)
+        XCTAssertEqual(CompanionDispatcherLaunchResolution.resolve(desktops: [], pairedHostIDs: nil,
+            restorationComplete: false, hosts: []), .waiting)
+        XCTAssertEqual(inbox.pending?.id, request.id, "Connection-options delivery survives before SwiftUI/runtime restoration")
+        XCTAssertEqual(CompanionDispatcherLaunchResolution.resolve(desktops: [], pairedHostIDs: [],
+            restorationComplete: true, hosts: []), .unavailable)
+        inbox.consume(request.id)
+        XCTAssertNil(inbox.pending)
+    }
+
     func testForegroundIntentUsesTheSameHandoffWithoutSending() async throws {
         let inbox = CompanionDispatcherLaunchInbox.shared
         if let request = inbox.pending { inbox.consume(request.id) }

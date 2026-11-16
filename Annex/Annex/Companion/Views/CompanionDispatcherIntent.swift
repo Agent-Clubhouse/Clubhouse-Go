@@ -17,7 +17,10 @@ import UIKit
 
 @MainActor final class CompanionLaunchSceneDelegate: NSObject, UIWindowSceneDelegate {
     func scene(_ scene: UIScene, willConnectTo session: UISceneSession, options: UIScene.ConnectionOptions) {
-        if let item = options.shortcutItem { CompanionDispatcherLaunchInbox.shared.handleQuickAction(item.type) }
+        Self.captureColdShortcut(options.shortcutItem)
+    }
+    static func captureColdShortcut(_ item: UIApplicationShortcutItem?) {
+        if let item { CompanionDispatcherLaunchInbox.shared.handleQuickAction(item.type) }
     }
     func windowScene(_ windowScene: UIWindowScene, performActionFor shortcutItem: UIApplicationShortcutItem) async -> Bool {
         CompanionDispatcherLaunchInbox.shared.handleQuickAction(shortcutItem.type)
