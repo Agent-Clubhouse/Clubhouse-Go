@@ -8,6 +8,18 @@ import XCTest
         add(attachment)
     }
 
+    private func selectNeedsYou(in app: XCUIApplication) {
+        let tab = app.tabBars.buttons["Needs you"]
+        // Scrolling at accessibility sizes can minimize the native tab bar. Tapping
+        // its selected Home item expands it, just as a person would before switching.
+        if !tab.exists || !tab.isHittable {
+            waitAndTap(app.tabBars.buttons["Home"], until: tab, attempts: 1)
+        }
+        XCTAssertTrue(waitFor(tab, NSPredicate(format: "hittable == true"), timeout: 5),
+                      "Needs you must be hittable after the native bar expands")
+        tab.tap()
+    }
+
     func testSingleOfflineDesktopKeepsOneLineAndAnExplicitRetry() {
         let app = launchApp(["--companion-preview"], attempts: 1)
         let title = app.staticTexts["home-connection-title"]
@@ -30,7 +42,7 @@ import XCTest
         XCTAssertEqual(title.label, "Reconnecting… · Studio Mac and Travel MacBook")
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'home-retry-'")).count, 0)
         capture(app, "Home reconnecting compact banner")
-        app.tabBars.buttons["Needs you"].tap()
+        selectNeedsYou(in: app)
         XCTAssertTrue(app.staticTexts["needs-you-connection-title"].waitForExistence(timeout: 5))
         capture(app, "Needs you reconnecting compact banner")
     }
@@ -46,7 +58,7 @@ import XCTest
         for (name, flags, accessibility) in variants {
             let app = launchApp(["--companion-preview", "--companion-preview-home-five-desktops"] + flags, allowance: 360, attempts: 1)
             for (tab, prefix) in [("Home", "home"), ("Needs you", "needs-you")] {
-                if tab != "Home" { app.tabBars.buttons[tab].tap() }
+                if tab != "Home" { selectNeedsYou(in: app) }
                 let title = app.staticTexts["\(prefix)-connection-title"]
                 XCTAssertTrue(scrollUntilExists(title, in: app) && scrollTo(title, in: app))
                 XCTAssertEqual(title.label, "Travel MacBook and Workshop Mac aren't connected")
