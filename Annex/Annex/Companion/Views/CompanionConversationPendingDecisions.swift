@@ -9,6 +9,7 @@ struct CompanionConversationPendingDecisions: View {
     let showInChat: (String) -> Void
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -17,13 +18,13 @@ struct CompanionConversationPendingDecisions: View {
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
                 ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 12) {
+                    HStack(spacing: isCompactHeight ? 8 : 12) {
                         identity(decision, presentation: presentation, index: index, count: queue.count)
                             .fixedSize(horizontal: true, vertical: false)
                         Spacer(minLength: 0)
                         actions(decision, presentation: presentation).fixedSize()
                     }
-                    VStack(alignment: .leading, spacing: 8) {
+                    VStack(alignment: .leading, spacing: isCompactHeight ? 0 : 8) {
                         identity(decision, presentation: presentation, index: index, count: queue.count)
                         HStack { Spacer(minLength: 0); actions(decision, presentation: presentation) }
                     }
@@ -63,9 +64,9 @@ struct CompanionConversationPendingDecisions: View {
         }
         let subtitle = "\(index + 1) of \(count) waiting · \(kind)"
         return Button { showInChat(decision.id) } label: {
-            VStack(alignment: .leading, spacing: 2) {
-                Text(decision.summary).font(.subheadline.weight(.semibold)).lineLimit(2)
-                Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            VStack(alignment: .leading, spacing: isCompactHeight ? 0 : 2) {
+                Text(decision.summary).font((isCompactHeight ? Font.caption : .subheadline).weight(.semibold)).lineLimit(2)
+                Text(subtitle).font(isCompactHeight ? .caption2 : .caption).foregroundStyle(.secondary).lineLimit(2)
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
@@ -144,6 +145,7 @@ struct CompanionConversationPendingDecisions: View {
     private var pendingIDs: [String] {
         CompanionPendingDecision.pending(in: store.conversation(for: target).items).map(\.id)
     }
+    private var isCompactHeight: Bool { verticalSizeClass == .compact }
     private func resetPresentation() { selectedID = nil; review = nil }
     private func isApproval(_ decision: CompanionPendingDecision) -> Bool {
         if case .approval = decision { return true }

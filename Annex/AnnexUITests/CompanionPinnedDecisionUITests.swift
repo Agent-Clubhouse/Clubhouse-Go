@@ -51,7 +51,7 @@ import Vision
         let visible = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: bottom - top)
         XCTAssertTrue(pixelContains(visible, tray.frame), "The pending card stays above the composer: \(tray.frame), \(visible)")
         XCTAssertLessThanOrEqual(tray.frame.maxY, composer.frame.minY)
-        XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable")
+        XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable: \(composer.frame), \(visible)")
         let title = summary(app).label
         let position = summary(app).value as? String ?? ""
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", title, "\(title), \(position)")).count, 1,
@@ -181,6 +181,7 @@ import Vision
         XCUIDevice.shared.orientation = .landscapeLeft
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
+        capture(app, "AX5 landscape: pending bar and composer containment")
         assertPinned(app)
         let close = app.buttons["companion-approval-review-close"]
         openReview(app, until: close)
@@ -244,10 +245,15 @@ import Vision
         XCTAssertTrue(app.staticTexts["Always allow?"].waitForExistence(timeout: 5), "A broader permission keeps its existing confirmation")
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
         // iOS 26 presents this shared confirmation as a popover without a Cancel button.
-        // The review navigation bar is outside the anchored option popover.
-        let outside = app.navigationBars["Review approval"].frame
+        let popover = app.popovers.firstMatch
+        XCTAssertTrue(popover.exists)
+        let popoverFrame = popover.frame
+        let outside = CGPoint(x: (popoverFrame.maxX + app.frame.maxX) / 2,
+                              y: popoverFrame.midY)
+        XCTAssertFalse(popoverFrame.contains(outside), "Dismissal must land outside the measured confirmation popover")
+        XCTAssertTrue(app.frame.contains(outside))
         app.coordinate(withNormalizedOffset: .zero)
-            .withOffset(CGVector(dx: outside.midX, dy: outside.midY)).tap()
+            .withOffset(CGVector(dx: outside.x, dy: outside.y)).tap()
         XCTAssertTrue(app.staticTexts["Always allow?"].waitForNonExistence(timeout: 5))
         XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
         close.tap()
@@ -275,7 +281,13 @@ import Vision
         let app = openRiver(extra: flags)
         awaitApproval(app)
         assertPinned(app)
-        XCTAssertLessThan(app.buttons["Deny"].frame.midX, app.buttons["Allow once"].frame.midX)
+        let deny = app.buttons["Deny"].frame
+        let allow = app.buttons["Allow once"].frame
+        if deny.maxY <= allow.minY {
+            XCTAssertLessThan(deny.midY, allow.midY, "The vertical fallback keeps Deny above Allow once")
+        } else {
+            XCTAssertLessThan(deny.midX, allow.midX, "The horizontal layout keeps Deny before Allow once")
+        }
         XCTAssertFalse(app.buttons["companion-pinned-decision-previous"].exists)
         XCTAssertFalse(app.buttons["companion-pinned-decision-next"].exists)
         capture(app, "Decision bar — \(name)")
