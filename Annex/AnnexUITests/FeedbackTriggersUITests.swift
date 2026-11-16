@@ -48,7 +48,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             }
             app.buttons["Cancel"].tap()
             XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
-            app.buttons["Done"].tap()
+            app.buttons["settings-close"].tap()
             app.terminate()
         }
     }

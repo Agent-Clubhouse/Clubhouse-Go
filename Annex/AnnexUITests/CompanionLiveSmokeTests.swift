@@ -107,7 +107,8 @@ final class CompanionLiveSmokeTests: XCTestCase {
             app.navigationBars.buttons.element(boundBy: 0).tap()
         }
         app.buttons["Settings"].tap()
-        app.descendants(matching: .any).matching(identifier: "Connection details").firstMatch.tap()
+        let desktop = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@", "settings-desktop-")).firstMatch
+        waitAndTap(desktop, until: app.buttons["End session pairing"].firstMatch)
         let endSession = app.buttons["End session pairing"].firstMatch
         XCTAssertTrue(endSession.waitForExistence(timeout: 10), "Desktop capability must advertise scoped session revocation")
         endSession.tap()

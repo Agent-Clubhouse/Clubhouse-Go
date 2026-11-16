@@ -12,6 +12,8 @@ import XCTest
             app.buttons["Settings"].tap()
             XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
             XCTAssertFalse(app.buttons["app-update-preview-studio"].exists, "Version information is not an update button")
+            waitAndTap(app.buttons["settings-desktop-preview-studio"], until: app.buttons["desktop-connection-retry"])
+            XCTAssertFalse(app.buttons["app-update-preview-studio"].exists, "Version information remains plain on the desktop detail page")
         } else {
             let indicator = app.buttons["app-update-preview-studio"]
             XCTAssertTrue(scrollTo(indicator, in: app))
@@ -110,8 +112,8 @@ import XCTest
         let app = openUpdate(state: "none")
         XCTAssertEqual(app.staticTexts["app-update-status"].label, "No update known (running 1.0.0)")
         XCTAssertFalse(app.images["arrow.down.circle"].exists)
-        let details = app.buttons["Connection details"]
-        waitAndTap(details, until: app.buttons["desktop-connection-forget"])
+        XCTAssertTrue(app.staticTexts["Verified desktop identity"].exists)
+        XCTAssertTrue(app.buttons["desktop-connection-forget"].exists)
         XCTAssertTrue(app.buttons["desktop-connection-retry"].exists)
         attach(app, "Settings desktop - tinted Retry and red Forget - bf215c26")
         app.buttons["desktop-connection-forget"].tap()
