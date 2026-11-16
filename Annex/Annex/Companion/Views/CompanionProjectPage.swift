@@ -110,7 +110,7 @@ struct CompanionProjectPage: View {
             }
         }
         .companionListStyle()
-        .companionAgentRows(store: store, impliedHostID: desktop.hostID ?? entry.host.id)
+        .companionAgentRows(store: store, impliedHostID: desktop.hostID ?? (entry.isLinked ? nil : entry.host.id))
         .onScrollPhaseChange { _, phase in
             if phase == .idle { hold = nil }
             else if hold == nil { hold = agents.map(\.id) }

@@ -18,6 +18,9 @@ import XCTest
     func testAllRequiresAnExplicitWakeMachineAndASelectedDesktopActsDirectly() {
         let app = openProject(linked: true)
         XCTAssertTrue(element(app, "desktop-chip-all").exists)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(river.waitForExistence(timeout: 5))
+        XCTAssertTrue(river.label.contains("Studio Mac"), "All linked copies must identify every agent's desktop")
         XCTAssertFalse(app.buttons["project-changes"].exists)
         waitAndTap(app.buttons["project-page-options"], until: app.buttons["project-wake"], attempts: 1)
         XCTAssertFalse(app.buttons["Pin to top of Home"].exists, "Linked pin semantics await desktop shared state")
@@ -33,6 +36,8 @@ import XCTest
         XCTAssertTrue(element(app, "wake-message").waitForNonExistence(timeout: 5))
         XCTAssertTrue(scrollTo(element(app, "desktop-chip-host-preview-studio"), in: app, up: false))
         element(app, "desktop-chip-host-preview-studio").tap()
+        XCTAssertTrue(waitFor(river, NSPredicate(format: "NOT (label CONTAINS %@)", "Studio Mac"), timeout: 5),
+                      "The selected desktop makes the repeated row badge redundant")
         waitAndTap(app.buttons["project-page-options"], until: app.buttons["project-wake"], attempts: 1)
         waitAndTap(app.buttons["project-wake"], until: element(app, "wake-message"), attempts: 1)
         XCTAssertFalse(app.navigationBars["Choose a desktop"].exists)
