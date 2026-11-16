@@ -60,8 +60,36 @@ import XCTest
     private func presentAndType(_ text: String, in app: XCUIApplication) -> XCUIElement {
         phase("present-\(text)")
         let options = app.buttons["project-page-options"]
+        // activate() can return during SpringBoard's expanding-card transition, with a
+        // transient AX activation point. Wait for stable visible geometry before one tap.
+        var lastOptionsFrame: CGRect?
+        var unchangedSince = ContinuousClock.now
+        let settled = waitFor(options, NSPredicate { _, _ in
+            guard options.exists && options.isHittable else {
+                lastOptionsFrame = nil
+                return false
+            }
+            let frame = options.frame
+            guard !frame.isEmpty && app.frame.contains(frame) else {
+                lastOptionsFrame = nil
+                return false
+            }
+            if lastOptionsFrame != frame {
+                lastOptionsFrame = frame
+                unchangedSince = .now
+                return false
+            }
+            return unchangedSince.duration(to: .now) >= .milliseconds(500)
+        }, timeout: 5)
+        XCTAssertTrue(settled, "Project options must settle on screen before opening the menu")
         XCTAssertTrue(options.isHittable)
-        options.tap()
+        let optionsFrame = options.frame
+        XCTAssertFalse(optionsFrame.isEmpty)
+        XCTAssertTrue(app.frame.contains(optionsFrame))
+        let optionsPoint = CGPoint(x: optionsFrame.midX, y: optionsFrame.midY)
+        phase("options-tap-\(optionsPoint)-frame-\(optionsFrame)")
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: optionsPoint.x, dy: optionsPoint.y)).tap()
         XCTAssertTrue(app.buttons["project-wake"].waitForExistence(timeout: 5))
         let wake = app.buttons["project-wake"]
         XCTAssertTrue(wake.isHittable && wake.isEnabled)
