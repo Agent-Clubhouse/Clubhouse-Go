@@ -18,7 +18,7 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
         // Keep the composer mounted across fit/keyboard changes. When the keyboard leaves less
         // room than this footer, Review stays first and the rest remains reachable by scrolling.
         ScrollView(.vertical) {
-            FooterLayout(maximumHeight: maximumHeight) {
+            FooterLayout {
                 // Concrete slots survive the final request disappearing during footer removal.
                 VStack(spacing: 0) {
                     CompanionConversationGrantRequests(store: store, target: target,
@@ -26,7 +26,9 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
                     CompanionConversationPendingDecisions(store: store, target: target,
                         maximumHeight: max(0, maximumHeight - composerHeight)
                             / (store.grantRequests(for: target).isEmpty ? 1 : 2),
-                        compactHeight: maximumHeight < 360, showInChat: showInChat)
+                        // The tray shares this room with the composer. An expanded text-action row must
+                        // not consume the transcript/editor space just because the whole viewport is tall.
+                        compactHeight: max(0, maximumHeight - composerHeight) < 360, showInChat: showInChat)
                 }
                 VStack(spacing: 0) { composer }
                 .environment(\.companionComposerFitsGrantFooter, true)
@@ -42,8 +44,6 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
     }
 
     private struct FooterLayout: Layout {
-        let maximumHeight: CGFloat
-
         func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
             guard let sizes = sizes(width: proposal.width, subviews: subviews) else { return .zero }
             return CGSize(width: proposal.width ?? max(sizes.0.width, sizes.1.width),
@@ -62,9 +62,11 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
                 assertionFailure("Conversation footer requires its two concrete requests/composer containers")
                 return nil
             }
+            // Measure the native editor and its actions at their ideal height first. Capping them by
+            // the current tray creates a circular fit: a capped editor reports less room is needed,
+            // so the tray never switches to compact and the eighth line cannot grow.
+            let composer = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
             let grants = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
-            let composer = subviews[1].sizeThatFits(ProposedViewSize(
-                width: width, height: max(0, maximumHeight - grants.height)))
             return (grants, composer)
         }
     }

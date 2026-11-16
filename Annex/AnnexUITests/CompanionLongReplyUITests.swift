@@ -33,8 +33,14 @@ final class CompanionLongReplyUITests: ReliableUITestCase {
             } else if up {
                 app.swipeDown(velocity: .fast)
             } else {
-                let from = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.7))
-                from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: -window.height * 0.4)), withVelocity: .fast,
+                // The expanded decision tray can cover the old 70%-of-screen origin. Keep both
+                // endpoints in the measured transcript, clear of the tray and the Latest pill.
+                let area = clearTranscriptArea(in: app)
+                XCTAssertGreaterThan(area.height, 40, "A transcript drag needs clear space")
+                let origin = app.coordinate(withNormalizedOffset: .zero)
+                let from = origin.withOffset(CGVector(dx: area.midX - app.frame.minX, dy: area.minY + area.height * 0.8 - app.frame.minY))
+                let to = origin.withOffset(CGVector(dx: area.midX - app.frame.minX, dy: area.minY + area.height * 0.2 - app.frame.minY))
+                from.press(forDuration: 0.05, thenDragTo: to, withVelocity: .fast,
                            thenHoldForDuration: 0.1)
             }
         }
