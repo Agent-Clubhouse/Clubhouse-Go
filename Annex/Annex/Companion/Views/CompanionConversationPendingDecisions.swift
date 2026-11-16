@@ -84,7 +84,8 @@ struct CompanionConversationPendingDecisions: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
-            .highPriorityGesture(selectionGesture(queue: queue, index: index))
+            .highPriorityGesture(selectionGesture(queue: queue, index: index)
+                .exclusively(before: TapGesture().onEnded { _ in showInChat(decision.id) }))
         } primaryAction: {
             showInChat(decision.id)
         }
