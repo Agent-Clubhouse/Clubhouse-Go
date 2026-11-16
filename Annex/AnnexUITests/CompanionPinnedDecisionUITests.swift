@@ -56,7 +56,7 @@ import Vision
         let lines = (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }
         XCTAssertTrue(lines.contains(text), "The visible action label is whole: \(text), OCR \(lines)")
     }
-    private func assertPinned(_ app: XCUIApplication, keyboard: Bool = false) {
+    private func assertPinned(_ app: XCUIApplication, keyboard: Bool = false, compact: Bool = false) {
         let tray = element(app, "companion-pinned-decision")
         let composer = element(app, "companion-composer-region")
         let top = app.navigationBars.firstMatch.frame.maxY
@@ -69,7 +69,15 @@ import Vision
         let position = summary(app).value as? String ?? ""
         XCTAssertEqual(app.buttons.matching(NSPredicate(format: "label == %@ OR label == %@", title, "\(title), \(position)")).count, 1,
                        "VoiceOver exposes one title button, with no second popup child")
-        for id in ["companion-decision-show-in-chat", "Deny", "Allow once"] {
+        let compactActions = keyboard || compact
+        if compactActions {
+            XCTAssertFalse(app.buttons["Deny"].exists, "Option A keeps compact decisions inside Review")
+            XCTAssertFalse(app.buttons["Allow once"].exists, "Option A keeps compact decisions inside Review")
+        }
+        let actionIDs = compactActions
+            ? ["companion-decision-show-in-chat", "companion-review-approval"]
+            : ["companion-decision-show-in-chat", "Deny", "Allow once"]
+        for id in actionIDs {
             XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", id, id)).count, 1,
                            "Only the fitting action layout is exposed")
             let button = app.buttons[id]
@@ -145,8 +153,10 @@ import Vision
         let tray = element(app, "companion-pinned-decision")
         let expandedHeight = tray.frame.height
         XCTAssertTrue(app.buttons["Allow once"].exists && app.buttons["Deny"].exists, "Roomy reading retains expanded decisions")
-        try assertVisibleLabel(app.buttons["companion-decision-show-in-chat"], text: "Show in chat")
-        try assertVisibleLabel(app.buttons["companion-review-approval"], text: "Review request")
+        // #448 makes the request title itself the Chat action; Review also remains in its native menu.
+        try assertVisibleLabel(summary(app), text: "Run preview build")
+        try assertVisibleLabel(app.buttons["Deny"], text: "Deny")
+        try assertVisibleLabel(app.buttons["Allow once"], text: "Allow once")
         capture(app, "Roomy expanded tray before keyboard")
         let composer = element(app, "companion-composer")
         composer.tap()
@@ -159,9 +169,10 @@ import Vision
         XCTAssertFalse(app.buttons["Deny"].exists)
         let show = app.buttons["companion-decision-show-in-chat"]
         let review = app.buttons["companion-review-approval"]
-        XCTAssertEqual(show.label, "Show in chat", "Compact visible text keeps the full AX meaning")
+        XCTAssertEqual(show.label, "Run preview build", "The compact title keeps the full request identity")
+        XCTAssertEqual(show.value as? String, "1 of 3 waiting · Bash")
         XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
-        try assertVisibleLabel(show, text: "Chat")
+        try assertVisibleLabel(show, text: "Run preview build")
         try assertVisibleLabel(review, text: "Review")
         if app.frame.width < 390 {
             XCTAssertFalse(app.buttons["Allow once"].exists, "Small phones use compact Review while the keyboard is up")
@@ -189,16 +200,17 @@ import Vision
     func testLandscapeAndAX5KeepReviewContextAndDecisionsReachable() throws {
         let app = openRiver(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         awaitApproval(app)
-        assertPinned(app)
+        assertPinned(app, compact: true)
         capture(app, "AX5: bounded pending request and composer")
         XCUIDevice.shared.orientation = .landscapeLeft
         addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
         capture(app, "AX5 landscape: pending bar and composer containment")
-        assertPinned(app)
-        for label in ["Deny", "Allow once"] {
-            let button = app.buttons[label]
-            XCTAssertEqual(button.label, label)
+        assertPinned(app, compact: true)
+        // Option A preserves Review at AX sizes; full-card decisions are checked below.
+        for label in ["Review"] {
+            let button = app.buttons["companion-review-approval"]
+            XCTAssertEqual(button.label, "Review approval: Run preview build, 1 of 3")
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             request.usesLanguageCorrection = false
@@ -311,13 +323,18 @@ import Vision
     private func appearance(_ name: String, flags: [String]) {
         let app = openRiver(extra: flags)
         awaitApproval(app)
-        assertPinned(app)
-        let deny = app.buttons["Deny"].frame
-        let allow = app.buttons["Allow once"].frame
-        if deny.maxY <= allow.minY {
-            XCTAssertLessThan(deny.midY, allow.midY, "The vertical fallback keeps Deny above Allow once")
+        let compact = flags.contains("UICTContentSizeCategoryAccessibilityXXXL")
+        assertPinned(app, compact: compact)
+        if compact {
+            XCTAssertEqual(app.buttons["companion-review-approval"].label, "Review approval: Run preview build, 1 of 3")
         } else {
-            XCTAssertLessThan(deny.midX, allow.midX, "The horizontal layout keeps Deny before Allow once")
+            let deny = app.buttons["Deny"].frame
+            let allow = app.buttons["Allow once"].frame
+            if deny.maxY <= allow.minY {
+                XCTAssertLessThan(deny.midY, allow.midY, "The vertical fallback keeps Deny above Allow once")
+            } else {
+                XCTAssertLessThan(deny.midX, allow.midX, "The horizontal layout keeps Deny before Allow once")
+            }
         }
         XCTAssertFalse(app.buttons["companion-pinned-decision-previous"].exists)
         XCTAssertFalse(app.buttons["companion-pinned-decision-next"].exists)

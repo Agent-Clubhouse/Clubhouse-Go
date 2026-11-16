@@ -10,6 +10,7 @@ struct CompanionConversationPendingDecisions: View {
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
     @Environment(\.verticalSizeClass) private var verticalSizeClass
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         TimelineView(.periodic(from: .now, by: 1)) { context in
@@ -18,10 +19,10 @@ struct CompanionConversationPendingDecisions: View {
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
                 Group {
-                    if isCompactHeight {
+                    if usesSingleRow {
                         HStack(spacing: 8) {
                             identity(decision, presentation: presentation, index: index, queue: queue)
-                            actions(decision, presentation: presentation).fixedSize()
+                            actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
                         }
                     } else {
                         ViewThatFits(in: .horizontal) {
@@ -29,11 +30,11 @@ struct CompanionConversationPendingDecisions: View {
                                 identity(decision, presentation: presentation, index: index, queue: queue)
                                     .fixedSize(horizontal: true, vertical: false)
                                 Spacer(minLength: 0)
-                                actions(decision, presentation: presentation).fixedSize()
+                                actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
                             }
                             VStack(alignment: .leading, spacing: 8) {
                                 identity(decision, presentation: presentation, index: index, queue: queue)
-                                HStack { Spacer(minLength: 0); actions(decision, presentation: presentation) }
+                                HStack { Spacer(minLength: 0); actions(decision, presentation: presentation, index: index, count: queue.count) }
                             }
                         }
                     }
@@ -75,10 +76,10 @@ struct CompanionConversationPendingDecisions: View {
                 .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
                 .accessibilityIdentifier("companion-review-approval")
         } label: {
-            VStack(alignment: .leading, spacing: isCompactHeight ? 0 : 2) {
-                Text(decision.summary).font((isCompactHeight ? Font.caption : .subheadline).weight(.semibold))
-                    .lineLimit(isCompactHeight ? 1 : 2)
-                if !isCompactHeight {
+            VStack(alignment: .leading, spacing: usesSingleRow ? 0 : 2) {
+                Text(decision.summary).font((usesSingleRow ? Font.caption : .subheadline).weight(.semibold))
+                    .lineLimit(usesSingleRow ? 1 : 2)
+                if !usesSingleRow {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
@@ -99,7 +100,7 @@ struct CompanionConversationPendingDecisions: View {
         .accessibilityAction(named: "Review request") { openReview(decision, presentation: presentation) }
     }
 
-    @ViewBuilder private func actions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation) -> some View {
+    @ViewBuilder private func actions(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int) -> some View {
         if decision.isSubmitting {
             ProgressView("Sending decision…").font(.caption)
         } else {
@@ -110,10 +111,15 @@ struct CompanionConversationPendingDecisions: View {
                     .accessibilityHint("Opens the full question. Opening sends nothing.")
                     .accessibilityIdentifier("companion-decision-answer")
             case .approval(let approval):
-                ViewThatFits(in: .horizontal) {
-                    HStack(spacing: 8) { approvalActions(approval, presentation: presentation) }
-                        .fixedSize(horizontal: true, vertical: false)
-                    VStack(alignment: .trailing, spacing: 8) { approvalActions(approval, presentation: presentation) }
+                if isCompactPresentation {
+                    // Preserve #522's user-approved keyboard-up contract: decisions live in Review.
+                    reviewButton(decision, presentation: presentation, index: index, count: count)
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { approvalActions(approval, presentation: presentation) }
+                            .fixedSize(horizontal: true, vertical: false)
+                        VStack(alignment: .trailing, spacing: 8) { approvalActions(approval, presentation: presentation) }
+                    }
                 }
             }
         }
@@ -141,6 +147,14 @@ struct CompanionConversationPendingDecisions: View {
         }
     }
 
+    private func reviewButton(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, count: Int) -> some View {
+        Button("Review") { openReview(decision, presentation: presentation) }
+            .buttonStyle(DecisionActionStyle(primary: false))
+            .accessibilityLabel("Review approval: \(decision.summary)\(count > 1 ? ", \(index + 1) of \(count)" : "")")
+            .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
+            .accessibilityIdentifier("companion-review-approval")
+    }
+
     private func openReview(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation) {
         let requestID: String
         switch decision {
@@ -163,7 +177,12 @@ struct CompanionConversationPendingDecisions: View {
     private var pendingIDs: [String] {
         CompanionPendingDecision.pending(in: store.conversation(for: target).items).map(\.id)
     }
-    private var isCompactHeight: Bool { verticalSizeClass == .compact }
+    private var isCompactPresentation: Bool {
+        compactHeight || maximumHeight < 120 || dynamicTypeSize.isAccessibilitySize
+    }
+    private var usesSingleRow: Bool {
+        verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
+    }
     private func resetPresentation() { selectedID = nil; review = nil }
     private func isApproval(_ decision: CompanionPendingDecision) -> Bool {
         if case .approval = decision { return true }
