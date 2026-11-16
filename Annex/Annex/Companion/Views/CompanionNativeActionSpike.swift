@@ -44,6 +44,7 @@ struct CompanionNativeActionSpike: View {
     }
     private func menu(id: String) -> some View {
         Menu {
+            Button("Opening callbacks: \(menuOpens)") {}.disabled(true)
             Button("Choose item") { items += 1 }
         } label: { Label("More", systemImage: "ellipsis") }
         .accessibilityIdentifier(id)
