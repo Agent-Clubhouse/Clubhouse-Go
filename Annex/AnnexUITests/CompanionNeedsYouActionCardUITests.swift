@@ -44,6 +44,19 @@ import XCTest
             XCTAssertTrue(scrollUntilExists(laptopAction, in: app) && scrollTo(laptopAction, in: app))
             XCTAssertTrue(waitFor(laptopAction, NSPredicate(format: "label == 'Run xcodebuild'"), timeout: 5))
             capture(app, "Needs you second desktop request \(name)")
+            if name == "accessibility XXXL" {
+                let deny = app.buttons["attention-deny-agent:preview-laptop:notes:river"]
+                let allow = app.buttons["attention-allow-agent:preview-laptop:notes:river"]
+                XCTAssertTrue(scrollUntilExists(allow, in: app) && scrollTo(allow, in: app))
+                XCTAssertEqual(deny.label, "Deny")
+                XCTAssertEqual(allow.label, "Allow once")
+                XCTAssertGreaterThan(deny.frame.width, app.frame.width * 0.65, "Deny gets a full row so its word does not break")
+                XCTAssertGreaterThan(allow.frame.width, app.frame.width * 0.65, "Allow once gets a full row at XXXL")
+                XCTAssertGreaterThanOrEqual(allow.frame.minY, deny.frame.maxY)
+                assertMinimumTarget(deny, "Deny")
+                assertMinimumTarget(allow, "Allow once")
+                capture(app, "Needs you readable XXXL decision buttons")
+            }
             let reconnect = app.staticTexts["Their requests show up when they reconnect."]
             XCTAssertTrue(scrollUntilExists(reconnect, in: app) && scrollTo(reconnect, in: app))
             XCTAssertFalse(app.staticTexts["Cached offline request"].exists)

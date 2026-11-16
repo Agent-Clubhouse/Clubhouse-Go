@@ -966,6 +966,7 @@ struct CompanionAttentionCard: View {
     var decisions: CompanionDecisionQueue
     var multipleHosts: Bool
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
@@ -1005,19 +1006,26 @@ struct CompanionAttentionCard: View {
             Label("Sending in a moment…", systemImage: "clock").font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
         case .approval(let approval):
             let canRespond = store.canOperate(item.agent.id) && item.agent.capabilities.contains(.approve)
-            HStack(spacing: 8) {
+            let layout = dynamicTypeSize.isAccessibilitySize
+                ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+                : AnyLayout(HStackLayout(spacing: 8))
+            layout {
                 if let deny = approval.options.first(where: { $0.kind == .rejectOnce }) {
                     Button { Task { await store.respond(approval, option: deny, target: item.agent.id) } } label: {
-                        Text(deny.label).frame(maxWidth: .infinity)
+                        Text(deny.label).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.bordered)
+                    .accessibilityIdentifier("attention-deny-\(item.id)")
                 }
                 if let allow = approval.options.first(where: { $0.kind == .allowOnce }) {
                     Button { Task { await store.respond(approval, option: allow, target: item.agent.id) } } label: {
-                        Text(allow.label).frame(maxWidth: .infinity)
+                        Text(allow.label).fixedSize(horizontal: false, vertical: true)
+                            .frame(maxWidth: .infinity, minHeight: 44)
                     }
                     .buttonStyle(.borderedProminent).companionProminentLabel()
                     .disabled(!store.canApprove(approval, target: item.agent.id))
+                    .accessibilityIdentifier("attention-allow-\(item.id)")
                 }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
