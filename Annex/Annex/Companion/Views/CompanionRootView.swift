@@ -686,7 +686,7 @@ struct CompanionHomeView: View {
                     .disabled(true).allowsHitTesting(false)
                     .opacity(0.5)
                     .accessibilityLabel("\(agent.name), cached on \(machineLabel(entry, member)), desktop not connected")
-                    .accessibilityIdentifier("cached-agent-\(agent.id.hostID)-\(agent.id.agentID)")
+                    .accessibilityIdentifier("cached-agent-\(agent.id.hostID)-\(agent.id.projectID)-\(agent.id.agentID)")
                     .listRowBackground(CompanionCardBackground())
             }
         }

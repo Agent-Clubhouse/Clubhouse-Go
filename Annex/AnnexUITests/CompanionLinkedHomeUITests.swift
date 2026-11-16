@@ -20,14 +20,14 @@ import XCTest
         XCTAssertTrue(app.staticTexts["home-summary"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.staticTexts["home-summary"].label.contains("1 working"), "Cached Laptop Working cannot inflate live counts")
         let offline = app.buttons["project-machine-preview-laptop-notes"]
-        let cached = app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-river").firstMatch
+        let cached = app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch
         reveal(offline, in: app)
         XCTAssertTrue(offline.label.contains("Travel MacBook not connected · 1 agent"))
         XCTAssertFalse(cached.exists, "Unavailable machines start collapsed regardless of desktop count")
         offline.tap()
         XCTAssertTrue(cached.waitForExistence(timeout: 5))
         XCTAssertTrue(cached.label.contains("cached on Travel MacBook"))
-        XCTAssertFalse(app.buttons.matching(identifier: "cached-agent-preview-laptop-river").firstMatch.exists, "The cached row has no navigation or menu button")
+        XCTAssertFalse(app.buttons.matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch.exists, "The cached row has no navigation or menu button")
         XCTAssertFalse(cached.isEnabled)
         XCTAssertFalse(app.buttons.matching(identifier: "agent-preview-laptop-river").firstMatch.exists)
         capture(app, "Linked Home cached Laptop rows are dimmed and non-actionable")
@@ -38,7 +38,7 @@ import XCTest
         let relaunched = launchApp(base, attempts: 1)
         let collapsed = relaunched.buttons["project-machine-preview-laptop-notes"]
         reveal(collapsed, in: relaunched)
-        XCTAssertFalse(relaunched.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-river").firstMatch.exists,
+        XCTAssertFalse(relaunched.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch.exists,
                        "Expansion is never persisted across launches")
         capture(relaunched, "Linked Home offline machine starts collapsed after relaunch")
     }
@@ -61,10 +61,10 @@ import XCTest
                 XCTAssertTrue(offline.label.contains("Travel MacBook offline, seen"))
                 XCTAssertTrue(offline.label.contains("· 1 agent"))
                 assertMinimumTarget(offline, "Offline machine disclosure")
-                XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-river").firstMatch.exists)
+                XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch.exists)
                 capture(app, "Linked Home \(desktops) desktops collapsed \(name)")
                 offline.tap()
-                let cached = app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-river").firstMatch
+                let cached = app.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch
                 XCTAssertTrue(cached.waitForExistence(timeout: 5))
                 XCTAssertFalse(cached.isEnabled)
                 XCTAssertFalse(app.buttons.matching(identifier: "agent-preview-laptop-river").firstMatch.exists)
