@@ -1,4 +1,5 @@
 import Foundation
+import Observation
 
 /// Insets participate in the scrollable range, including when the content is shorter than the viewport.
 struct CompanionScrollMetrics: Equatable, Sendable {
@@ -127,13 +128,19 @@ enum CompanionAssistantNavigation {
     }
 }
 
-@MainActor final class CompanionReadingBookmark {
+@Observable @MainActor final class CompanionReadingBookmark {
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
-    var position = CompanionReadingPosition()
-    var hasMounted = false
+    /// Only this semantic edge is observable. Geometry and bookmark writes stay off the view invalidation path.
+    private(set) var followsLatest = true
+    @ObservationIgnored var position = CompanionReadingPosition() {
+        didSet {
+            if followsLatest != position.followsLatest { followsLatest = position.followsLatest }
+        }
+    }
+    @ObservationIgnored var hasMounted = false
     // One holder per target, rather than a discarded actor-isolated allocation on every View init.
-    let viewport = CompanionReadingViewport()
+    @ObservationIgnored let viewport = CompanionReadingViewport()
 }
 
 /// Pixel samples do not invalidate the conversation. Only bottom/follow state redraws controls.

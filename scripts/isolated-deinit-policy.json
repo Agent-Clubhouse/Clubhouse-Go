@@ -337,7 +337,7 @@
     "CompanionPreferences": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreferences.swift",
-      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained. Last tab is a Sendable raw-value enum; recent agents contain only Sendable CompanionTarget values. Cached Dispatcher desktops own only String and CompanionTarget values, with no UI objects or callbacks.",
+      "reason": "Stored choices are values and UserDefaults; UIDevice is read during init, not retained. Last tab is a Sendable raw-value enum; recent agents contain only Sendable CompanionTarget values. Cached Dispatcher desktops own only String and CompanionTarget values, with no UI objects or callbacks. Dispatch restoration (#444) adds only an optional String preference independent of Home selection.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
@@ -350,6 +350,7 @@
           "idleDays": "Int",
           "idleExpanded": "Bool",
           "inactiveProjects": "[ String ]",
+          "lastDispatcherHostID": "String ?",
           "lastHostID": "String ?",
           "lastTab": "CompanionTab",
           "pinnedProjects": "[ String ]",
@@ -639,16 +640,19 @@
     "CompanionReadingBookmark": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
-      "reason": "Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UIKit, SwiftUI handles or callbacks.",
+      "reason": "Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UIKit, SwiftUI handles or callbacks. Dispatch collapse (#444) observes only followsLatest, a Bool copied on semantic flips. Position, mounted state and the reviewed viewport stay observation-ignored; no app-owned callback, UI object or teardown effect is added.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
+          "followsLatest": "Bool",
           "hasMounted": "Bool",
           "position": "CompanionReadingPosition",
           "viewport": "CompanionReadingViewport"
         },
-        "storageMacros": []
+        "storageMacros": [
+          "@ Observable"
+        ]
       }
     },
     "CompanionReadingViewport": {
