@@ -48,7 +48,10 @@ struct CompanionProjectPage: View {
             }
             ToolbarItem(placement: .topBarTrailing) {
                 Menu {
-                    Button("Project info", systemImage: "info.circle") { showingInfo = true }
+                    Button("Project info", systemImage: "info.circle") {
+                        AnnexTelemetry.shared.recordAction(screen: .project, control: .openProjectInfo)
+                        showingInfo = true
+                    }
                 } label: { Label("Project options", systemImage: "ellipsis") }
                 .accessibilityIdentifier("project-page-options")
             }

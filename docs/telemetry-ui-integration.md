@@ -35,6 +35,7 @@ This deliberately separates tap intent from command-outcome `app.action` logs. `
 ## Adopted here
 
 - Project page: New agent, Wake with a message, Terminal, retained-run Dismiss (swipe, context menu and accessibility action share one action), Clear all, and the Wake sheet's Cancel/Wake.
+- Project info: its actual opening action, Done, and explicit retry after a failed read.
 - Agent details/settings sheets: Done, retry, cancellation of settings confirmation, and saved identity, color, emoji, provider/model/runtime, access, auto-sleep, context-window and behavior controls. Only the fixed control category is recorded, never its value. A setting choice that opens a warning is counted immediately, even when later cancelled; accepting the warning records a separate `.confirm` intent, without double-counting the selection.
 - Shared helper/quiet disclosures, agent menu items, Terminal entries, Dispatcher switch and new-agent notice actions: explicit screen context from `.companionTelemetryScreen(_:)`. A missing context records nothing, rather than guessing which Root/chat screen opened the control. Project page and settings form supply it; Root/chat adoption is still required. Shared terminal entries, Dispatcher switch and created-agent notice also require their actual originating screen context; do not add a duplicate record in the caller.
 
@@ -238,9 +239,10 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 | [ ] | [CompanionPairingSheet.swift:135](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L135) | Follow-up owner to assign | `ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() }.disabled(isPairing) }` |
 | [ ] | [CompanionPairingSheet.swift:137](../Annex/Annex/Companion/Views/CompanionPairingSheet.swift#L137) | Follow-up owner to assign | `Button { Task { await pair() } } label: {` |
 | [ ] | [CompanionPlanLimitsView.swift:9](../Annex/Annex/Companion/Views/CompanionPlanLimitsView.swift#L9) | Follow-up owner to assign | `NavigationLink { CompanionPlanLimitsView(store: store) } label: {` |
-| [ ] | [CompanionProjectPage.swift:182](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L182) | Follow-up owner to assign | `NavigationLink(value: run.target) { label }` |
-| [ ] | [CompanionProjectPage.swift:230](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L230) | Follow-up owner to assign | `NavigationLink {` |
-| [ ] | [CompanionProjectPage.swift:307](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L307) | Follow-up owner to assign | `Picker("Agent", selection: $selection) {` |
+| [ ] | [CompanionProjectPage.swift:50](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L50) | Project lane | Native Project options menu opening; the Project info item itself is instrumented. |
+| [ ] | [CompanionProjectPage.swift:193](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L193) | Follow-up owner to assign | `NavigationLink(value: run.target) { label }` |
+| [ ] | [CompanionProjectPage.swift:241](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L241) | Follow-up owner to assign | `NavigationLink {` |
+| [ ] | [CompanionProjectPage.swift:318](../Annex/Annex/Companion/Views/CompanionProjectPage.swift#L318) | Follow-up owner to assign | `Picker("Agent", selection: $selection) {` |
 | [ ] | [CompanionQRPairing.swift:37](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L37) | Follow-up owner to assign | `Button("Cancel", systemImage: "xmark", action: onCancel)` |
 | [ ] | [CompanionQRPairing.swift:49](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L49) | Follow-up owner to assign | `Button("Pair manually", action: onCancel).buttonStyle(.glass).controlSize(.large).padding(.top, 12)` |
 | [ ] | [CompanionQRPairing.swift:127](../Annex/Annex/Companion/Views/CompanionQRPairing.swift#L127) | Follow-up owner to assign | `Toggle("Remember this desktop", isOn: $remember)` |
@@ -380,7 +382,7 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 - [ ] A dashboard query groups app.action logs by screen and control.
 - [ ] The last integration PR closes #433.
 
-The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the #443 and merged #455 surfaces. The managed-create checklist above includes the real Workspace navigation, the shared native `choiceMenu` wrapper and each semantic call site. Its future wrapper should receive an explicit closed control argument; do not derive a control from its displayed string or selected value. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
+The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the merged #443 and #455 surfaces. Project info now records its explicit opening, Done and retry actions here. The managed-create checklist above includes the real Workspace navigation, the shared native `choiceMenu` wrapper and each semantic call site. Its future wrapper should receive an explicit closed control argument; do not derive a control from its displayed string or selected value. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
 
 The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
 

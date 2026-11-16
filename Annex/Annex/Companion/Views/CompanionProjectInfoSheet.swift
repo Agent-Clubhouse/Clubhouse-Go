@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// Read-only project information. Paths come from the catalog; defaults use the existing create-options read.
 struct CompanionProjectInfoSheet: View {
@@ -35,7 +36,12 @@ struct CompanionProjectInfoSheet: View {
             .navigationTitle("Project info")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        AnnexTelemetry.shared.recordAction(screen: .projectInfo, control: .done)
+                        dismiss()
+                    }
+                }
             }
         }
         .accessibilityIdentifier("project-info-sheet")
@@ -68,7 +74,10 @@ private struct CompanionProjectInfoMemberSection: View {
         let visible = result?.context == current ? result : nil
         Section {
             CompanionProjectInfoRows(member: member, defaults: visible?.defaults,
-                                     loading: current.canRead && visible == nil, error: visible?.error) { attempt += 1 }
+                                     loading: current.canRead && visible == nil, error: visible?.error) {
+                AnnexTelemetry.shared.recordAction(screen: .projectInfo, control: .retry)
+                attempt += 1
+            }
         } header: { Text(title) }
         .task(id: context) { await load() }
     }
