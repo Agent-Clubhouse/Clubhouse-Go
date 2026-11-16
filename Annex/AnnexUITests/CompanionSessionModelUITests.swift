@@ -105,7 +105,11 @@ import XCTest
             let form = app.collectionViews.firstMatch
             XCTAssertTrue(form.descendants(matching: .any).matching(identifier: "agent-settings-context-usage").firstMatch.exists,
                           "Reported context must belong to the presented editor Form")
-            let editor = app.navigationBars["River"]
+            // Chat and the presented editor both have a River navigation bar.
+            let editors = app.navigationBars.matching(identifier: "River")
+                .containing(.button, identifier: "companion-context-close")
+            XCTAssertEqual(editors.count, 1, "Only the presented editor owns the context Close control")
+            let editor = editors.firstMatch
             func viewport() -> CGRect {
                 let bounds = form.frame.intersection(app.frame)
                 let top = max(bounds.minY, editor.frame.maxY)
