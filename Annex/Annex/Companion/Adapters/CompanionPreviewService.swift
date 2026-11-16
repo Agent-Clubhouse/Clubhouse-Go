@@ -299,6 +299,18 @@ import ClubhouseTransport
                     hosts[1].canSyncLinkedProjectState = false
                     hosts[1].projectState = [:]
                 }
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-home-offline") {
+                    hosts[1].connection = .offline
+                    // Deliberately cached Working: it must not keep the linked group live.
+                    hosts[1].projects[0].agents[0].status = .working
+                    if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-home-seen") {
+                        hosts[0].dispatcherPresence = .init(remotes: [
+                            .init(machineId: hosts[1].id, machineName: hosts[1].name, label: "", state: "offline",
+                                  lastSeen: Date().addingTimeInterval(-720).ISO8601Format(),
+                                  link: .init(state: "active"))
+                        ])
+                    }
+                }
             }
             #endif
             self.sentHosts = hosts

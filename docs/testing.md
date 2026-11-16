@@ -1008,3 +1008,16 @@ appearances, semantic working collapse/explicit expansion under injected Reduce 
 dots, and last-Dispatcher restoration after opening a Home agent on another desktop.
 
 Dispatch restoration keeps its separate saved choice through an empty startup catalog and connecting pairing placeholders. A current capable host report can replace or clear it; an offline cached Dispatcher is unknown and deliberately does not count as removed. `CompanionDispatchChipsUITests.testLastDispatcherRestoresIndependentlyOfHomeSelection` first proves Navi survives Home's Laptop selection, then supplies connected no-Dispatcher reports and proves cleanup: Laptop's independent last-host fallback gives Echo, whereas a stale Studio Dispatcher preference would give Navi.
+
+Linked Home (#440) treats only `connection.canOperate` catalogs as live. Cached Working
+on offline, failed, connecting, reconnecting or synchronizing hosts cannot keep a group
+running, inflate the summary or create active rows. A connected report stays authoritative
+until the connection changes; no age timer expires a legitimately long turn. Recent puts
+any-member running first, then the maximum finite recorded project/agent/turn-start time
+across all members, preserving catalog order for ties and excluding live per-tool chat
+timestamps. Offline disclosure expansion is per host for this Home session only. A known
+last-seen time comes from read-only desktop presence or a locally observed connected
+report, never agent activity. Missing last-seen says “not connected”; unknown agent counts
+are omitted. Cached rows are dimmed with no navigation, settings, Wake or Terminal action.
+`CompanionLinkedHomeUITests` covers two/five desktops across five appearances, collapsed
+and expanded, session reset, same-name identity and unavailable cached work.
