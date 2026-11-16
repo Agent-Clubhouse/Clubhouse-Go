@@ -25,7 +25,20 @@ import Vision
     }
     private func openReview(_ app: XCUIApplication, until close: XCUIElement) {
         summary(app).press(forDuration: 0.8)
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        let item = app.buttons["companion-review-approval"]
+        if app.frame.width > app.frame.height {
+            // iOS 26's native popup can report isHittable=false despite a fully visible row.
+            XCTAssertTrue(waitFor(app, NSPredicate { _, _ in
+                item.exists && item.frame.width > 0 && self.pixelContains(app.frame, item.frame)
+            }, timeout: 5), "The native Review menu item must fit onscreen before touching it")
+            capture(app, "AX5 landscape: native Review menu before measured touch")
+            let frame = item.frame
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
+            XCTAssertTrue(close.waitForExistence(timeout: 10), "Review must open after touching the native menu item")
+        } else {
+            waitAndTap(item, until: close, attempts: 1)
+        }
     }
     private func awaitApproval(_ app: XCUIApplication) {
         XCTAssertTrue(element(app, "companion-pinned-decision").waitForExistence(timeout: 20))
