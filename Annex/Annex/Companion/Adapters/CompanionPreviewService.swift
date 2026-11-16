@@ -103,6 +103,13 @@ import ClubhouseTransport
                 #endif
             }
             #if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-home-five-desktops") {
+                hosts += [
+                    .init(id: "preview-office", name: "Office Mac", endpoint: "", connection: .connected, projects: []),
+                    .init(id: "preview-mini", name: "Mac mini", endpoint: "", connection: .connected, projects: []),
+                    .init(id: "preview-workshop", name: "Workshop Mac", endpoint: "", connection: .offline, projects: [])
+                ]
+            }
             let theme: CompanionDesktopTheme?
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-theme-latte") {
                 theme = .init(id: "catppuccin-latte", name: "Catppuccin Latte", source: "Preview", mode: .light,
