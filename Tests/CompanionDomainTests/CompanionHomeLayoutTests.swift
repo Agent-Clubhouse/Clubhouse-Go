@@ -194,7 +194,7 @@ struct CompanionIdleRuleTests {
                             ("fresh", [agent("f", .sleeping, project: "fresh", activity: ago(days: 1))]),
                             ("staler", [agent("t", .completed, project: "staler", activity: ago(days: 40))])])
         let result = layout(list)
-        #expect(result.projects.map(\.entry.project.id) == ["fresh", "busy"])
+        #expect(result.projects.map(\.entry.project.id) == ["busy", "fresh"])
         #expect(result.idle.map(\.entry.project.id) == ["stale", "staler"])
         #expect(result.idle.allSatisfy { $0.isIdle })
     }

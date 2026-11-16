@@ -482,16 +482,21 @@ struct CompanionHomeView: View {
     }
 
     private var orderedProjects: [CompanionProjectEntry] {
-        CompanionProjectOrdering.ordered(listedEntries, sort: preferences.projectSort,
-                                         customOrder: preferences.projectOrder, lastActivity: projectActivity)
+        preferences.projectSort == .recent
+            ? CompanionHomeProjectActivity.ordered(listedEntries, recordedProjectActivity: projectActivity)
+            : CompanionProjectOrdering.ordered(listedEntries, sort: preferences.projectSort,
+                                                customOrder: preferences.projectOrder, lastActivity: projectActivity)
     }
 
-    /// Agent and chat activity, or the last time the project was marked active here.
+    /// Recorded catalog/turn activity, or the last time the project was marked active here.
     /// Agent and chat activity, plus the project's own activity: the desktop's when it shares project state,
     /// otherwise the last time it was marked active here.
     private func projectActivity(_ target: CompanionProjectTarget) -> Date? {
         let marked = store.sharedProjectState(target).map(\.lastActivity) ?? preferences.projectActivity[CompanionProjectOrdering.key(target)]
-        return [store.lastActivity(for: target), marked].compactMap { $0 }.max()
+        let agents = store.hosts.first { $0.id == target.hostID }?.projects.first { $0.id == target.projectID }?.agents ?? []
+        // Recorded catalog/turn times are stable between reports; per-tool chat timestamps churn.
+        return ([marked] + agents.flatMap { [$0.lastActivity, $0.turnStartedAt] })
+            .compactMap { $0 }.filter { $0.timeIntervalSinceReferenceDate.isFinite }.max()
     }
 
     private var layout: CompanionHomeLayout {
