@@ -48,6 +48,7 @@ struct CompanionConversationPendingDecisions: View {
                 .padding(.horizontal, 16).padding(.vertical, 4)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("companion-pinned-decision")
+                .accessibilityValue(isCompactPresentation ? "Compact request controls" : "Expanded request controls")
             }
         }
         .sheet(isPresented: Binding(get: { review != nil }, set: { if !$0 { review = nil } })) {
@@ -74,12 +75,12 @@ struct CompanionConversationPendingDecisions: View {
         return Menu {
             Button("Review request") { openReview(decision, presentation: presentation) }
                 .accessibilityLabel("Review \(isApproval(decision) ? "approval" : "question"): \(decision.summary), \(index + 1) of \(count)")
-                .accessibilityIdentifier("companion-review-approval")
+                .accessibilityIdentifier("companion-decision-review-menu")
         } label: {
             VStack(alignment: .leading, spacing: usesSingleRow ? 0 : 2) {
                 Text(decision.summary).font((usesSingleRow ? Font.caption : .subheadline).weight(.semibold))
                     .lineLimit(usesSingleRow ? 1 : 2)
-                if !usesSingleRow {
+                if !usesSingleRow && !hasCompactRoom {
                     Text(subtitle).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
             }
@@ -178,8 +179,11 @@ struct CompanionConversationPendingDecisions: View {
         CompanionPendingDecision.pending(in: store.conversation(for: target).items).map(\.id)
     }
     private var isCompactPresentation: Bool {
-        compactHeight || maximumHeight < 120 || dynamicTypeSize.isAccessibilitySize
+        hasCompactRoom || dynamicTypeSize.isAccessibilitySize
     }
+    // Use the existing compact-room policy at every text size. The complete subtitle
+    // remains the title's AX value when the keyboard leaves no room for visible metadata.
+    private var hasCompactRoom: Bool { compactHeight || maximumHeight < 120 }
     private var usesSingleRow: Bool {
         verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
     }
