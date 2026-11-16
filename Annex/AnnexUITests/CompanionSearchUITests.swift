@@ -21,7 +21,7 @@ import XCTest
     }
 
     func testRestingFiltersUseTheExistingAgentStatuses() {
-        let app = openSearch()
+        let app = openSearch(["--companion-preview-helper-requests"])
         let cedar = element(app, "agent-preview-studio-cedar")
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(river.waitForExistence(timeout: 5))
@@ -37,7 +37,8 @@ import XCTest
         XCTAssertTrue(element(app, "agent-preview-studio-juniper").waitForExistence(timeout: 5))
         XCTAssertFalse(cedar.exists)
         chips.swipeRight()
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Needs you'")).firstMatch.tap()
+        XCTAssertTrue(chips.buttons["Needs you"].isHittable, "Request counts from other surfaces must not relabel the agent filter")
+        chips.buttons["Needs you"].tap()
         XCTAssertTrue(river.waitForExistence(timeout: 5))
         XCTAssertFalse(cedar.exists)
     }

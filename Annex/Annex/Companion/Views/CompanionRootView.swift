@@ -1272,7 +1272,7 @@ struct CompanionSearchView: View {
             if trimmed.isEmpty {
                 Section {
                     CompanionChips(options: CompanionAgentFilter.allCases.map { value in
-                        (value, value == .sleeping ? "Asleep" : (value == .needsYou && store.needsYouCount > 0 ? "Needs you · \(store.needsYouCount)" : value.label))
+                        (value, value == .sleeping ? "Asleep" : value.label)
                     }, selection: $filter)
                     .accessibilityIdentifier("companion-search-filters")
                     .listRowInsets(EdgeInsets()).listRowBackground(Color.clear)
