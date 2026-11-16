@@ -14,6 +14,13 @@ xcodebuild -project Annex/Annex.xcodeproj -scheme ClubhouseGo \
   -derivedDataPath /tmp/clubhouse-go-dd CODE_SIGNING_ALLOWED=NO test
 ```
 
+The synthetic `CompanionChatHeaderVisualUITests` matrix checks screen-centered identity with and without a Back
+button, long names and accessibility text, plus light/dark and Catppuccin Latte/Mocha desktop palettes. Header
+actions share one capsule; the context percentage remains in its accessibility value rather than its visible label.
+The native header balances measured side origins with at least 44pt leading and 89pt action reservations; it never asks a hidden native item for zero width.
+The header matrix checks centering immediately, waits at most five seconds if needed within the existing 1pt tolerance, logs the measured wait,
+and samples each avatar screenshot once, retaining that exact image and its sample geometry.
+
 - `ClubhouseGoTests` holds `FramebriarIntegrationTests` and `DiagnosticPrivacyTests`.
 - `ClubhouseGoUITests` launches the app in DEBUG fixture modes that never restore or contact a real paired desktop:
   - `--companion-preview`: `CompanionPreviewSmokeTests`
