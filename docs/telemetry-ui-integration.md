@@ -368,3 +368,28 @@ Each unchecked entry is a remaining interaction site, including the menu/picker 
 The vocabulary also reserves `projectInfo` and `workspaceTools` screens, and `openWorkspaceTools`, `selectMCP`, `toggleWorktree`, and `toggleHelpers` controls for the prepared #443 and managed-create surfaces. These are closed semantic values; adopting lanes never pass project, machine, provider, model, MCP-server or agent identifiers. Newly introduced controls remain pending until their owning lane wires them.
 
 The helper and quiet disclosures introduced by #434 are instrumented in their existing button callbacks. The row equality includes the explicit screen context, so a reused row cannot retain the previous originating screen. NavigationLink activation remains in the integration checklist.
+
+## Embedded feedback SDK controls
+
+The app-owned boundary is `CompanionFeedbackComposer` in `CompanionFeedback.swift`; the composer and screenshot editor controls themselves live in the vendored FramebriarUI sources below. They are remaining integration sites, not instrumented by changing the vendor in this PR. A follow-up should expose/adopt a typed interaction callback at that boundary. Never forward feedback text, screenshots, marks, ink values or identifiers into telemetry.
+
+| Pending | SDK file and line | Source interaction |
+|---|---|---|
+| [ ] | [FeedbackView.swift:75](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L75) | `ToolbarItem(placement: .cancellationAction) { Button("Cancel") { close() }.disabled(phase == .saving) }` |
+| [ ] | [FeedbackView.swift:77](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L77) | `Button("Send") { send() }.disabled(sendBlock != nil \|\| draft == nil).accessibilityIdentifier("framebriar-send")` |
+| [ ] | [FeedbackView.swift:80](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L80) | `ToolbarItem(placement: .confirmationAction) { Button("Done") { close() }.accessibilityIdentifier("framebriar-done") }` |
+| [ ] | [FeedbackView.swift:97](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L97) | `TextEditor(text: $notes).frame(minHeight: 100).accessibilityLabel("Feedback notes").accessibilityIdentifier("framebriar-notes")` |
+| [ ] | [FeedbackView.swift:103](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L103) | `PhotosPicker(attachment == nil ? "Add screenshot" : "Replace screenshot", selection: $selection, matching: .images)` |
+| [ ] | [FeedbackView.swift:106](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L106) | `Button("Remove", role: .destructive) { selection = nil; attachment = nil }` |
+| [ ] | [FeedbackView.swift:114](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L114) | `Toggle(FeedbackDisclosure.screenshotToggle, isOn: Binding(get: { self.attachment?.included ?? false }, set: { self.attachment?.included = $0 }))` |
+| [ ] | [FeedbackView.swift:130](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L130) | `.gesture(TapGesture().onEnded { openEditor() })` |
+| [ ] | [FeedbackView.swift:132](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L132) | `.accessibilityAction(named: "Zoom and mark up") { openEditor() }` |
+| [ ] | [FeedbackView.swift:136](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L136) | `DisclosureGroup("What this means") {` |
+| [ ] | [FeedbackView.swift:168](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift#L168) | `Toggle(FeedbackDisclosure.diagnosticsToggle, isOn: $includeDiagnostics).font(.footnote).accessibilityIdentifier("framebriar-diagnostics-switch")` |
+| [ ] | [FeedbackScreenshotEditor.swift:62](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L62) | `Button("Cancel") { onCancel() }.disabled(flattening).accessibilityIdentifier("framebriar-editor-cancel")` |
+| [ ] | [FeedbackScreenshotEditor.swift:65](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L65) | `Button("Undo") { _ = marks.popLast() }.disabled(marks.isEmpty \|\| flattening).accessibilityIdentifier("framebriar-editor-undo")` |
+| [ ] | [FeedbackScreenshotEditor.swift:69](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L69) | `Button("Done") { finish() }.disabled(image == nil).accessibilityIdentifier("framebriar-editor-done")` |
+| [ ] | [FeedbackScreenshotEditor.swift:86](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L86) | `Picker("Tool", selection: $tool) {` |
+| [ ] | [FeedbackScreenshotEditor.swift:94](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L94) | `Button("Clear edits", role: .destructive) { confirmClear = true }` |
+| [ ] | [FeedbackScreenshotEditor.swift:102](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L102) | `Button("Clear edits", role: .destructive) { marks = [] }.accessibilityIdentifier("framebriar-editor-clear-confirm")` |
+| [ ] | [FeedbackScreenshotEditor.swift:109](../Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift#L109) | `Button { ink = choice } label: {` |
