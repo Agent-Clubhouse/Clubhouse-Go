@@ -1,4 +1,6 @@
 import Foundation
+import XCTest
+import SwiftUI
 import Testing
 @testable import ClubhouseGo
 @testable import ClubhouseTransport
@@ -253,5 +255,72 @@ extension CompanionNetworkTests {
         await runtime.service.suspend()
         runtime.store.stop()
         await registry.disconnectAll()
+    }
+}
+
+/// Exercises the actual Runtime pairing completion and mounted AppRoot/Root handoff after a failed restore.
+@MainActor final class CompanionDispatcherLaunchRecoveryTests: XCTestCase {
+    func testAcknowledgedRestoreFailureThenSuccessfulPairOpensTheNewlyVerifiedDispatcher() async throws {
+        let identity = try AnnexClientIdentity.ephemeral()
+        let member = AnnexNetworkMember(fingerprint: try identity.fingerprint,
+            publicKey: identity.pairingIdentity.publicKeyBase64, name: "Recovered desktop", icon: "computer", color: "indigo",
+            kind: "desktop", hosts: ["127.0.0.1"], port: 7432, certFingerprint: identity.certificateFingerprint,
+            certPem: "-----BEGIN CERTIFICATE-----\n" + identity.certificateDER.base64EncodedString() + "\n-----END CERTIFICATE-----\n",
+            online: true, isSelf: true, joinedAt: "2026-11-08T10:00:00.000Z", pairingId: "desktop")
+        let io = try NetworkRuntimeIO(desktop: identity, view: .init(version: 1, joined: true, members: [], removals: []))
+        let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: MemoryAnnexPairingStore(),
+            pairingIO: { _, _ in io })
+        let owner = CompanionStateLifetime { CompanionRuntime(registry: registry, persistsDrafts: false) }
+        let runtime = owner.value
+        runtime.preferences.lastTab = .home
+        runtime.preferences.dispatcherDesktops = []
+        let inbox = CompanionDispatcherLaunchInbox.shared
+        if let pending = inbox.pending { inbox.consume(pending.id) }
+        CompanionSceneTestSupport.restoreRegistrations = { throw AnnexTransportError.persistenceFailed(-34018) }
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let original = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 393, height: 852)
+        window.rootViewController = UIHostingController(rootView: CompanionAppRoot(runtimeLifetime: owner)
+            .environment(\.scenePhase, .active))
+        window.makeKeyAndVisible()
+        defer {
+            CompanionSceneTestSupport.restoreRegistrations = nil
+            if let pending = inbox.pending { inbox.consume(pending.id) }
+            window.isHidden = true; window.rootViewController = nil; original?.makeKey()
+            runtime.store.shutdown()
+        }
+        try await waitUntil { runtime.restoreError != nil && !runtime.isRestoring }
+        XCTAssertNil(runtime.restoredHostIDs)
+        XCTAssertFalse(runtime.externalLaunchRestorationReady, "The visible alert fences the external request")
+        // This is the same action invoked by AppRoot's alert button and dismissal binding.
+        runtime.acknowledgeRestoreError()
+        XCTAssertTrue(runtime.externalLaunchRestorationReady)
+        XCTAssertTrue(runtime.externalLaunchRestorationFailed)
+        try await runtime.pair(host: member.trustedHost(), pin: "123456", name: "Recovered desktop", remember: true)
+        XCTAssertEqual(runtime.restoredHostIDs, Set([member.fingerprint]), "Only the successful current pairing restores authority")
+        XCTAssertFalse(runtime.externalLaunchRestorationFailed)
+        try await waitUntil { runtime.store.hosts.first(where: { $0.id == member.fingerprint })?.connection == .connected }
+        var agent = CompanionAgent(id: .init(hostID: member.fingerprint, projectID: CompanionDispatcher.defaultProjectID, agentID: "dispatcher"),
+            name: "Recovered Navi", subtitle: "", status: .idle)
+        agent.isDispatcher = true
+        let host = CompanionHost(id: member.fingerprint, name: "Recovered desktop", endpoint: "", connection: .connected, projects: [],
+            dispatcher: .init(enabled: true, flagOn: true, agent: agent))
+        runtime.store.apply(.hosts([host]))
+        // A NEW external invocation must travel through the mounted AppRoot/Root and open this target.
+        inbox.submit(.appIntent)
+        try await waitUntil { runtime.store.selection == agent.id && inbox.pending == nil }
+        XCTAssertEqual(runtime.preferences.lastTab, .dispatcher)
+        XCTAssertEqual(runtime.preferences.lastDispatcherHostID, member.fingerprint)
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
+        let attachment = XCTAttachment(image: image); attachment.name = "Recovered current pairing opens Dispatcher"; attachment.lifetime = .keepAlways; add(attachment)
+        await runtime.lifecycle.settle()
+        await runtime.service.shutdown()
+    }
+
+    private func waitUntil(_ condition: () -> Bool) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
+        _ = try XCTUnwrap(condition() ? true : nil, "The actual runtime and mounted root must advance the recovery handoff")
     }
 }
