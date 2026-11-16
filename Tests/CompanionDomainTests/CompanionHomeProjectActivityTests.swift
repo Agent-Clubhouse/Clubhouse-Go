@@ -87,8 +87,24 @@ struct CompanionHomeProjectActivityTests {
         let sleeping = entry([member("third", status: .sleeping), member("fourth", status: .sleeping, turn: newest)], name: "sleeping")
         #expect(CompanionHomeProjectActivity.ordered([sleeping, running], recordedProjectActivity: { _ in nil }).map(\.orderKey) == [running.orderKey, sleeping.orderKey])
         #expect(CompanionHomeProjectActivity(entry: sleeping, recordedProjectActivity: { _ in older }).lastActivity == newest)
+        let middle = entry([member("middle", status: .sleeping, activity: Date(timeIntervalSince1970: 200))], name: "middle")
+        #expect(CompanionHomeProjectActivity.ordered([middle, sleeping], recordedProjectActivity: { _ in nil }).map(\.orderKey)
+                == [sleeping.orderKey, middle.orderKey], "The noncanonical member's turn start drives group recency")
         let recorded = newest.addingTimeInterval(100)
         #expect(CompanionHomeProjectActivity(entry: sleeping, recordedProjectActivity: { $0.hostID == "third" ? recorded : nil }).lastActivity == recorded)
+    }
+
+    @MainActor @Test func liveChatTimestampsCannotReorderRecordedProjectRecency() {
+        let first = member("first", status: .sleeping, activity: Date(timeIntervalSince1970: 100))
+        let second = member("second", status: .sleeping, activity: Date(timeIntervalSince1970: 200))
+        let store = CompanionStore(service: CompanionPreviewService())
+        store.apply(.hosts([first.host, second.host]))
+        let original = CompanionHomeProjectActivity.ordered(store.projectEntries, recordedProjectActivity: { _ in nil }).map(\.id)
+        let target = first.project.agents[0].id
+        let newChatTime = Date(timeIntervalSince1970: 300)
+        store.apply(.timeline(target, items: [.message(.init(id: "tool-update", role: .assistant, text: "Progress", timestamp: newChatTime))], sequence: 1, reset: true))
+        #expect(store.lastActivity(of: first.project.agents[0]) == newChatTime)
+        #expect(CompanionHomeProjectActivity.ordered(store.projectEntries, recordedProjectActivity: { _ in nil }).map(\.id) == original)
     }
 
     @Test func tiesKeepCatalogOrderAndNonFiniteTimesCannotChurnIt() {
