@@ -14,6 +14,6 @@ CompanionDesktopChips(members: entry.members, selection: $desktopSelection)
 
 The chips scroll horizontally. Labels have a bounded width and wrap vertically through accessibility XXXL. The view uses the palette's tint/onTint/card/label tokens and the shared #441 optional machine-state presentation: Connected has no glyph. Accessibility labels include each desktop's state, selected traits identify the active scope, and identifiers are `desktop-chips`, `desktop-chip-all`, and `desktop-chip-host-<hostID>`.
 
-An optional `onSelect: () -> Void` callback runs for a user tap, including a tap on the current selection. It receives no identifier. Owners can record the typed #433 `.selectDesktop` control with their actual source screen. Automatic reconciliation does not invoke it.
+An optional `onSelect: () -> Void` callback runs for a user tap, including a tap on the current selection. It receives no identifier. The view itself records typed #433 `.selectDesktop` using its inherited `.companionTelemetryScreen(_:)` context. Owners supply that context and must not add a second event in `onSelect`. An absent context records nothing. Automatic reconciliation invokes neither the callback nor telemetry.
 
-RootView is unchanged in this stack. Root adoption must filter Home, suppress implied host tags, retain offline placeholders, and add the connected-count subtitle required by #439. The component depends on #441's shared Domain presentation; rebase onto its landed implementation before validation/adoption.
+RootView is unchanged in this stack. Root adoption must filter Home, suppress implied host tags, retain offline placeholders, and add the connected-count subtitle required by #439. The component consumes landed #441's shared Domain presentation.
