@@ -104,9 +104,7 @@ import ClubhouseTransport
 struct CompanionFeedbackSettings: View {
     let model: FeedbackModel?
     var initialCapture: CompanionFeedbackSettingsCapture? = nil
-    @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
-    @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
-    @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
+    var compact = false
     /// Framebriar's rule: enrolling enables telemetry, and Settings must say so next to enrollment.
     static let telemetryDisclosure = "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer while you stay enrolled: performance data, crash and hang reports, and events such as connection, pairing and chat timings, error types and counts. Automated telemetry excludes prompts, agent content, names, file paths, addresses and URLs. Notes and images you choose to submit can contain private information; review them first. Reports may also include reviewed incident trace references. Clearing enrollment stops automatic telemetry; saved feedback stays on this device until delivered or explicitly cleared. Your own tracing collector, in Connection diagnostics, is separate."
     static let feedbackOnlyDisclosure = "Feedback shares the notes and optional image you choose to submit, plus optional reviewed incident trace references. Notes and images can contain private information; review them first. Automatic developer telemetry is unavailable in this session. Your own tracing collector, in Connection diagnostics, is separate."
@@ -121,15 +119,42 @@ struct CompanionFeedbackSettings: View {
         }
     }
     var body: some View {
+        if compact {
+            Section("Feedback") {
+                if let model, model.status?.canSubmit == true {
+                    NavigationLink { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) } label: {
+                        CompanionSettingsRowLabel("Send feedback", symbol: "bubble.left", tone: .feedback)
+                    }
+                }
+                NavigationLink {
+                    Form { CompanionFeedbackOptions(model: model, initialCapture: initialCapture, showsSend: false) }
+                        .navigationTitle("Feedback options").navigationBarTitleDisplayMode(.inline)
+                } label: {
+                    CompanionSettingsRowLabel("Feedback options", symbol: "slider.horizontal.3", tone: .feedback,
+                        value: model?.status.map { Self.label($0.access) } ?? "Not enrolled")
+                }.accessibilityIdentifier("settings-feedback-options")
+            }
+        } else { CompanionFeedbackOptions(model: model, initialCapture: initialCapture) }
+    }
+}
+
+private struct CompanionFeedbackOptions: View {
+    let model: FeedbackModel?
+    var initialCapture: CompanionFeedbackSettingsCapture? = nil
+    var showsSend = true
+    @AppStorage(CompanionFeedback.shakePreferenceKey) private var shakeEnabled = true
+    @AppStorage(CompanionFeedback.shakeScreenshotPreferenceKey) private var shakeAttachesScreenshot = true
+    @AppStorage(CompanionScreenshotFeedback.preferenceKey) private var screenshotOffersFeedback = true
+    var body: some View {
         Group {
             Section("Developer feedback") {
                 if let model {
                     NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }
-                    if model.status?.canSubmit == true {
+                    if showsSend && model.status?.canSubmit == true {
                         NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }
                     }
-                    Text("Feedback access: \(model.status.map { Self.label($0.access) } ?? "Checking")")
-                    Text(model.telemetry == nil ? Self.feedbackOnlyDisclosure : Self.telemetryDisclosure)
+                    Text("Feedback access: \(model.status.map { CompanionFeedbackSettings.label($0.access) } ?? "Checking")")
+                    Text(model.telemetry == nil ? CompanionFeedbackSettings.feedbackOnlyDisclosure : CompanionFeedbackSettings.telemetryDisclosure)
                         .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("feedback-telemetry-disclosure")
                 } else {
                     Text("Feedback is not configured for this build or local storage is unavailable.")
