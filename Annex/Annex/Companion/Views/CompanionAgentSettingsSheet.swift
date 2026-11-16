@@ -514,13 +514,16 @@ struct CompanionAgentSettingsForm: View {
             }
             accessRows(settings)
         } header: { Text("Runtime") } footer: {
-            Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
-            Text("Sign-in and remaining quota aren't reported by this provider list.")
-            accessFooter(settings)
-            if settings.hasLockedSettings {
-                Text(CompanionAgentSettings.lockedHint)
-                    .accessibilityIdentifier("agent-settings-locked-hint")
+            VStack(alignment: .leading, spacing: 4) {
+                Text(settings.runtime.editable == .never ? "Applied on the next wake. Chat isn't available for this CLI." : "Applied on the next wake.")
+                Text("Sign-in and remaining quota aren't reported by this provider list.")
+                accessFooter(settings)
+                if settings.hasLockedSettings {
+                    Text(CompanionAgentSettings.lockedHint)
+                        .accessibilityIdentifier("agent-settings-locked-hint")
+                }
             }
+            .fixedSize(horizontal: false, vertical: true)
         }
 
         Section {
