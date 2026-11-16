@@ -673,6 +673,7 @@ public actor AnnexTransport: AnnexTransporting {
                 initialReplayDeadline?.cancel(); initialReplayDeadline = nil
             } else if envelope.seq != nil { return }
         }
+        var requestSnapshotReplay = awaitingFirstSnapshot
         switch cursor.accept(envelope) {
         case .awaitSnapshot:
             droppedBeforeSnapshot = true
@@ -681,6 +682,7 @@ public actor AnnexTransport: AnnexTransporting {
             telemetry.record(.replay, event: .duplicate)
             return
         case .resync(let reason):
+            requestSnapshotReplay = true
             telemetry.record(.replay, event: .gap)
             emit(.resyncRequired(reason))
             if envelope.type != "snapshot" { throw AnnexTransportError.disconnected }
@@ -717,7 +719,7 @@ public actor AnnexTransport: AnnexTransporting {
         }
         if telemetry.isEnabled { envelope.diagnosticBinding = telemetryBinding }
         emit(.message(envelope))
-        if envelope.type == "snapshot", let seq = cursor.lastSequence {
+        if envelope.type == "snapshot", requestSnapshotReplay, let seq = cursor.lastSequence {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
             if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
             telemetry.record(.replay, event: .replayRequested)

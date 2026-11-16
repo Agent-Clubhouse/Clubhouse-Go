@@ -81,18 +81,20 @@ struct CompanionProjectState: Sendable, Equatable {
     var pinned = false
     var inactive = false
     var idle = false
+    var linked = false
     var lastActivity: Date?
 
     /// One entry of the snapshot's `projectState`, or a command's result. Nil when it isn't an object.
     init?(json: AnnexJSON?) {
         guard case .object? = json else { return nil }
         pinned = json?["pinned"].boolValue == true
+        linked = json?["linked"].boolValue == true
         inactive = json?["inactive"].boolValue == true
         idle = json?["idle"].boolValue == true
         lastActivity = json?["lastActivityAt"].flatMap(CompanionLiveService.date(from:))
     }
-    init(pinned: Bool = false, inactive: Bool = false, idle: Bool = false, lastActivity: Date? = nil) {
-        self.pinned = pinned; self.inactive = inactive; self.idle = idle; self.lastActivity = lastActivity
+    init(pinned: Bool = false, inactive: Bool = false, idle: Bool = false, lastActivity: Date? = nil, linked: Bool = false) {
+        self.pinned = pinned; self.inactive = inactive; self.idle = idle; self.lastActivity = lastActivity; self.linked = linked
     }
 
     /// The snapshot's `projectState`, by project id. Nil when the desktop didn't send it.
@@ -105,9 +107,9 @@ struct CompanionProjectState: Sendable, Equatable {
     /// a pinned project is never idle, and marking active clears the mark and counts as activity now.
     func with(pinned: Bool? = nil, inactive: Bool? = nil, now: Date = Date()) -> Self {
         var next = self
-        if let pinned { next.pinned = pinned; if pinned { next.idle = false } }
+        if let pinned { next.pinned = pinned; if pinned { next.idle = false; if next.linked { next.inactive = false } } }
         if let inactive {
-            next.inactive = inactive
+            next.inactive = inactive && !(next.linked && next.pinned)
             if inactive { next.idle = !next.pinned } else { next.idle = false; next.lastActivity = now }
         }
         return next
@@ -166,12 +168,25 @@ struct CompanionHomeLayout: Sendable, Equatable {
         for entry in ordered {
             let tree = CompanionAgentTree.build(entry.project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: sort, held: hold?.agents[entry.id], lastActivity: agentActivity)
             let running = entry.project.agents.contains(where: isAwake)
+            let capable = entry.members.filter { $0.host.canSyncLinkedProjectState }
+            let orderedSources = capable.filter { $0.host.connection.canOperate } + capable.filter { !$0.host.connection.canOperate }
+            let linked = entry.isLinked ? orderedSources.compactMap { member -> CompanionProjectState? in
+                let state = shared(.init(host: member.host, project: member.project))
+                return state?.linked == true ? state : nil
+            }.first : nil
             let states = entry.members.map { member in
                 let single = CompanionProjectEntry(host: member.host, project: member.project)
                 let state = shared(single)
-                let pinned = state?.pinned ?? rule.pinned.contains(single.orderKey)
-                let idle = state.map { $0.idle && !running }
-                    ?? rule.isIdle(single.orderKey, running: running, lastActivity: projectActivity(single.id), now: now)
+                let pinned = linked?.pinned ?? state?.pinned ?? rule.pinned.contains(single.orderKey)
+                let idle: Bool
+                if let linked {
+                    // Raw idle remains per machine; shared inactive applies to every copy.
+                    // Unreported copies never borrow this phone's old preferences.
+                    idle = !running && (linked.inactive || state?.idle == true)
+                } else {
+                    idle = state.map { $0.idle && !running }
+                        ?? rule.isIdle(single.orderKey, running: running, lastActivity: projectActivity(single.id), now: now)
+                }
                 return (pinned: pinned, idle: idle)
             }
             let isPinned = states.contains { $0.pinned }

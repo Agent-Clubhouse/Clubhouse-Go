@@ -1373,6 +1373,7 @@ import ClubhouseTransport
                 hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
                 hosts[hostID]?.canAnswerGrantRequests = newCapabilities?.supportsGrantRequests == true
                 hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
+                hosts[hostID]?.canSyncLinkedProjectState = newCapabilities?.supportsLinkedProjectState == true
                 hosts[hostID]?.canLinkProjects = newCapabilities?.supportsProjectLinks == true
                 if newCapabilities?.supportsProjectLinks != true {
                     hosts[hostID]?.projectLinks = nil

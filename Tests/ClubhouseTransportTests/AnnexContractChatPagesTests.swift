@@ -79,7 +79,7 @@ import Testing
         let source = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: root.appendingPathComponent("SOURCE.json")))
         let syncedSource = try AnnexContract.json("SOURCE.json")
         #expect(source["commit"]?.string == "8bd00f0cf2f40d75af153c49b8e4485726eaeee9")
-        #expect(syncedSource["commit"]?.string == "b09e825fb93036dfff0a61f9420e4e4d6175607b")
+        #expect(syncedSource["commit"]?.string == "ff19df8fad0e46ae379ae2d71efb0e040d893456")
         guard case .object(let hashes)? = source["files"] else {
             Issue.record("Missing icon fixture hashes")
             return

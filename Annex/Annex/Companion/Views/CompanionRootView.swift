@@ -658,14 +658,43 @@ struct CompanionHomeView: View {
     /// Pin and the idle marks. A desktop that shares project state keeps them; otherwise they stay on this phone.
     private func projectMenu(_ group: CompanionProjectGroup) -> some View {
         Menu {
-            if group.entry.isLinked {
+            if group.entry.isLinked, let shared = store.linkedProjectState(group.entry) {
+                Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
+                    Task { await store.setLinkedProject(group.entry, pinned: !shared.pinned) }
+                }
+                .disabled(!store.canChangeLinkedProjectState(group.entry))
+                if group.isIdle || shared.inactive {
+                    Button("Mark active", systemImage: "sun.max") {
+                        Task { await store.setLinkedProject(group.entry, inactive: false) }
+                    }
+                    .disabled(!store.canChangeLinkedProjectState(group.entry))
+                } else if !shared.pinned {
+                    Button("Mark inactive", systemImage: "moon.zzz") {
+                        Task { await store.setLinkedProject(group.entry, inactive: true) }
+                    }
+                    .disabled(!store.canChangeLinkedProjectState(group.entry))
+                }
+                if let hint = store.linkedProjectStateConnectionHint(group.entry) { Text(hint) }
+                let terminals = group.entry.members.filter { store.terminalAvailability(.project($0.id)).isShown }
+                if !terminals.isEmpty {
+                    Menu("Terminal", systemImage: "terminal") {
+                        ForEach(terminals) { member in
+                            Section(group.entry.label(for: member)) {
+                                CompanionTerminalMenuItem(scope: .project(member.id))
+                            }
+                        }
+                    }
+                }
+            } else if group.entry.isLinked {
                 ForEach(group.entry.members) { member in
                     let entry = CompanionProjectEntry(host: member.host, project: member.project)
                     let state = store.sharedProjectState(member.id)
                     Menu(machineLabel(group.entry, member)) {
                         projectMenuItems(.init(entry: entry,
                                                isPinned: state?.pinned ?? preferences.pinnedProjects.contains(entry.orderKey),
-                                               isIdle: state?.idle ?? false, tree: group.tree))
+                                               isIdle: state?.idle ?? preferences.idleRule.isIdle(entry.orderKey,
+                                                   running: member.project.agents.contains(where: CompanionHomeLayout.isAwake),
+                                                   lastActivity: projectActivity(member.id), now: Date()), tree: group.tree))
                     }
                     .disabled(state != nil && !member.host.connection.canOperate)
                 }
@@ -685,7 +714,7 @@ struct CompanionHomeView: View {
         let shared = store.sharedProjectState(project)
         let isMarked = shared?.inactive ?? preferences.inactiveProjects.contains(key)
         func change(local: @escaping () -> Void, remote: @escaping () async -> Void) {
-            if shared == nil { withAnimation(reduceMotion ? nil : .snappy) { local() } }
+            if store.sharedProjectState(project) == nil { withAnimation(reduceMotion ? nil : .snappy) { local() } }
             else { Task { await remote() } }
         }
         return Group {

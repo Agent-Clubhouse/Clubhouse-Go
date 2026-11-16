@@ -48,6 +48,7 @@ import Testing
         #expect(caps.supportsManagedCreate && caps.managedCreate?.version == 1 && caps.createOptions?.version == 1)
         #expect(caps.supportsPersistentApprovals && caps.supportsFreeAgentMode && caps.supportsHelperRequests)
         #expect(caps.supportsFinishedQuickAgents && caps.supportsProjectState && caps.supportsTerminal && caps.supportsAgentState)
+        #expect(caps.supportsLinkedProjectState && caps.linkedProjectState?.version == 1)
         #expect(caps.supportsSlashCommands && caps.slashCommands?.version == 1)
         #expect(caps.supportsChatLinks && caps.chatLinks?.version == 1 && caps.chatLinks?.path == "/api/v1/mobile/agents/{agentId}/link?href={href}")
         #expect(caps.supportsOrchestration && caps.orchestration?.version == 1)

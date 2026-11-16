@@ -379,3 +379,41 @@ private actor HandshakeSessionIO: AnnexIO {
         #expect(first[0]["serviceInstanceId"]?.string == telemetry.instanceID.uuidString.lowercased())
     }
 }
+
+@Test func linkedProjectPeerSnapshotUpdatesWithoutAnotherReplayRequest() async throws {
+    let fixture = try AnnexContract.json("linked-project-state.json")
+    var frame = try #require(fixture["changedOnAnotherComputer"]?["frame"])
+    let sequence = try #require(frame["payload"]?["lastSeq"]?.integer)
+    let (transport, io) = try await sessionFixture(initialSequence: sequence)
+    let stream = await transport.events()
+    try await transport.connect()
+    var snapshots = 0
+    var socket: TestSocket?
+    for try await event in stream {
+        guard case .message(let envelope) = event, envelope.type == "snapshot" else { continue }
+        snapshots += 1
+        if snapshots == 1 {
+            let connected = try #require(await io.sockets.first); socket = connected
+            for _ in 0..<100 {
+                if await !connected.sent.isEmpty { break }
+                try await Task.sleep(for: .milliseconds(5))
+            }
+            // Pairing identity is synthetic; keep every project-state byte from the canonical frame.
+            if case .object(var outer) = frame, case .object(var payload)? = outer["payload"] {
+                if case .object(var machine)? = payload["machine"] {
+                    machine["fingerprint"] = .string(transport.host.hostID)
+                    payload["machine"] = .object(machine)
+                }
+                outer["payload"] = .object(payload); frame = .object(outer)
+            }
+            try await connected.push(String(decoding: JSONEncoder().encode(frame), as: UTF8.self))
+        } else {
+            #expect(envelope.seq == nil && envelope.replayed == nil)
+            #expect(envelope.payload?["projectState"] == frame["payload"]?["projectState"])
+            break
+        }
+    }
+    await transport.disconnect()
+    #expect(snapshots == 2)
+    #expect(await socket?.sent.count == 1, "Only the connection baseline requests replay; the peer push isn't a replayable event")
+}

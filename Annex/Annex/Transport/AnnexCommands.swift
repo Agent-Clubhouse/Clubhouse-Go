@@ -475,6 +475,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public var supportsAgentState: Bool { (agentState?.version ?? 0) >= 1 }
     /// Project pins, inactive marks and the idle rule, owned by the desktop (`projectState` v1).
     public let projectState: Feature?
+    /// Linked copies share Pin and Inactive; commands fan out on the desktop.
+    public let linkedProjectState: Feature?
+    public var supportsLinkedProjectState: Bool { supportsProjectState && (linkedProjectState?.version ?? 0) >= 1 }
     public struct ProjectLinks: Decodable, Sendable {
         public let version: Int
         public let snapshotField: String
@@ -683,6 +686,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         providerControl = optional(.providerControl)
         agentState = optional(.agentState)
         projectState = optional(.projectState)
+        linkedProjectState = optional(.linkedProjectState)
         projectLinks = optional(.projectLinks)
         finishedQuickAgents = optional(.finishedQuickAgents)
         chatControls = optional(.chatControls)
@@ -705,7 +709,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
         case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
-        case grantRequests, appUpdate, snapshotTruncation, projectLinks, managedCreate
+        case grantRequests, appUpdate, snapshotTruncation, projectLinks, managedCreate, linkedProjectState
     }
 }
 
