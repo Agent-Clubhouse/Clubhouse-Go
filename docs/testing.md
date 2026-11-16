@@ -50,7 +50,26 @@ every recorded Access request without exemptions. Saved changes apply at next st
 wins in its existing badge only while the session is running. Ended sessions use saved Access.
 `QA361AccessRegressionTests` covers Access-only snapshot refreshes in both open sheets and elevated confirmation
 against the latest snapshot while cached settings are stale.
-A desktop without this capability is read-only for saved Access, not a boolean fallback.
+A desktop without `access.version >= 1` is read-only for saved Access, not a boolean fallback.
+
+Managed creation (#454) uses the desktop fixtures at `b09e825fb93036dfff0a61f9420e4e4d6175607b`.
+`managedCreate.version >= 1` gates the additive flow; `createOptions` stays version 1.
+`DurableAgentCommandTests` checks all 37 create receipts and ensures managed requests omit every
+plain-only field. Domain tests cover capability absence, template order, sleeping receipts and error copy.
+`CompanionManagedSpawnFormTests` and `CompanionManagedSpawnUITests` cover the shipped default,
+explicit Blank/template selection, runtime precedence and plain-flow fallback. Blank is supplied locally;
+Create stays disabled until a choice is made. The managed preview flags never contact a desktop.
+`CompanionManagedSpawnCapabilityTests` withdraws managed support from an open sheet after selecting
+a template or Blank: Create is blocked, the sheet explains how to reopen a plain flow, and no command is sent.
+The hosted project-switch test keeps managed intent across an unsupported destination, suppresses the
+loss warning during its held options read, then checks the warning, blocked Create and no command.
+The actual mounted sheet exposes a `#if DEBUG`-only `HostedTestSeam` to this hosted class:
+it uses the production template/project selection methods, the exact button-disabled predicate and
+hint, and the same guarded Create action (also invoked while disabled to prove defense in depth).
+This avoids private in-process SwiftUI accessibility traversal. Visible loss text is verified by OCR;
+real control reachability remains in the managed UI tests. The seam is absent from Release builds.
+Initial cancelled-task duplicate options reads are inherited from #453 and tracked in #480; transition
+assertions require zero additional reads on capability loss and exactly one on project switch.
 
 ### Linked projects
 
