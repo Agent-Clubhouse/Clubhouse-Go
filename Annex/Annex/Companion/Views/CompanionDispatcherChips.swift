@@ -28,6 +28,13 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
     }
 
     private var collapsed: Bool { isWorking && !expandedWhileWorking }
+    private var usesReducedMotion: Bool {
+        #if DEBUG
+        reduceMotion || ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatch-reduce-motion")
+        #else
+        reduceMotion
+        #endif
+    }
     private func agent(_ desktop: CompanionDispatcherDesktop) -> CompanionAgent? {
         hosts.first { $0.id == desktop.id }?.dispatcherAgent
     }
@@ -104,7 +111,7 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
                 }
             }
         }
-        .animation(reduceMotion ? nil : .snappy(duration: 0.2), value: collapsed)
+        .animation(usesReducedMotion ? nil : .snappy(duration: 0.2), value: collapsed)
         .onChange(of: isWorking) { _, _ in expandedWhileWorking = false }
         .onChange(of: selectedHostID) { _, _ in expandedWhileWorking = false }
     }

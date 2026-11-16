@@ -219,11 +219,6 @@ struct CompanionRootView: View {
         .navigationTitle(navigation.dispatcherTitle(hosts: store.hosts))
         .navigationBarTitleDisplayMode(.inline)
         .companionTelemetryScreen(.dispatcher)
-        #if DEBUG
-        .transformEnvironment(\.accessibilityReduceMotion) { value in
-            if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatch-reduce-motion") { value = true }
-        }
-        #endif
         .onChange(of: cached, initial: true) { _, next in
             navigation.dispatcherReplies.update(next, visibleHostID: visibleHostID, followsLatest: followsLatest)
         }
