@@ -34,6 +34,8 @@ This deliberately separates tap intent from command-outcome `app.action` logs. `
 
 ## Adopted here
 
+#442 extends project instrumentation to the desktop chips, machine chooser selection/Cancel, explicit project-state menu callbacks and offline Retry. Shared chips, project menu items and merged quiet-fold callbacks inherit the owning screen. Callers must supply `.companionTelemetryScreen(_:)`; do not count Dismiss/Clear again in owner callbacks. Root adoption remains pending.
+
 - Project page: New agent, Wake with a message, Terminal, retained-run Dismiss (swipe, context menu and accessibility action share one action), Clear all, and the Wake sheet's Cancel/Wake.
 - Project info: its actual opening action, Done, and explicit retry after a failed read.
 - Agent details/settings sheets: Done, retry, cancellation of settings confirmation, and saved identity, color, emoji, provider/model/runtime, access, auto-sleep, context-window and behavior controls. Only the fixed control category is recorded, never its value. A setting choice that opens a warning is counted immediately, even when later cancelled; accepting the warning records a separate `.confirm` intent, without double-counting the selection.

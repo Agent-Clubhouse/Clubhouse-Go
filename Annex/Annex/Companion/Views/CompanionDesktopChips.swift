@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// UI scope only. Owners keep it in launch-lifetime state; it never changes pairing or command authority.
 enum CompanionDesktopSelection: Hashable, Sendable {
@@ -20,6 +21,7 @@ struct CompanionDesktopChips: View {
     @Binding var selection: CompanionDesktopSelection
     var onSelect: () -> Void
     @Environment(\.companionPalette) private var palette
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     init(hosts: [CompanionHost], selection: Binding<CompanionDesktopSelection>, onSelect: @escaping () -> Void = {}) {
@@ -65,6 +67,7 @@ struct CompanionDesktopChips: View {
     private func chip(_ title: String, symbol: String?, value: CompanionDesktopSelection, label: String, id: String) -> some View {
         let selected = selection == value
         return Button {
+            CompanionUIActions.record(.selectDesktop, on: screen)
             onSelect()
             selection = value
         } label: {

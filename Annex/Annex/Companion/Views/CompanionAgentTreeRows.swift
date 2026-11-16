@@ -179,6 +179,7 @@ struct CompanionAgentTreeQuietFold: View {
     var onDismissFinished: ((CompanionFinishedRun) -> Void)? = nil
     var onClearFinished: (() -> Void)? = nil
     var canOpenFinished: ((CompanionTarget) -> Bool)? = nil
+    @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.companionAgentRowContext) private var rowContext
 
@@ -211,6 +212,7 @@ struct CompanionAgentTreeQuietFold: View {
         let catalog = Set(tree.all.map(\.id))
         if !text.isEmpty {
             Button {
+                CompanionUIActions.record(.expandQuietAgents, on: screen)
                 withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
             } label: { CompanionFoldLabel(text: text, isOpen: isOpen) }
             .accessibilityIdentifier("fold-quiet-\(projectID)")
@@ -221,7 +223,10 @@ struct CompanionAgentTreeQuietFold: View {
                     finishedRow(run, canOpen: canOpenFinished?(run.target) ?? catalog.contains(run.target))
                 }
                 if !retainedRuns.isEmpty, let onClearFinished {
-                    Button("Clear finished runs", action: onClearFinished)
+                    Button("Clear finished runs") {
+                        CompanionUIActions.record(.clearFinished, on: screen)
+                        onClearFinished()
+                    }
                         .accessibilityIdentifier("finished-clear-all")
                         .listRowBackground(CompanionCardBackground())
                 }
@@ -236,11 +241,16 @@ struct CompanionAgentTreeQuietFold: View {
         if let onDismissFinished {
             row
                 .swipeActions(edge: .trailing, allowsFullSwipe: true) {
-                    Button("Dismiss", systemImage: "xmark", role: .destructive) { onDismissFinished(run) }
+                    Button("Dismiss", systemImage: "xmark", role: .destructive) { dismissFinished(run, action: onDismissFinished) }
                 }
-                .contextMenu { Button("Dismiss", systemImage: "xmark") { onDismissFinished(run) } }
-                .accessibilityAction(named: "Dismiss") { onDismissFinished(run) }
+                .contextMenu { Button("Dismiss", systemImage: "xmark") { dismissFinished(run, action: onDismissFinished) } }
+                .accessibilityAction(named: "Dismiss") { dismissFinished(run, action: onDismissFinished) }
         } else { row }
+    }
+
+    private func dismissFinished(_ run: CompanionFinishedRun, action: (CompanionFinishedRun) -> Void) {
+        CompanionUIActions.record(.dismissFinished, on: screen)
+        action(run)
     }
 
     @ViewBuilder private func finishedNavigationRow(_ run: CompanionFinishedRun, canOpen: Bool) -> some View {

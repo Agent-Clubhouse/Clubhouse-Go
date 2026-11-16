@@ -27,7 +27,6 @@ struct CompanionProjectPage: View {
                                        description: Text("This project is no longer in the desktop catalog."))
             }
         }
-        .companionTelemetryScreen(.project)
         .navigationTitle(entry?.project.name ?? "Project")
         .toolbar {
             if let entry {
@@ -52,6 +51,7 @@ struct CompanionProjectPage: View {
             CompanionWakeSheet(store: store, project: project) { pendingWake = ($0, $1) }
         }
         .onChange(of: desktop) { _, _ in hold = nil }
+        .companionTelemetryScreen(.project)
     }
 
     private func scopedMembers(_ entry: CompanionProjectEntry) -> [CompanionProjectMember] {
@@ -97,7 +97,10 @@ struct CompanionProjectPage: View {
                 ForEach(members.filter { !$0.host.connection.canOperate }) { member in
                     VStack(alignment: .leading, spacing: 6) {
                         Text("\(entry.label(for: member)) · \(projectMachineDetail(member.host.connection))")
-                        Button("Retry") { Task { await store.reconnect(hostID: member.host.id) } }
+                        Button("Retry") {
+                            AnnexTelemetry.shared.recordAction(screen: .project, control: .retry)
+                            Task { await store.reconnect(hostID: member.host.id) }
+                        }
                     }
                     .listRowBackground(CompanionCardBackground())
                     .accessibilityIdentifier("project-offline-\(member.host.id)-\(member.project.id)")
@@ -130,14 +133,20 @@ struct CompanionProjectPage: View {
 
     @ViewBuilder private func actionButtons(_ entry: CompanionProjectEntry) -> some View {
         let members = scopedMembers(entry)
-        Button { onNewAgent(entry.isLinked ? entry.id : members.first?.id ?? entry.id) } label: {
+        Button {
+            AnnexTelemetry.shared.recordAction(screen: .project, control: .newAgent)
+            onNewAgent(entry.isLinked ? entry.id : members.first?.id ?? entry.id)
+        } label: {
             Label("New agent", systemImage: "plus").frame(maxWidth: .infinity)
         }
         .buttonStyle(.borderedProminent).companionProminentLabel()
         .disabled(!members.contains { $0.host.connection.canOperate && $0.host.canSpawn })
         .accessibilityIdentifier("project-new-agent")
         if members.contains(where: { terminal?.availability(.project($0.id)).isShown == true }) {
-            Button { begin(.terminal, entry: entry) } label: {
+            Button {
+                AnnexTelemetry.shared.recordAction(screen: .project, control: .openProjectTerminal)
+                begin(.terminal, entry: entry)
+            } label: {
                 Label("Terminal", systemImage: "terminal").frame(maxWidth: .infinity)
             }
             .buttonStyle(.bordered)
@@ -205,11 +214,19 @@ struct CompanionProjectMenuItems: View {
     var onWake: () -> Void
     var onInfo: () -> Void
 
+    @Environment(\.companionTelemetryScreen) private var screen
+
     var body: some View {
-        Button("Wake with a message", systemImage: "sun.max", action: onWake)
+        Button("Wake with a message", systemImage: "sun.max") {
+            CompanionUIActions.record(.wakeAgent, on: screen)
+            onWake()
+        }
             .disabled(!canWake).accessibilityIdentifier("project-wake")
         if !entry.isLinked { CompanionSingleProjectStateMenuItems(store: store, preferences: preferences, entry: entry) }
-        Button("Project info", systemImage: "info.circle", action: onInfo)
+        Button("Project info", systemImage: "info.circle") {
+            CompanionUIActions.record(.openProjectInfo, on: screen)
+            onInfo()
+        }
     }
 }
 
@@ -217,6 +234,8 @@ private struct CompanionSingleProjectStateMenuItems: View {
     @Bindable var store: CompanionStore
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
+
+    @Environment(\.companionTelemetryScreen) private var screen
 
     var body: some View {
         let state = store.sharedProjectState(entry.id)
@@ -228,16 +247,19 @@ private struct CompanionSingleProjectStateMenuItems: View {
         let idle = !pinned && (state.map { $0.idle && !running } ?? preferences.idleRule.isIdle(key, running: running, lastActivity: activity, now: Date()))
         Group {
             Button(pinned ? "Unpin from Home" : "Pin to top of Home", systemImage: pinned ? "pin.slash" : "pin") {
+                CompanionUIActions.record(pinned ? .unpinProject : .pinProject, on: screen)
                 change(local: {
                     if preferences.pinnedProjects.contains(key) != !pinned { preferences.togglePinned(key) }
                 }, remote: { await store.setProject(entry.id, pinned: !pinned) })
             }
             if idle || marked {
                 Button("Mark active", systemImage: "sun.max") {
+                    CompanionUIActions.record(.markProjectActive, on: screen)
                     change(local: { preferences.markActive(key) }, remote: { await store.setProject(entry.id, inactive: false) })
                 }
             } else if !pinned {
                 Button("Mark inactive", systemImage: "moon.zzz") {
+                    CompanionUIActions.record(.markProjectInactive, on: screen)
                     change(local: { preferences.markInactive(key) }, remote: { await store.setProject(entry.id, inactive: true) })
                 }
             }
@@ -282,7 +304,10 @@ struct CompanionProjectMachineChooser: View {
                 if let entry = store.projectEntry(containing: project) {
                     Section(action.title) {
                         ForEach(entry.members.filter { selection.hostID == nil || $0.host.id == selection.hostID }) { member in
-                            Button { onChoose(member.id) } label: {
+                            Button {
+                                AnnexTelemetry.shared.recordAction(screen: .project, control: .selectDesktop)
+                                onChoose(member.id)
+                            } label: {
                                 VStack(alignment: .leading, spacing: 3) {
                                     Text(entry.label(for: member))
                                     Text(detail(member)).font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
@@ -298,7 +323,14 @@ struct CompanionProjectMachineChooser: View {
             .companionListStyle()
             .navigationTitle("Choose a desktop")
             .navigationBarTitleDisplayMode(.inline)
-            .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Cancel") { dismiss() } } }
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") {
+                        AnnexTelemetry.shared.recordAction(screen: .project, control: .cancel)
+                        dismiss()
+                    }
+                }
+            }
         }
         .accessibilityIdentifier("project-machine-chooser")
     }
