@@ -142,11 +142,27 @@ struct CompanionTimelineFoldingTests {
         #expect(projector.contextUsage == nil, "Token counts alone say nothing about context")
         projector.apply(event("usage", 2, ["scope": .string("session"), "context": .object(["used": .integer(84_000), "size": .integer(200_000)])]))
         #expect(projector.contextUsage?.percent == 42)
+        #expect(projector.contextUsage?.reportedAt == Date(timeIntervalSince1970: 1_700_000_000))
         projector.apply(event("usage", 3, ["scope": .string("session"), "limits": .array([])]))
         #expect(projector.contextUsage?.percent == 42, "A usage event without context keeps the last fill")
+        #expect(projector.contextUsage?.reportedAt == Date(timeIntervalSince1970: 1_700_000_000), "An unrelated usage report must not redate the context")
         projector.apply(event("usage", 4, ["scope": .string("session"), "context": .object(["used": .integer(10), "size": .integer(0)])]))
         #expect(projector.contextUsage?.percent == 42, "A zero-size window is ignored")
         #expect(CompanionContextUsage(used: 300, size: 200).percent == 100)
+    }
+
+    @Test func contextReportTimeUsesOnlyTheMatchingEventAndAllowsOlderTranscripts() throws {
+        var projector = CompanionChatProjector()
+        let legacy = try JSONDecoder().decode(AnnexJSON.self, from: Data(#"{"sessionId":"s1","seq":1,"type":"usage","data":{"context":{"used":84000,"size":200000}}}"#.utf8))
+        projector.apply(legacy)
+        #expect(projector.contextUsage == .init(used: 84_000, size: 200_000), "An older transcript without ts still decodes and reports counts")
+        projector.apply(event("usage", 2, ts: 1_800_000_000_000, ["context": .object(["used": .integer(90_000), "size": .integer(200_000)])]))
+        let dated = projector.contextUsage
+        #expect(dated?.reportedAt == Date(timeIntervalSince1970: 1_800_000_000))
+        projector.apply(event("usage", 3, ts: 1_900_000_000_000, ["context": .object(["used": .integer(10), "size": .integer(0)])]))
+        #expect(projector.contextUsage == dated, "An invalid context does not refresh either the counts or report time")
+        projector.apply(.object(["sessionId": .string("s2"), "seq": .integer(1), "type": .string("session_started"), "data": .object([:])]))
+        #expect(projector.contextUsage == nil, "A new session retires the old reading and its timestamp together")
     }
 
     @Test func approvalUsesTheRequestTitle() {

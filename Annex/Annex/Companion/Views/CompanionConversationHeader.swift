@@ -240,39 +240,79 @@ struct CompanionConversationDetailsCard: View {
     }
 }
 
-/// Context retains its existing editor. Plan readings are desktop-scoped and load only on explicit navigation.
+/// A read-only summary for one agent; the existing editor remains an explicit navigation.
 struct CompanionConversationUsageSheet: View {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
     @Environment(\.dismiss) private var dismiss
 
     private var agent: CompanionAgent? { store.agent(for: target) }
+    private var scope: CompanionAgentPlanLimitsScope { .init(target: target, agent: agent) }
+    private func tokens(_ count: Int) -> String {
+        count.formatted(.number.notation(.compactName)).lowercased()
+    }
+    private var closeButton: some View {
+        Button("Close", systemImage: "xmark") { dismiss() }
+            .companionToolbarClose()
+            .accessibilityIdentifier("companion-context-close")
+    }
 
     var body: some View {
         NavigationStack {
-            CompanionAgentSettingsForm(store: store, target: target, focusContext: true)
-                .safeAreaBar(edge: .top, spacing: 0) {
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text(agent?.contextUsage == nil ? "Context usage unknown" : "Latest reported context usage")
-                        if store.host(for: target)?.connection.canOperate != true {
-                            Text("Desktop unavailable. Reported values may be out of date.")
+            List {
+                Section {
+                    HStack(spacing: 16) {
+                        CompanionContextRing(percent: agent?.contextUsage?.percent)
+                            .padding(8)
+                            .accessibilityHidden(true)
+                        VStack(alignment: .leading, spacing: 6) {
+                            if let usage = agent?.contextUsage {
+                                Text("\(tokens(usage.used)) of \(tokens(usage.size)) tokens")
+                                    .font(.headline).monospacedDigit()
+                                    .accessibilityIdentifier("companion-context-token-count")
+                            } else {
+                                Text("Context usage unknown").font(.headline)
+                            }
+                            Text("\(agent?.displayName ?? "Agent")’s context").font(.subheadline).foregroundStyle(.secondary)
+                            Group {
+                                if let reportedAt = agent?.contextUsage?.reportedAt {
+                                    (Text("Reported ") + Text(reportedAt, format: .dateTime.month(.abbreviated).day().hour().minute()))
+                                } else { Text("Report time unknown") }
+                            }
+                            .font(.caption).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("companion-context-reading-note")
                         }
                     }
-                    .font(.caption).foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity, alignment: .leading).padding(.horizontal, 20).padding(.vertical, 6)
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("companion-context-reading-note")
-                }
-                .safeAreaBar(edge: .bottom, spacing: 0) {
-                    NavigationLink { CompanionPlanLimitsView(store: store) } label: {
-                        Label("Plan limits by desktop", systemImage: "chart.bar")
-                            .frame(maxWidth: .infinity, minHeight: 44)
+                    .padding(.vertical, 8)
+                    if store.host(for: target)?.connection.canOperate != true {
+                        Text("Desktop unavailable. Reported values may be out of date.")
+                            .font(.subheadline).foregroundStyle(.secondary)
+                            .accessibilityIdentifier("companion-context-offline-note")
                     }
-                    .buttonStyle(.glass)
-                    .padding(.horizontal, 16).padding(.vertical, 6)
-                    .accessibilityIdentifier("companion-context-plan-limits")
+                    NavigationLink {
+                        CompanionAgentSettingsForm(store: store, target: target, focusContext: true)
+                            .toolbar { ToolbarItem(placement: .cancellationAction) { closeButton } }
+                    } label: {
+                        Label("Context settings", systemImage: "slider.horizontal.3")
+                            .frame(minHeight: 44)
+                    }
+                    .accessibilityIdentifier("companion-context-settings-row")
                 }
-                .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark") { dismiss() }.companionToolbarClose() } }
+                CompanionAgentPlanLimitsSection(store: store, scope: scope)
+                Section {
+                    Text("Every desktop and provider: Settings › Plan limits.")
+                        .font(.footnote).foregroundStyle(.secondary)
+                        .accessibilityIdentifier("companion-context-plan-limits-footer")
+                }
+            }
+            .navigationTitle("Context and limits")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    closeButton
+                }
+            }
         }
+        .presentationDetents([.medium, .large])
     }
 }

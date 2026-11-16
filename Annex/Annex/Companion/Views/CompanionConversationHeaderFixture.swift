@@ -101,6 +101,12 @@ struct CompanionConversationHeaderFixture: View {
                 agent.chatControls = nil
                 agent.session = nil
             }
+            if arguments.contains("--companion-context-sheet-fixture") {
+                agent.contextUsage = .init(used: 84_000, size: 200_000, reportedAt: .now.addingTimeInterval(-120))
+                if arguments.contains("--companion-context-unknown") { agent.contextUsage = nil }
+                if arguments.contains("--companion-context-undated") { agent.contextUsage?.reportedAt = nil }
+                if arguments.contains("--companion-context-quota-unknown") { agent.orchestrator = "copilot-cli" }
+            }
             agent.emoji = nil; agent.icon = nil
             host.projects = [.init(id: target.projectID, name: "Header fixture", agents: [agent])]
             host.dispatcher = nil

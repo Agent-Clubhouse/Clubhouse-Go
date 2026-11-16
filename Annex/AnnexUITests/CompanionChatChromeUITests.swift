@@ -154,7 +154,8 @@ import UIKit
         XCTAssertTrue(pixelContains(navigation.frame, context.frame), "Context \(context.frame) stays in navigation \(navigation.frame)")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["companion-context-settings-menu"])
         let picker = app.buttons["agent-settings-context-window"]
-        waitAndTap(app.buttons["companion-context-settings-menu"], until: picker)
+        waitAndTap(app.buttons["companion-context-settings-menu"], until: app.buttons["companion-context-settings-row"])
+        waitAndTap(app.buttons["companion-context-settings-row"], until: picker)
         XCTAssertTrue(picker.isHittable, "Context remains reachable from Conversation actions")
     }
 

@@ -439,9 +439,11 @@ import XCTest
             capture(app, "idle synthetic custom image version \(version)")
         }
         waitAndTap(app.buttons["companion-context-usage"], until: element(app, "companion-context-reading-note"), attempts: 1)
-        capture(app, "context editor with desktop quota route")
-        waitAndTap(app.buttons["companion-context-plan-limits"], until: app.navigationBars["Plan limits"], attempts: 1)
+        XCTAssertTrue(app.navigationBars["Context and limits"].exists)
+        capture(app, "context and agent plan")
         XCTAssertTrue(element(app, "plan-limits-preview-studio-claude-code").waitForExistence(timeout: 10))
-        capture(app, "desktop plan limits")
+        XCTAssertFalse(element(app, "plan-limits-preview-studio-codex-cli").exists)
+        XCTAssertFalse(app.navigationBars["Plan limits"].exists)
+        capture(app, "agent-scoped plan limits")
     }
 }

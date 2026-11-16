@@ -505,6 +505,8 @@ struct CompanionAgent: Identifiable, Sendable, Equatable {
 struct CompanionContextUsage: Sendable, Equatable {
     var used: Int
     var size: Int
+    /// The usage event's own time. Older transcripts may omit it; never substitute local receipt or activity time.
+    var reportedAt: Date? = nil
     /// Rounded, capped at 100 (`chatUsage`). Nil without a window size.
     var percent: Int? { size > 0 ? min(100, Int((Double(used) / Double(size) * 100).rounded())) : nil }
 }

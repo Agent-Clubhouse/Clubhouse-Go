@@ -242,7 +242,7 @@ struct CompanionChatProjector {
         case "mode_changed": if let level = data["level"]?.string { self.session.level = level }
         case "usage":
             if let context = data["context"], let used = context["used"]?.integer, let size = context["size"]?.integer, used >= 0, size > 0 {
-                contextUsage = .init(used: Int(used), size: Int(size))
+                contextUsage = .init(used: Int(used), size: Int(size), reportedAt: time)
             }
         case "commands_available":
             slashCommands = CompanionSlashCommand.list(data["commands"])

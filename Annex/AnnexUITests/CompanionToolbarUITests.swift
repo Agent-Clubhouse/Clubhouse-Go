@@ -33,7 +33,7 @@ import XCTest
         XCTAssertTrue(context.isHittable)
         capture(app, "Toolbar Chat \(appearance)")
         context.tap()
-        let closeContext = app.navigationBars.buttons["Done"]
+        let closeContext = app.navigationBars.buttons["companion-context-close"]
         XCTAssertTrue(closeContext.waitForExistence(timeout: 5))
         capture(app, "Toolbar Context sheet \(appearance)")
         closeContext.tap()

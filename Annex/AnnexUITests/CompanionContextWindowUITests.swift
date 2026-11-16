@@ -84,7 +84,8 @@ import XCTest
         let ring = app.buttons["companion-context-usage"]
         XCTAssertTrue(ring.exists && ring.isHittable)
         let picker = app.buttons["agent-settings-context-window"]
-        waitAndTap(ring, until: picker)
+        waitAndTap(ring, until: app.buttons["companion-context-settings-row"])
+        waitAndTap(app.buttons["companion-context-settings-row"], until: picker)
         XCTAssertTrue(picker.isHittable, "The ring opens Agent settings at the context row")
         let report = element(app, "companion-context-report")
         XCTAssertTrue(report.label.contains("Effective context:") && report.label.contains("Auto-compaction at:") && report.label.contains("Reserved:"), report.label)
