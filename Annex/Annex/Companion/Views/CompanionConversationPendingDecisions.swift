@@ -38,7 +38,7 @@ struct CompanionConversationPendingDecisions: View {
                         }
                     }
                 }
-                .simultaneousGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
+                .highPriorityGesture(DragGesture(minimumDistance: 24).onEnded { gesture in
                     guard abs(gesture.translation.width) > max(44, abs(gesture.translation.height)) else { return }
                     select(gesture.translation.width < 0 ? 1 : -1, queue: queue, index: index)
                 })

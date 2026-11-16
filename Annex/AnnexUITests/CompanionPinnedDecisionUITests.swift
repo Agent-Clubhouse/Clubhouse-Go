@@ -225,6 +225,12 @@ import Vision
         awaitApproval(app)
         swipe(app, next: false)
         XCTAssertEqual(summary(app).label, "Run preview build", "The first boundary does not wrap")
+        let titleFrame = summary(app).frame
+        let verticalStart = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: titleFrame.midX, dy: titleFrame.midY))
+        verticalStart.press(forDuration: 0.05, thenDragTo: verticalStart.withOffset(CGVector(dx: 0, dy: -60)),
+                            withVelocity: .slow, thenHoldForDuration: 0.1)
+        XCTAssertEqual(summary(app).label, "Run preview build", "A mostly vertical drag never changes selection")
         swipe(app, next: true)
         XCTAssertEqual(summary(app).label, "Edit preview notes")
         XCTAssertEqual(summary(app).value as? String, "2 of 3 waiting · Bash")
