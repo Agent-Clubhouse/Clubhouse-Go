@@ -903,3 +903,11 @@ assertion. The compact banner adapts the glyph/action row vertically when their 
 width plus padding cannot fit, while retaining the full-width wrapping title. A single
 FIFO ticket checks the original main method (expected width failure), the corrected
 method, both banner appearance matrices and the compiled deinit policy.
+
+Home's desktop chips (#439) use the shared Project-page component and launch-lifetime
+selection. `CompanionHomeScopeTests` verifies linked copies with identical agent names
+never leak across a selected machine, selected offline scopes retain no authority, and
+a vanished host resolves to All. Home's shared row context suppresses implied host tags,
+and its quiet fold receives the authoritative retained run list with Dismiss/Clear.
+Connected-desktop availability remains global while activity/request counts follow the
+selected scope. Scope changes reset held list ordering and emit only the shared chip event.

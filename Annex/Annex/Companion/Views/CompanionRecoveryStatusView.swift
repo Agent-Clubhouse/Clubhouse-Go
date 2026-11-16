@@ -148,6 +148,8 @@ struct CompanionCompactConnectionBanner<Actions: View>: View {
 struct CompanionDesktopConnectionBanner: View {
     @Bindable var store: CompanionStore
     let identifierPrefix: String
+    /// Home can scope or anonymize presentation without changing host IDs or retry authority.
+    var presentationHosts: [CompanionHost]? = nil
     @State private var retryAttempts: [String: UUID] = [:]
 
     #if DEBUG
@@ -162,7 +164,7 @@ struct CompanionDesktopConnectionBanner: View {
     #endif
 
     var body: some View {
-        let notice = CompanionConnectionNotice(hosts: store.hosts)
+        let notice = CompanionConnectionNotice(hosts: presentationHosts ?? store.hosts)
         #if DEBUG
         let _ = hostedTestSeam?(HostedTestSeam(retryHostIDs: notice.retryHostIDs,
                                               retryDisabled: retryDisabled(notice.retryHostIDs),
