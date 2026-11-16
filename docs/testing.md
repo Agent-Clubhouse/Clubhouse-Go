@@ -946,3 +946,12 @@ Home's New agent presentation stores its concrete target and optional launch-hos
 one Identifiable value. SwiftUI receives both through the sheet item, avoiding a stale
 secondary State capture that could reopen All's linked-machine chooser from a selected host.
 The real-sheet regression covers both Home + buttons and All's preserved chooser.
+
+
+#457's retained iPhone 17 Pro artifacts show a 220pt slash menu with five 44pt rows;
+the 43⅔pt measurement was the free transcript gap above it, exactly one native pixel
+below 44pt at 3×. Only that non-target gap admits 1/scale pt of native edge rounding;
+menu and interaction-target minimums/hittability remain strict. HeaderIdentity's
+approval fixture follows #392: Run xcodebuild appears in the approval card/Review,
+with no duplicate activity footer. A separate working fixture retains activity-label
+and footer-position assertions. Neither correction changes production layout.

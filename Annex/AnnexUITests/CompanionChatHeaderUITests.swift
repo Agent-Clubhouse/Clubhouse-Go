@@ -32,15 +32,24 @@ import XCTest
         let details = element(app, "companion-chat-details")
         let activity = app.staticTexts["companion-chat-activity"]
         let context = app.buttons["companion-context-usage"]
-        XCTAssertTrue(activity.waitForExistence(timeout: 5))
-        XCTAssertEqual(activity.label, "River, Run xcodebuild")
+        // #392 puts pending approvals in one actionable tray and suppresses the duplicate
+        // activity footer. This fixture is waiting on Run xcodebuild, not working.
+        let approval = app.staticTexts.matching(identifier: "companion-approval-title")
+            .matching(NSPredicate(format: "label == %@", "Run xcodebuild")).firstMatch
+        let review = app.buttons["companion-review-approval"]
+        XCTAssertTrue(approval.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
+        XCTAssertTrue(review.isHittable)
+        XCTAssertTrue(review.label.contains("Run xcodebuild"), review.label)
+        XCTAssertFalse(activity.exists, "Pending approval content is not duplicated in an activity footer")
+        assertMinimumTarget(review, "approval Review")
         XCTAssertTrue(identity.label.contains("Access: "), identity.label)
         XCTAssertFalse(details.exists, "Status and permission details start collapsed")
         assertMinimumTarget(identity, "identity")
         XCTAssertTrue(context.isHittable)
         assertMinimumTarget(context, "context usage")
-        XCTAssertGreaterThan(activity.frame.minY, identity.frame.maxY, "Activity belongs in the footer")
-        XCTAssertLessThanOrEqual(activity.frame.maxY, element(app, "companion-composer").frame.minY)
+        XCTAssertGreaterThan(review.frame.minY, identity.frame.maxY, "Approval review belongs above the composer")
+        XCTAssertLessThanOrEqual(review.frame.maxY, element(app, "companion-composer").frame.minY)
         waitAndTap(identity, until: details)
         XCTAssertTrue(details.isHittable)
         waitAndTap(identity, untilGone: details)
@@ -58,6 +67,19 @@ import XCTest
         waitAndTap(limits, until: app.navigationBars["Plan limits"])
         XCTAssertTrue(element(app, "plan-limits-unavailable-preview-studio").exists,
                       "Unsupported plan limits remain explicitly unavailable, independent of context settings")
+    }
+
+    func testWorkingActivityStillShowsItsLabelInTheFooter() {
+        let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"], attempts: 1)
+        let identity = app.buttons["companion-chat-header"]
+        let activity = app.staticTexts["companion-chat-activity"]
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(activity.waitForExistence(timeout: 10))
+        XCTAssertTrue(NSPredicate(format: "SELF MATCHES %@", #"Header worker, \d+:\d{2}"#).evaluate(with: activity.label), activity.label)
+        XCTAssertTrue(identity.label.contains("Working"), identity.label)
+        XCTAssertGreaterThan(activity.frame.minY, identity.frame.maxY, "Working activity belongs in the footer")
+        XCTAssertLessThanOrEqual(activity.frame.maxY, composer.frame.minY)
+        XCTAssertFalse(app.buttons["companion-review-approval"].exists)
     }
 
     func testAccessibilityKeyboardKeepsIdentityAndUsageActionReachable() {
