@@ -33,9 +33,9 @@ struct CompanionConversationIdentityButton: View {
     var body: some View {
         let compact = verticalSizeClass == .compact
         Button { isExpanded.toggle() } label: {
-            let layout = compact ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(spacing: -4))
+            let layout = compact ? AnyLayout(HStackLayout(spacing: 4)) : AnyLayout(VStackLayout(alignment: .center, spacing: -2))
             layout {
-                CompanionAgentAvatar(agent: agent, size: compact ? 30 : 50)
+                CompanionAgentAvatar(agent: agent, size: compact ? 30 : 44)
                     // Lifted off whatever scrolls behind it.
                     .shadow(color: .black.opacity(0.18), radius: 4, y: 1)
                 namePill
@@ -57,10 +57,10 @@ struct CompanionConversationIdentityButton: View {
     }
 }
 
-/// Toolbar hosts have separate SwiftUI coordinate roots. Measure in the actual bar to balance its leading reservation,
-/// rather than offsetting the identity outside the native title's hit area.
+/// Toolbar hosts have separate SwiftUI coordinate roots. Measure the side reservations in the actual bar;
+/// the caller balances their fixed origins without moving the identity outside the native title's hit area.
 struct CompanionToolbarIdentityCenter: UIViewRepresentable {
-    let correct: (CGFloat) -> Void
+    let correct: (CGRect, CGFloat) -> Void
 
     func makeUIView(context: Context) -> Anchor {
         let view = Anchor()
@@ -79,7 +79,7 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
     }
 
     final class Anchor: UIView {
-        var correct: ((CGFloat) -> Void)?
+        var correct: ((CGRect, CGFloat) -> Void)?
         private var sampleQueued = false
 
         override func didMoveToWindow() {
@@ -103,8 +103,10 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
                 var ancestor = superview
                 while let view = ancestor {
                     if let bar = view as? UINavigationBar {
-                        let delta = bar.bounds.midX - convert(bounds, to: bar).midX
-                        if abs(delta) > 0.25 { correct?(delta) }
+                        let frame = convert(bounds, to: bar)
+                        guard bar.bounds.width > 0, frame.minX >= -0.5,
+                              frame.maxX <= bar.bounds.width + 0.5 else { return }
+                        correct?(frame, bar.bounds.width)
                         return
                     }
                     ancestor = view.superview
