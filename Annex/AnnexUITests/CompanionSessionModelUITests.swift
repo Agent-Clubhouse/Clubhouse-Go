@@ -101,8 +101,24 @@ import XCTest
             let picker = app.buttons["agent-settings-model"]
             waitAndTap(ring, until: element(app, "companion-context-reading-note"))
             waitAndTap(app.buttons["companion-context-settings-row"], until: element(app, "agent-settings-context-usage"), attempts: 1)
-            // Context settings opens at the context section; Model is earlier in the same form.
-            XCTAssertTrue(scrollTo(picker, in: app, up: false))
+            // Scroll the editor's Form, not the app: a downward app gesture dismisses this sheet.
+            let form = app.collectionViews.firstMatch
+            XCTAssertTrue(form.descendants(matching: .any).matching(identifier: "agent-settings-context-usage").firstMatch.exists,
+                          "Reported context must belong to the presented editor Form")
+            let editor = app.navigationBars["River"]
+            func viewport() -> CGRect {
+                let bounds = form.frame.intersection(app.frame)
+                let top = max(bounds.minY, editor.frame.maxY)
+                return CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bounds.maxY - top))
+            }
+            for _ in 0..<6 {
+                if picker.exists && picker.isHittable && pixelContains(viewport(), picker.frame) { break }
+                form.swipeDown(velocity: .slow)
+            }
+            XCTAssertTrue(editor.exists && editor.buttons["companion-context-close"].isHittable,
+                          "The editor must remain presented after scrolling to Model")
+            XCTAssertTrue(picker.exists && picker.isHittable, "Model is reachable in the editor Form")
+            XCTAssertTrue(pixelContains(viewport(), picker.frame), "Model is entirely inside the editor Form viewport")
             if differs {
                 XCTAssertTrue(picker.label.contains("Saved") && picker.label.contains(savedLabel) && picker.label.contains("(next start)"), picker.label)
                 XCTAssertTrue(element(app, "agent-settings-model-session").exists)
