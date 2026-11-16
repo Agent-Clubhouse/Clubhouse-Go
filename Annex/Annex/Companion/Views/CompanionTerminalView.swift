@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import ClubhouseTransport
 
 /// Opens terminals from anywhere: a project's header menu and page, an agent's long-press and chat menus.
 struct CompanionTerminalAction {
