@@ -25,6 +25,31 @@ import UIKit
         return CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
     }
 
+    /// Real transcript gestures replace setup through the arrows removed by #447.
+    private func dragTranscript(_ app: XCUIApplication, by distance: CGFloat) {
+        let viewport = transcriptViewport(app)
+        let from = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: viewport.minX + 8, dy: viewport.midY - distance / 2))
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: distance)),
+                   withVelocity: .slow, thenHoldForDuration: 0.2)
+    }
+
+    private func revealInTranscript(_ target: XCUIElement, in app: XCUIApplication, towardEarlier: Bool) {
+        for _ in 0..<40 {
+            checkTimeLeft("revealing the reading entry")
+            let viewport = transcriptViewport(app)
+            if target.exists && target.isHittable && target.frame.minY >= viewport.minY && target.frame.minY < viewport.maxY - 40 { return }
+            dragTranscript(app, by: viewport.height * (towardEarlier ? 0.65 : -0.65))
+        }
+        XCTFail("The reading entry must be reachable through transcript gestures")
+    }
+
+    private func assertFollowing(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) {
+        XCTAssertTrue((app.scrollViews["companion-transcript"].value as? String)?.hasPrefix("Following: 1; pauses: ") == true,
+                      "The true bottom must keep following", file: file, line: line)
+        XCTAssertFalse(app.pausedChatNavigation.exists, file: file, line: line)
+    }
+
     private func assertNewestLineVisible(_ app: XCUIApplication, state: String) {
         let end = app.staticTexts["End of the long reply."]
         let viewport = transcriptViewport(app)
@@ -67,14 +92,14 @@ import UIKit
         start.press(forDuration: 0.1, thenDragTo: start.withOffset(CGVector(dx: 0, dy: viewport.height / 2)),
                     withVelocity: .slow, thenHoldForDuration: 0.2)
         XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5))
-        // An explicit message jump aligns the entry selected by that reader, avoiding an
-        // assertion about text reflow inside the preceding paragraph.
-        app.buttons["companion-previous-message"].tap()
         let markers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'Reading marker '")).allElementsBoundByIndex
         guard let candidate = markers.first(where: { pixelContains(transcriptViewport(app), $0.frame) }) else {
             XCTFail("The scrolled-up reader needs a visible marker"); return
         }
         let anchor = app.staticTexts[candidate.label]
+        // Align the selected entry with a real drag so reflow in a preceding paragraph
+        // cannot change the bookmark's within-entry offset across rotation.
+        dragTranscript(app, by: transcriptViewport(app).minY - anchor.frame.minY)
         let distance = anchor.frame.minY - transcriptViewport(app).minY
         XCUIDevice.shared.orientation = .landscapeLeft
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
@@ -197,24 +222,24 @@ import UIKit
         screenshot(app, "Streaming continues following with no scroll")
     }
 
-    func testProgrammaticPreviousMessageJumpStaysWhileStreaming() {
+    func testUserPositionedReplyStaysWhileStreaming() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply", "--companion-preview-follow-trace"])
         openRiver(app)
         let replies = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Streaming preview reply."))
         XCTAssertTrue(replies.firstMatch.waitForExistence(timeout: 5))
         XCTAssertFalse(app.pausedChatNavigation.exists)
         let before = replies.allElementsBoundByIndex.map(\.label)
-        app.buttons["companion-previous-message"].tap()
-        XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5))
         let first = replies.firstMatch
-        XCTAssertTrue(first.isHittable, "The explicit message jump puts its first text slice on screen")
+        revealInTranscript(first, in: app, towardEarlier: true)
+        XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5))
+        XCTAssertTrue(first.isHittable, "The reader puts the reply's first text slice on screen")
         let y = first.frame.minY
         XCTAssertTrue(waitFor(first, NSPredicate { _, _ in replies.allElementsBoundByIndex.map(\.label) != before }, timeout: 5))
         RunLoop.current.run(until: Date().addingTimeInterval(2))
         XCTAssertTrue(first.isHittable)
-        XCTAssertEqual(first.frame.minY, y, accuracy: 1, "Later chunks cannot undo a programmatic message jump")
+        XCTAssertEqual(first.frame.minY, y, accuracy: 1, "Later chunks cannot undo the reader's position")
         XCTAssertTrue(app.pausedChatNavigation.exists)
-        screenshot(app, "Programmatic message jump stays under streaming")
+        screenshot(app, "User-positioned reply stays under streaming")
     }
 
     func testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry() {
@@ -338,31 +363,33 @@ import UIKit
         XCTAssertTrue(lifecycle.exists)
         XCTAssertLessThan(status.frame.height, 80, "Status text uses a compact caption, without a message bubble")
         XCTAssertLessThan(lifecycle.frame.height, 30)
-        XCTAssertTrue(app.buttons["companion-previous-message"].exists)
+        XCTAssertFalse(app.buttons["companion-previous-message"].exists)
+        XCTAssertFalse(app.buttons["companion-next-message"].exists)
+        XCTAssertFalse(app.pausedChatNavigation.exists, "The replacement is hidden at the actual bottom")
         screenshot(app, "Inline helper reply with compact Clubhouse statuses")
     }
 
-    func testDownAtActualBottomDoesNotPauseFollowing() {
-        let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"], attempts: 1)
-        let down = app.buttons["companion-next-message"]
+    func testLatestIsAbsentAtActualBottomWithoutPausingFollowing() {
+        let app = launchApp(["--companion-preview", "--companion-preview-header-fixture", "--companion-preview-follow-trace"], attempts: 1)
+        let down = app.pausedChatNavigation
         let final = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Reading marker 18.")).firstMatch
         XCTAssertTrue(waitFor(final, NSPredicate { _, _ in
             final.exists && self.pixelContains(self.transcriptViewport(app), final.frame)
         }, timeout: 10))
-        XCTAssertEqual(down.value as? String, "Following latest")
-        XCTAssertEqual(down.label, "Latest")
+        XCTAssertFalse(down.exists, "#447 shows Latest only away from the bottom")
+        assertFollowing(app)
         let y = final.frame.minY
-        screenshot(app, "At actual bottom before down")
-        down.tap()
-        XCTAssertTrue(waitFor(down, NSPredicate(format: "value == %@", "Following latest"), timeout: 5))
+        screenshot(app, "At actual bottom without a floating control")
+        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        assertFollowing(app)
         XCTAssertEqual(final.frame.minY, y, accuracy: 1)
-        screenshot(app, "At actual bottom after down")
+        screenshot(app, "At actual bottom remains stationary and following")
     }
 
     func testLatestArrivesGeometricallyWithoutAnIncomingUpdate() {
         let app = launchApp(["--companion-preview", "--companion-preview-header-fixture",
-                             "--companion-header-held-tail"], attempts: 1)
-        let down = app.buttons["companion-next-message"]
+                             "--companion-header-held-tail", "--companion-preview-follow-trace"], attempts: 1)
+        let down = app.pausedChatNavigation
         let final = app.staticTexts["Held final row."]
         XCTAssertTrue(final.waitForExistence(timeout: 10))
         let point = app.coordinate(withNormalizedOffset: .zero)
@@ -377,7 +404,7 @@ import UIKit
         XCTAssertTrue(waitFor(final, NSPredicate { _, _ in
             final.exists && self.pixelContains(self.transcriptViewport(app), final.frame)
         }, timeout: 5), "The tap must bring the entire final row into view before any incoming update")
-        XCTAssertEqual(down.value as? String, "Following latest")
+        assertFollowing(app)
         screenshot(app, "Latest immediate stationary arrival")
         waitAndTap(app.buttons["header-fixture-menu"], until: app.buttons["header-fixture-append"], attempts: 1)
         app.buttons["header-fixture-append"].tap()
@@ -385,7 +412,7 @@ import UIKit
         XCTAssertTrue(waitFor(incoming, NSPredicate { _, _ in
             incoming.exists && self.pixelContains(self.transcriptViewport(app), incoming.frame)
         }, timeout: 5))
-        XCTAssertEqual(down.value as? String, "Following latest")
+        assertFollowing(app)
         screenshot(app, "Latest follows explicitly released update")
     }
 
@@ -393,10 +420,11 @@ import UIKit
         let app = launchApp(["--companion-preview", "--companion-preview-long-reply",
                              "--companion-preview-follow-trace"], attempts: 1)
         openRiver(app)
-        let down = app.buttons["companion-next-message"]
-        app.buttons["companion-previous-message"].tap()
+        let down = app.pausedChatNavigation
+        tapChatStatusBar(in: app)
         XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5))
         let start = app.staticTexts["Start of the long reply."]
+        revealInTranscript(start, in: app, towardEarlier: false)
         XCTAssertTrue(start.wait(for: \.isHittable, toEqual: true, timeout: 5))
         let final = app.staticTexts["Edit Docs/Companion.md"]
         XCTAssertFalse(pixelContains(transcriptViewport(app), final.frame))
@@ -410,7 +438,7 @@ import UIKit
         screenshot(app, "Last reply Latest action arrives")
     }
 
-    func testLatestIsOneNonoverlappingDownActionAndReachesStreamingTail() {
+    func testLatestIsOneCenteredActionAndReachesStreamingTail() {
         let app = launchApp(["--companion-preview", "--companion-preview-reading", "--companion-preview-stream", "--companion-preview-long-reply",
                              "--companion-preview-follow-trace"], attempts: 1)
         openRiver(app)
@@ -418,27 +446,21 @@ import UIKit
         let live = replies.firstMatch
         XCTAssertTrue(live.waitForExistence(timeout: 5))
         let latest = app.pausedChatNavigation
-        let down = app.buttons["companion-next-message"]
-        let previous = app.buttons["companion-previous-message"]
-        app.buttons["companion-previous-message"].tap()
+        let down = app.pausedChatNavigation
+        dragTranscript(app, by: transcriptViewport(app).height * 0.65)
         XCTAssertTrue(latest.waitForExistence(timeout: 5))
-        previous.tap()
-        XCTAssertEqual(down.label, "Next message")
-        screenshot(app, "Streaming reader latest controls")
-        XCTAssertEqual(app.buttons.matching(identifier: "companion-next-message").count, 1)
-        XCTAssertFalse(app.buttons["Latest"].exists, "There is no separate Latest pill beside Next message")
-        XCTAssertFalse(previous.frame.intersects(latest.frame), "Latest and previous message have separate hit targets")
+        XCTAssertEqual(down.label, "Latest")
+        screenshot(app, "Streaming reader has one centered Latest pill")
+        XCTAssertEqual(app.buttons.matching(identifier: "companion-latest").count, 1)
+        XCTAssertFalse(app.buttons["companion-previous-message"].exists)
+        XCTAssertFalse(app.buttons["companion-next-message"].exists)
+        assertMinimumTarget(latest, "Latest")
+        XCTAssertEqual(latest.frame.midX, app.frame.midX, accuracy: 1)
         let viewport = CGRect(x: app.frame.minX, y: app.navigationBars.firstMatch.frame.maxY, width: app.frame.width,
                               height: element(app, "companion-composer-region").frame.minY - app.navigationBars.firstMatch.frame.maxY)
         XCTAssertTrue(pixelContains(viewport, latest.frame))
-        down.tap()
-        XCTAssertTrue(latest.exists, "Next message navigates without reclaiming the reader's viewport")
-        for _ in 0..<4 {
-            if down.label == "Latest" { break }
-            down.tap()
-        }
-        XCTAssertTrue(waitFor(down, NSPredicate(format: "label == %@", "Latest"), timeout: 5), "In the last reply, down becomes jump-to-end")
-        screenshot(app, "Last reply offers one Latest down control")
+        XCTAssertFalse(latest.frame.intersects(element(app, "companion-composer-region").frame), "The pill cannot cover composer targets")
+        // Exactly one tap crosses all remaining replies, including unrealised rows.
         down.tap()
         XCTAssertTrue(latest.waitForNonExistence(timeout: 5), "Latest reaches the true bottom and resumes following")
         let before = replies.allElementsBoundByIndex.map(\.label)
