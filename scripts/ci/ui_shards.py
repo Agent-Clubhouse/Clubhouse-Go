@@ -15,87 +15,104 @@ import sys
 UI_TARGET = "ClubhouseGoUITests"
 UNIT_TARGET = "ClubhouseGoTests"
 
-# Attempt-time estimates use runs 41713658226/41713894400 and the preceding 7a3356b run.
-# Setup, installation, retries and artifact collection also consume the 55-minute job budget.
+# Estimates use first-attempt method medians from the 2026-11-16 CI audit.
+# Unsampled methods reserve 60s per appearance/checked viewport; add 5m setup and
+# 5m for hosted tests in the unit shard. These are estimates, not timeout gates.
+# See docs/ci-shard-balance.md for the unchanged inventory and measurement limits.
 SHARDS = [
     {
-        # Mixed-run worst observed attempts: ~31 minutes, including content-preview retries.
-        "name": "UI tests (preview)",
+        # Estimated elapsed: 41.0 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (preview, project pages)",
         "tests": [
-            "CompanionChatHeaderVisualUITests",
-            "CompanionPreviewSmokeTests/testAgentDetailsSheetMatchesTheDesktopHoverCard",
-            "CompanionPreviewSmokeTests/testAgentDetailsSheetLinksToAgentSettings",
-            "CompanionPreviewSmokeTests/testAgentDetailsSheetForAnAgentWithoutSession",
-            "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",
-            "CompanionPreviewSmokeTests/testProjectPageFinishedFoldAndWake",
-            "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",
-            "FeedbackTriggersUITests",
-            "CompanionPreviewSmokeTests/testContentPreviewDismissesWhileToolUpdatesStream",
+            "CompanionPreviewSmokeTests",
+            "CompanionSpawnVisualUITests",
+            "CompanionComposerPasteUITests",
+            "CompanionAppLifetimeUITests",
+            "FramebriarShakeDiagnosticsUITests",
         ],
     },
     {
-        # ~22 minutes of timed attempts, plus the short hosted Swift Testing cases.
-        "name": "UI tests (sheets, review, terminal) + unit tests",
-        # The ClubhouseGoTests bundle takes seconds; it shares this shard's invocation (and launch cost).
+        # Estimated elapsed: 40.7 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (feedback, needs you)",
+        "tests": [
+            "FeedbackDiagnosticsWireUITests",
+            "CompanionNeedsYouActionCardUITests",
+            "CompanionPinnedDecisionUITests",
+            "CompanionProjectPageUITests",
+            "CompanionContextWindowUITests",
+            "CompanionNeedsYouUITests",
+        ],
+    },
+    {
+        # Estimated elapsed: 40.6 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (dispatcher, terminal)",
+        "tests": [
+            "CompanionDispatcherUITests",
+            "CompanionSessionModelUITests",
+            "CompanionTerminalUITests",
+            "CompanionGrantRequestUITests",
+            "FramebriarShakeUITests",
+            "DiagnosticSettingsTests",
+            "CompanionQueuedBurstUITests",
+            "CompanionAdditionalProviderTests",
+            "CompanionPhoneWorkflowTests",
+        ],
+    },
+    {
+        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (unicode, home)",
+        "tests": [
+            "CompanionUnicodeFocusUITests",
+            "CompanionHomeSubtitleUITests",
+            "CompanionAppUpdateUITests",
+            "CompanionHelperPresetsUITests",
+            "CompanionLinkedProjectUITests",
+            "CompanionMarkdownFileUITests",
+        ],
+    },
+    {
+        # Estimated elapsed: 40.9 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (search, permissions)",
+        "tests": [
+            "CompanionOfflineBannerUITests",
+            "CompanionSearchUITests",
+            "CompanionPermissionMenuUITests",
+            "FeedbackTriggersUITests",
+            "CompanionMarkdownBlockUITests",
+            "CompanionLongReplyUITests",
+            "CompanionImageAttachmentUITests",
+        ],
+    },
+    {
+        # Estimated elapsed: 41.1 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (composer, sheets)",
+        "tests": [
+            "CompanionCompactComposerUITests",
+            "CompanionManagedSpawnUITests",
+            "CompanionRecoveryIntegrationUITests",
+            "CompanionAgentSettingsVisualUITests",
+            "CompanionWakeFocusUITests",
+            "CompanionHardwareKeyboardUITests",
+            "CompanionReviewUITests",
+        ],
+    },
+    {
+        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (reading, grants) + unit tests",
         "unit": True,
         "tests": [
-            "CompanionAgentSheetsTests",
-            "CompanionTerminalUITests",
-            "CompanionReviewUITests",
-            "CompanionImageAttachmentUITests",
-            "DiagnosticSettingsTests",
-        ],
-    },
-    {
-        # Runs 41713658226/41713894400: these classes consumed 21–30 minutes,
-        # including retries. Separate them from reading/input's projected 28–31.
-        "name": "UI tests (dispatcher, auto quota)",
-        "tests": [
-            "CompanionRecoveryIntegrationUITests",
-            "CompanionDispatcherUITests",
-            "CompanionAutoQuotaUITests",
-        ],
-    },
-    {
-        # ~28 minutes in main; ~36 using each method's slowest observed attempt total.
-        "name": "UI tests (reading, input)",
-        "tests": [
-            "CompanionReadingRestoreUITests",
             "CompanionReadingUITests",
-            "CompanionMarkdownBlockUITests",
-            "CompanionSlashCommandUITests",
-            "CompanionHelperPresetsUITests",
-            "CompanionContextWindowUITests",
-            "CompanionLongReplyUITests",
-            "CompanionComposerPasteUITests",
-            "CompanionQueuedBurstUITests",
+            "CompanionAutoQuotaUITests",
+            "QA368GrantLayoutUITests",
+            "CompanionAgentTreeUITests",
+            "CompanionChatHeaderUITests",
             "CompanionQuestionUITests",
         ],
     },
     {
-        # About 23 minutes in each recent run, ~32 in a mixed worst-case estimate.
-        # The CLI settings retry moves here; content-preview retries share the preview lane.
-        "name": "UI tests (agents, keyboard)",
-        "tests": [
-            "CompanionCompactComposerUITests",
-            "CompanionAgentTreeUITests",
-            "CompanionKeyboardDismissalUITests",
-            "CompanionPreviewSmokeTests/testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection",
-        ],
-    },
-    {
-        # Feedback and shake took ~15 minutes of the catchall; with the header/composer classes it hit the job limit.
-        "name": "UI tests (feedback, shake)",
-        "tests": [
-            "FeedbackDiagnosticsWireUITests",
-            "FramebriarShakeDiagnosticsUITests",
-            "FramebriarShakeUITests",
-        ],
-    },
-    {
-        # Remaining preview/diagnostics and new UI classes. Header/composer and restore/recovery run above.
-        # Live-test guards and all existing skip behavior remain as before.
+        # Estimated elapsed: 40.6 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (other)",
+        # Catch all remaining classes, including future additions and live-test guards.
         "tests": None,
     },
 ]

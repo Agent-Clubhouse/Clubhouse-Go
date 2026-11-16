@@ -1,0 +1,79 @@
+"""The emitted Xcode selectors must partition the complete UI class inventory."""
+import collections
+import importlib.util
+from pathlib import Path
+import re
+import unittest
+
+ROOT = Path(__file__).resolve().parents[3]
+spec = importlib.util.spec_from_file_location("ui_shards", ROOT / "scripts/ci/ui_shards.py")
+shards = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(shards)
+
+
+def ui_classes():
+    classes = set()
+    for source in (ROOT / "Annex/AnnexUITests").glob("*.swift"):
+        text = source.read_text()
+        # XCTest discovers zero-argument test methods; exclude the common helper base.
+        if re.search(r"\bfunc\s+test\w+\s*\(\s*\)", text):
+            classes.update(re.findall(r"\bclass\s+(\w+)\s*:\s*(?:ReliableUITestCase|XCTestCase)\b", text))
+    return classes
+
+
+def selected_classes(entry, inventory):
+    only, skipped = set(), set()
+    for flag in entry["selection"].split():
+        mode, selector = flag.split(":", 1)
+        target, _, cls = selector.partition("/")
+        if target != shards.UI_TARGET:
+            continue
+        if "/" in cls:
+            raise AssertionError("Keep each UI class together: " + selector)
+        chosen = set(inventory) if not cls else {cls}
+        if mode == "-only-testing":
+            only.update(chosen)
+        elif mode == "-skip-testing":
+            skipped.update(chosen)
+    return only - skipped
+
+
+class UIClassCoverageTests(unittest.TestCase):
+    def assert_partition(self, inventory, entries=None):
+        counts = collections.Counter()
+        for entry in entries if entries is not None else shards.matrix()["include"]:
+            selected = selected_classes(entry, inventory)
+            self.assertLessEqual(selected, inventory, entry["name"])
+            counts.update(selected)
+        self.assertEqual(set(counts), inventory, "No source UI class may be dropped")
+        self.assertEqual(dict(counts), dict.fromkeys(inventory, 1), "No UI class may run in two shards")
+
+    def test_union_is_the_full_source_class_set_without_duplicates(self):
+        inventory = ui_classes()
+        self.assertTrue(inventory, "An empty discovery must never satisfy the coverage check")
+        self.assert_partition(inventory)
+
+    def test_future_classes_are_covered_once_by_the_catchall(self):
+        self.assert_partition(ui_classes() | {"FutureUIRegressionTests"})
+
+    def test_unknown_class_selector_fails(self):
+        inventory = {"CurrentTests"}
+        with self.assertRaises(AssertionError):
+            self.assert_partition(inventory, [{"name": "stale", "selection": "-only-testing:ClubhouseGoUITests/RenamedTests"}])
+
+    def test_method_selectors_cannot_silently_split_or_rename_a_class(self):
+        # Whole classes include every current and future test method. A stale method
+        # name must never slip through discovery as it did before #488.
+        with self.assertRaises(AssertionError):
+            selected_classes({"selection": "-only-testing:ClubhouseGoUITests/CurrentTests/testOldName"}, {"CurrentTests"})
+
+    def test_missing_and_duplicated_classes_fail(self):
+        current = {"name": "current", "selection": "-only-testing:ClubhouseGoUITests/CurrentTests"}
+        with self.assertRaises(AssertionError):
+            self.assert_partition({"CurrentTests", "MissingTests"}, [current])
+        with self.assertRaises(AssertionError):
+            self.assert_partition({"CurrentTests"}, [current, current])
+
+
+if __name__ == "__main__":
+    unittest.main()

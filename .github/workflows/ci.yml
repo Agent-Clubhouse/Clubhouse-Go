@@ -198,7 +198,7 @@ jobs:
     name: ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
-    # Seven lanes separate feedback/shake from the catchall within the existing job budget.
+    # Eight lanes balance whole UI classes within the existing job budget.
     # Keep per-test hang deadlines and retry reporting unchanged; see ui_shards.py.
     timeout-minutes: 55
     strategy:
@@ -261,7 +261,7 @@ jobs:
       # Opt-in preview diagnostics contain closed reasons and numeric geometry only.
       # Preserve them even when a UI assertion fails; the app runs in a separate process.
       - name: Collect preview follow diagnostics
-        if: ${{ always() && env.SIMULATOR_UDID != '' }}
+        if: ${{ failure() && env.SIMULATOR_UDID != '' }}
         continue-on-error: true
         run: |
           mkdir -p TestResults
