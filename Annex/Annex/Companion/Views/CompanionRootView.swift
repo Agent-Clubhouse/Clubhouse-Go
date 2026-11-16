@@ -310,6 +310,8 @@ struct CompanionHomeView: View {
     var onInteraction: () -> Void = {}
     @State private var arranging = false
     @State private var desktopSelection: CompanionDesktopSelection = .all
+    @State private var expandedOfflineHosts: Set<String> = []
+    @State private var observedConnectedAt: [String: Date] = [:]
     @State private var finishedActionError: String?
     /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
     @State private var hold: CompanionListHold?
@@ -379,6 +381,11 @@ struct CompanionHomeView: View {
         .companionTelemetryScreen(.home)
         .companionAgentRows(store: store, impliedHostID: scope.impliedHostID)
         .onChange(of: desktopSelection) { _, _ in hold = nil }
+        .onAppear { observeConnectedHosts(store.hosts) }
+        .onChange(of: store.hosts) { _, hosts in
+            observeConnectedHosts(hosts)
+            expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
+        }
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { onInteraction() }
             if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
@@ -553,15 +560,18 @@ struct CompanionHomeView: View {
         return Section {
             if entry.isLinked {
                 ForEach(entry.members) { member in
-                    Text(isListed(member.host) ? machineLabel(entry, member) : "\(machineLabel(entry, member)) · \(member.host.connection.label)")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color(palette.secondaryLabel))
-                        .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
-                        .listRowBackground(Color.clear)
-                    if isListed(member.host) {
+                    if member.host.connection.canOperate {
+                        Text(machineLabel(entry, member))
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color(palette.secondaryLabel))
+                            .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
+                            .listRowBackground(CompanionCardBackground())
                         projectRows(tree: CompanionAgentTree.build(member.project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: preferences.projectSort,
                                                                    held: hold?.agents[entry.id], lastActivity: store.lastActivity(of:)),
                                     projectID: "\(member.host.id)-\(member.project.id)", target: member.id, parentLines: parentLines)
+                            .companionAgentRows(store: store, impliedHostID: member.host.id)
+                    } else {
+                        offlineMember(entry, member)
                     }
                 }
             } else if entry.host.connection.canOperate {
@@ -576,7 +586,16 @@ struct CompanionHomeView: View {
         } header: {
             HStack(spacing: 6) {
                 CompanionProjectBadge(project: entry.project)
+                    .overlay(alignment: .bottomTrailing) {
+                        if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                            Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
+                                .accessibilityHidden(true)
+                        }
+                    }
                 projectLink(entry)
+                if entry.isLinked {
+                    CompanionHostTag(name: "\(Set(entry.members.map(\.host.id)).count) desktops")
+                }
                 if group.isPinned {
                     Image(systemName: "pin.fill").font(.caption2).foregroundStyle(Color(palette.secondaryLabel))
                         .accessibilityLabel("Pinned")
@@ -595,6 +614,58 @@ struct CompanionHomeView: View {
             .opacity(group.isIdle ? 0.7 : 1)
             .accessibilityElement(children: .contain)
             .accessibilityIdentifier("project-\(projectID)")
+        }
+    }
+
+    private func observeConnectedHosts(_ hosts: [CompanionHost]) {
+        let present = Set(hosts.map(\.id))
+        observedConnectedAt = observedConnectedAt.filter { present.contains($0.key) }
+        for host in hosts where host.connection.canOperate { observedConnectedAt[host.id] = Date() }
+    }
+
+    private func lastSeen(_ host: CompanionHost) -> Date? {
+        // Presence is read-only context. Never infer desktop reachability from an agent's activity.
+        let reported = store.hosts.flatMap { $0.dispatcherPresence?.remotes ?? [] }
+            .filter { $0.machineId.caseInsensitiveCompare(host.id) == .orderedSame }
+            .compactMap { remote in remote.lastSeen.flatMap {
+                (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse($0))
+                    ?? (try? Date.ISO8601FormatStyle().parse($0))
+            } }
+        return (reported + [observedConnectedAt[host.id]].compactMap { $0 })
+            .filter { $0.timeIntervalSinceReferenceDate.isFinite }.max()
+    }
+
+    @ViewBuilder private func offlineMember(_ entry: CompanionProjectEntry, _ member: CompanionProjectMember) -> some View {
+        let expanded = expandedOfflineHosts.contains(member.host.id)
+        let cached = member.project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }
+        let count: Int? = member.host.hasLoadedCatalog || !member.project.agents.isEmpty ? cached.count : nil
+        let label = CompanionHomeOfflineMachineSummary(name: machineLabel(entry, member), lastSeen: lastSeen(member.host), agentCount: count).text
+        Button {
+            withAnimation(reduceMotion ? nil : .snappy) {
+                if expanded { expandedOfflineHosts.remove(member.host.id) }
+                else { expandedOfflineHosts.insert(member.host.id) }
+            }
+        } label: {
+            CompanionFoldLabel(text: label, isOpen: expanded)
+                .fixedSize(horizontal: false, vertical: true)
+                .frame(minHeight: 44)
+        }
+        .buttonStyle(.borderless)
+        .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
+        .listRowBackground(CompanionCardBackground())
+        if expanded {
+            ForEach(cached) { agent in
+                CompanionAgentListRow(agent: agent)
+                    .companionAgentRows(store: store, impliedHostID: member.host.id)
+                    .environment(\.companionAgentSettings, nil)
+                    .environment(\.companionAgentWake, nil)
+                    .environment(\.companionTerminal, nil)
+                    .disabled(true).allowsHitTesting(false)
+                    .opacity(0.5)
+                    .accessibilityLabel("\(agent.name), cached on \(machineLabel(entry, member)), desktop not connected")
+                    .accessibilityIdentifier("cached-agent-\(agent.id.hostID)-\(agent.id.agentID)")
+                    .listRowBackground(CompanionCardBackground())
+            }
         }
     }
 

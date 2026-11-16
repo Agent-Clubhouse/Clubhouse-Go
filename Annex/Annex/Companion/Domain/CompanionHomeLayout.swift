@@ -116,6 +116,21 @@ struct CompanionProjectState: Sendable, Equatable {
     }
 }
 
+/// One session-only offline disclosure label. Missing catalog counts remain unknown.
+struct CompanionHomeOfflineMachineSummary: Equatable, Sendable {
+    let name: String
+    let lastSeen: Date?
+    let agentCount: Int?
+
+    var text: String { text(now: Date()) }
+    func text(now: Date) -> String {
+        let seen = lastSeen.flatMap { $0.timeIntervalSinceReferenceDate.isFinite ? $0 : nil }
+        let state = seen.map { "offline, seen \(CompanionFinishedRun.ago($0, now: now))" } ?? "not connected"
+        let count = agentCount.map { " · \($0) agent\($0 == 1 ? "" : "s")" } ?? ""
+        return "\(name) \(state)\(count)"
+    }
+}
+
 /// One Home group's live activity and stable recorded recency, aggregated across linked copies.
 /// Unavailable (including synchronizing) hosts contain cached state, never live work. A
 /// connected report remains authoritative until its connection changes; no age timer expires

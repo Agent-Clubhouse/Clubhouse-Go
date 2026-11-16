@@ -3,6 +3,18 @@ import Testing
 @testable import CompanionDomain
 
 struct CompanionHomeProjectActivityTests {
+    @Test func offlineDisclosureUsesKnownSeenTimeAndCountWithoutInventingMissingData() {
+        let now = Date(timeIntervalSince1970: 1_800_000_000)
+        #expect(CompanionHomeOfflineMachineSummary(name: "Office Mac", lastSeen: now.addingTimeInterval(-720), agentCount: 2).text(now: now)
+                == "Office Mac offline, seen 12m ago · 2 agents")
+        #expect(CompanionHomeOfflineMachineSummary(name: "Office Mac", lastSeen: nil, agentCount: 1).text(now: now)
+                == "Office Mac not connected · 1 agent")
+        #expect(CompanionHomeOfflineMachineSummary(name: "Office Mac", lastSeen: nil, agentCount: nil).text(now: now)
+                == "Office Mac not connected")
+        #expect(CompanionHomeOfflineMachineSummary(name: "Office Mac", lastSeen: Date(timeIntervalSince1970: .nan), agentCount: 0).text(now: now)
+                == "Office Mac not connected · 0 agents")
+    }
+
     private func member(_ hostID: String, status: CompanionAgentStatus,
                         connection: CompanionConnection = .connected,
                         activity: Date? = nil, turn: Date? = nil) -> CompanionProjectMember {
