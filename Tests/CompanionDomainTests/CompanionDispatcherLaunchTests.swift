@@ -53,6 +53,23 @@ import Testing
                 restorationComplete: true, hosts: [a, b, c]) == .choose([db, dc]))
         }
     }
+    @Test func coldReadinessBeforeTheOwnersHostsChangeUsesTheCurrentReport() {
+        let a = host("a"), b = host("b")
+        let da = CompanionDispatcherDesktop(host: a)!, db = CompanionDispatcherDesktop(host: b)!
+        var navigation = CompanionNavigation(cached: [])
+        #expect(navigation.dispatcherDesktops.isEmpty)
+        #expect(navigation.resolveDispatcherLaunch(pairedHostIDs: ["a", "b"], restorationComplete: false,
+            hosts: [a, b]) == .waiting)
+        #expect(navigation.dispatcherDesktops.isEmpty, "Cold restoration cannot rewrite navigation")
+        // No navigation.update/hosts onChange has run. This is the production Root entry point.
+        #expect(navigation.resolveDispatcherLaunch(pairedHostIDs: ["a", "b"], restorationComplete: true,
+            hosts: [a, b]) == .choose([da, db]), "Never consume the first cold request as unavailable")
+        #expect(navigation.dispatcherDesktops == [da, db])
+        var single = CompanionNavigation(cached: [])
+        #expect(single.resolveDispatcherLaunch(pairedHostIDs: ["a"], restorationComplete: true,
+            hosts: [a]) == .open(da))
+        #expect(single.dispatcherTarget == da.target, "Root's subsequent open can use the reconciled target immediately")
+    }
     @Test func zeroOneAndManyUseOnlyPairedReportedDispatchers() {
         let a = host("a"), b = host("b")
         let da = CompanionDispatcherDesktop(host: a)!, db = CompanionDispatcherDesktop(host: b)!

@@ -50,3 +50,18 @@ enum CompanionDispatcherLaunchResolution: Equatable {
         return .unavailable
     }
 }
+
+
+extension CompanionNavigation {
+    /// Readiness and a host report can arrive in the same SwiftUI transaction, before
+    /// the owner's hosts onChange. Reconcile synchronously so opening and resolution
+    /// use the same current targets, rather than consuming the request against a stale cache.
+    mutating func resolveDispatcherLaunch(pairedHostIDs: Set<String>?, restorationComplete: Bool,
+                                         hosts: [CompanionHost]) -> CompanionDispatcherLaunchResolution {
+        guard restorationComplete, let pairedHostIDs else { return .waiting }
+        update(hosts: hosts)
+        retainPairedDesktops(pairedHostIDs)
+        return CompanionDispatcherLaunchResolution.resolve(desktops: dispatcherDesktops,
+            pairedHostIDs: pairedHostIDs, restorationComplete: true, hosts: hosts)
+    }
+}

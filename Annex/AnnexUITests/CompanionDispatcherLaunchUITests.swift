@@ -19,8 +19,21 @@ import XCTest
     private func nativeAction() {
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let icon = springboard.icons.matching(identifier: "Clubhouse Go").firstMatch
-        XCTAssertTrue(icon.waitForExistence(timeout: 10), "The installed app has a native Home Screen icon")
+        let icons = springboard.icons.matching(identifier: "Clubhouse Go")
+        func visibleIcon() -> XCUIElement? {
+            icons.allElementsBoundByIndex.first { !$0.frame.isEmpty && $0.isHittable }
+        }
+        // One bounded navigation attempt, not another launch/action attempt. Cold Home can
+        // expose an App Library placeholder with a zero frame before the app's actual page.
+        if visibleIcon() == nil { springboard.swipeLeft() }
+        let tree = XCTAttachment(data: Data(springboard.debugDescription.utf8), uniformTypeIdentifier: "public.plain-text")
+        tree.name = "SpringBoard before native quick action"; tree.lifetime = .keepAlways; add(tree)
+        guard let icon = visibleIcon() else {
+            XCTFail("No visible, hittable Clubhouse Go icon after one Home-page navigation; native delivery unverified")
+            return
+        }
+        XCTAssertFalse(icon.frame.isEmpty)
+        XCTAssertTrue(icon.isHittable)
         icon.press(forDuration: 1)
         let action = springboard.buttons["Message Dispatcher"]
         XCTAssertTrue(action.waitForExistence(timeout: 10), "Info.plist registers the native quick action")

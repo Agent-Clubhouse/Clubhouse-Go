@@ -191,8 +191,8 @@ struct CompanionRootView: View {
     private func handleDispatcherLaunch() {
         guard let request = CompanionDispatcherLaunchInbox.shared.pending,
               dispatcherLaunchPrompt == nil, !externalLaunchDismissal else { return }
-        let result = CompanionDispatcherLaunchResolution.resolve(desktops: navigation.dispatcherDesktops,
-            pairedHostIDs: launchPairedIDs, restorationComplete: externalLaunchReady, hosts: store.hosts)
+        let result = navigation.resolveDispatcherLaunch(pairedHostIDs: launchPairedIDs,
+            restorationComplete: externalLaunchReady, hosts: store.hosts)
         // Retain the handoff until the active presentation's onDismiss. Setting another
         // sheet immediately would consume a request behind an already-presented controller.
         guard result != .waiting else { return }
