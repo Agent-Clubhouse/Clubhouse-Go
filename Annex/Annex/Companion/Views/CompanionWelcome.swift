@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 
 /// First launch: what the app is for, one action to pair, and a demo for anyone without a Mac at hand
 /// (including App Review). Shown until the first pairing or until someone moves past it.
@@ -29,9 +30,15 @@ struct CompanionWelcomeView: View {
                 }
                 .background(Color(palette.card), in: RoundedRectangle(cornerRadius: 24, style: .continuous))
                 VStack(spacing: 12) {
-                    Button(action: onPair) { Text("Pair your Mac").frame(maxWidth: .infinity) }
+                    Button {
+                        CompanionUIActions.record(.connectDesktop, on: .welcome)
+                        onPair()
+                    } label: { Text("Pair your Mac").frame(maxWidth: .infinity) }
                         .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large)
-                    Button("Look around first", action: onDemo).buttonStyle(.glass).controlSize(.large)
+                    Button("Look around first") {
+                        CompanionUIActions.record(.openDemo, on: .welcome)
+                        onDemo()
+                    }.buttonStyle(.glass).controlSize(.large)
                 }
                 VStack(spacing: 4) {
                     Text("Don't have Clubhouse on your Mac yet?").foregroundStyle(Color(palette.secondaryLabel))
@@ -75,8 +82,14 @@ struct CompanionDemoView: View {
                     Label("Sample desktop", systemImage: "sparkles").font(.subheadline.weight(.semibold))
                         .padding(.leading, 6)
                     Spacer(minLength: 8)
-                    Button("Pair your Mac", action: onPair).buttonStyle(.glassProminent).companionProminentLabel()
-                    Button("Close demo", systemImage: "xmark", action: onClose).labelStyle(.iconOnly).buttonStyle(.glass)
+                    Button("Pair your Mac") {
+                        CompanionUIActions.record(.connectDesktop, on: .demo)
+                        onPair()
+                    }.buttonStyle(.glassProminent).companionProminentLabel()
+                    Button("Close demo", systemImage: "xmark") {
+                        CompanionUIActions.record(.close, on: .demo)
+                        onClose()
+                    }.labelStyle(.iconOnly).buttonStyle(.glass)
                 }
                 .padding(8)
                 .glassEffect(.regular, in: .capsule)

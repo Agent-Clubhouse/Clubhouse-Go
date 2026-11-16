@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 import UIKit
 #if DEBUG
 import CryptoKit
@@ -361,12 +362,18 @@ private struct CompanionScreenshotFeedbackPrompt: View {
     let close: () -> Void
     var body: some View {
         HStack(spacing: 4) {
-            Button(action: open) {
+            Button {
+                CompanionUIActions.record(.openFeedback, on: .feedbackPrompt)
+                open()
+            } label: {
                 Label("Send feedback with this screenshot?", systemImage: "exclamationmark.bubble")
                     .font(.subheadline.weight(.semibold)).padding(.leading, 16).padding(.vertical, 12)
             }
             .accessibilityIdentifier("screenshot-feedback-prompt")
-            Button("Dismiss", systemImage: "xmark", action: close)
+            Button("Dismiss", systemImage: "xmark") {
+                CompanionUIActions.record(.close, on: .feedbackPrompt)
+                close()
+            }
                 .labelStyle(.iconOnly).padding(12)
                 .accessibilityIdentifier("screenshot-feedback-dismiss")
         }
@@ -386,7 +393,12 @@ struct CompanionEnrollmentSheet: View {
     var body: some View {
         NavigationStack {
             CompanionFeedbackEnrollment(model: model).toolbar {
-                ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") {
+                        CompanionUIActions.record(.done, on: .feedbackEnrollment)
+                        dismiss()
+                    }
+                }
             }
         }
     }

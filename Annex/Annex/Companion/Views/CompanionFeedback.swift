@@ -147,9 +147,18 @@ struct CompanionFeedbackSettings: View {
                 }
             }
             Section("Feedback shortcuts") {
-                Toggle("Shake to open feedback", isOn: $shakeEnabled)
-                Toggle("Attach a screenshot when you shake", isOn: $shakeAttachesScreenshot).disabled(!shakeEnabled)
-                Toggle("Offer feedback when you take a screenshot", isOn: $screenshotOffersFeedback)
+                Toggle("Shake to open feedback", isOn: Binding(get: { shakeEnabled }, set: { value in
+                    if value != shakeEnabled { CompanionUIActions.record(.toggleShakeFeedback, on: .settings) }
+                    shakeEnabled = value
+                }))
+                Toggle("Attach a screenshot when you shake", isOn: Binding(get: { shakeAttachesScreenshot }, set: { value in
+                    if value != shakeAttachesScreenshot { CompanionUIActions.record(.toggleShakeScreenshot, on: .settings) }
+                    shakeAttachesScreenshot = value
+                })).disabled(!shakeEnabled)
+                Toggle("Offer feedback when you take a screenshot", isOn: Binding(get: { screenshotOffersFeedback }, set: { value in
+                    if value != screenshotOffersFeedback { CompanionUIActions.record(.toggleScreenshotFeedback, on: .settings) }
+                    screenshotOffersFeedback = value
+                }))
                 if let model, model.status != nil, model.status?.canSubmit != true {
                     Text("Shake needs feedback enrollment. Redeem an invitation in Invitation & enrollment first; until then a shake explains this instead of opening the form.")
                         .font(.caption).foregroundStyle(.orange).accessibilityIdentifier("shake-enrollment-required")
@@ -344,16 +353,21 @@ private struct CompanionHeldFeedbackActions: View {
                 .accessibilityIdentifier("feedback-held-summary")
             if let token = status.releaseToken {
                 Button("Send with this enrollment…") {
+                    CompanionUIActions.record(.sendHeldFeedback, on: .settings)
                     pendingRelease = Release(token: token, count: status.heldForEnrollment)
                 }.disabled(model.working).accessibilityIdentifier("feedback-release-held")
                 .confirmationDialog(pendingRelease.map { FeedbackDisclosure.releaseConfirmation(count: $0.count) } ?? "",
                                     isPresented: Binding(get: { pendingRelease != nil }, set: { if !$0 { pendingRelease = nil } }), titleVisibility: .visible) {
                     if let release = pendingRelease {
-                        Button("Send") { Task { await model.releaseHeldReports(releaseToken: release.token) } }
+                        Button("Send") {
+                            CompanionUIActions.record(.confirm, on: .settings)
+                            Task { await model.releaseHeldReports(releaseToken: release.token) }
+                        }
                     }
                 }
             }
             Button("Clear held reports", role: .destructive) {
+                CompanionUIActions.record(.clearHeldFeedback, on: .settings)
                 pendingClear = CompanionHeldFeedbackClearPrompt(status: status)
             }
                 .disabled(model.working || status.clearToken == nil).accessibilityIdentifier("feedback-clear-held")
@@ -361,6 +375,7 @@ private struct CompanionHeldFeedbackActions: View {
                                     isPresented: Binding(get: { pendingClear != nil }, set: { if !$0 { pendingClear = nil } }), titleVisibility: .visible) {
                     if let clear = pendingClear {
                         Button("Clear held reports", role: .destructive) {
+                            CompanionUIActions.record(.confirm, on: .settings)
                             Task { pendingClear = await clear.confirm(using: model) }
                         }
                     }
@@ -377,10 +392,16 @@ private struct CompanionFeedbackQueueActions: View {
     let model: FeedbackModel
     @State private var confirmingClear = false
     var body: some View {
-        Button("Clear queued feedback", role: .destructive) { confirmingClear = true }
+        Button("Clear queued feedback", role: .destructive) {
+            CompanionUIActions.record(.clearFeedback, on: .settings)
+            confirmingClear = true
+        }
             .disabled(model.working)
             .confirmationDialog("Clear queued feedback from this device?", isPresented: $confirmingClear, titleVisibility: .visible) {
-                Button("Clear queued feedback", role: .destructive) { Task { await model.clearQueue() } }
+                Button("Clear queued feedback", role: .destructive) {
+                    CompanionUIActions.record(.confirm, on: .settings)
+                    Task { await model.clearQueue() }
+                }
             } message: {
                 Text("This removes saved reports and attachments from this device. It does not delete reports already received by the service.")
             }

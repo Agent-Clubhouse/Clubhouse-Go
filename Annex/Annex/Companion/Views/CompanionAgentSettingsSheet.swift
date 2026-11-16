@@ -173,11 +173,15 @@ struct CompanionColorSwatches: View {
     @Binding var selection: String
     var disabled = false
     @Environment(\.companionPalette) private var palette
+    @Environment(\.companionTelemetryScreen) private var screen
     var body: some View {
         HStack(spacing: 10) {
             ForEach(colors) { color in
                 let selected = color.id == selection
-                Button { selection = color.id } label: {
+                Button {
+                    CompanionUIActions.record(.selectColor, on: screen)
+                    selection = color.id
+                } label: {
                     Circle().fill(color.rgb.map { Color($0) } ?? Color(palette.fill))
                         .frame(width: 28, height: 28)
                         .overlay { if selected { Image(systemName: "checkmark").font(.caption.weight(.bold)).foregroundStyle(.white) } }
@@ -427,7 +431,10 @@ struct CompanionAgentSettingsForm: View {
             VStack(alignment: .leading, spacing: 8) {
                 settingTitle("Color", locked: settings.color.isLocked(sleeping: sleeping))
                 CompanionColorSwatches(colors: settings.options.colors,
-                                       selection: Binding(get: { settings.color.value }, set: { if $0 != settings.color.value { save(.init(color: $0)) } }),
+                                       selection: Binding(get: { settings.color.value }, set: {
+                                           // The swatch button owns this intent, including a draft choice in New agent.
+                                           if $0 != settings.color.value { save(.init(color: $0), recordsIntent: false) }
+                                       }),
                                        disabled: !settings.color.canEdit(sleeping: sleeping) || saving)
             }
             LabeledContent {
@@ -794,7 +801,7 @@ struct CompanionAgentSettingsForm: View {
         }
     }
 
-    private func save(_ change: CompanionSettingsChange, control selectedControl: AnnexUIAction.Control? = nil) {
+    private func save(_ change: CompanionSettingsChange, control selectedControl: AnnexUIAction.Control? = nil, recordsIntent: Bool = true) {
         guard !saving else { return }
         // Only the field's fixed control name is recorded; values, target and payload stay local.
         let control: AnnexUIAction.Control
@@ -808,7 +815,7 @@ struct CompanionAgentSettingsForm: View {
         else if change.access != nil || change.freeAgentMode != nil { control = .selectAccess }
         else if change.idleSleep != nil { control = .selectAutoSleep }
         else { control = .selectBehavior }
-        AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: selectedControl ?? control)
+        if recordsIntent { AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: selectedControl ?? control) }
         saving = true
         saveError = nil
         Task {

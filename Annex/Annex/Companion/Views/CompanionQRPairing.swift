@@ -1,4 +1,5 @@
 import SwiftUI
+import ClubhouseTransport
 import AVFoundation
 import Vision
 import VisionKit
@@ -34,7 +35,10 @@ struct CompanionQRScannerView: View {
             VStack {
                 HStack {
                     Spacer()
-                    Button("Cancel", systemImage: "xmark", action: onCancel)
+                    Button("Cancel", systemImage: "xmark") {
+                        CompanionUIActions.record(.cancel, on: .pairing)
+                        onCancel()
+                    }
                         .labelStyle(.iconOnly).font(.title3).frame(width: 44, height: 44)
                         .buttonStyle(.glass).buttonBorderShape(.circle)
                 }
@@ -46,7 +50,10 @@ struct CompanionQRScannerView: View {
                 .foregroundStyle(.white).multilineTextAlignment(.center)
                 .padding(.horizontal, 20).padding(.vertical, 14)
                 .glassEffect(.regular, in: .rect(cornerRadius: 24))
-                Button("Pair manually", action: onCancel).buttonStyle(.glass).controlSize(.large).padding(.top, 12)
+                Button("Pair manually") {
+                    CompanionUIActions.record(.enterPairingAddress, on: .pairing)
+                    onCancel()
+                }.buttonStyle(.glass).controlSize(.large).padding(.top, 12)
             }
             .padding(20)
         }
@@ -124,7 +131,11 @@ struct CompanionInvitationView: View {
                 }
                 .padding(16).background(Color(palette.card), in: RoundedRectangle(cornerRadius: 20, style: .continuous))
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Remember this desktop", isOn: $remember)
+                    Toggle("Remember this desktop", isOn: Binding(get: { remember }, set: {
+                        guard $0 != remember else { return }
+                        CompanionUIActions.record(.toggleRememberDesktop, on: .pairing)
+                        remember = $0
+                    }))
                     Text(remember ? "Reconnects on its own next time." : "Pairing ends when you close the app.")
                         .font(.caption).foregroundStyle(Color(palette.secondaryLabel))
                 }
@@ -135,11 +146,17 @@ struct CompanionInvitationView: View {
                     Label(error, systemImage: "exclamationmark.triangle").font(.subheadline).foregroundStyle(Color(palette.error))
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
-                Button { Task { await pair() } } label: {
+                Button {
+                    CompanionUIActions.record(.pairDesktop, on: .pairing)
+                    Task { await pair() }
+                } label: {
                     Group { if isPairing { ProgressView() } else { Text("Pair") } }.frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.glassProminent).companionProminentLabel().controlSize(.large).disabled(isPairing)
-                Button("Scan again", action: onScanAgain).disabled(isPairing)
+                Button("Scan again") {
+                    CompanionUIActions.record(.scanPairingCode, on: .pairing)
+                    onScanAgain()
+                }.disabled(isPairing)
             }
             .padding(20)
         }

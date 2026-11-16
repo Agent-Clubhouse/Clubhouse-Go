@@ -14,6 +14,7 @@ struct CompanionDiagnosticsView: View {
         List {
             Section {
                 Picker("Capture", selection: Binding(get: { settings.mode }, set: {
+                    if $0 != settings.mode { CompanionUIActions.record(.selectDiagnosticCapture, on: .connectionDiagnostics) }
                     settings.select($0); refresh(); reviewedExport = nil
                 })) {
                     ForEach(AnnexDiagnosticCaptureMode.allCases, id: \.self) { mode in
@@ -38,11 +39,13 @@ struct CompanionDiagnosticsView: View {
                 Text("A tracing collector is separate from developer feedback. Collection alone does not enable sharing. You can also review a sanitized JSON snapshot before sharing it yourself.")
                     .font(.caption).foregroundStyle(.secondary)
                 Button("Review diagnostic export") {
+                    CompanionUIActions.record(.openDiagnosticExport, on: .connectionDiagnostics)
                     do {
                         reviewedExport = String(decoding: try AnnexTelemetry.shared.exportJSON(), as: UTF8.self)
                     } catch { exportError = true }
                 }.disabled(snapshot.records.isEmpty)
                 Button("Clear captured diagnostics", role: .destructive) {
+                    CompanionUIActions.record(.clearDiagnostics, on: .connectionDiagnostics)
                     settings.clear(); reviewedExport = nil; refresh()
                 }
             }
@@ -71,21 +74,36 @@ struct CompanionDiagnosticsView: View {
             }
         }
         .navigationTitle("Diagnostics")
-        .toolbar { Button("Refresh", systemImage: "arrow.clockwise", action: refresh) }
+        .toolbar {
+            Button("Refresh", systemImage: "arrow.clockwise") {
+                CompanionUIActions.record(.refresh, on: .connectionDiagnostics)
+                refresh()
+            }
+        }
         .onAppear(perform: refresh)
         .sheet(isPresented: Binding(get: { reviewedExport != nil }, set: { if !$0 { reviewedExport = nil } })) {
             NavigationStack {
-                ScrollView { Text(reviewedExport ?? "").font(.caption.monospaced()).textSelection(.enabled).padding() }
+                ScrollView {
+                    Text(reviewedExport ?? "").font(.caption.monospaced()).textSelection(.enabled).padding()
+                        .accessibilityIdentifier("diagnostics-export-json")
+                }
                     .navigationTitle("Review export")
                     .toolbar {
-                        ToolbarItem(placement: .cancellationAction) { Button("Done") { reviewedExport = nil } }
+                        ToolbarItem(placement: .cancellationAction) {
+                            Button("Done") {
+                                CompanionUIActions.record(.done, on: .diagnosticsExport)
+                                reviewedExport = nil
+                            }
+                        }
                         ToolbarItem(placement: .confirmationAction) {
                             if let reviewedExport { ShareLink(item: reviewedExport) }
                         }
                     }
             }
         }
-        .alert("Could not prepare bounded export", isPresented: $exportError) { Button("OK") {} }
+        .alert("Could not prepare bounded export", isPresented: $exportError) {
+            Button("OK") { CompanionUIActions.record(.close, on: .connectionDiagnostics) }
+        }
     }
     private func refresh() {
         snapshot = AnnexTelemetry.shared.snapshot()
@@ -105,6 +123,7 @@ struct CompanionTelemetryDestinationView: View {
                 TextField("https://collector.example/v1/traces", text: $address)
                     .textInputAutocapitalization(.never).autocorrectionDisabled().keyboardType(.URL)
                 Button("Save destination without enabling") {
+                    CompanionUIActions.record(.saveTelemetryDestination, on: .telemetryDestination)
                     do { try settings.configureDestination(address: address.trimmingCharacters(in: .whitespacesAndNewlines)); error = false }
                     catch { self.error = true }
                 }
@@ -116,9 +135,13 @@ struct CompanionTelemetryDestinationView: View {
                     Text(destination.endpoint.absoluteString).font(.caption).textSelection(.enabled)
                     Text("Backend reference: \(destination.backendReference.uuidString.lowercased())").font(.caption.monospaced())
                     Button(settings.remoteEnabled ? "Disable collector export" : "Enable reviewed collector export") {
+                        CompanionUIActions.record(.toggleCollectorExport, on: .telemetryDestination)
                         if settings.remoteEnabled { settings.setRemoteEnabled(false) } else { confirm = true }
                     }
-                    Button("Remove destination", role: .destructive) { settings.removeDestination(); address = "" }
+                    Button("Remove destination", role: .destructive) {
+                        CompanionUIActions.record(.removeTelemetryDestination, on: .telemetryDestination)
+                        settings.removeDestination(); address = ""
+                    }
                 }
             }
             if error { Text("Enter an HTTPS traces endpoint without credentials, query parameters or fragments.").foregroundStyle(.red) }
@@ -126,7 +149,10 @@ struct CompanionTelemetryDestinationView: View {
         .navigationTitle("Tracing destination")
         .onAppear { address = settings.destination?.endpoint.absoluteString ?? "" }
         .confirmationDialog("Send future sanitized traces to this collector?", isPresented: $confirm, titleVisibility: .visible) {
-            Button("I verified this collector — enable export") { settings.setRemoteEnabled(true) }
+            Button("I verified this collector — enable export") {
+                CompanionUIActions.record(.confirm, on: .telemetryDestination)
+                settings.setRemoteEnabled(true)
+            }
         } message: {
             Text("Confirm you control this destination and it accepts OTLP/HTTP JSON. Only traces collected after enabling are sent, while the app is active. Nothing from feedback enrollment is reused. Previously captured traces are excluded. Failed batches have bounded retries and may be dropped.")
         }

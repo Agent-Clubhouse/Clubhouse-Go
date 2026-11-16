@@ -80,12 +80,15 @@ struct CompanionDispatcherSettingsSections: View {
 
     var body: some View {
         if let settings {
-            content(settings)
+            content(settings).companionTelemetryScreen(.dispatcherSettings)
         } else if let loadError {
             Section("Dispatcher") {
                 Label(loadError, systemImage: "exclamationmark.circle").foregroundStyle(Color(palette.error))
                     .accessibilityIdentifier("dispatcher-settings-error")
-                Button("Try again") { Task { await reload() } }
+                Button("Try again") {
+                    CompanionUIActions.record(.retry, on: .dispatcherSettings)
+                    Task { await reload() }
+                }
             }
         } else {
             Section { ProgressView("Loading Dispatcher settings…").frame(maxWidth: .infinity) }
@@ -113,7 +116,7 @@ struct CompanionDispatcherSettingsSections: View {
             ForEach(settings.behavior.choices) { choice in
                 let selected = choice.id == settings.behavior.value
                 Button {
-                    if !selected { save { try await store.updateDispatcher(.init(behavior: choice.id), hostID: hostID) } }
+                    if !selected { save(control: .selectBehavior) { try await store.updateDispatcher(.init(behavior: choice.id), hostID: hostID) } }
                 } label: {
                     HStack(alignment: .firstTextBaseline) {
                         VStack(alignment: .leading, spacing: 2) {
@@ -147,7 +150,7 @@ struct CompanionDispatcherSettingsSections: View {
     @ViewBuilder private func modelsSection(_ settings: CompanionDispatcherSettings) -> some View {
         Section {
             Toggle("Choose models yourself", isOn: Binding(get: { settings.models.byHand }, set: { on in
-                save { try await store.setDispatcherModels(.byHand(on), hostID: hostID) }
+                save(control: on != settings.models.byHand ? .toggleModelSelection : nil) { try await store.setDispatcherModels(.byHand(on), hostID: hostID) }
             }))
             .disabled(!settings.models.editable || saving)
             .accessibilityIdentifier("dispatcher-models-by-hand")
@@ -168,7 +171,7 @@ struct CompanionDispatcherSettingsSections: View {
         }
         .accessibilityElement(children: .combine)
         Picker("CLI", selection: Binding(get: { provider ?? "" }, set: { id in
-            if id != provider { save { try await store.setDispatcherModels(.pick(role: role.id, provider: id), hostID: hostID) } }
+            if id != provider { save(control: .selectProvider) { try await store.setDispatcherModels(.pick(role: role.id, provider: id), hostID: hostID) } }
         })) {
             ForEach(options.orchestrators) { Text($0.displayName).tag($0.id) }
             if let provider, options.orchestrator(provider) == nil { Text(provider).tag(provider) }
@@ -177,7 +180,7 @@ struct CompanionDispatcherSettingsSections: View {
         .accessibilityIdentifier("dispatcher-model-\(role.id)-provider")
         let models = options.models(for: provider, keeping: pick?.model)
         Picker("Model", selection: Binding(get: { pick?.model ?? "default" }, set: { id in
-            if id != (pick?.model ?? "default") { save { try await store.setDispatcherModels(.pick(role: role.id, model: id), hostID: hostID) } }
+            if id != (pick?.model ?? "default") { save(control: .selectModel) { try await store.setDispatcherModels(.pick(role: role.id, model: id), hostID: hostID) } }
         })) {
             ForEach(models) { Text($0.label).tag($0.id) }
         }
@@ -188,7 +191,7 @@ struct CompanionDispatcherSettingsSections: View {
         if !choices.isEmpty {
             Picker("Effort", selection: Binding<String?>(get: { pick?.effort }, set: { effort in
                 guard effort != pick?.effort else { return }
-                save { try await store.setDispatcherModels(.pick(role: role.id, effort: effort.map { .set($0) } ?? .cliDefault), hostID: hostID) }
+                save(control: .selectEffort) { try await store.setDispatcherModels(.pick(role: role.id, effort: effort.map { .set($0) } ?? .cliDefault), hostID: hostID) }
             })) {
                 Text("CLI default").tag(String?.none)
                 ForEach(choices, id: \.self) { Text($0.capitalized).tag(Optional($0)) }
@@ -215,7 +218,7 @@ struct CompanionDispatcherSettingsSections: View {
                     .onSubmit {
                         let name = String(drafts.name.text.trimmingCharacters(in: .whitespacesAndNewlines).prefix(identity.maxNameLength))
                         if name.isEmpty || name.utf8.elementsEqual(identity.name.utf8) { drafts.name.receive(identity.name, replacing: true) }
-                        else { save(.name) { try await store.updateDispatcher(.init(name: name), hostID: hostID) } }
+                        else { save(.name, control: .renameDispatcher) { try await store.updateDispatcher(.init(name: name), hostID: hostID) } }
                     }
                     .disabled(!identity.nameEditable || saving)
                     .accessibilityIdentifier("dispatcher-name")
@@ -226,7 +229,8 @@ struct CompanionDispatcherSettingsSections: View {
                     Text("Color")
                     CompanionColorSwatches(colors: options.colors,
                                            selection: Binding(get: { identity.color ?? "" }, set: { color in
-                                               if color != identity.color { save { try await store.updateDispatcher(.init(color: color), hostID: hostID) } }
+                                               // The shared swatch callback owns the single selection intent.
+                                               if color != identity.color { save(control: nil) { try await store.updateDispatcher(.init(color: color), hostID: hostID) } }
                                            }),
                                            disabled: !identity.colorEditable || saving)
                 }
@@ -242,11 +246,11 @@ struct CompanionDispatcherSettingsSections: View {
                                 return
                             }
                             guard emoji.utf16.count <= 16 else { drafts.emoji.receive(identity.emoji ?? "", replacing: true); saveError = "Use a shorter emoji."; return }
-                            save(.emoji) { try await store.updateDispatcher(.init(emoji: emoji.isEmpty ? .clear : .set(emoji)), hostID: hostID) }
+                            save(.emoji, control: .selectEmoji) { try await store.updateDispatcher(.init(emoji: emoji.isEmpty ? .clear : .set(emoji)), hostID: hostID) }
                         }
                         .accessibilityIdentifier("dispatcher-emoji")
                     if identity.emoji != nil {
-                        Button("Clear emoji", systemImage: "xmark.circle.fill") { save(.emoji) { try await store.updateDispatcher(.init(emoji: .clear), hostID: hostID) } }
+                        Button("Clear emoji", systemImage: "xmark.circle.fill") { save(.emoji, control: .selectEmoji) { try await store.updateDispatcher(.init(emoji: .clear), hostID: hostID) } }
                             .labelStyle(.iconOnly).buttonStyle(.borderless).foregroundStyle(Color(palette.secondaryLabel))
                     }
                 }
@@ -264,7 +268,7 @@ struct CompanionDispatcherSettingsSections: View {
         Section {
             Picker("Personality", selection: Binding(get: { personality.preset ?? "custom" }, set: { preset in
                 if preset != personality.preset {
-                    save(.personality) { try await store.updateDispatcher(.init(personality: .init(preset: preset)), hostID: hostID) }
+                    save(.personality, control: .selectPersonality) { try await store.updateDispatcher(.init(personality: .init(preset: preset)), hostID: hostID) }
                 }
             })) {
                 ForEach(personality.presets) { Text($0.label).tag($0.id) }
@@ -282,9 +286,12 @@ struct CompanionDispatcherSettingsSections: View {
             if !drafts.personality.text.utf8.elementsEqual(personality.text.utf8) {
                 let text = String(drafts.personality.text.prefix(personality.maxLength))
                 HStack {
-                    Button("Revert") { drafts.personality.receive(personality.text, replacing: true) }.buttonStyle(.borderless)
+                    Button("Revert") {
+                        CompanionUIActions.record(.revertPersonality, on: .dispatcherSettings)
+                        drafts.personality.receive(personality.text, replacing: true)
+                    }.buttonStyle(.borderless)
                     Spacer()
-                    Button("Save personality") { save(.personality) { try await store.updateDispatcher(.init(personality: .init(text: text)), hostID: hostID) } }
+                    Button("Save personality") { save(.personality, control: .savePersonality) { try await store.updateDispatcher(.init(personality: .init(text: text)), hostID: hostID) } }
                         .buttonStyle(.borderless)
                         .accessibilityIdentifier("dispatcher-personality-save")
                 }
@@ -331,10 +338,16 @@ struct CompanionDispatcherSettingsSections: View {
 
     private func resetsSection(_ settings: CompanionDispatcherSettings) -> some View {
         Section {
-            Button("Clear chat", role: .destructive) { Task { await store.askDispatcherReset(.clearChat, hostID: hostID) } }
+            Button("Clear chat", role: .destructive) {
+                CompanionUIActions.record(.clearDispatcherChat, on: .dispatcherSettings)
+                Task { await store.askDispatcherReset(.clearChat, hostID: hostID) }
+            }
                 .disabled(resetting || settings.clearChat.expectedState == nil)
                 .accessibilityIdentifier("dispatcher-clear-chat")
-            Button("Forget everything", role: .destructive) { Task { await store.askDispatcherReset(.forgetEverything, hostID: hostID) } }
+            Button("Forget everything", role: .destructive) {
+                CompanionUIActions.record(.forgetDispatcherMemory, on: .dispatcherSettings)
+                Task { await store.askDispatcherReset(.forgetEverything, hostID: hostID) }
+            }
                 .disabled(resetting || settings.forgetEverything.expectedState == nil)
                 .accessibilityIdentifier("dispatcher-forget-everything")
             if resetting { ProgressView().frame(maxWidth: .infinity) }
@@ -348,8 +361,14 @@ struct CompanionDispatcherSettingsSections: View {
         // On the section with the buttons: a Form doesn't keep sections scrolled out of view, nor what they present.
         .alert(prompt?.title ?? "", isPresented: Binding(get: { prompt != nil }, set: { if !$0 { store.cancelDispatcherReset() } }),
                presenting: prompt) { prompt in
-            Button(prompt.reset.action, role: .destructive) { Task { await store.confirmDispatcherReset(prompt) } }
-            Button("Cancel", role: .cancel) { store.cancelDispatcherReset() }
+            Button(prompt.reset.action, role: .destructive) {
+                CompanionUIActions.record(.confirm, on: .dispatcherSettings)
+                Task { await store.confirmDispatcherReset(prompt) }
+            }
+            Button("Cancel", role: .cancel) {
+                CompanionUIActions.record(.cancel, on: .dispatcherSettings)
+                store.cancelDispatcherReset()
+            }
         } message: { prompt in Text(prompt.message) }
     }
 
@@ -362,8 +381,10 @@ struct CompanionDispatcherSettingsSections: View {
     }
 
     private func save(_ field: CompanionDispatcherSettingsDrafts.Field? = nil,
+                      control: AnnexUIAction.Control?,
                       _ change: @escaping () async throws -> CompanionDispatcherSettings) {
         guard !saving else { return }
+        if let control { CompanionUIActions.record(control, on: .dispatcherSettings) }
         saving = true
         saveError = nil
         Task {
