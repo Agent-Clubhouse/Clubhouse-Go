@@ -17,6 +17,17 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         add(attachment)
     }
 
+    /// Finish the name edit before navigating. The old inline form scrolled past the name;
+    /// the workspace page returns to it, and XCTest can hit a picker through the keyboard.
+    private func finishNameEditing(_ app: XCUIApplication) {
+        let keyboard = app.keyboards.firstMatch
+        guard keyboard.exists else { return }
+        let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.38))
+        let end = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.9))
+        start.press(forDuration: 0.05, thenDragTo: end)
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5), "Finish editing the name before opening form options")
+    }
+
     func testNewAgentDefaultsToDurableAndChecksTheName() {
         let app = launch()
         let newAgent = app.navigationBars.buttons["New agent"]
@@ -54,6 +65,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
 
         element(app, "agent-color-teal").tap()
         XCTAssertTrue(element(app, "agent-color-teal").isSelected)
+        finishNameEditing(app)
 
         let workspace = app.buttons["new-agent-workspace-tools"]
         scrollTo(workspace, in: app, maxSwipes: 4)
@@ -140,6 +152,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
         name.typeText("-kept")
         XCTAssertEqual(name.value as? String, "brave-otter-kept")
+        finishNameEditing(app)
         let workspace = app.buttons["new-agent-workspace-tools"]
         scrollTo(workspace, in: app, maxSwipes: 4)
         workspace.tap()
@@ -162,7 +175,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         XCTAssertEqual(name.value as? String, "brave-otter-kept")
 
         let model = app.buttons["new-agent-model"]
-        XCTAssertTrue(scrollTo(model, in: app, up: false, maxSwipes: 4))
+        XCTAssertTrue(scrollTo(model, in: app, maxSwipes: 4))
         model.tap()
         XCTAssertTrue(app.buttons["Sonnet"].waitForExistence(timeout: 5))
         app.buttons["Sonnet"].tap()
