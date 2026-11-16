@@ -27,7 +27,7 @@ SHARDS = [
             "CompanionPreviewSmokeTests/testAgentDetailsSheetLinksToAgentSettings",
             "CompanionPreviewSmokeTests/testAgentDetailsSheetForAnAgentWithoutSession",
             "CompanionPreviewSmokeTests/testChatControlsMenusAndPersistentApproval",
-            "CompanionPreviewSmokeTests/testProjectPageFinishedChangesAndWake",
+            "CompanionPreviewSmokeTests/testProjectPageFinishedFoldAndWake",
             "CompanionPreviewSmokeTests/testExploredFoldAndApprovalCardMatchDesktop",
             "FeedbackTriggersUITests",
             "CompanionPreviewSmokeTests/testContentPreviewDismissesWhileToolUpdatesStream",
