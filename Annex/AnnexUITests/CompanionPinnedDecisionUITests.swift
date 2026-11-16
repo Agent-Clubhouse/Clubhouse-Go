@@ -13,13 +13,27 @@ import Vision
         waitAndTap(river, until: element(app, "companion-composer"), attempts: 1)
         return app
     }
+    private func summary(_ app: XCUIApplication) -> XCUIElement { app.buttons["companion-decision-show-in-chat"] }
+    private func swipe(_ app: XCUIApplication, next: Bool) {
+        let frame = summary(app).frame
+        let from = app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: frame.minX + frame.width * (next ? 0.85 : 0.15), dy: frame.midY))
+        let distance = frame.width * 0.7 * (next ? -1.0 : 1.0)
+        XCTAssertGreaterThan(abs(distance), 44, "A real horizontal swipe must cross the selection threshold")
+        from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: distance, dy: 0)),
+                   withVelocity: .slow, thenHoldForDuration: 0.1)
+    }
+    private func openReview(_ app: XCUIApplication, until close: XCUIElement) {
+        summary(app).press(forDuration: 0.8)
+        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+    }
     private func awaitApproval(_ app: XCUIApplication) {
         XCTAssertTrue(element(app, "companion-pinned-decision").waitForExistence(timeout: 20))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Run preview build")
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 1 of 3")
+        XCTAssertEqual(summary(app).label, "Run preview build")
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
     }
     private func capture(_ app: XCUIApplication, _ name: String) {
-        let shot = XCTAttachment(screenshot: app.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
+        let shot = XCTAttachment(screenshot: XCUIScreen.main.screenshot()); shot.name = name; shot.lifetime = .keepAlways; add(shot)
     }
     private func assertVisibleLabel(_ button: XCUIElement, text: String) throws {
         let image = try XCTUnwrap(button.screenshot().image.cgImage)
@@ -38,8 +52,9 @@ import Vision
         XCTAssertTrue(pixelContains(visible, tray.frame), "The pending card stays above the composer: \(tray.frame), \(visible)")
         XCTAssertLessThanOrEqual(tray.frame.maxY, composer.frame.minY)
         XCTAssertTrue(pixelContains(visible, composer.frame), "The composer stays usable")
-        for id in ["companion-review-approval", "companion-decision-show-in-chat", "companion-pinned-decision-next"] {
-            XCTAssertEqual(app.buttons.matching(identifier: id).count, 1, "Only the fitting action layout is exposed")
+        for id in ["companion-decision-show-in-chat", "Deny", "Allow once"] {
+            XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier == %@ OR label == %@", id, id)).count, 1,
+                           "Only the fitting action layout is exposed")
             let button = app.buttons[id]
             XCTAssertTrue(button.isHittable, id)
             // This tray's controls retain >=44pt targets in both expanded and compact layouts.
@@ -63,30 +78,30 @@ import Vision
         capture(app, "After: approval stays pinned after 30 streaming tool updates")
     }
 
-    func testPinnedAnswersPagerQuestionsAndCloseShareOneDecisionState() {
+    func testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState() {
         let app = openRiver()
         awaitApproval(app)
-        app.buttons["companion-pinned-decision-next"].tap()
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Edit preview notes")
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 2 of 3")
-        app.buttons["companion-pinned-decision-previous"].tap()
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Edit preview notes")
+        XCTAssertEqual(summary(app).value as? String, "2 of 3 waiting · Bash")
+        swipe(app, next: false)
         app.buttons["Allow once"].tap()
-        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.staticTexts["companion-pinned-decision-summary"].label == "Edit preview notes" }, timeout: 5))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-position"].label, "Request 1 of 2")
-        app.buttons["companion-pinned-decision-next"].tap()
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in self.summary(app).label == "Edit preview notes" }, timeout: 5))
+        XCTAssertEqual(summary(app).value as? String, "1 of 2 waiting · Bash")
+        swipe(app, next: true)
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        waitAndTap(app.buttons["companion-decision-answer"], until: close, attempts: 1)
         XCTAssertTrue(app.buttons["Red"].exists)
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Which color?", "Dismissal sends nothing")
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        XCTAssertEqual(summary(app).label, "Which color?", "Dismissal sends nothing")
+        waitAndTap(app.buttons["companion-decision-answer"], until: close, attempts: 1)
         app.buttons["Red"].tap()
         app.buttons["send-answers-pinned-question"].tap()
         XCTAssertTrue(app.staticTexts["Answered"].waitForExistence(timeout: 5))
         close.tap()
         XCTAssertTrue(close.waitForNonExistence(timeout: 5))
-        XCTAssertEqual(app.staticTexts["companion-pinned-decision-summary"].label, "Edit preview notes")
+        XCTAssertEqual(summary(app).label, "Edit preview notes")
         app.buttons["Deny"].tap()
         XCTAssertTrue(element(app, "companion-pinned-decision").waitForNonExistence(timeout: 5))
     }
@@ -154,7 +169,7 @@ import Vision
         awaitApproval(app)
     }
 
-    func testLandscapeAndAX5KeepCompactReviewContextAndPagerReachable() {
+    func testLandscapeAndAX5KeepReviewContextAndDecisionsReachable() {
         let app = openRiver(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         awaitApproval(app)
         assertPinned(app)
@@ -164,7 +179,7 @@ import Vision
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
         assertPinned(app)
         let close = app.buttons["companion-approval-review-close"]
-        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        openReview(app, until: close)
         let review = app.scrollViews["companion-approval-review-scroll"]
         XCTAssertTrue(review.exists)
         let allow = review.buttons["Allow once"]
@@ -175,4 +190,76 @@ import Vision
         capture(app, "AX5 landscape: scrollable approval decisions")
         XCTAssertTrue(allow.isEnabled && allow.isHittable, "The review's decision stays reachable: \(allow.frame), \(review.frame)")
     }
+    func testSwipesAndTitleTapsNeverSendADecision() {
+        let app = openRiver()
+        awaitApproval(app)
+        swipe(app, next: false)
+        XCTAssertEqual(summary(app).label, "Run preview build", "The first boundary does not wrap")
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Edit preview notes")
+        XCTAssertEqual(summary(app).value as? String, "2 of 3 waiting · Bash")
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Which color?")
+        XCTAssertEqual(summary(app).value as? String, "3 of 3 waiting · Question")
+        XCTAssertTrue(app.buttons["companion-decision-answer"].exists)
+        XCTAssertFalse(app.buttons["Deny"].exists || app.buttons["Allow once"].exists)
+        swipe(app, next: true)
+        XCTAssertEqual(summary(app).label, "Which color?", "The last boundary does not wrap")
+        swipe(app, next: false); swipe(app, next: false)
+        awaitManyUpdates(app)
+        summary(app).tap()
+        XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].waitForExistence(timeout: 5))
+        XCTAssertEqual(summary(app).label, "Run preview build")
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash", "Every original request is still pending")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        XCTAssertTrue(app.staticTexts["Synthetic request for Run preview build. Full context stays in chat."].exists)
+        capture(app, "Swipe selection and title jump send no decision")
+    }
+
+    func testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation() {
+        let app = openRiver(extra: ["--companion-preview-pinned-broader-only"])
+        awaitApproval(app)
+        XCTAssertFalse(app.buttons["Allow once"].exists, "Neither Always nor a custom kind with this label may become inline Allow once")
+        XCTAssertFalse(app.buttons["Always allow"].exists)
+        XCTAssertTrue(app.buttons["Deny"].isEnabled)
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(app.buttons["companion-review-approval"], until: close, attempts: 1)
+        let review = app.scrollViews["companion-approval-review-scroll"]
+        let always = review.buttons["Always allow"]
+        XCTAssertTrue(scrollTo(always, in: app) && always.isHittable)
+        always.tap()
+        XCTAssertTrue(app.staticTexts["Always allow?"].waitForExistence(timeout: 5), "A broader permission keeps its existing confirmation")
+        XCTAssertFalse(app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Synthetic decision:")).firstMatch.exists)
+        app.buttons["Cancel"].tap()
+        close.tap()
+        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash")
+    }
+
+    func testIncompleteRequestDisablesAllowButKeepsDenyAvailable() {
+        let app = openRiver(extra: ["--companion-preview-pinned-incomplete"])
+        awaitApproval(app)
+        XCTAssertFalse(app.buttons["Allow once"].isEnabled)
+        XCTAssertTrue(app.buttons["Deny"].isEnabled)
+        app.buttons["Deny"].tap()
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in self.summary(app).label == "Edit preview notes" }, timeout: 5))
+        XCTAssertEqual(summary(app).value as? String, "1 of 2 waiting · Bash")
+    }
+
+    func testLightDecisionBar() { appearance("light", flags: ["--companion-preview-light"]) }
+    func testDarkDecisionBar() { appearance("dark", flags: ["--companion-preview-dark"]) }
+    func testLatteDecisionBar() { appearance("Catppuccin Latte", flags: ["--companion-preview-light", "--companion-preview-theme-latte"]) }
+    func testMochaDecisionBar() { appearance("Catppuccin Mocha", flags: ["--companion-preview-dark", "--companion-preview-theme-mocha"]) }
+    func testAccessibilityDecisionBar() {
+        appearance("accessibility XXXL", flags: ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+    }
+    private func appearance(_ name: String, flags: [String]) {
+        let app = openRiver(extra: flags)
+        awaitApproval(app)
+        assertPinned(app)
+        XCTAssertLessThan(app.buttons["Deny"].frame.midX, app.buttons["Allow once"].frame.midX)
+        XCTAssertFalse(app.buttons["companion-pinned-decision-previous"].exists)
+        XCTAssertFalse(app.buttons["companion-pinned-decision-next"].exists)
+        capture(app, "Decision bar — \(name)")
+    }
+
 }
