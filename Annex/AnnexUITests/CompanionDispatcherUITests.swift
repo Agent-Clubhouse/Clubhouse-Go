@@ -548,8 +548,9 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertEqual(mini.label.replacingOccurrences(of: "\n", with: " "), "Navi on Mac mini, Asleep Can't reach from this phone")
         XCTAssertFalse(mini.isEnabled)
         XCTAssertEqual(app.buttons["dispatcher-remote-preview-off"].label, "Dispatcher on Workshop Mac, Turned off")
-        let visible = try visibleText(app).joined(separator: " ")
-        XCTAssertTrue(visible.contains("Can't reach from this phone"), "The native menu must not truncate the offline row's link state")
+        let visibleLines = try visibleText(app)
+        let visible = visibleLines.joined(separator: " ")
+        XCTAssertTrue(visibleLines.contains("Can't reach"), "The native menu must show the complete short link warning, without truncation")
         XCTAssertTrue(visible.contains("last seen"), "Last seen remains visible alongside the link state")
         screenshot(app, "Other computers' Dispatchers")
     }

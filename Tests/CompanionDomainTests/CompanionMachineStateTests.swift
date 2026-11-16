@@ -50,14 +50,14 @@ struct CompanionMachineStateTests {
                 == CompanionMachineState.offline.presentation(lastSeen: now, now: now))
     }
 
-    @Test func menuDetailWrapsTheReachabilityWarningWithoutChangingItsAccessibilityWording() {
+    @Test func menuDetailUsesACompleteShortWarningWithoutChangingItsAccessibilityWording() {
         let remote = CompanionDispatcherPresence.Remote(machineId: "remote", machineName: "Mac", label: "Chat on Mac",
                                                          state: "offline", link: .init(state: "paused"))
         let row = CompanionDispatcherSwitcherRow(id: remote.id, presence: remote)
-        #expect(row.detail == "Offline\nCan't reach\nfrom this phone")
+        #expect(row.detail == "Offline\nCan't reach")
         #expect(row.accessibilityLabel == "Chat on Mac, Offline\nCan't reach from this phone")
-        #expect(remote.presentation(now: now).menuDetail.replacingOccurrences(of: "\n", with: " ")
-                == remote.presentation(now: now).detail.replacingOccurrences(of: "\n", with: " "))
+        #expect(remote.presentation(now: now).detail == "Offline\nCan't reach from this phone")
+        #expect(row.detail?.contains("…") == false && row.detail?.contains("...") == false)
         #expect(CompanionMachineState.connected.presentation(now: now).menuDetail == "Connected")
     }
 
