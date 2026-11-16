@@ -33,6 +33,9 @@ import XCTest
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in self.visibleKeyboardFrame(app) != nil }, timeout: 5),
                       "A software keyboard must visibly occupy the screen, not merely exist in AX")
         composer.typeText("Permission menu draft")
+        XCTAssertEqual(composer.value as? String, "Permission menu draft")
+        XCTAssertNotNil(visibleKeyboardFrame(app), "The draft starts with a visibly onscreen keyboard")
+        print("PERMISSION_KEYBOARD before-menu=\(String(describing: visibleKeyboardFrame(app)))")
         let controls = app.buttons["companion-level-menu"]
         assertMinimumTarget(controls, "Chat controls")
         let value = controls.value as? String ?? ""
@@ -40,6 +43,16 @@ import XCTest
                       "The labeled composer preserves the current access and model: \(value)")
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
+        XCTAssertEqual(composer.value as? String, "Permission menu draft", "Opening a native menu preserves the draft")
+        if visibleKeyboardFrame(app) == nil {
+            XCTAssertTrue(app.keyboards.allElementsBoundByIndex.allSatisfy { keyboard in
+                let visible = keyboard.frame.intersection(app.frame)
+                return visible.isNull || visible.height < 1 || visible.width < 1
+            }, "Native dismissal must leave the keyboard wholly offscreen")
+            print("PERMISSION_KEYBOARD during-menu=native-dismissed landscape=\(landscape) flags=\(flags)")
+        } else {
+            print("PERMISSION_KEYBOARD during-menu=\(String(describing: visibleKeyboardFrame(app)))")
+        }
         return app
     }
 
@@ -52,7 +65,7 @@ import XCTest
 
     /// UIKit exposes the menu's collection at its full content height. Its containing native pane clips it.
     /// Find that ancestor, excluding the larger shadow container, rather than treating offscreen cells as visible.
-    private func visiblePane(_ app: XCUIApplication) -> CGRect {
+    private func visiblePane(_ app: XCUIApplication, requiresKeyboard: Bool = false) -> CGRect {
         let menu = app.collectionViews.firstMatch
         XCTAssertTrue(menu.exists)
         let content = menu.frame
@@ -70,13 +83,15 @@ import XCTest
             XCTFail("The native menu must expose a clipping pane: \(app.debugDescription)")
             return .zero
         }
-        guard let keyboard = visibleKeyboardFrame(app) else {
-            capture(app, "missing visible keyboard")
-            XCTFail("Menu reachability requires a visible software keyboard: \(app.debugDescription)")
-            return .zero
+        let keyboard = visibleKeyboardFrame(app)
+        if requiresKeyboard && keyboard == nil {
+            capture(app, "missing portrait keyboard")
+            XCTFail("Standard portrait containment requires a visible software keyboard: \(app.debugDescription)")
         }
+        // Native menus can dismiss the keyboard in landscape and at accessibility sizes.
+        // Measure the real screen pane rather than an offscreen Keyboard left in AX.
         var visible = pane.intersection(CGRect(x: app.frame.minX, y: app.frame.minY,
-                                              width: app.frame.width, height: keyboard.minY - app.frame.minY))
+                                              width: app.frame.width, height: (keyboard?.minY ?? app.frame.maxY) - app.frame.minY))
         // Native submenu headers can remain above scrolled cells. A row behind one isn't readable.
         let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", "Auto-accept edits", "")).firstMatch
         let section = app.staticTexts["Permissions"]
@@ -121,7 +136,7 @@ import XCTest
             let app = openMenu(flags)
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
-            let pane = visiblePane(app)
+            let pane = visiblePane(app, requiresKeyboard: true)
             for level in levels {
                 let row = app.buttons["companion-level-\(level.id)"]
                 assertFullText(row, expected: level.fullLabel)
