@@ -80,7 +80,7 @@ import Vision
             // Vision can merge the sibling helper chevron and avatar into a pseudo-word.
             // Attribute by the fixture's real text, then check every accepted box strictly.
             let candidate = normalized(text)
-            let accepted = !candidate.isEmpty && expected.contains { (" " + $0 + " ").contains(" " + candidate + " ") }
+            let accepted = row.frame.intersects(frame) && !candidate.isEmpty && expected.contains { (" " + $0 + " ").contains(" " + candidate + " ") }
             boxes.append(["text": text, "normalized": candidate, "accepted": accepted,
                           "frame": NSCoder.string(for: frame)])
             return accepted ? (text, frame) : nil
