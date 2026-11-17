@@ -25,7 +25,7 @@ struct CompanionConversationIdentityButton: View {
         }
         .foregroundStyle(Color(palette.label))
         .padding(.horizontal, 9).padding(.vertical, 3)
-        .companionCardGlass(Capsule(), interactive: true)
+        .companionBarCard()
     }
 
     /// Like Messages: the photo centred over a small name pill, floating over the transcript. A short (landscape)
@@ -123,6 +123,22 @@ extension View {
     /// secondary label at 4.5:1 or better against the card.
     func companionCardGlass<S: Shape>(_ shape: S, interactive: Bool = false) -> some View {
         background { CompanionCardGlass(shape: shape, interactive: interactive) }
+    }
+
+    /// The theme's card as a plain capsule with a hairline, for the header bar's name and actions pills (#534).
+    /// On iOS 27.2 both drew as white glass under the dark theme's light labels; without a glass effect there is
+    /// nothing for the system to restyle, and the palette keeps the label at 4.5:1 or better on the card.
+    func companionBarCard() -> some View { modifier(CompanionBarCard()) }
+}
+
+private struct CompanionBarCard: ViewModifier {
+    @Environment(\.companionPalette) private var palette
+    func body(content: Content) -> some View {
+        content.background {
+            Capsule().fill(Color(palette.card))
+                .overlay { Capsule().strokeBorder(Color(palette.separator), lineWidth: 0.5) }
+                .shadow(color: .black.opacity(palette.isDark ? 0.3 : 0.12), radius: 6, y: 1)
+        }
     }
 }
 
