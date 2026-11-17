@@ -30,6 +30,7 @@ struct CompanionTerminalMenuItem: View {
     var body: some View {
         #if DEBUG
         let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
+        let _ = CompanionHomeBuildProbe.count(.rowMenuTerminal, when: countsHomeBuilds)
         #endif
         if let terminal {
             let availability = terminal.availability(scope)

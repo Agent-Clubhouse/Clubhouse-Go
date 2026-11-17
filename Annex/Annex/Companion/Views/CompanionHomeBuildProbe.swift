@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Opt-in, content-free hosted counters. No Release API, observation, storage of user content or timers.
 @MainActor enum CompanionHomeBuildProbe {
-    enum Kind: Hashable { case owner, contentInputs, content, scope, attention, layout, header, quiet, snapshot, row, rowMenu, projectMenu, quietRows, connection, activation, appUpdate, chips, linkedRows, dispatcherContent }
+    enum Kind: Hashable { case owner, contentInputs, content, scope, attention, layout, header, quiet, snapshot, row, rowMenu, projectMenu, quietRows, connection, activation, appUpdate, chips, linkedRows, dispatcherContent, rowMenuModifier, rowMenuNative, rowMenuItems, rowMenuTerminal }
     static var scrollToIssued: ((CompanionHomeAnchor) -> Void)?
     static var renderedSort: ((CompanionProjectSort) -> Void)?
     static var phase: ((ScenePhase) -> Void)?

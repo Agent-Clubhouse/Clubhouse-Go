@@ -73,7 +73,7 @@ struct CompanionHomeAnchorRow<Row: View>: View {
     private var restoring = false
     private var restoreRequested = false
     private var resumeApplied = false
-    private var restorationCallbacks = 0
+    private var geometry: ScrollGeometry?
 
     #if DEBUG
     var testFrames: [CompanionHomeAnchor: CGRect] { frames }
@@ -84,26 +84,19 @@ struct CompanionHomeAnchorRow<Row: View>: View {
     func record(_ id: CompanionHomeAnchor, frame: CGRect) {
         guard frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return }
         frames[id] = frame
-        if restoring && restoreRequested {
-            restorationCallbacks += 1
-            let aligned = bookmark.map { saved in
-                saved.id == id && abs(frame.minY - (viewport.minY + saved.alignment.y * (viewport.height - frame.height))) <= 1
-            } ?? false
-            if aligned || restorationCallbacks >= 64 {
-                cancelRestoration()
-            }
-        }
         capture()
     }
 
     func remove(_ id: CompanionHomeAnchor) { frames[id] = nil }
 
-    func setViewport(_ frame: CGRect) {
-        viewport = frame
-        if restoring && restoreRequested {
-            restorationCallbacks += 1
-            if restorationCallbacks >= 64 { cancelRestoration() }
-        }
+    /// Rows use the nearest scroll view's coordinate space. Its public geometry is the
+    /// only source of viewport/insets; a generic View geometry already excludes the bars.
+    func setGeometry(_ value: ScrollGeometry) {
+        geometry = value
+        let insets = value.contentInsets
+        viewport = CGRect(x: insets.leading, y: insets.top,
+            width: max(0, value.containerSize.width - insets.leading - insets.trailing),
+            height: max(0, value.containerSize.height - insets.top - insets.bottom))
         capture()
     }
 
@@ -127,7 +120,6 @@ struct CompanionHomeAnchorRow<Row: View>: View {
         resumeGeneration &+= 1
         restoring = false
         restoreRequested = false
-        restorationCallbacks = 0
     }
 
     func reset() {
@@ -137,28 +129,56 @@ struct CompanionHomeAnchorRow<Row: View>: View {
         frames.removeAll()
     }
 
-    func resume(_ proxy: ScrollViewProxy, available: (CompanionHomeAnchor) -> Bool) {
+    func resume(_ proxy: ScrollViewProxy, position: Binding<ScrollPosition>, available: (CompanionHomeAnchor) -> Bool) {
         guard presented, !resumeApplied, viewport.height > 0 else { return }
         resumeApplied = true
         suspended = false
-        let saved = bookmark.flatMap { available($0.id) ? $0 : nil }
-        if saved == nil { bookmark = nil }
+        if let saved = bookmark, !available(saved.id) { bookmark = nil }
         restoring = true
         restoreRequested = false
-        restorationCallbacks = 0
-        let generation = resumeGeneration
-        // Issue after the first layout callback has returned. List may drop scrollTo during
-        // that callback; a departing owner cancels this queued request by value generation.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, self.presented, self.resumeApplied, self.restoring,
-                  self.resumeGeneration == generation else { return }
-            self.restoreRequested = true
-            let id = saved?.id ?? .summary
-            #if DEBUG
-            CompanionHomeBuildProbe.scrollToIssued?(id)
-            #endif
-            proxy.scrollTo(id, anchor: saved?.alignment ?? .top)
-            if saved == nil { self.cancelRestoration() }
+        settle(proxy, position: position, generation: resumeGeneration, previous: nil,
+               stableSamples: 0, corrections: 0, remaining: 60)
+    }
+
+    /// A bounded layout handshake, not a timer retained by the owner. Native List first
+    /// realises the DATA id, then pixel corrections use the row's actual measured delta.
+    /// Bars, lazy height estimates and row insets can change after the identity scroll.
+    private func settle(_ proxy: ScrollViewProxy, position: Binding<ScrollPosition>, generation: UInt64,
+                        previous: ScrollGeometry?, stableSamples: Int, corrections: Int, remaining: Int) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(25)) { [weak self] in
+            guard let self, self.presented, self.restoring, self.resumeGeneration == generation else { return }
+            guard remaining > 0 else { self.cancelRestoration(); return }
+            let current = self.geometry
+            let stable = current == previous ? stableSamples + 1 : 0
+            var nextCorrections = corrections
+            if stable >= 8, let current, self.viewport.height > 0 {
+                if !self.restoreRequested {
+                    self.restoreRequested = true
+                    let id = self.bookmark?.id ?? .summary
+                    #if DEBUG
+                    CompanionHomeBuildProbe.scrollToIssued?(id)
+                    #endif
+                    proxy.scrollTo(id, anchor: self.bookmark?.alignment ?? .top)
+                    if self.bookmark == nil { self.cancelRestoration(); return }
+                    self.settle(proxy, position: position, generation: generation, previous: nil,
+                                stableSamples: 0, corrections: 0, remaining: remaining - 1)
+                    return
+                }
+                if let saved = self.bookmark, let frame = self.frames[saved.id], frame.intersects(self.viewport) {
+                    let desired = self.viewport.minY + saved.alignment.y * (self.viewport.height - frame.height)
+                    let delta = frame.minY - desired
+                    if abs(delta) <= 1 || corrections >= 2 { self.cancelRestoration(); return }
+                    // ScrollPosition's y is normalized to the inset content origin, as in
+                    // the transcript's existing public-API pixel-position restoration.
+                    position.wrappedValue.scrollTo(y: max(0, current.contentOffset.y + current.contentInsets.top + delta))
+                    nextCorrections += 1
+                    self.settle(proxy, position: position, generation: generation, previous: nil,
+                                stableSamples: 0, corrections: nextCorrections, remaining: remaining - 1)
+                    return
+                }
+            }
+            self.settle(proxy, position: position, generation: generation, previous: current,
+                        stableSamples: stable, corrections: nextCorrections, remaining: remaining - 1)
         }
     }
 
@@ -191,7 +211,7 @@ private struct CompanionHomeAnchorMarker: ViewModifier {
     @ViewBuilder func body(content: Content) -> some View {
         if let state {
             content.id(id)
-                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { _, frame in state.record(id, frame: frame) }
+                .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .scrollView) }) { _, frame in state.record(id, frame: frame) }
                 .onDisappear { state.remove(id) }
         } else { content }
     }

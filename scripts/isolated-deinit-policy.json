@@ -983,7 +983,7 @@
     "CompanionHomeScrollAnchorState": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionHomeScrollAnchor.swift",
-      "reason": "Home-only non-observable scroll bookkeeping owns a dictionary of full value identifiers and CGRects, one CGRect viewport, a Bookmark of a value identifier and SwiftUI UnitPoint, Bool flags, a UInt64 resume generation and an Int callback bound. A transient main-queue closure captures this owner weakly and a value ScrollViewProxy; no closure/proxy is stored, and departure cancels the request by generation. No UIKit/View/controller/task/callback owner or teardown side effect; empty nonisolated deinit is ARC-safe.",
+      "reason": "Home-only non-observable scroll bookkeeping owns full value identifiers, CGRect frames/viewport, a Bookmark identifier/UnitPoint, a public ScrollGeometry value (CGPoint/CGSize/EdgeInsets), Bool flags and a UInt64 cancellation generation. A bounded main-queue layout handshake captures the owner weakly and transient ScrollViewProxy/ScrollPosition binding values, never stores a closure, proxy, binding or task, issues one identity scroll and at most two measured pixel corrections, and always ends after 60 samples. Departure cancels by generation; no retained UIKit/View/controller/callback owner or teardown effects. Empty nonisolated deinit is ARC-safe.",
       "surface": {
         "bases": [
           "ObservableObject"
@@ -997,14 +997,14 @@
         "properties": {
           "bookmark": "Bookmark ?",
           "frames": "[ CompanionHomeAnchor : CGRect ]",
-          "restorationCallbacks": "Int",
           "restoreRequested": "Bool",
           "restoring": "Bool",
           "resumeApplied": "Bool",
           "presented": "Bool",
           "resumeGeneration": "UInt64",
           "suspended": "Bool",
-          "viewport": "CGRect"
+          "viewport": "CGRect",
+          "geometry": "ScrollGeometry ?"
         },
         "storageMacros": []
       }

@@ -32,3 +32,30 @@ Follow-up #557 remains DRAFT pending independent static review and exact-head gu
 Uncredited visible-Home comparison at 73707b4e failed: both visible-dispatcher and loaded-outside-scope streams caused four owner/content/layout/input projections,96 headers and328 scope evaluations per ten-chunk batch. Main67b8e5b8 was three/72/246 steadily (visible batch0 was four/96/328). Idle high-level work was zero. The correction removes conversation activity and Wake/Terminal predicates from the live owner projection. Those are captured only on push; ordinary live menus/Dispatcher activity keep their leaf-level reads and nil display inputs, as on main. Concrete native-menu and live-Dispatcher children own those subscriptions, so the frozen parent does not inherit a previous live read. Labels, availability rules and execution guards are unchanged. Visible-Home baseline-wide invalidation remains separately tracked on #528; no new-head performance PASS is claimed before repeating the identical measurement.
 
 The same73707b4e proof passed the strict pushed rows/menus/event test, but anchor restoration failed its original8pt contract:160pt error after tab return and about202pt after push/pop, with restoring left active. The next uncredited diagnostic records the List geometry, safe areas, native content/adjusted insets, offsets, requested id/alignment and actual target frame; no hard-coded offset or tolerance change is proposed.
+
+### #557 measured restoration correction
+
+The logging-only 77d1cfaa diagnostic reproduced the original 8pt assertion failure:
+row y251.667 returned at411.667 (then453.333 after a push). Native List geometry
+showed that the generic SwiftUI frame already excluded the title/tab bars; applying
+safe-area insets again doubled them. The identity scroll also landed inconsistently
+while the large title and tab-bar insets changed. The correction uses one public
+ScrollGeometry source and row frames in the nearest `.scrollView` space. After eight
+unchanged geometry samples (25ms apart), it realises the saved data identity, then
+corrects the measured delta with ScrollPosition, at most twice. The bounded handshake
+always completes or cancels within60 samples; departure/user interaction cancels it.
+No UIKit introspection or fixed pixel compensation is used. The original anchor
+method and8pt assertion remain byte-identical. Runtime proof is pending.
+
+The same diagnostic's visible streaming batch1 still exceeded main (4/96/328 against
+3/72/246 owner-content-layout/header/scope); all other batches met main. Logging CPU
+is not comparable. Final clean measurement is twice per side, with both head runs
+required to meet the approved per-batch main bar. Dispatcher content now equality-gates
+its displayed agent/host/tag/detail, excluding its live execution action. Temporary
+DEBUG row-menu counters attribute modifier/native/items/terminal work separately.
+
+LargeCatalog's existing hosted test remains unchanged. Its explicit DEBUG observer
+constructs the same pure linked-state menu value factory inside real Home, once per
+header when the hook is set, without history/Wake/Terminal work. This proves menu
+value/authority behavior, not native popup presentation; native popup coverage is
+still a gap tracked by#564. Normal Home fixtures leave the hook nil.

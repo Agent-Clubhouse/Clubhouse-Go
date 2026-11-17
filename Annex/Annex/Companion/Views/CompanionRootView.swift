@@ -448,6 +448,7 @@ struct CompanionHomeView: View {
     @State private var heldScope: CompanionDesktopSelection = .all
     @State private var heldSort: CompanionProjectSort = .recent
     @State private var holdGeneration: UInt64 = 0
+    @State private var homeScrollPosition = ScrollPosition()
     @StateObject private var localScrollAnchor = CompanionHomeScrollAnchorState()
     private var scrollAnchor: CompanionHomeScrollAnchorState { navigationAnchor ?? localScrollAnchor }
     @StateObject private var renderSession = CompanionHomeRenderSession()
@@ -680,17 +681,13 @@ struct CompanionHomeView: View {
         .onChange(of: !isPushed && scenePhase == .active && hold == nil, initial: true) { _, needsSnapshot in
             if needsSnapshot && preferences.projectSort == .recent { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
         }
-        .onGeometryChange(for: CompanionHomeViewport.self, of: { value in
-            let rect = value.frame(in: .global), insets = value.safeAreaInsets
-            return .init(frame: CGRect(x: rect.minX + insets.leading, y: rect.minY + insets.top,
-                          width: max(0, rect.width - insets.leading - insets.trailing),
-                          height: max(0, rect.height - insets.top - insets.bottom)), pushed: isPushed)
-        }) { _, value in
-            scrollAnchor.setViewport(value.frame)
-            if !value.pushed && value.frame.height > 0 {
-                // The geometry callback runs after List's first layout, when scroll IDs exist.
-                scrollAnchor.resume(proxy) { anchorAvailable($0, layout: layout) }
-            }
+        .scrollPosition($homeScrollPosition)
+        .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { _, geometry in
+            scrollAnchor.setGeometry(geometry)
+            if !isPushed { scrollAnchor.resume(proxy, position: $homeScrollPosition) { anchorAvailable($0, layout: layout) } }
+        }
+        .onChange(of: isPushed) { _, pushed in
+            if !pushed { scrollAnchor.resume(proxy, position: $homeScrollPosition) { anchorAvailable($0, layout: layout) } }
         }
         .onAppear {
             observeConnectedHosts(renderHosts)
@@ -1055,6 +1052,11 @@ struct CompanionHomeView: View {
         CompanionHomeBuildProbe.record?(.header)
         #endif
         let entry = group.entry
+        #if DEBUG
+        // Hosted coverage observes the same pure production value factory; native Menu
+        // bodies are lazy. No additional work unless this explicit test observer is set.
+        if hostedProjectMenu != nil { _ = sharedLinkedStateMenu(group) }
+        #endif
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         // Bound the Debug builder's generic value storage. Reuse one erased menu for
         // all three gesture targets and both accessibility action surfaces.
@@ -1234,8 +1236,8 @@ struct CompanionHomeView: View {
             canWake: entry.members.contains { renderCanWake($0) },
             capturedDisplay: display?.states[entry.id],
             onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
-        if renderLinked(catalogEntry) != nil {
-            linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
+        if let menu = sharedLinkedStateMenu(group) {
+            menu
         } else if entry.isLinked {
             // Old hosts retain their per-copy state and days-idle rule.
             ForEach(entry.members) { member in
@@ -1258,6 +1260,13 @@ struct CompanionHomeView: View {
             }
             .disabled(!entry.members.contains { renderTerminal(.project($0.id)).isAvailable })
         }
+    }
+
+    private func sharedLinkedStateMenu(_ group: CompanionProjectGroup) -> CompanionLinkedProjectStateMenuItems? {
+        let entry = group.entry
+        let catalogEntry = renderEntries.first { $0.members.contains { $0.id == entry.id } } ?? entry
+        guard renderLinked(catalogEntry) != nil else { return nil }
+        return linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
     }
 
     private func linkedStateMenu(entry: CompanionProjectEntry, isIdle: Bool) -> CompanionLinkedProjectStateMenuItems {
@@ -1323,11 +1332,6 @@ struct CompanionHomeView: View {
             }
         }
     }
-}
-
-private nonisolated struct CompanionHomeViewport: Equatable, Sendable {
-    let frame: CGRect
-    let pushed: Bool
 }
 
 /// On a push install captured display inputs once; subsequent parent updates do not rebuild the List.
@@ -1445,7 +1449,7 @@ struct CompanionDispatcherRow: View {
         #endif
         if let capturedOpenAgent {
             CompanionDispatcherRowContent(host: host, hostTag: hostTag,
-                detail: companionDispatcherDetail(host: host, activity: capturedActivity?.date), openAgent: capturedOpenAgent)
+                detail: companionDispatcherDetail(host: host, activity: capturedActivity?.date), openAgent: capturedOpenAgent).equatable()
         } else {
             CompanionLiveDispatcherRow(store: store, host: host, hostTag: hostTag, capturedActivity: capturedActivity)
         }
@@ -1461,7 +1465,7 @@ private struct CompanionLiveDispatcherRow: View {
     @Environment(\.companionOpenAgent) private var openAgent
     var body: some View {
         CompanionDispatcherRowContent(host: host, hostTag: hostTag,
-            detail: companionDispatcherDetail(host: host, activity: activity), openAgent: openAgent)
+            detail: companionDispatcherDetail(host: host, activity: activity), openAgent: openAgent).equatable()
     }
 
     private var activity: Date? {
@@ -1477,7 +1481,7 @@ private func companionDispatcherDetail(host: CompanionHost, activity: @autoclosu
     return activity()?.formatted(.relative(presentation: .named))
 }
 
-private struct CompanionDispatcherRowContent: View {
+private struct CompanionDispatcherRowContent: View, Equatable {
     let host: CompanionHost
     let hostTag: String?
     let detail: String?
@@ -1486,6 +1490,11 @@ private struct CompanionDispatcherRowContent: View {
     #if DEBUG
     @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
     #endif
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.host.id == rhs.host.id && lhs.host.dispatcherAgent == rhs.host.dispatcherAgent
+            && lhs.hostTag == rhs.hostTag && lhs.detail == rhs.detail
+    }
 
     var body: some View {
         #if DEBUG

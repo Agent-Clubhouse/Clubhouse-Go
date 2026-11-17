@@ -111,6 +111,7 @@ struct CompanionAgentMenu: ViewModifier {
         let _ = {
             if countsHomeBuilds {
                 CompanionHomeBuildProbe.record?(.rowMenu)
+                CompanionHomeBuildProbe.record?(.rowMenuModifier)
                 CompanionHomeBuildProbe.rowActions?(target, settings, wake, terminal)
             }
         }()
@@ -140,6 +141,7 @@ private struct CompanionAgentContextMenu: View {
     var body: some View {
         #if DEBUG
         let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
+        let _ = CompanionHomeBuildProbe.count(.rowMenuNative, when: countsHomeBuilds)
         #endif
         if let wake {
             ForEach(wake.choices(target)) { choice in
@@ -184,6 +186,7 @@ struct CompanionAgentMenuItems: View {
     var body: some View {
         #if DEBUG
         let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
+        let _ = CompanionHomeBuildProbe.count(.rowMenuItems, when: countsHomeBuilds)
         #endif
         if let openDetails = actions.openDetails {
             Button("Agent details", systemImage: "info.circle") {
