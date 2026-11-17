@@ -197,11 +197,10 @@ struct CompanionConversationView: View {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
-                        // Keep the native 16pt title clearance, plus slack, on both sides of the equal reservations.
-                        // A cap rather than a fixed width (#554): if the bar offers less, say from a stale side
-                        // sample, the name truncates instead of clipping and pushing the actions off screen.
-                        .frame(minWidth: 44, maxWidth: max(44, (headerBarWidth > 0 ? headerBarWidth : available.size.width)
-                                                           - 2 * (headerSideSpan + 16 + Self.headerTitleSlack)))
+                        // Keep the native 16pt title clearance, plus slack (#554), on both sides of the equal
+                        // reservations. The width stays fixed: a flexible one is placed off the screen's centre.
+                        .frame(width: max(44, (headerBarWidth > 0 ? headerBarWidth : available.size.width)
+                                          - 2 * (headerSideSpan + 16 + Self.headerTitleSlack)))
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
