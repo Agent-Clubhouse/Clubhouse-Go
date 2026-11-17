@@ -18,6 +18,7 @@ struct CompanionConversationPendingDecisions: View {
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.companionPalette) private var palette
 
     var body: some View {
         // Native Menu identity/content must not be rebuilt by a per-second expiry tick.
@@ -120,15 +121,16 @@ struct CompanionConversationPendingDecisions: View {
         let count = queue.count
         let position = count > 1 ? ", \(index + 1) of \(count)" : ""
         let subtitle = "\(index + 1) of \(count) waiting · \(decisionTool(decision))"
+        // Lead with the tinted control and a waiting dot, so the one-row card reads as a pending request, not an empty bar.
         HStack(spacing: 8) {
-            Spacer(minLength: 0)
             if decision.isSubmitting {
                 ProgressView().frame(minWidth: 44, minHeight: 44).accessibilityLabel("Sending decision…")
             } else if isApproval(decision) {
                 Button { openReview(decision, presentation: presentation) } label: {
                     Image(systemName: "checklist").font(.system(size: 20, weight: .semibold))
                 }
-                .buttonStyle(DecisionActionStyle(primary: false))
+                .buttonStyle(DecisionActionStyle(primary: true))
+                .overlay(alignment: .topTrailing) { waitingDot }
                 .accessibilityLabel("Review approval: \(decision.summary)\(position)")
                 .accessibilityValue(subtitle)
                 .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
@@ -139,13 +141,23 @@ struct CompanionConversationPendingDecisions: View {
                     Image(systemName: "questionmark.bubble").font(.system(size: 20, weight: .semibold))
                 }
                 .buttonStyle(DecisionActionStyle(primary: true))
+                .overlay(alignment: .topTrailing) { waitingDot }
                 .accessibilityLabel("Answer question: \(decision.summary)\(position)")
                 .accessibilityValue(subtitle)
                 .accessibilityHint("Opens the full question. Opening sends nothing.")
                 .accessibilityInputLabels(["Answer"])
                 .accessibilityIdentifier("companion-decision-answer")
             }
+            Spacer(minLength: 0)
         }
+    }
+
+    /// Decorative: the control's label and value already say a request is waiting.
+    private var waitingDot: some View {
+        Circle().fill(Color(palette.warning)).frame(width: 10, height: 10)
+            .overlay(Circle().stroke(Color(palette.card), lineWidth: 2))
+            .offset(x: 2, y: -2)
+            .accessibilityHidden(true).allowsHitTesting(false)
     }
 
     private func decisionTool(_ decision: CompanionPendingDecision) -> String {
