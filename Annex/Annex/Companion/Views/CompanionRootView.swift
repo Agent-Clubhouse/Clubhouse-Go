@@ -68,7 +68,8 @@ struct CompanionRootView: View {
                 stack(.home) {
                     CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); CompanionUIActions.record(.openSettings, on: .home); onSettings() },
                                       onNewAgent: { target, hostID in navigation.interact(); spawnLaunch = .init(project: target, hostID: hostID) }, isPreview: isPreview,
-                                      onInteraction: { navigation.interact() })
+                                      onInteraction: { navigation.interact() },
+                                      isVisible: navigation.tab == .home && (navigation.paths[.home] ?? []).isEmpty)
                 }
             }
             if navigation.tabs.contains(.dispatcher) {
@@ -136,6 +137,9 @@ struct CompanionRootView: View {
         .onChange(of: CompanionDispatcherLaunchInbox.shared.pending, initial: true) { _, _ in handleDispatcherLaunch() }
         .onChange(of: externalLaunchReady) { _, _ in handleDispatcherLaunch() }
         .onChange(of: navigation.dispatcherDesktops) { _, _ in handleDispatcherLaunch() }
+        #if DEBUG
+        .onAppear { CompanionHomeBuildProbe.navigation?($navigation) }
+        #endif
         .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.tab) { _, _ in mirrorSelection() }
@@ -401,6 +405,7 @@ struct CompanionHomeView: View {
     var onNewAgent: (CompanionProjectTarget, String?) -> Void
     var isPreview = false
     var onInteraction: () -> Void = {}
+    var isVisible = true
     #if DEBUG
     var hostedProjectMenu: ((CompanionLinkedProjectStateMenuItems) -> Void)? = nil
     #endif
@@ -422,14 +427,28 @@ struct CompanionHomeView: View {
     @State private var finishedActionError: String?
     /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
     @State private var hold: CompanionListHold?
+    @State private var heldScope: CompanionDesktopSelection = .all
+    @State private var heldSort: CompanionProjectSort = .recent
+    @State private var scrollAnchor = CompanionHomeScrollAnchorState()
+    @State private var arrangingEntries: [CompanionProjectEntry] = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionTerminal) private var terminal
 
-    private var scope: CompanionHomeScope { .init(hosts: store.hosts, selectedHostID: desktopSelection.hostID) }
+    private var scope: CompanionHomeScope {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.scope)
+        #endif
+        return .init(hosts: store.hosts, selectedHostID: desktopSelection.hostID)
+    }
     private var scopedHosts: [CompanionHost] { scope.hosts }
-    private var scopedAttention: [CompanionAttentionItem] { store.attentionItems().filter { scope.contains($0.agent.id) } }
+    private var scopedAttention: [CompanionAttentionItem] {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.attention)
+        #endif
+        return store.attentionItems().filter { scope.contains($0.agent.id) }
+    }
     private var multipleHosts: Bool { scope.showsHostTags }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
     private func isListed(_ host: CompanionHost) -> Bool {
@@ -437,9 +456,49 @@ struct CompanionHomeView: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.record?(.owner)
+        #endif
+        // A concrete owner keeps pending Home sheets alive across content removal.
+        VStack(spacing: 0) {
+            if isVisible { content }
+            else { Color.clear }
+        }
+        .onChange(of: isVisible, initial: true) { _, visible in
+            if !visible { scrollAnchor.suspend(); hold = nil }
+            #if DEBUG
+            CompanionHomeBuildProbe.visibility?(visible)
+            #endif
+        }
+        .sheet(isPresented: $arranging) {
+            CompanionArrangeProjectsView(preferences: preferences, entries: arrangingEntries)
+        }
+        .sheet(item: $infoProject) { target in
+            CompanionProjectInfoSheet(store: store, project: target)
+        }
+        .sheet(item: $choosingProjectAction, onDismiss: completeProjectChoice) { launch in
+            CompanionProjectMachineChooser(store: store, project: launch.project, selection: launch.selection,
+                                           action: launch.action, screen: .home) { target in
+                pendingProjectChoice = (launch.action, target)
+                choosingProjectAction = nil
+            }
+        }
+        .sheet(item: $wakingProject, onDismiss: completeProjectWake) { target in
+            CompanionWakeSheet(store: store, project: target) { pendingProjectWake = ($0, $1) }
+        }
+    }
+
+    private var content: some View {
+        let layout = layout
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.record?(.content)
+        let _ = CompanionHomeBuildProbe.projection?(layout)
+        #endif
+        return ScrollViewReader { proxy in
         List {
             if !store.hosts.isEmpty {
                 summary
+                    .companionHomeAnchor(.summary)
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .listRowBackground(Color.clear)
@@ -450,6 +509,7 @@ struct CompanionHomeView: View {
             // Keep the scope owner mounted when the visible chip row disappears;
             // removing a selected desktop must restore All before filtering Home.
             CompanionDesktopChips(hosts: store.hosts, selection: $desktopSelection, onSelect: onInteraction)
+                .companionHomeAnchor(.desktops)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
@@ -478,7 +538,7 @@ struct CompanionHomeView: View {
                 }
                 needsYou
                 dispatchers
-                projects
+                projects(layout)
                 if let error = finishedActionError ?? store.finishedError {
                     Text(error).foregroundStyle(Color(palette.warning))
                         .accessibilityIdentifier("home-finished-error")
@@ -488,16 +548,37 @@ struct CompanionHomeView: View {
         .companionListStyle()
         .companionTelemetryScreen(.home)
         .companionAgentRows(store: store, impliedHostID: scope.impliedHostID)
-        .onChange(of: desktopSelection) { _, _ in hold = nil }
-        .onAppear { observeConnectedHosts(store.hosts) }
+        .environment(\.companionHomeScrollAnchor, scrollAnchor)
+        .onChange(of: desktopSelection) { _, _ in hold = nil; scrollAnchor.reset() }
+        .onChange(of: preferences.projectSort) { _, _ in hold = nil }
+        .onChange(of: layout.hold, initial: true) { _, current in
+            if preferences.projectSort == .recent { setHold(current) }
+        }
+        .onGeometryChange(for: CGRect.self, of: { value in
+            let rect = value.frame(in: .global), insets = value.safeAreaInsets
+            return CGRect(x: rect.minX + insets.leading, y: rect.minY + insets.top,
+                          width: max(0, rect.width - insets.leading - insets.trailing),
+                          height: max(0, rect.height - insets.top - insets.bottom))
+        }) { _, frame in scrollAnchor.setViewport(frame) }
+        .onAppear {
+            observeConnectedHosts(store.hosts)
+            expandedOfflineHosts.formIntersection(Set(store.hosts.map(\.id)))
+            scrollAnchor.resume(proxy) { anchorAvailable($0, layout: layout) }
+            #if DEBUG
+            CompanionHomeBuildProbe.state?(scrollAnchor, $desktopSelection)
+            #endif
+        }
+        .onDisappear { scrollAnchor.suspend(); hold = nil }
         .onChange(of: store.hosts) { _, hosts in
             observeConnectedHosts(hosts)
             expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
         }
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { onInteraction() }
-            if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
-            else if hold == nil { hold = layout.hold }
+            if preferences.projectSort != .recent {
+                if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
+                else if hold == nil { setHold(layout.hold) }
+            }
         }
         .animation(reduceMotion ? nil : .snappy, value: layout.hold)
         .navigationTitle("Clubhouse")
@@ -512,7 +593,11 @@ struct CompanionHomeView: View {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("New agent", systemImage: "plus") {
                     // Start in the project at the top of Home, not the desktop's first.
-                    if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn) { onNewAgent(entry.id, scope.selectedHostID) }
+                    if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn),
+                       let current = store.resolveProjectActionEntry(containing: entry.id, expectedLinkID: entry.linkID,
+                                                                     hostID: desktopSelection.hostID), current.canSpawn {
+                        onNewAgent(current.id, desktopSelection.hostID)
+                    }
                 }
                 .labelStyle(.iconOnly)
                 .buttonStyle(.glassProminent)
@@ -522,21 +607,48 @@ struct CompanionHomeView: View {
                 .keyboardShortcut("n", modifiers: .command)
             }
         }
-        .sheet(isPresented: $arranging) {
-            CompanionArrangeProjectsView(preferences: preferences, entries: orderedProjects)
         }
-        .sheet(item: $infoProject) { target in
-            CompanionProjectInfoSheet(store: store, project: target)
-        }
-        .sheet(item: $choosingProjectAction, onDismiss: completeProjectChoice) { launch in
-            CompanionProjectMachineChooser(store: store, project: launch.project, selection: launch.selection,
-                                           action: launch.action, screen: .home) { target in
-                pendingProjectChoice = (launch.action, target)
-                choosingProjectAction = nil
+    }
+
+    private func setHold(_ next: CompanionListHold) {
+        heldScope = desktopSelection
+        heldSort = preferences.projectSort
+        if hold != next { hold = next }
+    }
+
+    private func linkedQuiet(_ entry: CompanionProjectEntry) -> CompanionHomeLinkedRows {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.quiet)
+        #endif
+        return .init(entry: entry, finished: store.finished(in:))
+    }
+
+    private func quietKey(_ group: CompanionProjectGroup) -> String {
+        group.entry.isLinked ? group.entry.orderKey : "\(group.entry.host.id)-\(group.entry.project.id)"
+    }
+
+    /// If the former row disappeared or moved into a closed fold, restoration explicitly falls back to the top.
+    private func anchorAvailable(_ anchor: CompanionHomeAnchor, layout: CompanionHomeLayout) -> Bool {
+        let groups = layout.projects + (preferences.idleExpanded ? layout.idle : [])
+        switch anchor {
+        case .summary: return !store.hosts.isEmpty
+        case .desktops: return true
+        case .idle: return !layout.idle.isEmpty
+        case .project(let key): return groups.contains { $0.entry.orderKey == key }
+        case .agent(let target):
+            return groups.contains { group in
+                let rows = group.tree.active + (preferences.expandedFolds.contains("quiet:" + quietKey(group)) ? group.tree.sleeping + group.tree.finishedQuick : [])
+                return group.tree.visible(rows, collapsed: preferences.collapsedAgents(in: rows)).contains { $0.id == target }
             }
-        }
-        .sheet(item: $wakingProject, onDismiss: completeProjectWake) { target in
-            CompanionWakeSheet(store: store, project: target) { pendingProjectWake = ($0, $1) }
+        case .finished(let target):
+            return groups.contains { $0.entry.members.contains { $0.id == .init(hostID: target.hostID, projectID: target.projectID) }
+                && preferences.expandedFolds.contains("quiet:" + quietKey($0)) }
+                && store.finished(in: .init(hostID: target.hostID, projectID: target.projectID)).contains { $0.target == target }
+        case .quiet(let key): return groups.contains { $0.entry.orderKey == key || "\($0.entry.host.id)-\($0.entry.project.id)" == key }
+        case .attention(let target): return scopedAttention.contains { $0.agent.id == target }
+        case .dispatcher(let hostID): return scopedHosts.contains { $0.id == hostID && $0.dispatcher?.isVisible == true }
+        case .offline(let target): return groups.contains { $0.entry.members.contains { $0.id == target && !$0.host.connection.canOperate } }
+        case .cached(let target): return expandedOfflineHosts.contains(target.hostID) && store.agent(for: target) != nil
         }
     }
 
@@ -582,6 +694,7 @@ struct CompanionHomeView: View {
                     CompanionAgentListRow(agent: item.agent, hostTag: multipleHosts ? item.hostName : nil, detail: item.detail)
                 }
                 .accessibilityIdentifier("agent-\(item.agent.id.hostID)-\(item.agent.id.agentID)")
+                .companionHomeAnchor(.attention(item.agent.id))
                 .listRowBackground(CompanionCardBackground())
             }
         } header: {
@@ -603,6 +716,7 @@ struct CompanionHomeView: View {
             Section {
                 ForEach(shown) { host in
                     CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil)
+                        .companionHomeAnchor(.dispatcher(host.id))
                         .listRowBackground(CompanionCardBackground())
                 }
             }
@@ -628,13 +742,15 @@ struct CompanionHomeView: View {
     }
 
     private var layout: CompanionHomeLayout {
-        CompanionHomeLayout.build(listedEntries, sort: preferences.projectSort, customOrder: preferences.projectOrder,
-                                  rule: preferences.idleRule, hold: hold, shared: { store.sharedProjectState($0.id) },
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.layout)
+        #endif
+        return CompanionHomeLayout.build(listedEntries, sort: preferences.projectSort, customOrder: preferences.projectOrder,
+                                  rule: preferences.idleRule, hold: heldScope == desktopSelection && heldSort == preferences.projectSort ? hold : nil, shared: { store.sharedProjectState($0.id) },
                                   projectActivity: projectActivity, agentActivity: store.lastActivity(of:))
     }
 
-    @ViewBuilder private var projects: some View {
-        let layout = layout
+    @ViewBuilder private func projects(_ layout: CompanionHomeLayout) -> some View {
         let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
         Section {
         } header: {
@@ -661,6 +777,7 @@ struct CompanionHomeView: View {
                     CompanionFoldLabel(text: "\(layout.idle.count) idle project\(layout.idle.count == 1 ? "" : "s")", isOpen: preferences.idleExpanded)
                 }
                 .accessibilityIdentifier("idle-projects-fold")
+                .companionHomeAnchor(.idle)
                 .listRowBackground(CompanionCardBackground())
             } footer: {
                 if preferences.idleExpanded { EmptyView() } else {
@@ -677,7 +794,7 @@ struct CompanionHomeView: View {
                 ForEach(CompanionProjectSort.allCases) { Text($0.label).tag($0) }
             }
             if preferences.projectSort == .custom {
-                Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }
+                Button("Arrange projects…", systemImage: "line.3.horizontal") { arrangingEntries = orderedProjects; arranging = true }
             }
         } label: {
             CompanionAccessoryLabel(title: preferences.projectSort.label, isMenu: true)
@@ -691,12 +808,13 @@ struct CompanionHomeView: View {
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         return Section {
             projectHeader(group)
+                .companionHomeAnchor(.project(entry.orderKey))
                 .buttonStyle(.borderless)
                 .navigationLinkIndicatorVisibility(.hidden)
                 .listRowSeparator(.hidden)
                 .listRowBackground(CompanionCardBackground())
             if entry.isLinked {
-                CompanionHomeLinkedProjectRows(group: group, quiet: .init(entry: entry, finished: store.finished(in:)),
+                CompanionHomeLinkedProjectRows(group: group, quiet: linkedQuiet(entry),
                     preferences: preferences, parentLines: parentLines, onDismissFinished: dismissFinished,
                     onClearFinished: clearFinished, canOpenFinished: { store.agent(for: $0) != nil })
                 ForEach(entry.members.filter { !$0.host.connection.canOperate }) { member in
@@ -715,6 +833,9 @@ struct CompanionHomeView: View {
     }
 
     private func projectHeader(_ group: CompanionProjectGroup) -> some View {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.header)
+        #endif
         let entry = group.entry
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         // Bound the Debug builder's generic value storage. Reuse one erased menu for
@@ -741,7 +862,7 @@ struct CompanionHomeView: View {
         return AnyView(HStack(spacing: 6) {
             CompanionProjectBadge(project: entry.project)
                 .overlay(alignment: .bottomTrailing) {
-                    if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                    if let state = group.liveStatus {
                         Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
                             .accessibilityHidden(true)
                     }
@@ -820,6 +941,7 @@ struct CompanionHomeView: View {
         }
         .buttonStyle(.borderless)
         .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
+        .companionHomeAnchor(.offline(member.id))
         .listRowBackground(CompanionCardBackground())
         if expanded {
             ForEach(cached) { agent in
@@ -832,6 +954,7 @@ struct CompanionHomeView: View {
                     .opacity(0.5)
                     .accessibilityLabel("\(agent.name), cached on \(machineLabel(entry, member)), desktop not connected")
                     .accessibilityIdentifier("cached-agent-\(agent.id.hostID)-\(agent.id.projectID)-\(agent.id.agentID)")
+                    .companionHomeAnchor(.cached(agent.id))
                     .listRowBackground(CompanionCardBackground())
             }
         }

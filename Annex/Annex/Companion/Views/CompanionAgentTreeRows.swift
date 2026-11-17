@@ -90,6 +90,7 @@ struct CompanionAgentTreeRows: View {
             CompanionAgentTreeNavigationRow(row: row, collapsed: row.rollup.count > 0 && collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn, screen: screen,
                                             toggle: { preferences.toggleAgentCollapsed(row.id) })
                 .equatable()
+                .companionHomeAnchor(.agent(row.id))
                 .listRowBackground(CompanionCardBackground())
         }
     }
@@ -218,6 +219,7 @@ struct CompanionAgentTreeQuietFold: View {
                 withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
             } label: { CompanionFoldLabel(text: text, isOpen: isOpen) }
             .accessibilityIdentifier("fold-quiet-\(projectID)")
+            .companionHomeAnchor(.quiet(projectID))
             .listRowBackground(CompanionCardBackground())
             if isOpen {
                 CompanionAgentTreeRows(tree: tree, rows: quietRows, preferences: preferences, parentLines: parentLines)
@@ -239,6 +241,7 @@ struct CompanionAgentTreeQuietFold: View {
     @ViewBuilder private func finishedRow(_ run: CompanionFinishedRun, canOpen: Bool) -> some View {
         let row = finishedNavigationRow(run, canOpen: canOpen)
             .accessibilityIdentifier("finished-\(run.target.hostID)-\(run.target.projectID)-\(run.target.agentID)")
+            .companionHomeAnchor(.finished(run.target))
             .listRowBackground(CompanionCardBackground())
         if let onDismissFinished {
             row

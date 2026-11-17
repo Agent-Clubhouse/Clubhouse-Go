@@ -144,13 +144,17 @@ struct CompanionHomeProjectActivity: Equatable, Sendable {
         let live = entry.members.filter(\.host.connection.canOperate).flatMap(\.project.agents)
             .filter { !CompanionFinishedRuns.hasFinished($0) }
         isRunning = live.contains(where: CompanionHomeLayout.isAwake)
-        status = live.enumerated().min {
-            let a = Self.urgency($0.element.status), b = Self.urgency($1.element.status)
-            return a == b ? $0.offset < $1.offset : a < b
-        }?.element.status
+        status = Self.liveStatus(live)
         lastActivity = entry.members.flatMap { member in
             [recordedProjectActivity(member.id)] + member.project.agents.flatMap { [$0.lastActivity, $0.turnStartedAt] }
         }.compactMap { $0 }.filter { $0.timeIntervalSinceReferenceDate.isFinite }.max()
+    }
+
+    static func liveStatus(_ agents: [CompanionAgent]) -> CompanionAgentStatus? {
+        agents.enumerated().min {
+            let a = urgency($0.element.status), b = urgency($1.element.status)
+            return a == b ? $0.offset < $1.offset : a < b
+        }?.element.status
     }
 
     private static func urgency(_ status: CompanionAgentStatus) -> Int {
@@ -191,6 +195,8 @@ struct CompanionProjectGroup: Identifiable, Sendable, Equatable {
     var isIdle: Bool
     /// Awake agents and anything else that isn't folded, in the Home sort.
     var tree: CompanionAgentTree
+    /// Already computed from this group's live members; the header never re-scans recorded recency.
+    var liveStatus: CompanionAgentStatus? = nil
     var agents: [CompanionAgent] { tree.active.map(\.agent) }
     /// Durable agents that are asleep: "N sleeping".
     var sleeping: [CompanionAgent] { tree.sleeping.map(\.agent) }
@@ -230,10 +236,17 @@ struct CompanionHomeLayout: Sendable, Equatable {
                       now: Date = Date(), hold: CompanionListHold? = nil,
                       shared: (CompanionProjectEntry) -> CompanionProjectState? = { _ in nil },
                       projectActivity: (CompanionProjectTarget) -> Date?, agentActivity: (CompanionAgent) -> Date?) -> Self {
-        var ordered = sort == .recent
-            ? CompanionHomeProjectActivity.ordered(entries, recordedProjectActivity: projectActivity)
-            : CompanionProjectOrdering.ordered(entries, sort: sort, customOrder: customOrder, lastActivity: projectActivity)
-        if let hold { ordered = CompanionListHold.apply(ordered, order: hold.projects, id: \.orderKey) }
+        var ordered: [CompanionProjectEntry]
+        if sort == .recent, let hold {
+            // Recent is a visible-session snapshot. New peers append in catalog order;
+            // no history or project-activity scan is needed to re-sort the held peers.
+            ordered = CompanionListHold.apply(entries, order: hold.projects, id: \.orderKey)
+        } else {
+            ordered = sort == .recent
+                ? CompanionHomeProjectActivity.ordered(entries, recordedProjectActivity: projectActivity)
+                : CompanionProjectOrdering.ordered(entries, sort: sort, customOrder: customOrder, lastActivity: projectActivity)
+            if let hold { ordered = CompanionListHold.apply(ordered, order: hold.projects, id: \.orderKey) }
+        }
         var pinned: [CompanionProjectGroup] = [], active: [CompanionProjectGroup] = [], idle: [CompanionProjectGroup] = []
         for entry in ordered {
             let live = entry.members.filter(\.host.connection.canOperate).flatMap(\.project.agents)
@@ -264,7 +277,7 @@ struct CompanionHomeLayout: Sendable, Equatable {
             let isPinned = states.contains { $0.pinned }
             let isIdle = !isPinned && states.allSatisfy { $0.idle }
             let group = CompanionProjectGroup(entry: entry, isPinned: isPinned, isIdle: isIdle,
-                                              tree: tree)
+                                              tree: tree, liveStatus: CompanionHomeProjectActivity.liveStatus(live))
             if isPinned { pinned.append(group) } else if isIdle { idle.append(group) } else { active.append(group) }
         }
         return .init(projects: pinned + active, idle: idle)

@@ -255,3 +255,44 @@ struct CompanionIdentityTests {
         #expect(!quick.freeAgentMode && quick.color == nil)
     }
 }
+
+struct CompanionHomeRecentSessionTests {
+    @Test func heldRecentSkipsActivitySortingAndUpdatesLiveStatus() throws {
+        let original = entries([("p1", [agent("a", activity: ago(minutes: 5)), agent("b", activity: ago(minutes: 1))])])
+        let snapshot = layout(original).hold
+        let changed = entries([("p1", [agent("a", .approval, activity: now), agent("b", activity: ago(minutes: 1)), agent("new", .working, activity: now)])])
+        var projectReads = 0, agentReads = 0
+        let result = CompanionHomeLayout.build(changed, sort: .recent, customOrder: [], rule: .init(), now: now, hold: snapshot,
+            shared: { _ in .init() }, projectActivity: { _ in projectReads += 1; return now },
+            agentActivity: { _ in agentReads += 1; return now })
+        #expect(projectReads == 0 && agentReads == 0, "A held Recent order must not rescan activity to sort")
+        let group = try #require(result.projects.first)
+        #expect(group.agents.map(\.name) == ["b", "a", "new"])
+        #expect(group.agents[1].status == .approval)
+        #expect(group.liveStatus == .approval, "Header status is computed once from the live group")
+        #expect(layout(changed).projects[0].agents.map(\.name) == ["a", "new", "b"], "A new visible session takes a fresh Recent order")
+    }
+
+    @Test func heldProjectsAppendNewPeersAndDropRemovedOnes() {
+        let original = entries([("first", [agent("a", project: "first", activity: ago(minutes: 1))]),
+                                ("second", [agent("b", project: "second", activity: ago(minutes: 5))])])
+        let snapshot = layout(original).hold
+        let changed = entries([("second", [agent("b", project: "second", activity: now)]),
+                               ("first", [agent("a", project: "first", activity: ago(minutes: 1))]),
+                               ("new", [agent("c", project: "new", activity: now)])])
+        #expect(layout(changed, hold: snapshot).projects.map(\.entry.project.id) == ["first", "second", "new"])
+        #expect(layout(Array(changed.dropFirst()), hold: snapshot).projects.map(\.entry.project.id) == ["first", "new"])
+    }
+
+    @Test func nameAndCustomStillUseTheirExistingSortAndHelpersKeepTheirParent() {
+        let list = entries([("p1", [agent("zed"), agent("Alma")])])
+        #expect(layout(list, sort: .alphabetical).projects[0].agents.map(\.name) == ["Alma", "zed"])
+        #expect(layout(list, sort: .custom).projects[0].agents.map(\.name) == ["zed", "Alma"])
+        var helper = agent("helper", activity: now)
+        helper.parentAgentID = "zed"
+        let tree = CompanionAgentTree.build([agent("zed"), agent("Alma"), helper], sort: .recent,
+            held: [agent("Alma").id, agent("zed").id], lastActivity: { _ in Issue.record("Held tree must not read recency"); return now })
+        #expect(tree.active.map(\.agent.name) == ["Alma", "zed", "helper"])
+        #expect(tree.active.last?.parentName == "zed")
+    }
+}
