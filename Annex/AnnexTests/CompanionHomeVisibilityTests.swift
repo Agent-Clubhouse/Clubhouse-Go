@@ -35,7 +35,8 @@ import ClubhouseTransport
         fixture.select(.home)
         try await fixture.wait { fixture.group()?.agents.contains { $0.name == "Fresh title" } == true }
         XCTAssertEqual(fixture.group()?.liveStatus, .approval)
-        XCTAssertTrue(try fixture.renderedText().contains("Fresh title"), "The returned Home must actually render the fresh title")
+        let freshText = try await fixture.waitForRenderedText("Fresh title")
+        XCTAssertTrue(freshText.contains("Fresh title"), "The returned Home must actually render the fresh title")
         XCTAssertTrue(fixture.projection?.projects.contains { $0.entry.isLinked } == true)
         XCTAssertEqual(fixture.counts[.layout], fixture.counts[.content])
         fixture.capture("Home fresh after 100 rendered Dispatch updates")
@@ -58,7 +59,8 @@ import ClubhouseTransport
         await fixture.store.load(target)
         fixture.push(.agent(target))
         try await fixture.wait { fixture.isFrozen && fixture.chatBodies > 0 && fixture.counts[.row, default: 0] > 0 && fixture.counts[.rowMenu, default: 0] > 0 }
-        XCTAssertGreaterThan(fixture.counts[.projectMenu, default: 0], 0, "Real header menu child bodies were evaluated")
+        // Native context menus are lazy until opened; projectMenu stays in every frozen
+        // counter equality below, and LargeCatalog exercises the mounted menu itself.
         XCTAssertGreaterThan(fixture.counts[.quietRows, default: 0], 0)
         XCTAssertGreaterThan(fixture.counts[.appUpdate, default: 0], 0)
         XCTAssertGreaterThan(fixture.counts[.chips, default: 0], 0)
@@ -116,7 +118,8 @@ import ClubhouseTransport
         let first = try XCTUnwrap(fixture.frames.first)
         XCTAssertFalse(first.0)
         XCTAssertTrue(first.1.contains("Synthetic Desktop 1 is offline"), "The FIRST pop construction uses current banner inputs")
-        XCTAssertTrue(try fixture.renderedText().contains("offline"))
+        let offlineText = try await fixture.waitForRenderedText("offline")
+        XCTAssertTrue(offlineText.contains("offline"))
         fixture.capture("Home first returned frame has current connection state")
     }
 
@@ -416,12 +419,40 @@ import ClubhouseTransport
             (view as? UICollectionView) ?? view.subviews.lazy.compactMap { self.list(in: $0) }.first
         }
 
-        func renderedText() throws -> String {
+        func waitForRenderedText(_ expected: String) async throws -> String {
+            let deadline = Date().addingTimeInterval(5)
+            var text = ""
+            var lastImage: UIImage?
+            repeat {
+                (text, lastImage) = try renderedFrame()
+                if text.contains(expected) { break }
+                try await turn()
+                try await Task.sleep(for: .milliseconds(20)) // Pixel readiness only; never repeats an action.
+            } while Date() < deadline
+            let attachment = XCTAttachment(string: "Expected: \(expected)\nRecognized: \(text)")
+            attachment.name = "Home bounded OCR readiness"
+            attachment.lifetime = .keepAlways
+            XCTContext.runActivity(named: attachment.name) { activity in
+                activity.add(attachment)
+                if let lastImage {
+                    let pixels = XCTAttachment(image: lastImage)
+                    pixels.name = "Exact pixels used for Home OCR readiness"
+                    pixels.lifetime = .keepAlways
+                    activity.add(pixels)
+                }
+            }
+            return text
+        }
+
+        func renderedText() throws -> String { try renderedFrame().0 }
+
+        private func renderedFrame() throws -> (String, UIImage) {
             let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
             try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
-            return (request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []).joined(separator: " ")
+            let text = (request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []).joined(separator: " ")
+            return (text, image)
         }
 
         func capture(_ name: String) {

@@ -21,6 +21,7 @@ enum CompanionHomeAnchor: Hashable {
     private var suspended = true
     private var restoring = false
     private var restoreRequested = false
+    private var resumeApplied = false
     private var restorationCallbacks = 0
 
     #if DEBUG
@@ -53,8 +54,10 @@ enum CompanionHomeAnchor: Hashable {
     }
 
     func suspend() {
-        capture()
+        // Geometry has already captured the last valid position. During removal it can
+        // describe disappearing/top rows, so never replace the bookmark here.
         suspended = true
+        resumeApplied = false
         cancelRestoration()
         frames.removeAll()
     }
@@ -67,11 +70,14 @@ enum CompanionHomeAnchor: Hashable {
 
     func reset() {
         bookmark = nil
+        resumeApplied = false
         cancelRestoration()
         frames.removeAll()
     }
 
     func resume(_ proxy: ScrollViewProxy, available: (CompanionHomeAnchor) -> Bool) {
+        guard !resumeApplied, viewport.height > 0 else { return }
+        resumeApplied = true
         suspended = false
         if let saved = bookmark, available(saved.id) {
             restoring = true

@@ -433,9 +433,11 @@ struct CompanionHomeView: View {
     @State private var hold: CompanionListHold?
     @State private var heldScope: CompanionDesktopSelection = .all
     @State private var heldSort: CompanionProjectSort = .recent
+    @State private var holdGeneration: UInt64 = 0
     @State private var scrollAnchor: CompanionHomeScrollAnchorState?
-    @State private var frozenInputs: CompanionHomeRenderSnapshot?
-    @State private var frozenActions: CompanionHomeFrozenActions?
+    @StateObject private var renderSession = CompanionHomeRenderSession()
+    private var frozenInputs: CompanionHomeRenderSnapshot? { renderSession.snapshot }
+    private var frozenActions: CompanionHomeFrozenActions? { renderSession.actions }
     @State private var arrangingEntries: [CompanionProjectEntry] = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -489,37 +491,47 @@ struct CompanionHomeView: View {
         #if DEBUG
         let _ = CompanionHomeBuildProbe.record?(.owner)
         #endif
+        // Freeze synchronously before constructing any pushed List content; no onChange gap.
+        let _ = renderSession.prepare(visible: isVisible, pushed: isPushed) {
+            let snapshot = makeFrozenInputs()
+            let live = CompanionHomeFrozenActions(settings: agentSettings, wake: agentWake, terminal: terminal,
+                                                  openAgent: openAgent, openReview: openReview)
+            return (snapshot, live.capturingDisplay(snapshot, store: store))
+        }
         // A concrete owner keeps pending Home sheets alive across content removal.
         VStack(spacing: 0) {
             if isVisible {
                 CompanionHomeContent(home: renderOwner).equatable()
+                    // Environment readers belong ABOVE the equality boundary. They cannot leave
+                    // live Store dependencies registered on the frozen content or its rows.
+                    .modifier(CompanionHomeRowInputs(store: store, snapshot: isPushed ? frozenInputs : nil,
+                        impliedHostID: isPushed ? frozenInputs?.rowContext.impliedHostID : scope.impliedHostID,
+                        actions: isPushed ? frozenActions : nil))
+                    .tint(Color((isPushed ? frozenInputs?.palette : nil)?.tint ?? palette.tint))
+                    .foregroundStyle(Color((isPushed ? frozenInputs?.palette : nil)?.label ?? palette.label))
             }
             else { Color.clear }
         }
         .onChange(of: isVisible, initial: true) { _, visible in
-            if !visible { scrollAnchor?.suspend(); hold = nil; frozenInputs = nil; frozenActions = nil }
-            else if isPushed { freezeInputs() }
+            if !visible { scrollAnchor?.suspend(); hold = nil; holdGeneration &+= 1 }
             #if DEBUG
             CompanionHomeBuildProbe.visibility?(visible)
             #endif
         }
         .onAppear { if scrollAnchor == nil { scrollAnchor = CompanionHomeScrollAnchorState() } }
         .onChange(of: isPushed, initial: true) { wasPushed, pushed in
-            if isVisible && pushed { freezeInputs() }
-            else {
-                // Project pages already expose this inline; Back must not replay it as a Home alert.
-                if wasPushed && !pushed { store.projectStateError = nil }
-                frozenInputs = nil; frozenActions = nil
-            }
+            if pushed { scrollAnchor?.suspend() }
+            // Project pages already expose this inline; Back must not replay it as a Home alert.
+            if wasPushed && !pushed { store.projectStateError = nil }
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
-            if phase == .background { hold = nil }
+            if phase == .background { hold = nil; holdGeneration &+= 1 }
             #if DEBUG
             CompanionHomeBuildProbe.phase?(phase)
             #endif
         }
-        .onChange(of: desktopSelection) { _, _ in hold = nil; scrollAnchor?.reset() }
-        .onChange(of: preferences.projectSort) { _, _ in hold = nil }
+        .onChange(of: desktopSelection) { _, _ in hold = nil; holdGeneration &+= 1; scrollAnchor?.reset() }
+        .onChange(of: preferences.projectSort) { _, _ in hold = nil; holdGeneration &+= 1 }
         .navigationTitle("Clubhouse")
         .alert("Couldn't change the project", isPresented: Binding(get: { isVisible && !isPushed && frozenInputs == nil && store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
             Button("OK", role: .cancel) {}
@@ -570,6 +582,8 @@ struct CompanionHomeView: View {
 
     fileprivate var content: some View {
         let layout = layout
+        let renderedScope = desktopSelection, renderedSort = preferences.projectSort
+        let renderedGeneration = holdGeneration
         #if DEBUG
         let _ = CompanionHomeBuildProbe.record?(.content)
         let _ = CompanionHomeBuildProbe.projection?(layout)
@@ -629,35 +643,35 @@ struct CompanionHomeView: View {
         }
         .companionListStyle()
         .companionTelemetryScreen(.home)
-        .modifier(CompanionHomeRowInputs(store: store, snapshot: display, impliedHostID: scope.impliedHostID, actions: display == nil ? nil : frozenActions))
         .environment(\.companionHomeScrollAnchor, scrollAnchor)
         .onChange(of: layout.hold, initial: true) { _, current in
-            if !isPushed && scenePhase == .active && preferences.projectSort == .recent { setHold(current) }
+            if !isPushed && scenePhase == .active && preferences.projectSort == .recent { setHold(current, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
         }
         .onChange(of: !isPushed && scenePhase == .active && hold == nil, initial: true) { _, needsSnapshot in
-            if needsSnapshot && preferences.projectSort == .recent { setHold(layout.hold) }
+            if needsSnapshot && preferences.projectSort == .recent { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
         }
-        .onGeometryChange(for: CGRect.self, of: { value in
+        .onGeometryChange(for: CompanionHomeViewport.self, of: { value in
             let rect = value.frame(in: .global), insets = value.safeAreaInsets
-            return CGRect(x: rect.minX + insets.leading, y: rect.minY + insets.top,
+            return .init(frame: CGRect(x: rect.minX + insets.leading, y: rect.minY + insets.top,
                           width: max(0, rect.width - insets.leading - insets.trailing),
-                          height: max(0, rect.height - insets.top - insets.bottom))
-        }) { _, frame in scrollAnchor?.setViewport(frame) }
+                          height: max(0, rect.height - insets.top - insets.bottom)), pushed: isPushed)
+        }) { _, value in
+            scrollAnchor?.setViewport(value.frame)
+            if !value.pushed && value.frame.height > 0 {
+                // The geometry callback runs after List's first layout, when scroll IDs exist.
+                scrollAnchor?.resume(proxy) { anchorAvailable($0, layout: layout) }
+            }
+        }
         .onAppear {
             observeConnectedHosts(renderHosts)
             expandedOfflineHosts.formIntersection(Set(renderHosts.map(\.id)))
-            if !isPushed { scrollAnchor?.resume(proxy) { anchorAvailable($0, layout: layout) } }
         }
         .onChange(of: scrollAnchor != nil, initial: true) { _, _ in
-            if !isPushed { scrollAnchor?.resume(proxy) { anchorAvailable($0, layout: layout) } }
             #if DEBUG
             if let scrollAnchor { CompanionHomeBuildProbe.state?(scrollAnchor, $desktopSelection) }
             #endif
         }
         .onDisappear { scrollAnchor?.suspend() }
-        .onChange(of: isPushed) { _, pushed in
-            if !pushed { scrollAnchor?.resume(proxy) { anchorAvailable($0, layout: layout) } }
-        }
         .onChange(of: renderHosts) { _, hosts in
             observeConnectedHosts(hosts)
             expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
@@ -666,7 +680,7 @@ struct CompanionHomeView: View {
             if phase == .interacting { scrollAnchor?.cancelRestoration(); onInteraction() }
             if preferences.projectSort != .recent {
                 if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
-                else if hold == nil { setHold(layout.hold) }
+                else if hold == nil { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
             }
         }
         .animation(reduceMotion ? nil : .snappy, value: layout.hold)
@@ -682,15 +696,6 @@ struct CompanionHomeView: View {
     private func renderTerminal(_ target: CompanionTerminalScope) -> CompanionTerminalAvailability {
         if let display { return display.terminal[target] ?? .hidden }
         return terminal?.availability(target) ?? .hidden
-    }
-
-    private func freezeInputs() {
-        guard frozenInputs == nil else { return }
-        let snapshot = makeFrozenInputs()
-        let live = CompanionHomeFrozenActions(settings: agentSettings, wake: agentWake, terminal: terminal,
-                                              openAgent: openAgent, openReview: openReview)
-        frozenActions = live.capturingDisplay(snapshot, store: store)
-        frozenInputs = snapshot
     }
 
     /// Capture only on entering a pushed route, never on a streamed chunk. No commands/authority are cached.
@@ -745,7 +750,9 @@ struct CompanionHomeView: View {
         #if DEBUG
         CompanionHomeBuildProbe.snapshotAgents?(rowAgents.count)
         #endif
-        return .init(hosts: hosts, entries: entries, layout: layout, attention: attention,
+        return .init(hosts: hosts, palette: palette,
+            helperLabels: Dictionary(hosts.map { ($0.id, $0.helperRoutingLabels) }, uniquingKeysWith: { first, _ in first }),
+            entries: entries, layout: layout, attention: attention,
             rowContext: .init(hostNames: Dictionary(hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
                 impliedHostID: scoped.impliedHostID, projectAccessDefaults: store.projectAccessDefaults, agentAccessDefaults: store.agentAccessDefaults),
             finished: finished, finishedError: store.finishedError, states: states, linkedStates: linked,
@@ -753,9 +760,11 @@ struct CompanionHomeView: View {
             settings: settings, wake: wake, terminal: terminals, wakeProjects: wakeProjects)
     }
 
-    private func setHold(_ next: CompanionListHold) {
-        heldScope = desktopSelection
-        heldSort = preferences.projectSort
+    private func setHold(_ next: CompanionListHold, scope: CompanionDesktopSelection, sort: CompanionProjectSort, generation: UInt64) {
+        // A callback from the previous render must not relabel its old ordering as a new session.
+        guard generation == holdGeneration, scope == desktopSelection, sort == preferences.projectSort else { return }
+        heldScope = scope
+        heldSort = sort
         if hold != next { hold = next }
     }
 
@@ -1250,6 +1259,11 @@ struct CompanionHomeView: View {
             }
         }
     }
+}
+
+private struct CompanionHomeViewport: Equatable {
+    let frame: CGRect
+    let pushed: Bool
 }
 
 /// On a push install captured display inputs once; subsequent parent updates do not rebuild the List.

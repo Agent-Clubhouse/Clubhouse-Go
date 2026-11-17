@@ -30,7 +30,7 @@ struct CompanionAgentStatusLine: Equatable {
     }
 }
 
-struct CompanionAgentRowContext {
+struct CompanionAgentRowContext: Equatable {
     var hostNames: [String: String] = [:]
     var impliedHostID: String?
     var projectOriginLabels: [CompanionProjectTarget: String] = [:]

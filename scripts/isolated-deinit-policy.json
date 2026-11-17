@@ -966,11 +966,17 @@
           "restorationCallbacks": "Int",
           "restoreRequested": "Bool",
           "restoring": "Bool",
+          "resumeApplied": "Bool",
           "suspended": "Bool",
           "viewport": "CGRect"
         },
         "storageMacros": []
       }
+    },
+    "CompanionHomeRenderSession": {
+      "policy": "main_actor",
+      "reason": "SwiftUI StateObject owns the lazy pushed Home display snapshot and existing Root execution handles. Those closures can retain Root SwiftUI State/bindings, so destruction intentionally remains isolated to MainActor. No tasks, observer tokens, proxy, view controller or capture factory is stored; prepare uses a nonescaping factory and clears handles synchronously on pop/tab exit.",
+      "source": "Annex/Annex/Companion/Views/CompanionHomeRenderSnapshot.swift"
     }
   },
   "captureSites": {

@@ -4,6 +4,8 @@ import SwiftUI
 /// Unlike a Store clone this has no observation, service, callbacks, tasks or persistence.
 struct CompanionHomeRenderSnapshot {
     let hosts: [CompanionHost]
+    let palette: CompanionPalette
+    let helperLabels: [String: CompanionHelperRouting.Labels]
     let entries: [CompanionProjectEntry]
     let layout: CompanionHomeLayout
     let attention: [CompanionAttentionItem]
@@ -106,6 +108,8 @@ struct CompanionHomeRowInputs: ViewModifier {
         #endif
         return content
             .environment(\.companionAgentRowContext, context)
+            .transformEnvironment(\.companionHelperLabels) { value in if let snapshot { value = snapshot.helperLabels } }
+            .transformEnvironment(\.companionPalette) { value in if let snapshot { value = snapshot.palette } }
             .transformEnvironment(\.companionAgentSettings) { value in if snapshot != nil { value = actions?.settings } }
             .transformEnvironment(\.companionAgentWake) { value in if snapshot != nil { value = actions?.wake } }
             .transformEnvironment(\.companionTerminal) { value in if snapshot != nil { value = actions?.terminal } }
@@ -121,5 +125,24 @@ struct CompanionHomeRowInputs: ViewModifier {
         }
         return .init(hostNames: Dictionary(store.hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
             impliedHostID: impliedHostID, projectAccessDefaults: store.projectAccessDefaults, agentAccessDefaults: store.agentAccessDefaults)
+    }
+}
+
+/// SwiftUI creates this storage lazily once. Mutating these non-published display values during
+/// the owner's construction cannot schedule another body pass. Captured execution handles can
+/// retain Root's UI State, so their destruction intentionally stays isolated to MainActor.
+@MainActor final class CompanionHomeRenderSession: ObservableObject {
+    private(set) var snapshot: CompanionHomeRenderSnapshot?
+    private(set) var actions: CompanionHomeFrozenActions?
+
+    deinit {}
+
+    func prepare(visible: Bool, pushed: Bool,
+                 capture: () -> (CompanionHomeRenderSnapshot, CompanionHomeFrozenActions)) {
+        guard visible && pushed else { snapshot = nil; actions = nil; return }
+        guard snapshot == nil else { return }
+        let (snapshot, actions) = capture()
+        self.actions = actions
+        self.snapshot = snapshot
     }
 }
