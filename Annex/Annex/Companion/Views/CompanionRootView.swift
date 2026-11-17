@@ -295,8 +295,8 @@ struct CompanionRootView: View {
         }
         let switcher = CompanionDispatcherSwitcher(desktops: navigation.dispatcherDesktops, hosts: store.hosts,
             selectedHostID: navigation.dispatcherHostID, replies: navigation.dispatcherReplies.unreadHostIDs,
-            isWorking: CompanionDispatcherTurn.collapsesChips(agent: navigation.dispatcherTarget.flatMap { store.agent(for: $0) },
-                isStreaming: isStreaming, connection: navigation.dispatcherTarget.flatMap { store.host(for: $0) }?.connection), select: { hostID in
+            isWorking: CompanionDispatcherTurn.inTurn(agent: navigation.dispatcherTarget.flatMap { store.agent(for: $0) }, isStreaming: isStreaming),
+            isLive: CompanionDispatcherTurn.isLive(navigation.dispatcherTarget.flatMap { store.host(for: $0) }?.connection), select: { hostID in
                 navigation.chooseDispatcher(hostID: hostID)
                 preferences.lastHostID = hostID
                 preferences.lastDispatcherHostID = hostID

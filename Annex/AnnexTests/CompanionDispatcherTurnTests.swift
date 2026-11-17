@@ -22,12 +22,33 @@ import Testing
         #expect(!CompanionDispatcherTurn.collapsesChips(agent: nil, isStreaming: false, connection: .connected))
     }
 
-    @Test func aCachedTurnOnADesktopThatIsNotLiveKeepsTheChips() {
-        for connection in [CompanionConnection.offline, .connecting, .reconnecting, .synchronizing, .failed("Lost")] {
+    @Test func aCachedTurnOnAnOfflineOrFailedDesktopKeepsTheChips() {
+        for connection in [CompanionConnection.offline, .failed("Lost")] {
             #expect(!CompanionDispatcherTurn.collapsesChips(agent: agent(.working), isStreaming: true, connection: connection),
-                    "\(connection) isn't live")
+                    "\(connection) has no live turn")
         }
         #expect(!CompanionDispatcherTurn.collapsesChips(agent: agent(.working), isStreaming: false, connection: nil))
+    }
+
+    @Test func onlyOfflineOrFailedDesktopsAreNotLive() {
+        for connection in [CompanionConnection.offline, .failed("Lost")] { #expect(!CompanionDispatcherTurn.isLive(connection)) }
+        #expect(!CompanionDispatcherTurn.isLive(nil))
+        for connection in [CompanionConnection.connecting, .reconnecting, .synchronizing, .connected] {
+            #expect(CompanionDispatcherTurn.isLive(connection), "\(connection) keeps a known turn")
+        }
+    }
+
+    @Test func theTurnIgnoresTheConnection() {
+        #expect(CompanionDispatcherTurn.inTurn(agent: agent(.approval), isStreaming: false))
+        #expect(!CompanionDispatcherTurn.inTurn(agent: agent(.idle), isStreaming: false))
+    }
+
+    @Test func aConnectionBlipKeepsTheTurn() {
+        for connection in [CompanionConnection.connecting, .reconnecting, .synchronizing] {
+            #expect(CompanionDispatcherTurn.collapsesChips(agent: agent(.working), isStreaming: false, connection: connection),
+                    "\(connection) is a blip, not the end of the turn")
+            #expect(!CompanionDispatcherTurn.collapsesChips(agent: agent(.idle), isStreaming: false, connection: connection))
+        }
     }
 
     @Test func onlyOverlappingAvatarsGetAGapRing() {

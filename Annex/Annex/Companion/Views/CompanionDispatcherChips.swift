@@ -4,12 +4,24 @@ import ClubhouseTransport
 /// When the Dispatcher's turn takes the chips' reading space, and how the collapsed stack draws.
 enum CompanionDispatcherTurn {
     /// The whole turn, including a permission or question in the middle of it, so the chips and the reader's Show
-    /// chips choice don't change at every prompt (#537). Only a live desktop's turn counts: a cached Working on an
-    /// offline or synchronizing desktop isn't live, as on Home. `turnStartedAt` isn't used: the desktop doesn't
-    /// always send a turn time, and a reconnect drops it unless the agent is working.
+    /// chips choice don't change at every prompt (#537). `turnStartedAt` isn't used: the desktop doesn't always send
+    /// a turn time, and a reconnect drops it unless the agent is working.
+    static func inTurn(agent: CompanionAgent?, isStreaming: Bool) -> Bool {
+        isStreaming || [.working, .approval, .waiting].contains(agent?.status)
+    }
+
+    /// A desktop that is offline or failed has no live turn, as on Home. A blip keeps it: reconnecting,
+    /// synchronizing, and connecting too, because every fresh `connect()` (Retry, returning to the app) passes
+    /// through `.connecting` with the turn already known, sometimes straight from `.reconnecting`.
+    static func isLive(_ connection: CompanionConnection?) -> Bool {
+        switch connection {
+        case nil, .offline, .failed: false
+        case .connecting, .reconnecting, .synchronizing, .connected: true
+        }
+    }
+
     static func collapsesChips(agent: CompanionAgent?, isStreaming: Bool, connection: CompanionConnection?) -> Bool {
-        guard connection?.canOperate == true else { return false }
-        return isStreaming || [.working, .approval, .waiting].contains(agent?.status)
+        isLive(connection) && inTurn(agent: agent, isStreaming: isStreaming)
     }
 
     /// A gap ring separates overlapping avatars; a lone avatar has nothing to separate.
@@ -22,7 +34,10 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
     let hosts: [CompanionHost]
     let selectedHostID: String?
     let replies: Set<String>
+    /// The Dispatcher's turn; its edges reset the reader's Show chips choice.
     let isWorking: Bool
+    /// Whether that turn is live. Losing the desktop shows the chips without touching the reader's choice.
+    let isLive: Bool
     var select: (String) -> Void
     var openSettings: () -> Void
     let content: Content
@@ -32,19 +47,21 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
     @Environment(\.dynamicTypeSize) private var textSize
 
     init(desktops: [CompanionDispatcherDesktop], hosts: [CompanionHost], selectedHostID: String?,
-         replies: Set<String>, isWorking: Bool, select: @escaping (String) -> Void,
+         replies: Set<String>, isWorking: Bool, isLive: Bool, select: @escaping (String) -> Void,
          openSettings: @escaping () -> Void, @ViewBuilder content: () -> Content) {
         self.desktops = desktops
         self.hosts = hosts
         self.selectedHostID = selectedHostID
         self.replies = replies
         self.isWorking = isWorking
+        self.isLive = isLive
         self.select = select
         self.openSettings = openSettings
         self.content = content()
     }
 
-    private var collapsed: Bool { isWorking && !expandedWhileWorking }
+    private var collapsible: Bool { isWorking && isLive }
+    private var collapsed: Bool { collapsible && !expandedWhileWorking }
     private var usesReducedMotion: Bool {
         #if DEBUG
         reduceMotion || ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatch-reduce-motion")
@@ -94,7 +111,7 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
                             .accessibilityAddTraits(selectedHostID == desktop.id ? [.isSelected] : [])
                             .accessibilityIdentifier("dispatcher-desktop-\(desktop.id)")
                         }
-                        if isWorking {
+                        if collapsible {
                             Button("Collapse Dispatchers", systemImage: "chevron.up") { expandedWhileWorking = false }
                                 .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
                         }
@@ -144,6 +161,7 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
             }
         }
         .animation(usesReducedMotion ? nil : .snappy(duration: 0.2), value: collapsed)
+        // Only a turn's edges reset the choice; a connection edge alone never does.
         .onChange(of: isWorking) { _, _ in expandedWhileWorking = false }
         .onChange(of: selectedHostID) { _, _ in expandedWhileWorking = false }
     }
@@ -198,6 +216,10 @@ struct CompanionDispatcherPreviewReports: View {
             Button("Disconnect desktop") { report(connection: .offline) }.accessibilityIdentifier("dispatcher-preview-disconnect")
             Button("Reconnect desktop") { report(connection: .connected) }.accessibilityIdentifier("dispatcher-preview-reconnect")
             Button("Report Dispatcher off") { report(enabled: false) }.accessibilityIdentifier("dispatcher-preview-off")
+          }
+          HStack {
+            Button("Report reconnecting") { report(connection: .reconnecting) }.accessibilityIdentifier("dispatcher-preview-reconnecting")
+            Button("Report connecting") { report(connection: .connecting) }.accessibilityIdentifier("dispatcher-preview-connecting")
           }
         }.font(.caption).buttonStyle(.bordered).padding(.horizontal)
     }

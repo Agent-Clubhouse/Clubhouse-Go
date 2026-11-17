@@ -212,11 +212,17 @@ import UIKit
             XCTAssertTrue(waitFor(identity, NSPredicate { _, _ in identity.frame == expandedIdentity }, timeout: 3),
                           "\(state): the identity stays centred: \(identity.frame) vs \(expandedIdentity)")
         }
-        // Sampled at once as well as settled, so a jump that springs back still fails.
+        // Sampled repeatedly from the tap through the animation window as well as settled, so a jump that springs
+        // back still fails. Each sample is one frame query of each element, about every 40ms.
         func immediately(_ state: String) {
-            let rowNow = row.frame, identityNow = identity.frame
-            XCTAssertLessThanOrEqual(abs(rowNow.minY - expandedRow.minY), 1, "\(state), at once: \(rowNow) vs \(expandedRow)")
-            XCTAssertEqual(identityNow, expandedIdentity, "\(state), at once")
+            var rows: [CGFloat] = [], identities: [CGRect] = []
+            for _ in 0..<12 {
+                rows.append(row.frame.minY); identities.append(identity.frame)
+                usleep(40_000)
+            }
+            XCTAssertTrue(rows.allSatisfy { abs($0 - expandedRow.minY) <= 1 },
+                          "\(state): every sample stays within 1pt: \(rows) vs \(expandedRow.minY)")
+            XCTAssertTrue(identities.allSatisfy { $0 == expandedIdentity }, "\(state): \(identities) vs \(expandedIdentity)")
         }
         app.buttons["Collapse Dispatchers"].tap()
         immediately("Collapsed")
@@ -301,6 +307,41 @@ import UIKit
         capture(app, "529 Offline desktop keeps chips")
         app.buttons["dispatcher-preview-reconnect"].tap()
         XCTAssertTrue(stack.waitForExistence(timeout: 5), "Back online, the live turn collapses the chips")
+        // Losing and regaining the desktop is a connection edge, not a turn edge: Show chips survives it.
+        waitAndTap(stack, until: app.buttons["dispatcher-expand-chips"], attempts: 1)
+        app.buttons["dispatcher-expand-chips"].tap()
+        XCTAssertTrue(app.scrollViews["dispatcher-chips"].waitForExistence(timeout: 5))
+        app.buttons["dispatcher-preview-disconnect"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["chips/-"])
+        app.buttons["dispatcher-preview-reconnect"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["chips/-"], "Reconnecting doesn't undo Show chips")
+    }
+
+    /// QA on #540: a reconnect blip mid-turn (reconnecting, then a fresh connect through connecting) keeps the turn.
+    /// The chips stay collapsed, or stay shown if the reader chose Show chips, rather than expanding and re-collapsing.
+    func testReconnectingBlipKeepsTurnAndShowChoice() {
+        let app = openNaviWithReports()
+        let stack = app.buttons["dispatcher-desktop-switcher"]
+        let chips = app.scrollViews["dispatcher-chips"]
+        app.buttons["dispatcher-preview-start-turn"].tap()
+        XCTAssertTrue(stack.waitForExistence(timeout: 5))
+        for (blip, id) in [("reconnecting", "dispatcher-preview-reconnecting"), ("connecting", "dispatcher-preview-connecting")] {
+            app.buttons[id].tap()
+            XCTAssertEqual(Set(chipStates(app)), ["-/stack"], "A \(blip) blip doesn't expand the chips")
+        }
+        app.buttons["dispatcher-preview-reconnect"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["-/stack"])
+        waitAndTap(stack, until: app.buttons["dispatcher-expand-chips"], attempts: 1)
+        app.buttons["dispatcher-expand-chips"].tap()
+        XCTAssertTrue(chips.waitForExistence(timeout: 5))
+        let shownFrame = chips.frame
+        for (blip, id) in [("reconnecting", "dispatcher-preview-reconnecting"), ("connecting", "dispatcher-preview-connecting")] {
+            app.buttons[id].tap()
+            XCTAssertEqual(Set(chipStates(app)), ["chips/-"], "Show chips holds through a \(blip) blip")
+        }
+        app.buttons["dispatcher-preview-reconnect"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["chips/-"], "and after it")
+        XCTAssertEqual(chips.frame, shownFrame, "The chips never moved or re-animated")
     }
 
     /// #529: the collapsed stack draws no gap ring around a single other Dispatcher's avatar. Just outside the
