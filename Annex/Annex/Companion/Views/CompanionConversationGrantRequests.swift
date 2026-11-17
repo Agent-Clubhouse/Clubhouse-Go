@@ -45,18 +45,9 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
         .frame(height: min(footerHeight, maximumHeight))
         .accessibilityIdentifier("companion-grant-footer-scroll")
         #if DEBUG
-        // A naturally sized bottom-docked footer also ends at the keyboard. Its height alone
-        // cannot tell a UI test whether this maximum actually capped the content.
-        .overlay(alignment: .topLeading) {
-            if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
-                Color.clear.frame(width: 1, height: 1)
-                    .allowsHitTesting(false)
-                    .accessibilityElement()
-                    .accessibilityLabel("Footer maximum height")
-                    .accessibilityValue(String(format: "%.2f", maximumHeight))
-                    .accessibilityIdentifier("companion-grant-footer-maximum")
-            }
-        }
+        // Classify capped vs naturally sized footers without adding another AX element.
+        .accessibilityValue(String(format: "%.2f", maximumHeight),
+                            isEnabled: ProcessInfo.processInfo.arguments.contains("--ui-testing-fast"))
         #endif
     }
 

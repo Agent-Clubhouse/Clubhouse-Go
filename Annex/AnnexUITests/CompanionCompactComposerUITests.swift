@@ -466,7 +466,7 @@ import XCTest
             XCTAssertTrue(m.measured && m.natural > 0, "\(state): measured: \(m.raw)")
             let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
             XCTAssertEqual(reviewOnly, forced == "--companion-ui-test-force-review-only", "\(state): the forced state is shown")
-            let footerMaximum = try XCTUnwrap(Double(try XCTUnwrap(layout.values["companion-grant-footer-maximum"],
+            let footerMaximum = try XCTUnwrap(Double(try XCTUnwrap(layout.values["companion-grant-footer-scroll"],
                                                                  "\(state): DEBUG footer maximum")))
             let visibleFooter = Double(keyboardTop - footer.minY)
             XCTAssertGreaterThan(footerMaximum, 0, "\(state): a valid reported maximum")
