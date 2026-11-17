@@ -57,13 +57,14 @@ struct CompanionConversationPendingDecisions: View {
                 .disabled(review != nil)
                 .padding(.horizontal, 12).padding(.vertical, usesTightAccessibilityRows ? 1 : 4)
                 .companionCardGlass(RoundedRectangle(cornerRadius: 20))
+                #if DEBUG
+                // Inside the card's own bounds, so the exported metrics never widen the tray's frame.
+                .overlay(alignment: .center) { fitMetrics }
+                #endif
                 // When AX rows are tight the footer can outgrow the room above the keyboard and scroll from its top,
                 // pushing the composer's own bottom margin under the keyboard. The composer's padding already
                 // separates the card, so return this outer inset to the composer (0pt clearance on iPhone 17, iOS 26.5).
                 .padding(.horizontal, 16).padding(.vertical, usesTightAccessibilityRows ? 0 : 4)
-                #if DEBUG
-                .overlay(alignment: .topLeading) { fitMetrics }
-                #endif
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("companion-pinned-decision")
                 .accessibilityValue(usesReviewOnlyRow ? "Review-only request controls"
@@ -309,6 +310,7 @@ struct CompanionConversationPendingDecisions: View {
     @ViewBuilder private var fitMetrics: some View {
         if Self.exposesFitMetrics {
             Color.clear.frame(width: 1, height: 1)
+                .allowsHitTesting(false)
                 .accessibilityElement()
                 .accessibilityIdentifier("companion-pinned-decision-fit")
                 .accessibilityValue(String(format: "natural=%.2f offered=%.2f caption=%.2f measured=%@",

@@ -103,6 +103,9 @@ import XCTest
                 return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
             })
             let natural = Double(fit["natural"] ?? "") ?? 0, offered = Double(fit["offered"] ?? "") ?? 0, caption = Double(fit["caption"] ?? "") ?? 0
+            if let fitFrame = layout["companion-pinned-decision-fit"] {
+                XCTAssertTrue(pixelContains(tray, fitFrame), "\(state): the metrics element stays inside the card: \(fitFrame) in \(tray)", file: file, line: line)
+            }
             if reviewOnly {
                 XCTAssertEqual(fit["measured"], "true", "\(state): Review-only comes from a measurement: \(fitValue)", file: file, line: line)
                 XCTAssertGreaterThan(natural, 0, "\(state): the full rows were measured: \(fitValue)", file: file, line: line)
