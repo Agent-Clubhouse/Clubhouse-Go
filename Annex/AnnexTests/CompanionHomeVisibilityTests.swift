@@ -179,7 +179,7 @@ import ClubhouseTransport
         try await fixture.wait { fixture.group()?.agents.contains { $0.id == target } == true }
         XCTAssertNotEqual(fixture.group()?.agents.first?.id, target, "Recent is initially held")
         fixture.preferences.projectSort = .alphabetical
-        try await fixture.wait { fixture.group()?.agents.first?.name == "Synthetic agent 1" }
+        try await fixture.wait { fixture.renderedSort == .alphabetical && fixture.group()?.agents.first?.name == "Synthetic agent 1" }
         fixture.preferences.projectSort = .recent
         try await fixture.wait { fixture.group()?.agents.first?.id == target }
         let scope = try XCTUnwrap(fixture.scope)
@@ -270,12 +270,14 @@ import ClubhouseTransport
         try await fixture.wait { fixture.store.selection == fixture.dispatcher }
         fixture.select(.home)
         try await fixture.wait { !anchor.testRestoring && anchor.testFrames[saved.id]?.intersects(anchor.testViewport) == true }
+        XCTAssertEqual(fixture.issuedAnchors.last, saved.id, "Restore must target the saved row")
         fixture.assertAlignment(saved)
         fixture.push(.agent(fixture.hosts[2].projects[0].agents[1].id))
         try await fixture.wait { fixture.isFrozen }
         fixture.assertPushCost()
         fixture.pop()
         try await fixture.wait { !fixture.isFrozen && !anchor.testRestoring && anchor.testFrames[saved.id]?.intersects(anchor.testViewport) == true }
+        XCTAssertEqual(fixture.issuedAnchors.last, saved.id, "Restore must target the saved row")
         fixture.assertAlignment(saved)
         XCTAssertTrue(fixture.anchor === anchor, "The Home state owner survives the hidden subtree")
         XCTAssertGreaterThan(try XCTUnwrap(fixture.list(in: fixture.window)).contentOffset.y, 0, "Return cannot silently reset to the top")
@@ -295,6 +297,8 @@ import ClubhouseTransport
         var navigation: Binding<CompanionNavigation>?
         var scope: Binding<CompanionDesktopSelection>?
         var anchor: CompanionHomeScrollAnchorState?
+        var renderedSort: CompanionProjectSort?
+        var issuedAnchors: [CompanionHomeAnchor] = []
         var projection: CompanionHomeLayout?
         var counts: [CompanionHomeBuildProbe.Kind: Int] = [:]
         var chatBodies = 0
@@ -333,6 +337,8 @@ import ClubhouseTransport
 
         func mount() async throws {
             await store.load(dispatcher)
+            CompanionHomeBuildProbe.renderedSort = { [weak self] in self?.renderedSort = $0 }
+            CompanionHomeBuildProbe.scrollToIssued = { [weak self] in self?.issuedAnchors.append($0) }
             CompanionHomeBuildProbe.phase = { [weak self] in self?.observedPhase = $0 }
             CompanionHomeBuildProbe.snapshotAgents = { [weak self] in self?.snapshotAgentCounts.append($0) }
             CompanionHomeBuildProbe.visibility = { [weak self] in self?.homeVisible = $0 }
@@ -462,6 +468,7 @@ import ClubhouseTransport
         }
 
         func close() {
+            CompanionHomeBuildProbe.renderedSort = nil; CompanionHomeBuildProbe.scrollToIssued = nil
             CompanionHomeBuildProbe.phase = nil; CompanionHomeBuildProbe.snapshotAgents = nil; phase = nil
             CompanionHomeBuildProbe.visibility = nil
             CompanionHomeBuildProbe.record = nil; CompanionHomeBuildProbe.projection = nil

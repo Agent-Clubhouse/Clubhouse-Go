@@ -408,8 +408,6 @@ struct CompanionHomeView: View {
     var onInteraction: () -> Void = {}
     var isVisible = true
     var isPushed = false
-    /// A value copy supplied only to the frozen rendering child; actions still use the real Store.
-    var display: CompanionHomeRenderSnapshot? = nil
     #if DEBUG
     var hostedProjectMenu: ((CompanionLinkedProjectStateMenuItems) -> Void)? = nil
     #endif
@@ -436,7 +434,10 @@ struct CompanionHomeView: View {
     @State private var holdGeneration: UInt64 = 0
     @StateObject private var scrollAnchor = CompanionHomeScrollAnchorState()
     @StateObject private var renderSession = CompanionHomeRenderSession()
-    private var frozenInputs: CompanionHomeRenderSnapshot? { renderSession.snapshot }
+    // Lazy List closures can retain earlier Home value copies. All copies consult the same
+    // non-observable session so none can fall back to live Store reads during a push.
+    fileprivate var display: CompanionHomeRenderSnapshot? { renderSession.snapshot }
+    private var frozenInputs: CompanionHomeRenderSnapshot? { display }
     private var frozenActions: CompanionHomeFrozenActions? { renderSession.actions }
     @State private var arrangingEntries: [CompanionProjectEntry] = []
     @Environment(\.companionPalette) private var palette
@@ -491,6 +492,8 @@ struct CompanionHomeView: View {
         #if DEBUG
         let _ = CompanionHomeBuildProbe.record?(.owner)
         #endif
+        // Suspend before departing geometry can replace the visible bookmark.
+        let _ = scrollAnchor.setPresented(isVisible && !isPushed)
         // Freeze synchronously before constructing any pushed List content; no onChange gap.
         let _ = renderSession.prepare(visible: isVisible, pushed: isPushed) {
             let snapshot = makeFrozenInputs()
@@ -501,7 +504,7 @@ struct CompanionHomeView: View {
         // A concrete owner keeps pending Home sheets alive across content removal.
         VStack(spacing: 0) {
             if isVisible {
-                CompanionHomeContent(home: renderOwner).equatable()
+                CompanionHomeContent(home: self).equatable()
                     // Environment readers belong ABOVE the equality boundary. They cannot leave
                     // live Store dependencies registered on the frozen content or its rows.
                     .modifier(CompanionHomeRowInputs(store: store, snapshot: isPushed ? frozenInputs : nil,
@@ -513,13 +516,12 @@ struct CompanionHomeView: View {
             else { Color.clear }
         }
         .onChange(of: isVisible, initial: true) { _, visible in
-            if !visible { scrollAnchor.suspend(); hold = nil; holdGeneration &+= 1 }
+            if !visible { hold = nil; holdGeneration &+= 1 }
             #if DEBUG
             CompanionHomeBuildProbe.visibility?(visible)
             #endif
         }
         .onChange(of: isPushed, initial: true) { wasPushed, pushed in
-            if pushed { scrollAnchor.suspend() }
             // Project pages already expose this inline; Back must not replay it as a Home alert.
             if wasPushed && !pushed { store.projectStateError = nil }
         }
@@ -554,12 +556,6 @@ struct CompanionHomeView: View {
         }
     }
 
-    private var renderOwner: Self {
-        var owner = self
-        owner.display = isPushed ? frozenInputs : nil
-        return owner
-    }
-
     @ToolbarContentBuilder private var homeToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Button("Settings", systemImage: "gearshape", action: onSettings).companionToolbarSecondary()
@@ -585,6 +581,7 @@ struct CompanionHomeView: View {
         let renderedGeneration = holdGeneration
         #if DEBUG
         let _ = CompanionHomeBuildProbe.record?(.content)
+        let _ = CompanionHomeBuildProbe.renderedSort?(renderedSort)
         let _ = CompanionHomeBuildProbe.projection?(layout)
         let _ = CompanionHomeBuildProbe.frozen?(display != nil)
         let _ = CompanionHomeBuildProbe.frame?(display != nil, CompanionConnectionNotice(hosts: presentationHosts).title)
@@ -670,7 +667,6 @@ struct CompanionHomeView: View {
             CompanionHomeBuildProbe.state?(scrollAnchor, $desktopSelection)
             #endif
         }
-        .onDisappear { scrollAnchor.suspend() }
         .onChange(of: renderHosts) { _, hosts in
             observeConnectedHosts(hosts)
             expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
@@ -866,7 +862,7 @@ struct CompanionHomeView: View {
         if !shown.isEmpty {
             Section {
                 ForEach(shown) { host in
-                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: display?.dispatcherActivity[host.dispatcherAgent?.id ?? .init(hostID: host.id, projectID: "", agentID: "")])
+                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: display?.dispatcherActivity[host.dispatcherAgent?.id ?? .init(hostID: host.id, projectID: "", agentID: "")], capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
                         .companionHomeAnchor(.dispatcher(host.id))
                         .listRowBackground(CompanionCardBackground())
                 }
@@ -1364,17 +1360,60 @@ struct CompanionDispatcherRow: View {
     let host: CompanionHost
     var hostTag: String?
     var capturedActivity: CompanionCapturedActivity? = nil
-    @Environment(\.companionOpenAgent) private var openAgent
-    @Environment(\.companionPalette) private var palette
-
+    /// Home passes the captured execution handle explicitly. The frozen branch has no
+    /// open-agent Environment reader for Root's changing closure to invalidate directly.
+    var capturedOpenAgent: (@MainActor (CompanionTarget) -> Void)? = nil
     @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var body: some View {
         #if DEBUG
         let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.row) }
         #endif
+        if let capturedOpenAgent {
+            CompanionDispatcherRowContent(host: host, hostTag: hostTag,
+                detail: detail, openAgent: capturedOpenAgent)
+        } else {
+            CompanionLiveDispatcherRow(host: host, hostTag: hostTag, detail: detail)
+        }
+    }
+
+    private var detail: String? {
+        guard let agent = host.dispatcherAgent else { return nil }
+        if let note = host.dispatcher?.statusNote { return note }
+        if let message = agent.detail?.message, !message.isEmpty { return message }
+        let value: Date?
+        if let capturedActivity { value = capturedActivity.date }
+        else { value = store.lastActivity(of: agent) }
+        return value?.formatted(.relative(presentation: .named))
+    }
+}
+
+/// Nil/default callers keep the existing live Environment action, including Dispatch.
+private struct CompanionLiveDispatcherRow: View {
+    let host: CompanionHost
+    let hostTag: String?
+    let detail: String?
+    @Environment(\.companionOpenAgent) private var openAgent
+    var body: some View {
+        CompanionDispatcherRowContent(host: host, hostTag: hostTag, detail: detail, openAgent: openAgent)
+    }
+}
+
+private struct CompanionDispatcherRowContent: View {
+    let host: CompanionHost
+    let hostTag: String?
+    let detail: String?
+    let openAgent: @MainActor (CompanionTarget) -> Void
+    @Environment(\.companionPalette) private var palette
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
+    var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.dispatcherContent) }
+        #endif
         if let agent = host.dispatcherAgent {
             Button { openAgent(agent.id) } label: {
-                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: host.dispatcher?.statusNote ?? activity(agent))
+                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: detail)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("dispatcher-row-\(host.id)")
@@ -1392,16 +1431,6 @@ struct CompanionDispatcherRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("dispatcher-row-pending-\(host.id)")
         }
-    }
-
-    /// "Asked Atlas to fix the build", or when it was last active.
-    private func activity(_ agent: CompanionAgent) -> String? {
-        if let message = agent.detail?.message, !message.isEmpty { return message }
-        let value: Date?
-        if let capturedActivity { value = capturedActivity.date }
-        else { value = store.lastActivity(of: agent) }
-        guard let date = value else { return nil }
-        return date.formatted(.relative(presentation: .named))
     }
 }
 

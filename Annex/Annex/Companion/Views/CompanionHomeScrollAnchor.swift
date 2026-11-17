@@ -20,6 +20,8 @@ enum CompanionHomeAnchor: Hashable {
     private(set) var bookmark: Bookmark?
     private var frames: [CompanionHomeAnchor: CGRect] = [:]
     private var viewport: CGRect = .zero
+    private var presented = false
+    private var resumeGeneration: UInt64 = 0
     private var suspended = true
     private var restoring = false
     private var restoreRequested = false
@@ -35,9 +37,12 @@ enum CompanionHomeAnchor: Hashable {
     func record(_ id: CompanionHomeAnchor, frame: CGRect) {
         guard frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return }
         frames[id] = frame
-        if restoring {
+        if restoring && restoreRequested {
             restorationCallbacks += 1
-            if (restoreRequested && bookmark?.id == id && frame.intersects(viewport)) || restorationCallbacks >= 64 {
+            let aligned = bookmark.map { saved in
+                saved.id == id && abs(frame.minY - (viewport.minY + saved.alignment.y * (viewport.height - frame.height))) <= 1
+            } ?? false
+            if aligned || restorationCallbacks >= 64 {
                 cancelRestoration()
             }
         }
@@ -48,11 +53,18 @@ enum CompanionHomeAnchor: Hashable {
 
     func setViewport(_ frame: CGRect) {
         viewport = frame
-        if restoring {
+        if restoring && restoreRequested {
             restorationCallbacks += 1
             if restorationCallbacks >= 64 { cancelRestoration() }
         }
         capture()
+    }
+
+    /// Called synchronously by the always-mounted owner, before removal/push geometry.
+    func setPresented(_ value: Bool) {
+        guard value != presented else { return }
+        presented = value
+        if !value { suspend() }
     }
 
     func suspend() {
@@ -65,6 +77,7 @@ enum CompanionHomeAnchor: Hashable {
     }
 
     func cancelRestoration() {
+        resumeGeneration &+= 1
         restoring = false
         restoreRequested = false
         restorationCallbacks = 0
@@ -78,21 +91,27 @@ enum CompanionHomeAnchor: Hashable {
     }
 
     func resume(_ proxy: ScrollViewProxy, available: (CompanionHomeAnchor) -> Bool) {
-        guard !resumeApplied, viewport.height > 0 else { return }
+        guard presented, !resumeApplied, viewport.height > 0 else { return }
         resumeApplied = true
         suspended = false
-        if let saved = bookmark, available(saved.id) {
-            restoring = true
-            restoreRequested = true
-            restorationCallbacks = 0
-            // A real List target, not a hierarchy walk or an assumed native offset.
-            proxy.scrollTo(saved.id, anchor: saved.alignment)
-        } else {
-            bookmark = nil
-            restoring = false
-            restoreRequested = false
-            proxy.scrollTo(CompanionHomeAnchor.summary, anchor: .top)
-            capture()
+        let saved = bookmark.flatMap { available($0.id) ? $0 : nil }
+        if saved == nil { bookmark = nil }
+        restoring = true
+        restoreRequested = false
+        restorationCallbacks = 0
+        let generation = resumeGeneration
+        // Issue after the first layout callback has returned. List may drop scrollTo during
+        // that callback; a departing owner cancels this queued request by value generation.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.presented, self.resumeApplied, self.restoring,
+                  self.resumeGeneration == generation else { return }
+            self.restoreRequested = true
+            let id = saved?.id ?? .summary
+            #if DEBUG
+            CompanionHomeBuildProbe.scrollToIssued?(id)
+            #endif
+            proxy.scrollTo(id, anchor: saved?.alignment ?? .top)
+            if saved == nil { self.cancelRestoration() }
         }
     }
 

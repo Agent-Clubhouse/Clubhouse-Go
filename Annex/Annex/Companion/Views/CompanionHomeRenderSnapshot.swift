@@ -136,7 +136,7 @@ struct CompanionHomeRowInputs: ViewModifier {
     private(set) var snapshot: CompanionHomeRenderSnapshot?
     private(set) var actions: CompanionHomeFrozenActions?
 
-    deinit {}
+    isolated deinit {}
 
     func prepare(visible: Bool, pushed: Bool,
                  capture: () -> (CompanionHomeRenderSnapshot, CompanionHomeFrozenActions)) {
