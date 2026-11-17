@@ -71,6 +71,7 @@ import Vision
         }
         let expected = ["River", "Working", "Synthetic linked project task", name].map(normalized)
         var boxes: [[String: Any]] = []
+        var boundsToCheck: [CGRect] = []
         let lines = (request.results ?? []).compactMap { observation -> (String, CGRect)? in
             guard let text = observation.topCandidates(1).first?.string else { return nil }
             let box = observation.boundingBox
@@ -81,7 +82,10 @@ import Vision
             // Attribute by the fixture's real text, then check every accepted box strictly.
             let candidate = normalized(text)
             let accepted = row.frame.intersects(frame) && !candidate.isEmpty && expected.contains { (" " + $0 + " ").contains(" " + candidate + " ") }
+            let checksBounds = accepted || row.frame.contains(CGPoint(x: frame.midX, y: frame.midY))
+            if checksBounds { boundsToCheck.append(frame) }
             boxes.append(["text": text, "normalized": candidate, "accepted": accepted,
+                          "checksBounds": checksBounds,
                           "frame": NSCoder.string(for: frame)])
             return accepted ? (text, frame) : nil
         }
@@ -93,7 +97,7 @@ import Vision
         XCTAssertTrue(lines.map(\.0).joined(separator: " ").contains(name), "Pixels must show the entire machine name, with no truncation")
         XCTAssertGreaterThanOrEqual(lines.filter { name.contains($0.0) }.count, 2,
                                     "The deliberately long machine badge must wrap at AX5, rather than shrink or truncate")
-        for (_, frame) in lines {
+        for frame in boundsToCheck {
             XCTAssertTrue(row.frame.contains(frame), "Rendered text must stay inside the row")
             XCTAssertTrue(viewport.contains(frame), "Rendered text must stay inside the visible viewport")
         }
