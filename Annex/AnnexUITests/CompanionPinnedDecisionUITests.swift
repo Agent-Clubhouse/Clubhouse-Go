@@ -132,6 +132,141 @@ import Vision
         capture(app, "Show in chat: original request and pinned decisions")
     }
 
+    /// #543: typing first, then a request arrives. Every composer action stays above the keyboard. The tray shows one
+    /// Review control only when the full rows do not fit, and the ticking activity line never flips it back and forth.
+    func testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard() throws {
+        try requestArrivingWhileTypingAtLargestText(appearance: [])
+    }
+
+    /// The same contract in dark appearance; also captures the Review-only look for review.
+    func testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard() throws {
+        try requestArrivingWhileTypingAtLargestText(appearance: ["--companion-preview-dark"])
+    }
+
+    private func requestArrivingWhileTypingAtLargestText(appearance: [String]) throws {
+        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard", "--companion-ui-test-fit-metrics",
+                                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] + appearance)
+        let states = try typeThenAwaitRequest(app)
+        let reviewOnly = states[0] == "Review-only request controls"
+        let review = app.buttons["companion-review-approval"]
+        XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
+        if reviewOnly {
+            XCTAssertEqual(review.value as? String, "1 of 3 waiting · Bash", "Position and tool stay complete for VoiceOver")
+            XCTAssertFalse(summary(app).exists, "One Review control replaces the rows")
+            // One snapshot for both frames: the working agent's activity line comes and goes between preview ticks and
+            // reflows the footer by its height, so two separate queries could pair frames from different layouts (#545).
+            let (tray, footer) = try frames(app, "companion-pinned-decision", "companion-grant-footer-scroll")
+            XCTAssertGreaterThanOrEqual(pixelAligned(tray.minY), pixelAligned(footer.minY), "The waiting dot stays inside the card: \(tray), \(footer)")
+        } else {
+            // The full rows are shown only when they fit: the whole title stays above the composer and the keyboard.
+            let title = summary(app).frame
+            XCTAssertTrue(summary(app).exists)
+            XCTAssertLessThanOrEqual(title.maxY, element(app, "companion-composer-region").frame.minY, "The full title fits above the composer")
+            XCTAssertGreaterThanOrEqual(title.minY, app.navigationBars.firstMatch.frame.maxY, "The full title is not under the navigation bar")
+        }
+    }
+
+    /// #543: standard text sizes never use the Review-only fallback, on any device.
+    func testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray() throws {
+        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard", "--companion-ui-test-fit-metrics"])
+        let states = try typeThenAwaitRequest(app)
+        XCTAssertFalse(states.contains("Review-only request controls"), "Standard sizes keep the title row: \(states)")
+        XCTAssertTrue(summary(app).exists)
+    }
+
+    /// Two frames from ONE accessibility snapshot, so they always describe the same layout.
+    private func frames(_ app: XCUIApplication, _ first: String, _ second: String) throws -> (CGRect, CGRect) {
+        let root = try app.snapshot()
+        var found: [String: CGRect] = [:]
+        func visit(_ node: XCUIElementSnapshot) {
+            if node.identifier == first || node.identifier == second, found[node.identifier] == nil { found[node.identifier] = node.frame }
+            node.children.forEach(visit)
+        }
+        visit(root)
+        return (try XCTUnwrap(found[first], first), try XCTUnwrap(found[second], second))
+    }
+
+    /// Diagnostic only (#545): one console line with every frame that shares the room above the keyboard, so a
+    /// cancelled CI lane (no uploaded bundle) still shows what takes the footer's room. No assertions.
+    private func printFooterRoom(_ app: XCUIApplication, sample: String = "arrival") {
+        guard let root = try? app.snapshot() else { print("FOOTER_ROOM sample=\(sample) snapshot unavailable"); return }
+        var frames: [String: CGRect] = [:], values: [String: String] = [:]
+        var navigation: CGRect?, keyboardTop: CGFloat?, paused: CGRect?
+        func visit(_ node: XCUIElementSnapshot) {
+            let id = node.identifier
+            if node.elementType == .navigationBar, navigation == nil { navigation = node.frame }
+            if node.elementType == .keyboard || id == "SystemInputAssistantView", node.frame.intersects(root.frame) {
+                keyboardTop = min(keyboardTop ?? .infinity, node.frame.minY)
+            }
+            if id == "companion-latest", (node.value as? String) == "Reading earlier messages" { paused = node.frame }
+            if !id.isEmpty, frames[id] == nil { frames[id] = node.frame; values[id] = node.value as? String }
+            node.children.forEach(visit)
+        }
+        visit(root)
+        func f(_ rect: CGRect?) -> String { rect.map { "(\($0.minX),\($0.minY),\($0.width),\($0.height))" } ?? "nil" }
+        let ids = ["companion-chat-header", "companion-chat-header-actions", "companion-transcript", "companion-latest",
+                   "companion-grant-footer-scroll", "companion-pinned-decision", "companion-chat-activity", "companion-composer-region"]
+        let parts = ["sample=\(sample)", "window=\(f(root.frame))", "nav=\(f(navigation))", "pausedChat=\(f(paused))"]
+            + ids.map { "\($0)=\(f(frames[$0]))" }
+            + ["keyboardTop=\(keyboardTop.map { "\($0)" } ?? "nil")", "fit=\(values["companion-pinned-decision-fit"] ?? "nil")",
+               "tray=\(values["companion-pinned-decision"] ?? "nil")"]
+        print("FOOTER_ROOM " + parts.joined(separator: " "))
+    }
+
+    /// Types first, waits for the late request, then samples the tray across at least eight activity ticks (1s each).
+    /// Returns the sampled tray states after asserting they are stable and that the composer stays above the keyboard.
+    private func typeThenAwaitRequest(_ app: XCUIApplication) throws -> [String] {
+        let composer = element(app, "companion-composer")
+        let tray = element(app, "companion-pinned-decision")
+        composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        composer.typeText("Keep this draft")
+        XCTAssertFalse(tray.exists, "The request must arrive after the keyboard is already up")
+        // The late request arrives on preview tick 75 (`pinnedArrivalStep`). Hosted runners stretch the 400ms tick
+        // (CI: fewer than 30 ticks in 25s), so wait on that tick's own notice, not on wall-clock time.
+        XCTAssertTrue(app.staticTexts["companion-notice-notice:pinned-progress-75"].waitForExistence(timeout: 180),
+                      "Preview tick 75, which carries the late request, must arrive")
+        XCTAssertTrue(tray.waitForExistence(timeout: 20), "The late request's tray appears with its tick")
+        let reviewButton = app.buttons["companion-review-approval"]
+        XCTAssertTrue(reviewButton.waitForExistence(timeout: 10) || summary(app).exists, "The request is reachable")
+        printFooterRoom(app)
+        var states: [String] = []
+        var activity: [String] = []
+        let started = Date()
+        while states.count < 8 || Date().timeIntervalSince(started) < 8 {
+            states.append(tray.value as? String ?? "")
+            let line = element(app, "companion-chat-activity")
+            activity.append(line.exists ? line.label : "")
+            // Diagnostic only (#545): the footer's room per tick, to catch a time-dependent shrink after arrival.
+            printFooterRoom(app, sample: "\(states.count)")
+            Thread.sleep(forTimeInterval: 1)
+        }
+        let samples = XCTAttachment(string: zip(states, activity).map { "\($0) | \($1)" }.joined(separator: "\n"))
+        samples.name = "Tray state per activity tick"; samples.lifetime = .keepAlways; add(samples)
+        capture(app, "Request arrived while typing")
+        XCTAssertEqual(Set(states).count, 1, "The tray must not flip while the activity line ticks: \(states)")
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "Arrival keeps editing")
+        let keyboardTop = app.keyboards.firstMatch.frame.minY
+        let region = element(app, "companion-composer-region").frame
+        XCTAssertGreaterThan(pixelAligned(keyboardTop - region.maxY), 0, "Composer keeps a measured margin above the keyboard: \(region), \(keyboardTop)")
+        var actions = ["companion-level-menu", "companion-send", "companion-dismiss-keyboard"]
+        if app.buttons["companion-attach"].exists { actions.append("companion-attach") }
+        if app.buttons["companion-interrupt"].exists { actions.append("companion-interrupt") }
+        for id in actions {
+            let frame = app.buttons[id].frame
+            XCTAssertTrue(app.buttons[id].isHittable, "\(id) stays reachable")
+            XCTAssertLessThanOrEqual(frame.maxY, keyboardTop, "\(id) stays above the keyboard: \(frame)")
+        }
+        if reviewButton.exists {
+            let review = reviewButton.frame
+            XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).width, 44)
+            XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).height, 44)
+            XCTAssertLessThanOrEqual(review.maxY, region.minY, "Review stays above the composer")
+        }
+        XCTAssertEqual(composer.value as? String, "Keep this draft")
+        return states
+    }
+
     func testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones() throws {
         let app = openRiver()
         awaitApproval(app)

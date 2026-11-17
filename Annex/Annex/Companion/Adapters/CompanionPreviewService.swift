@@ -379,6 +379,29 @@ import ClubhouseTransport
               summary: "River asked to dispose this helper. 2 uncommitted files, 1 unpushed commit.",
               dispose: .init(uncommittedFiles: 2, unpushedCommits: 1, unmergedCommits: 1, workAtRisk: true)),
     ]
+    #if DEBUG
+    /// The 400ms tick on which pinned requests arrive; "late" leaves time to start typing first (#543).
+    nonisolated static func pinnedArrivalStep(arguments: [String]) -> Int {
+        arguments.contains("--companion-preview-pinned-late") ? 75 : 20
+    }
+    /// The synthetic pinned approval; launch arguments select the broader-only or incomplete variants.
+    nonisolated static func pinnedApproval(id: String, title: String, arguments: [String], now: Date = .now) -> CompanionApproval {
+        var options: [CompanionApprovalOption] = [
+            .init(id: "allow", label: "Allow once", kind: .allowOnce),
+            .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
+            .init(id: "deny", label: "Deny", kind: .rejectOnce)
+        ]
+        if arguments.contains("--companion-preview-pinned-broader-only") {
+            options.removeAll { $0.kind == .allowOnce }
+            // A misleading label must never turn a custom kind into a one-off allow.
+            options.append(.init(id: "custom", label: "Allow once", kind: .other))
+        }
+        let summary = arguments.contains("--companion-preview-pinned-incomplete")
+            ? "Incomplete input: synthetic request needs full review."
+            : "Synthetic request for \(title). Full context stays in chat."
+        return .init(id: id, toolName: "Bash", summary: summary, title: title, deadline: now.addingTimeInterval(600), options: options)
+    }
+    #endif
     /// A running test command whose output grows, while read-only lookups start after it and fold into
     /// "Explored…" around it. The command, with its log link, is never folded; new ones keep starting.
     private func streamToolUpdates() async {
@@ -390,24 +413,10 @@ import ClubhouseTransport
             if Self.showsPinnedDecisions, let previous = pinnedDecisionStep {
                 let pinnedStep = previous + 1
                 pinnedDecisionStep = pinnedStep
-                if pinnedStep == 20 {
+                if pinnedStep == Self.pinnedArrivalStep(arguments: ProcessInfo.processInfo.arguments) {
                     for (id, title) in [("pinned-first", "Run preview build"), ("pinned-second", "Edit preview notes")] {
-                        let arguments = ProcessInfo.processInfo.arguments
-                        var options: [CompanionApprovalOption] = [
-                            .init(id: "allow", label: "Allow once", kind: .allowOnce),
-                            .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),
-                            .init(id: "deny", label: "Deny", kind: .rejectOnce)
-                        ]
-                        if arguments.contains("--companion-preview-pinned-broader-only") {
-                            options.removeAll { $0.kind == .allowOnce }
-                            // A misleading label must never turn a custom kind into a one-off allow.
-                            options.append(.init(id: "custom", label: "Allow once", kind: .other))
-                        }
-                        let summary = arguments.contains("--companion-preview-pinned-incomplete")
-                            ? "Incomplete input: synthetic request needs full review."
-                            : "Synthetic request for \(title). Full context stays in chat."
-                        continuation?.yield(.upsert(Self.target, .approval(.init(id: id, toolName: "Bash", summary: summary,
-                            title: title, deadline: .now.addingTimeInterval(600), options: options)), sequence: nil))
+                        continuation?.yield(.upsert(Self.target, .approval(Self.pinnedApproval(id: id, title: title,
+                            arguments: ProcessInfo.processInfo.arguments)), sequence: nil))
                     }
                     continuation?.yield(.upsert(Self.target, .question(.init(id: "pinned-question", prompts: [
                         .init(id: "color", text: "Which color?", options: [.init(id: "red", label: "Red")],
