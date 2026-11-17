@@ -35,13 +35,22 @@ import SwiftUI
         func scrollViews(_ view: UIView) -> [UIScrollView] {
             ((view as? UIScrollView).map { $0 is UITextView ? [] : [$0] } ?? []) + view.subviews.flatMap(scrollViews)
         }
-        // The footer container is the nearest scroll view enclosing the native draft (itself a UITextView).
+        // The footer container by its identifier; else by frame: the one full-width scroll view that holds the draft
+        // and starts in the lower two-thirds of the window (the transcript, which also spans the draft, starts under the header).
         func footer(of input: UITextView) -> UIScrollView? {
-            sequence(first: input.superview, next: { $0?.superview }).lazy.compactMap { $0 as? UIScrollView }.first
+            let all = scrollViews(window)
+            if let tagged = all.first(where: { $0.accessibilityIdentifier == "companion-grant-footer-scroll" }) { return tagged }
+            let draft = input.convert(input.bounds, to: window)
+            let candidates = all.filter {
+                let frame = $0.convert($0.bounds, to: window)
+                return frame.contains(draft) && frame.width >= window.bounds.width - 1 && frame.minY > window.bounds.height / 3
+            }
+            return candidates.count == 1 ? candidates[0] : nil
         }
         func assertNoEdgeEffects(_ state: String) throws {
             let input = try XCTUnwrap(find(window), "\(state): the composer's native draft")
-            let footer = try XCTUnwrap(footer(of: input), "\(state): the footer scroll container")
+            let footer = try XCTUnwrap(footer(of: input), "\(state): exactly one footer scroll container")
+            print("FOOTER_HOSTED \(state): identifier=\(footer.accessibilityIdentifier ?? "nil") frame=\(footer.convert(footer.bounds, to: window))")
             XCTAssertGreaterThan(scrollViews(window).count, 1, "\(state): the transcript is a separate scroll view")
             for (edge, effect) in [("top", footer.topEdgeEffect), ("bottom", footer.bottomEdgeEffect),
                                    ("left", footer.leftEdgeEffect), ("right", footer.rightEdgeEffect)] {
