@@ -38,9 +38,8 @@ import XCTest
         print("PERMISSION_KEYBOARD before-menu=\(String(describing: visibleKeyboardFrame(app)))")
         let controls = app.buttons["companion-level-menu"]
         assertMinimumTarget(controls, "Chat controls")
-        let value = controls.value as? String ?? ""
-        XCTAssertTrue(value.contains("Auto-accept edits") && value.contains("Opus"),
-                      "The labeled composer preserves the current access and model: \(value)")
+        XCTAssertTrue(controls.label.contains("Auto-accept edits") && controls.label.contains("Opus"),
+                      "The circle names the current access and model for VoiceOver and Voice Control: \(controls.label)")
         let appearance = flags.contains("--companion-header-latte") ? "Latte"
             : flags.contains("--companion-header-mocha") ? "Mocha"
             : flags.contains("--companion-header-light") ? "Light" : "Dark"

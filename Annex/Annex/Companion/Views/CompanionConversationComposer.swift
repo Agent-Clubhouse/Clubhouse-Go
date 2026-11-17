@@ -161,21 +161,25 @@ struct CompanionConversationComposer: View {
                             Button(action: sendMessage) {
                                 Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
                                     .font(.system(size: 20, weight: .bold))
+                                    .frame(width: 30, height: 30)
                             }
                             .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-                            // Keep the regular-size glass circle inside the field, with a full-size interaction target.
-                            .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
+                            // Match Options' native 44pt circle and shared row inset at every text size.
+                            .frame(width: 44, height: 44)
                             .contentShape(.circle)
                             .disabled(!sendEnabled)
                             .keyboardShortcut(.return, modifiers: .command)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
                             .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
                             .accessibilityIdentifier("companion-send")
-                            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : 6)
                             .frame(height: actionRowHeight)
                         }
                         keyboardDismissButton
                     }
+                    // Equal insets for Options and Send; keep glass away from the card's
+                    // bottom corners even when accessibility text uses the compact row.
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, 6)
                 }
                 // Glass behind the draft over the theme card, as in the header. Wrapping the whole draft and action row
                 // in glass let it adapt to light in dark mode, taking the field and keyboard with it (text at 2:1).
