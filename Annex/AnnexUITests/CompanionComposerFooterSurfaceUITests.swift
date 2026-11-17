@@ -17,6 +17,8 @@ import Vision
         var keyboardTop: CGFloat?
         var window: CGRect
         var final: CGRect?
+        /// The pinned decision card, when a tray is shown; part of the settle check so no capture lands mid-animation.
+        var tray: CGRect?
         /// The footer as it is seen: above the keyboard, if any.
         var visibleFooter: CGRect {
             let bottom = min(footer.maxY, keyboardTop ?? window.maxY)
@@ -41,7 +43,8 @@ import Vision
         return Frames(footer: try XCTUnwrap(ids["companion-grant-footer-scroll"], "footer"),
                       composer: try XCTUnwrap(ids["companion-composer-region"], "composer"),
                       transcript: try XCTUnwrap(ids["companion-transcript"], "transcript"),
-                      keyboardTop: keyboardTop, window: root.frame, final: final)
+                      keyboardTop: keyboardTop, window: root.frame, final: final,
+                      tray: ids["companion-pinned-decision"])
     }
 
     /// Bounded wait for scrolling and keyboard motion to finish: two consecutive snapshots agree.
@@ -49,7 +52,8 @@ import Vision
         var previous = try frames(app)
         for _ in 0..<20 {
             let current = try frames(app)
-            if current.footer == previous.footer, current.keyboardTop == previous.keyboardTop, current.final == previous.final {
+            if current.footer == previous.footer, current.composer == previous.composer, current.tray == previous.tray,
+               current.keyboardTop == previous.keyboardTop, current.final == previous.final {
                 return current
             }
             previous = current
@@ -104,7 +108,7 @@ import Vision
     private static let surfaceTolerance = 4.0
 
     private func assertFooterMatchesChatSurface(_ app: XCUIApplication, _ state: String, checksRoom: Bool = true,
-                                                checksSteps: Bool = true, file: StaticString = #filePath, line: UInt = #line) throws {
+                                                stepsLoggedFrom loggedOnlyY: CGFloat? = nil, file: StaticString = #filePath, line: UInt = #line) throws {
         let frames = try settledFrames(app, file: file, line: line)
         let screenshot = XCUIScreen.main.screenshot()
         let shot = XCTAttachment(screenshot: screenshot); shot.name = "Footer surface \(state)"; shot.lifetime = .keepAlways; add(shot)
@@ -115,16 +119,20 @@ import Vision
             let side = x < frames.window.midX ? "leading" : "trailing"
             let reference = pixels.mean(CGRect(x: x, y: footer.minY - 14, width: 4, height: 10))
             let rows = pixels.rows(CGRect(x: x, y: footer.minY - 4, width: 4, height: footer.height + 4))
-            let steps = zip(rows, rows.dropFirst()).map { difference($0, $1) }
+            let allSteps = zip(rows, rows.dropFirst()).enumerated().map { index, pair in
+                (y: footer.minY - 4 + CGFloat(index + 1) / pixels.scale, step: difference(pair.0, pair.1))
+            }
+            // Rows at or below `loggedOnlyY` are measured and logged, not guarded.
+            let steps = allSteps.filter { loggedOnlyY == nil || $0.y < loggedOnlyY! }.map(\.step)
             let worstStep = steps.max() ?? .infinity
+            let logged = allSteps.filter { loggedOnlyY != nil && $0.y >= loggedOnlyY! }.max { $0.step < $1.step }
+            let clipRow = allSteps.filter { abs($0.y - footer.minY) < 1 / pixels.scale }.map(\.step).max() ?? 0
             let room = pixels.mean(CGRect(x: x, y: footer.minY, width: 4, height: max(1, frames.composer.minY - footer.minY)))
-            let report = "\(state) \(side): footer=\(frames.footer) visible=\(footer) composer=\(frames.composer) keyboardTop=\(String(describing: frames.keyboardTop)) surface=\(reference.map { Int($0) }) room=\(room.map { Int($0) }) worstStep=\(worstStep)"
+            let report = "\(state) \(side): footer=\(frames.footer) visible=\(footer) composer=\(frames.composer) keyboardTop=\(String(describing: frames.keyboardTop)) surface=\(reference.map { Int($0) }) room=\(room.map { Int($0) }) worstStep=\(worstStep) topRowStep=\(clipRow)\(logged.map { " loggedOnly=\($0.step)@\($0.y)" } ?? "")"
             print("FOOTER_SURFACE \(report)")
             XCTAssertFalse(steps.isEmpty, report, file: file, line: line)
-            if checksSteps {
-                XCTAssertLessThanOrEqual(worstStep, Self.stepTolerance,
-                                         "The footer has no band edge or dividing line: \(report)", file: file, line: line)
-            }
+            XCTAssertLessThanOrEqual(worstStep, Self.stepTolerance,
+                                     "The footer has no band edge or dividing line: \(report)", file: file, line: line)
             if checksRoom {
                 XCTAssertLessThanOrEqual(difference(room, reference), Self.surfaceTolerance,
                                          "The footer above the composer draws the chat surface: \(report)", file: file, line: line)
@@ -243,9 +251,9 @@ import Vision
     }
 
     /// Evidence for the overflow footer: largest text, a pending tray and the keyboard up leave less room than the
-    /// footer needs, so it scrolls with its bottom under the keyboard top. Only the overflow geometry is asserted.
-    /// The step is measured and logged, not asserted: on iOS 26.0 a full-width step of about 7 levels sits 33pt
-    /// above the keyboard top in this state, identical on b21fe4c0 (#533 follow-up, pending the combined head).
+    /// footer needs, so it scrolls with its bottom under the keyboard top. Rows above keyboardTop − 40 are guarded.
+    /// Rows below are measured and logged only: on iOS 26.0 a full-width step of about 7 levels sits 33pt above
+    /// the keyboard top in this state, identical on b21fe4c0 (#533 follow-up, pending the combined head).
     func testOverflowFooterWithKeyboardUpEvidenceInLightAndDark() throws {
         for appearance in ["--companion-preview-light", "--companion-preview-dark"] {
             let app = launchApp(["--companion-preview", appearance, "--companion-preview-reading", "--companion-preview-stream",
@@ -262,7 +270,8 @@ import Vision
             let keyboardTop = try XCTUnwrap(frames.keyboardTop, "\(appearance): keyboard")
             XCTAssertGreaterThan(frames.footer.maxY, keyboardTop, "\(appearance): the footer overflows under the keyboard top")
             XCTAssertLessThanOrEqual(pixelAligned(frames.composer.maxY), pixelAligned(keyboardTop), "\(appearance): the composer stays above the keyboard")
-            try assertFooterMatchesChatSurface(app, "\(appearance) overflow footer, keyboard up", checksRoom: false, checksSteps: false)
+            try assertFooterMatchesChatSurface(app, "\(appearance) overflow footer, keyboard up", checksRoom: false,
+                                              stepsLoggedFrom: keyboardTop - 40)
             app.terminate()
         }
     }
