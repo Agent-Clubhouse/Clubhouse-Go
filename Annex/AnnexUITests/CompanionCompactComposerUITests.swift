@@ -371,6 +371,8 @@ import XCTest
     /// unaffected). The forced state that contradicts the measured fit must fail the invariant (strict expected failure);
     /// the one that agrees must pass. The forced-full launch also checks the product's numbers against XCUI geometry.
     func testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry() throws {
+        var sawWrong = false
+        var bandMetrics: [String] = []
         for forced in ["--companion-ui-test-force-full-rows", "--companion-ui-test-force-review-only"] {
             let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images",
                                  "--companion-ui-test-fit-metrics", forced,
@@ -422,7 +424,9 @@ import XCTest
             }
             let wrong = reviewOnly ? !(m.natural + 2 > m.offered - m.caption) : m.natural + 2 > m.offered
             print("FIT_NEGATIVE_CONTROL \(state) reviewOnly=\(reviewOnly) wrong=\(wrong) \(m.raw)")
+            bandMetrics.append("\(state): \(m.raw)")
             if wrong {
+                sawWrong = true
                 let strict = XCTExpectedFailure.Options()
                 strict.isStrict = true
                 XCTExpectFailure("\(state) contradicts the measured fit and must be caught", options: strict) {
@@ -433,6 +437,12 @@ import XCTest
             }
             app.terminate()
         }
+        // Inside the hysteresis band (offered − caption < natural + 2 ≤ offered) both forced states are legitimate, so
+        // nothing on this device can be shown to be caught: record that as a skip with the metrics, never a silent pass.
+        if !sawWrong {
+            throw XCTSkip("Measured fit is inside the hysteresis band; no forced state contradicts it on this device: \(bandMetrics.joined(separator: "; "))")
+        }
+        XCTAssertTrue(sawWrong, "At least one forced state contradicted the measured fit")
     }
 
     private func workingRow(largestText: Bool) throws {
