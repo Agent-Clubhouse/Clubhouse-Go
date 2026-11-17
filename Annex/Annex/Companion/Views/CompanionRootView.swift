@@ -295,12 +295,13 @@ struct CompanionRootView: View {
         }
         let switcher = CompanionDispatcherSwitcher(desktops: navigation.dispatcherDesktops, hosts: store.hosts,
             selectedHostID: navigation.dispatcherHostID, replies: navigation.dispatcherReplies.unreadHostIDs,
-            isWorking: isStreaming || !followsLatest, select: { hostID in
+            isWorking: CompanionDispatcherTurn.inTurn(agent: navigation.dispatcherTarget.flatMap { store.agent(for: $0) }, isStreaming: isStreaming),
+            isLive: CompanionDispatcherTurn.isLive(navigation.dispatcherTarget.flatMap { store.host(for: $0) }?.connection), select: { hostID in
                 navigation.chooseDispatcher(hostID: hostID)
                 preferences.lastHostID = hostID
                 preferences.lastDispatcherHostID = hostID
                 mirrorSelection()
-            }) {
+            }, openSettings: { navigation.interact(); CompanionUIActions.record(.openSettings, on: .dispatcher); onSettings() }) {
             #if DEBUG
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatch-reports") {
                 CompanionDispatcherPreviewReports(store: store, desktops: navigation.dispatcherDesktops, selectedHostID: navigation.dispatcherHostID)

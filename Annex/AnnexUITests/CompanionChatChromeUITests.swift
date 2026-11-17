@@ -140,7 +140,8 @@ import UIKit
         let caption = app.staticTexts["Draft saved while you reconnect"]
         XCTAssertFalse(caption.exists)
         XCTAssertFalse(app.staticTexts["Runs on your desktop • ⌘ Return to send"].exists)
-        XCTAssertFalse(app.buttons["Settings"].exists, "#444 keeps Settings on Home, not Dispatch")
+        // #529 reverses #444: Dispatch offers the same Settings as Home, from its own leading gear.
+        XCTAssertTrue(app.buttons["dispatcher-settings"].exists, "#529 keeps Settings reachable from Dispatch")
         func changeConnectionThroughHomeSettings(_ action: String) {
             let home = app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch
             XCTAssertTrue(home.waitForExistence(timeout: 5))
@@ -161,7 +162,7 @@ import UIKit
             dispatch.tap()
             XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 5))
             XCTAssertTrue(composer.waitForExistence(timeout: 5))
-            XCTAssertFalse(app.buttons["Settings"].exists)
+            XCTAssertTrue(app.buttons["dispatcher-settings"].exists, "#529 keeps Settings reachable from Dispatch")
         }
         changeConnectionThroughHomeSettings("Disconnect desktop")
         XCTAssertTrue(caption.waitForExistence(timeout: 5))
