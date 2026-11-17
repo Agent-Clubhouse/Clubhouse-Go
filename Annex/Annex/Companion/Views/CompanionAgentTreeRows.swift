@@ -186,6 +186,8 @@ struct CompanionAgentTreeQuietFold: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.companionAgentRowContext) private var rowContext
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var retainedRuns: [CompanionFinishedRun] {
         var seen: Set<CompanionTarget> = []
         return (finishedRuns ?? []).filter { seen.insert($0.target).inserted }
@@ -210,6 +212,9 @@ struct CompanionAgentTreeQuietFold: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.quietRows) }
+        #endif
         let key = "quiet:\(projectID)"
         let isOpen = preferences.expandedFolds.contains(key)
         let catalog = Set(tree.all.map(\.id))

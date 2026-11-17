@@ -150,7 +150,11 @@ struct CompanionDesktopConnectionBanner: View {
     let identifierPrefix: String
     /// Home can scope or anonymize presentation without changing host IDs or retry authority.
     var presentationHosts: [CompanionHost]? = nil
+    /// Home's pushed-route backdrop only. Nil keeps the live retry/presence path everywhere else.
+    var capturedHosts: [CompanionHost]? = nil
     @State private var retryAttempts: [String: UUID] = [:]
+
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
 
     #if DEBUG
     /// Hosted tests exercise the mounted banner's actual action and disabled predicate.
@@ -164,6 +168,9 @@ struct CompanionDesktopConnectionBanner: View {
     #endif
 
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.connection) }
+        #endif
         let notice = CompanionConnectionNotice(hosts: presentationHosts ?? store.hosts)
         #if DEBUG
         let _ = hostedTestSeam?(HostedTestSeam(retryHostIDs: notice.retryHostIDs,
@@ -187,7 +194,7 @@ struct CompanionDesktopConnectionBanner: View {
                 .accessibilityElement(children: .contain)
             }
         }
-        .onChange(of: store.hosts) { oldHosts, newHosts in
+        .onChange(of: capturedHosts ?? store.hosts) { oldHosts, newHosts in
             retryAttempts = retryAttempts.filter { hostID, _ in
                 guard let old = oldHosts.first(where: { $0.id == hostID }),
                       let new = newHosts.first(where: { $0.id == hostID }) else { return false }

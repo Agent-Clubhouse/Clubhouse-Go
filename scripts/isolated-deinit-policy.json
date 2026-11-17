@@ -951,7 +951,7 @@
     "CompanionHomeScrollAnchorState": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Views/CompanionHomeScrollAnchor.swift",
-      "reason": "Home-only non-observable scroll bookkeeping owns a dictionary of full value identifiers and CGRects, one CGRect viewport, a Bookmark of a value identifier and SwiftUI UnitPoint, and Bool flags. No UIKit/View/controller/task/callback owner or teardown side effect; empty nonisolated deinit is ARC-safe.",
+      "reason": "Home-only non-observable scroll bookkeeping owns a dictionary of full value identifiers and CGRects, one CGRect viewport, a Bookmark of a value identifier and SwiftUI UnitPoint, Bool flags and an Int callback bound. No UIKit/View/controller/task/callback owner or teardown side effect; empty nonisolated deinit is ARC-safe.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -963,6 +963,7 @@
         "properties": {
           "bookmark": "Bookmark ?",
           "frames": "[ CompanionHomeAnchor : CGRect ]",
+          "restorationCallbacks": "Int",
           "restoreRequested": "Bool",
           "restoring": "Bool",
           "suspended": "Bool",

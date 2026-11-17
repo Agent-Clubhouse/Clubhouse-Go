@@ -21,6 +21,7 @@ enum CompanionHomeAnchor: Hashable {
     private var suspended = true
     private var restoring = false
     private var restoreRequested = false
+    private var restorationCallbacks = 0
 
     #if DEBUG
     var testFrames: [CompanionHomeAnchor: CGRect] { frames }
@@ -31,7 +32,12 @@ enum CompanionHomeAnchor: Hashable {
     func record(_ id: CompanionHomeAnchor, frame: CGRect) {
         guard frame.minX.isFinite, frame.minY.isFinite, frame.width.isFinite, frame.height.isFinite else { return }
         frames[id] = frame
-        if restoring, restoreRequested, bookmark?.id == id, frame.intersects(viewport) { restoring = false }
+        if restoring {
+            restorationCallbacks += 1
+            if (restoreRequested && bookmark?.id == id && frame.intersects(viewport)) || restorationCallbacks >= 64 {
+                cancelRestoration()
+            }
+        }
         capture()
     }
 
@@ -39,19 +45,29 @@ enum CompanionHomeAnchor: Hashable {
 
     func setViewport(_ frame: CGRect) {
         viewport = frame
+        if restoring {
+            restorationCallbacks += 1
+            if restorationCallbacks >= 64 { cancelRestoration() }
+        }
         capture()
     }
 
     func suspend() {
         capture()
         suspended = true
+        cancelRestoration()
         frames.removeAll()
+    }
+
+    func cancelRestoration() {
+        restoring = false
+        restoreRequested = false
+        restorationCallbacks = 0
     }
 
     func reset() {
         bookmark = nil
-        restoring = false
-        restoreRequested = false
+        cancelRestoration()
         frames.removeAll()
     }
 
@@ -60,6 +76,7 @@ enum CompanionHomeAnchor: Hashable {
         if let saved = bookmark, available(saved.id) {
             restoring = true
             restoreRequested = true
+            restorationCallbacks = 0
             // A real List target, not a hierarchy walk or an assumed native offset.
             proxy.scrollTo(saved.id, anchor: saved.alignment)
         } else {
@@ -74,7 +91,8 @@ enum CompanionHomeAnchor: Hashable {
     private func capture() {
         guard !suspended, !restoring, viewport.height > 0 else { return }
         let visible = frames.filter { $0.value.intersects(viewport) && $0.value.height > 0 }
-        guard let first = visible.min(by: { $0.value.minY < $1.value.minY }) else { return }
+        let contained = visible.filter { viewport.contains($0.value) }
+        guard let first = (contained.isEmpty ? visible : contained).min(by: { $0.value.minY < $1.value.minY }) else { return }
         let remaining = viewport.height - first.value.height
         let fraction = remaining > 0 ? (first.value.minY - viewport.minY) / remaining : 0
         bookmark = .init(id: first.key, alignment: .init(x: 0.5, y: max(0, min(1, fraction))))

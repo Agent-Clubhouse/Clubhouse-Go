@@ -257,6 +257,7 @@ struct CompanionAgentListRow: View {
     @Environment(\.companionAgentRowContext) private var context
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
     private var accessBadge: CompanionPermissionLevel? { context.accessBadge(for: agent) }
 
     private var elevatedBadge: String? {
@@ -265,6 +266,9 @@ struct CompanionAgentListRow: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.row) }
+        #endif
         let line = CompanionAgentStatusLine(agent: agent, detail: detail)
         let shownHost = context.hostTag(for: agent.id, fallback: hostTag)
         HStack(spacing: 12) {

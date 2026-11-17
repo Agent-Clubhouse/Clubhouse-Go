@@ -24,7 +24,11 @@ struct CompanionTerminalMenuItem: View {
     let scope: CompanionTerminalScope
     @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionTerminal) private var terminal
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.rowMenu) }
+        #endif
         if let terminal {
             let availability = terminal.availability(scope)
             if availability.isShown {

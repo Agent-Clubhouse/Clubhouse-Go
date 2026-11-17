@@ -15,6 +15,7 @@ struct CompanionProjectPage: View {
     @State private var wakingProject: CompanionProjectTarget?
     @State private var pendingWake: (target: CompanionTarget, message: String)?
     @State private var finishedActionError: String?
+    @State private var shownProjectStateError: String?
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionTerminal) private var terminal
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -141,7 +142,13 @@ struct CompanionProjectPage: View {
                 if let error = finishedActionError ?? store.finishedError {
                     Text(error).foregroundStyle(Color(palette.warning)).accessibilityIdentifier("finished-error")
                 }
-                if let error = store.projectStateError { Text(error).foregroundStyle(Color(palette.warning)) }
+                if let error = store.projectStateError ?? shownProjectStateError {
+                    Text(error).foregroundStyle(Color(palette.warning))
+                        .onChange(of: error, initial: true) { _, shown in
+                            shownProjectStateError = shown
+                            if store.projectStateError == shown { store.projectStateError = nil }
+                        }
+                }
             }
         }
         .companionListStyle()
@@ -245,18 +252,24 @@ struct CompanionProjectMenuItems: View {
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
     var canWake: Bool
+    var capturedDisplay: CompanionProjectMenuDisplay? = nil
     var onWake: () -> Void
     var onInfo: () -> Void
 
     @Environment(\.companionTelemetryScreen) private var screen
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.projectMenu) }
+        #endif
         Button("Wake with a message", systemImage: "sun.max") {
             CompanionUIActions.record(.wakeAgent, on: screen)
             onWake()
         }
             .disabled(!canWake).accessibilityIdentifier("project-wake")
-        if !entry.isLinked { CompanionSingleProjectStateMenuItems(store: store, preferences: preferences, entry: entry) }
+        if !entry.isLinked { CompanionSingleProjectStateMenuItems(store: store, preferences: preferences, entry: entry, capturedDisplay: capturedDisplay) }
         Button("Project info", systemImage: "info.circle") {
             CompanionUIActions.record(.openProjectInfo, on: screen)
             onInfo()
@@ -270,6 +283,7 @@ struct CompanionLinkedProjectStateMenuItems: View {
     @Bindable var store: CompanionStore
     let entry: CompanionProjectEntry
     let isIdle: Bool
+    var capturedDisplay: CompanionProjectMenuDisplay? = nil
 
     func setPinned(_ pinned: Bool) async {
         guard let current = store.resolveProjectActionEntry(containing: entry.id, expectedLinkID: entry.linkID),
@@ -283,24 +297,31 @@ struct CompanionLinkedProjectStateMenuItems: View {
         await store.setLinkedProject(current, inactive: inactive)
     }
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var body: some View {
-        if let shared = store.linkedProjectState(entry) {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.projectMenu) }
+        #endif
+        let state = if let capturedDisplay { capturedDisplay.state } else { store.linkedProjectState(entry) }
+        if let shared = state {
             Button(shared.pinned ? "Unpin project" : "Pin project", systemImage: shared.pinned ? "pin.slash" : "pin") {
                 Task { await setPinned(!shared.pinned) }
             }
-            .disabled(!store.canChangeLinkedProjectState(entry))
+            .disabled(!(capturedDisplay?.canChange ?? store.canChangeLinkedProjectState(entry)))
             if isIdle || shared.inactive {
                 Button("Mark active", systemImage: "sun.max") {
                     Task { await setInactive(false) }
                 }
-                .disabled(!store.canChangeLinkedProjectState(entry))
+                .disabled(!(capturedDisplay?.canChange ?? store.canChangeLinkedProjectState(entry)))
             } else if !shared.pinned {
                 Button("Mark inactive", systemImage: "moon.zzz") {
                     Task { await setInactive(true) }
                 }
-                .disabled(!store.canChangeLinkedProjectState(entry))
+                .disabled(!(capturedDisplay?.canChange ?? store.canChangeLinkedProjectState(entry)))
             }
-            if let hint = store.linkedProjectStateConnectionHint(entry) { Text(hint) }
+            let hint = if let capturedDisplay { capturedDisplay.connectionHint } else { store.linkedProjectStateConnectionHint(entry) }
+            if let hint { Text(hint) }
         }
     }
 }
@@ -310,16 +331,23 @@ private struct CompanionSingleProjectStateMenuItems: View {
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
     var legacyLinkID: String? = nil
+    var capturedDisplay: CompanionProjectMenuDisplay? = nil
 
     @Environment(\.companionTelemetryScreen) private var screen
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var body: some View {
-        let state = store.sharedProjectState(entry.id)
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.projectMenu) }
+        #endif
+        let state = if let capturedDisplay { capturedDisplay.state } else { store.sharedProjectState(entry.id) }
+        let lastActivity = if let capturedDisplay { capturedDisplay.lastActivity } else { store.lastActivity(for: entry.id) }
         let key = entry.orderKey
         let pinned = state?.pinned ?? preferences.pinnedProjects.contains(key)
         let marked = state?.inactive ?? preferences.inactiveProjects.contains(key)
         let running = entry.project.agents.contains(where: CompanionHomeLayout.isAwake)
-        let activity = [store.lastActivity(for: entry.id), state?.lastActivity ?? preferences.projectActivity[key]].compactMap { $0 }.max()
+        let activity = [lastActivity, state?.lastActivity ?? preferences.projectActivity[key]].compactMap { $0 }.max()
         let idle = !pinned && (state.map { $0.idle && !running } ?? preferences.idleRule.isIdle(key, running: running, lastActivity: activity, now: Date()))
         Group {
             Button(pinned ? "Unpin from Home" : "Pin to top of Home", systemImage: pinned ? "pin.slash" : "pin") {
