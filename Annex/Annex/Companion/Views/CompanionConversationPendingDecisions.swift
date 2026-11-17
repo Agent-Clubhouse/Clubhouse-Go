@@ -61,6 +61,9 @@ struct CompanionConversationPendingDecisions: View {
                 // pushing the composer's own bottom margin under the keyboard. The composer's padding already
                 // separates the card, so return this outer inset to the composer (0pt clearance on iPhone 17, iOS 26.5).
                 .padding(.horizontal, 16).padding(.vertical, usesTightAccessibilityRows ? 0 : 4)
+                #if DEBUG
+                .overlay(alignment: .topLeading) { fitMetrics }
+                #endif
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("companion-pinned-decision")
                 .accessibilityValue(usesReviewOnlyRow ? "Review-only request controls"
@@ -299,6 +302,20 @@ struct CompanionConversationPendingDecisions: View {
     /// Only tight AX rows can need the fallback; elsewhere nothing is measured.
     private var measuresNaturalRows: Bool { usesTightAccessibilityRows }
     private var usesReviewOnlyRow: Bool { measuresNaturalRows && reviewOnly }
+    #if DEBUG
+    /// UI tests only (`--companion-ui-test-fit-metrics`): the measured inputs of the Review-only decision, so a test
+    /// can assert the fit itself on any OS and device. Absent from the accessibility tree otherwise.
+    private static let exposesFitMetrics = ProcessInfo.processInfo.arguments.contains("--companion-ui-test-fit-metrics")
+    @ViewBuilder private var fitMetrics: some View {
+        if Self.exposesFitMetrics {
+            Color.clear.frame(width: 1, height: 1)
+                .accessibilityElement()
+                .accessibilityIdentifier("companion-pinned-decision-fit")
+                .accessibilityValue(String(format: "natural=%.2f offered=%.2f caption=%.2f measured=%@",
+                                           naturalRowsHeight, maximumHeight, captionLineHeight, measuresNaturalRows ? "true" : "false"))
+        }
+    }
+    #endif
     /// Collapse when the full rows (plus the tight 1pt insets) exceed the room the footer offers; that room already
     /// excludes the keyboard, so a request arriving while someone types is measured the same way. Expand only once a
     /// further caption line of room is free: the ticking activity line above the composer must not flip the tray.

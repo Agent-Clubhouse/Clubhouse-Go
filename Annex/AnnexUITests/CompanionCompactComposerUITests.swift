@@ -95,13 +95,22 @@ import XCTest
         if reviewButton {
             let tray = try XCTUnwrap(layout["companion-pinned-decision"])
             let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
-            // #543: any phone may collapse when the full rows genuinely don't fit; this fixture's one-line title fits at ≥402pt.
-            if layout.window.width >= 402 {
-                XCTAssertFalse(reviewOnly, "\(state): this fixture's one-line title keeps the title row at ≥402pt", file: file, line: line)
+            // #543: the fallback follows the product's own measured fit on every OS and device, never the screen width.
+            // Collapse when the full rows + 2pt insets exceed the offered room; expand only with one caption line spare.
+            let fitValue = try XCTUnwrap(layout.values["companion-pinned-decision-fit"], "\(state): fit metrics are exported", file: file, line: line)
+            let fit = Dictionary(uniqueKeysWithValues: fitValue.split(separator: " ").compactMap { pair -> (String, String)? in
+                let parts = pair.split(separator: "=", maxSplits: 1)
+                return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
+            })
+            let natural = Double(fit["natural"] ?? "") ?? 0, offered = Double(fit["offered"] ?? "") ?? 0, caption = Double(fit["caption"] ?? "") ?? 0
+            if reviewOnly {
+                XCTAssertEqual(fit["measured"], "true", "\(state): Review-only comes from a measurement: \(fitValue)", file: file, line: line)
+                XCTAssertGreaterThan(natural, 0, "\(state): the full rows were measured: \(fitValue)", file: file, line: line)
+                XCTAssertGreaterThan(natural + 2, offered - caption, "\(state): the full rows genuinely don't fit: \(fitValue)", file: file, line: line)
+            } else if fit["measured"] == "true", natural > 0 {
+                XCTAssertLessThanOrEqual(natural + 2, offered, "\(state): the full rows shown fit their offered room: \(fitValue)", file: file, line: line)
             }
             if reviewOnly {
-                // Measured fit, not keyboard state: a three-line unfocused draft on SE also outgrows the tight rows.
-                XCTAssertLessThan(layout.window.width, 402, "\(state): this fixture collapses only below 402pt", file: file, line: line)
                 XCTAssertNil(layout["companion-decision-show-in-chat"], "\(state): one Review control replaces the rows", file: file, line: line)
                 XCTAssertEqual(layout.labels["companion-review-approval"], "Review approval: Run xcodebuild, 1 of 2",
                                "\(state): VoiceOver keeps the full request title", file: file, line: line)
@@ -315,7 +324,7 @@ import XCTest
     }
 
     private func workingRow(largestText: Bool) throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images"]
+        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images", "--companion-ui-test-fit-metrics"]
                             + (largestText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []), attempts: 1)
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
