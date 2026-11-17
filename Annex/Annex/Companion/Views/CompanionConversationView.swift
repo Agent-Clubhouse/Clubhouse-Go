@@ -599,7 +599,7 @@ struct CompanionConversationView: View {
             }
             // Soft at the top, like Messages: the transcript scrolls under the floating header instead of meeting a band.
             .scrollEdgeEffectStyle(.soft, for: .top)
-            .scrollEdgeEffectStyle(.hard, for: .bottom)
+            .scrollEdgeEffectStyle(.soft, for: .bottom)
             .scrollDismissesKeyboard(.interactively)
             .accessibilityIdentifier("companion-transcript")
             #if DEBUG
