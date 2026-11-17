@@ -197,10 +197,9 @@ struct CompanionConversationView: View {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
-                        // Keep the native 16pt title clearance, plus slack (#554), on both sides of the equal
-                        // reservations. The width stays fixed: a flexible one is placed off the screen's centre.
+                        // Keep the native 16pt title clearance on both sides of the equal reservations.
                         .frame(width: max(44, (headerBarWidth > 0 ? headerBarWidth : available.size.width)
-                                          - 2 * (headerSideSpan + 16 + Self.headerTitleSlack)))
+                                          - 2 * (headerSideSpan + 16)))
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
@@ -328,8 +327,6 @@ struct CompanionConversationView: View {
 
     /// How far the identity's name pill hangs below the navigation bar, at most.
     private static let headerPillClearance: CGFloat = 8
-    /// Extra room each side of the identity, so leading, identity and trailing never add up to exactly the bar.
-    private static let headerTitleSlack: CGFloat = 4
 
     private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
 
