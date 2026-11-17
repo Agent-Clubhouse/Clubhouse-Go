@@ -179,7 +179,7 @@ struct CompanionConversationComposer: View {
                     // Equal insets for Options and Send; keep glass away from the card's
                     // bottom corners even when accessibility text uses the compact row.
                     .padding(.horizontal, 6)
-                    .padding(.bottom, 6)
+                    .padding(.bottom, actionBottomInset)
                 }
                 // Glass behind the draft over the theme card, as in the header. Wrapping the whole draft and action row
                 // in glass let it adapt to light in dark mode, taking the field and keyboard with it (text at 2:1).
@@ -193,7 +193,11 @@ struct CompanionConversationComposer: View {
             composerCaption
         }
         // Large-text glass controls extend beyond the 44pt row; retain their keyboard clearance.
-        .padding(.horizontal, 16).padding(.vertical, compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10)
+        // Move existing bottom spacing inside the card: the circles clear its corners
+        // without increasing composer height or consuming keyboard clearance.
+        .padding(.horizontal, 16)
+        .padding(.top, composerVerticalPadding)
+        .padding(.bottom, composerVerticalPadding - actionBottomInset)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -298,6 +302,9 @@ struct CompanionConversationComposer: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: compactHeight ? 8 : 10))
             : AnyLayout(CompanionComposerLayout(spacing: compactHeight ? 8 : 10))
     }
+
+    private var composerVerticalPadding: CGFloat { compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10 }
+    private var actionBottomInset: CGFloat { min(6, composerVerticalPadding) }
 
     /// Icon-only actions keep a bounded glyph and a full target; the editor and textual labels scale normally.
     private var actionRowHeight: CGFloat { dynamicTypeSize.isAccessibilitySize ? 44 : composerRowHeight }
