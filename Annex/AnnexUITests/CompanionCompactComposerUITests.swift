@@ -100,7 +100,8 @@ import XCTest
                 XCTAssertFalse(reviewOnly, "\(state): iPhone 17 and Pro Max keep the title row", file: file, line: line)
             }
             if reviewOnly {
-                XCTAssertTrue(editing, "\(state): the Review-only fallback needs the keyboard up", file: file, line: line)
+                // Measured fit, not keyboard state: a three-line unfocused draft on SE also outgrows the tight rows.
+                XCTAssertLessThan(layout.window.width, 402, "\(state): only an SE-class width needs the Review-only fallback", file: file, line: line)
                 XCTAssertNil(layout["companion-decision-show-in-chat"], "\(state): one Review control replaces the rows", file: file, line: line)
                 XCTAssertEqual(layout.labels["companion-review-approval"], "Review approval: Run xcodebuild, 1 of 2",
                                "\(state): VoiceOver keeps the full request title", file: file, line: line)
