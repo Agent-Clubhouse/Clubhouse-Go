@@ -97,4 +97,20 @@ import Testing
         var off = a; off.dispatcher = nil
         #expect(CompanionDispatcherLaunchResolution.resolve(desktops: [], pairedHostIDs: ["a"], restorationComplete: true, hosts: [off]) == .unavailable)
     }
+    @MainActor @Test func inboxAcceptsOnlyItsQuickActionAndConsumesOnlyTheCurrentRequest() throws {
+        let inbox = CompanionDispatcherLaunchInbox()
+        #expect(!inbox.handleQuickAction("com.Agent-Clubhouse.Go.other"), "Another shortcut type leaves the inbox alone")
+        #expect(inbox.pending == nil)
+        #expect(inbox.handleQuickAction(CompanionDispatcherLaunchInbox.quickActionType))
+        let quick = try #require(inbox.pending)
+        #expect(quick.source == .quickAction)
+        inbox.submit(.appIntent)
+        let intent = try #require(inbox.pending)
+        #expect(intent.source == .appIntent)
+        #expect(intent.id != quick.id, "Each launch is a new request")
+        inbox.consume(quick.id)
+        #expect(inbox.pending == intent, "A superseded request cannot consume the newer one")
+        inbox.consume(intent.id)
+        #expect(inbox.pending == nil)
+    }
 }

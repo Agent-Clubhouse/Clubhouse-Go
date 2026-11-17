@@ -389,8 +389,20 @@ extension CompanionNetworkTests {
         XCTAssertEqual(inbox.pending?.id, request.id)
         XCTAssertEqual(runtime.preferences.lastDispatcherHostID, cached.id)
         XCTAssertEqual(runtime.preferences.lastTab, .dispatcher)
-        runtime.acknowledgeRestoreError()
-        try await waitUntil { inbox.pending == nil }
+        // A person can only press OK once the restore alert has finished appearing. Acknowledging
+        // mid-transition made UIKit refuse the next sheet ("while a presentation is in progress").
+        var presentedAlert: UIAlertController?
+        try await waitUntil {
+            guard let alert = window.rootViewController?.presentedViewController as? UIAlertController,
+                  !alert.isBeingPresented, alert.transitionCoordinator == nil else { return false }
+            presentedAlert = alert
+            return true
+        }
+        // Like OK: the alert animates away and its binding acknowledges, then the launch result presents.
+        let alert = try XCTUnwrap(presentedAlert)
+        XCTAssertEqual(alert.title, "Could not restore desktops")
+        alert.dismiss(animated: true)
+        try await waitUntil { runtime.restoreError == nil && inbox.pending == nil }
         XCTAssertNil(runtime.restoredHostIDs)
         XCTAssertTrue(runtime.externalLaunchRestorationFailed)
         try await waitForRendered("No Dispatcher available", in: window)

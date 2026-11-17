@@ -29,6 +29,7 @@ struct CompanionConversationView: View {
     @State private var headerLeadingOrigin: CGFloat = 20
     @State private var headerTrailingInset: CGFloat = 20
     @State private var headerBarWidth: CGFloat = 0
+    @State private var headerOverflowMonitor = CompanionHeaderOverflowMonitor()
     @State private var keyboardVisible = false
     @State private var decisionChatJump: DecisionChatJump?
     private struct DecisionChatJump: Equatable { let id = UUID(); let itemID: String }
@@ -80,6 +81,22 @@ struct CompanionConversationView: View {
             if abs(headerLeadingOrigin - inset) > 0.25 { headerLeadingOrigin = inset }
         } else if abs(headerTrailingInset - inset) > 0.25 { headerTrailingInset = inset }
         if abs(headerBarWidth - barWidth) > 0.25 { headerBarWidth = barWidth }
+        headerOverflowMonitor.sampleAccepted()
+    }
+
+    private func headerPrincipalWidth(_ availableWidth: CGFloat) -> CGFloat {
+        max(44, (headerBarWidth > 0 ? headerBarWidth : availableWidth) - 2 * (headerSideSpan + 16))
+    }
+
+    /// #554: checks each settled header sample against the bar; one diagnostic record per overflow.
+    private func observeHeader(_ part: CompanionHeaderOverflowMonitor.Part, _ frame: CGRect, barWidth: CGFloat, availableWidth: CGFloat) {
+        let layout = CompanionHeaderOverflow.Layout(
+            barWidth: Double(barWidth), stateBarWidth: Double(headerBarWidth > 0 ? headerBarWidth : availableWidth),
+            leadingOrigin: Double(headerLeadingOrigin), trailingInset: Double(headerTrailingInset),
+            leadingReservation: Double(headerLeadingReservation), principalWidth: Double(headerPrincipalWidth(availableWidth)),
+            trailingReservation: Double(headerTrailingReservation))
+        headerOverflowMonitor.observe(part, frame: frame, layout: layout, working: agent.status == .working,
+                                      keyboardVisible: keyboardVisible)
     }
 
 
@@ -187,6 +204,8 @@ struct CompanionConversationView: View {
                         .background {
                             CompanionToolbarIdentityCenter { frame, width in
                                 recordHeaderSide(frame, barWidth: width, leading: true)
+                            } observe: { frame, width in
+                                observeHeader(.leading, frame, barWidth: width, availableWidth: available.size.width)
                             }
                         }
                         .allowsHitTesting(false).accessibilityHidden(true)
@@ -198,8 +217,13 @@ struct CompanionConversationView: View {
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
                         // Keep the native 16pt title clearance on both sides of the equal reservations.
-                        .frame(width: max(44, (headerBarWidth > 0 ? headerBarWidth : available.size.width)
-                                          - 2 * (headerSideSpan + 16)))
+                        .frame(width: headerPrincipalWidth(available.size.width))
+                        .background {
+                            CompanionToolbarIdentityCenter(correct: { _, _ in }, observe: { frame, width in
+                                observeHeader(.principal, frame, barWidth: width, availableWidth: available.size.width)
+                            })
+                            .allowsHitTesting(false).accessibilityHidden(true)
+                        }
                 }
                 .sharedBackgroundVisibility(.hidden)
                 ToolbarItem(placement: .topBarTrailing) {
@@ -243,13 +267,15 @@ struct CompanionConversationView: View {
                     }
                     .buttonStyle(.plain)
                     .companionToolbarSecondary()
-                    .companionCardGlass(Capsule(), interactive: true)
+                    .companionToolbarCardGlass()
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("companion-chat-header-actions")
                     .frame(width: headerTrailingReservation, alignment: .trailing)
                     .background {
                         CompanionToolbarIdentityCenter { frame, width in
                             recordHeaderSide(frame, barWidth: width, leading: false)
+                        } observe: { frame, width in
+                            observeHeader(.trailing, frame, barWidth: width, availableWidth: available.size.width)
                         }
                         .allowsHitTesting(false).accessibilityHidden(true)
                     }

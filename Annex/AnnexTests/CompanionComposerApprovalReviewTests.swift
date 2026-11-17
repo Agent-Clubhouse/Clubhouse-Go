@@ -369,12 +369,32 @@ import ClubhouseTransport
         return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     }
 
-    private func requireRenderedLabel(_ label: String, in window: UIWindow) async throws {
-        let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            (try? self.renderedText(window).contains(label)) == true
-        }, object: nil)
-        await fulfillment(of: [updated], timeout: 3)
-        XCTAssertTrue(try renderedText(window).contains(label), "The mounted native Menu label updates after a genuine change")
+    private func requireRenderedLabel(_ label: String, in window: UIWindow, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let started = ContinuousClock.now
+        var polls = 0
+        // One OCR pass costs ~1.2s locally and 2.5–3s+ on hosted runners, so a 3s wall-clock wait could expire before
+        // its first evaluation (#545). Bound by evaluations instead: at least 3 OCR passes and the original 3s,
+        // with a 15s wall-clock cap. The condition is unchanged.
+        while true {
+            polls += 1
+            if (try? renderedText(window).contains(label)) == true { break }
+            let elapsed = started.duration(to: .now)
+            if (polls >= 3 && elapsed >= .seconds(3)) || elapsed >= .seconds(15) { break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
+        let recognized = try renderedText(window)
+        // Diagnostic only (#545): how long the mounted label took and how many OCR polls the 3s wait admitted.
+        print("RENDER_WAIT label=\(label) elapsed=\(started.duration(to: .now)) found=\(recognized.contains(label)) ocrPolls=\(polls)")
+        if !recognized.contains(label) {
+            // Keep the evidence: an async fulfillment failure alone records no line, OCR or image.
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "Rendered window without \(label)"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        XCTAssertTrue(recognized.contains(label), "The mounted native Menu label updates after a genuine change: expected \(label); OCR: \(recognized)",
+                      file: file, line: line)
     }
 
     private func request(_ id: String) -> CompanionApproval {

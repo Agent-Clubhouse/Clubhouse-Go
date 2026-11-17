@@ -20,6 +20,7 @@ import XCTest
         /// How many elements carry each identifier; the native draft field must stay unique.
         var counts: [String: Int] = [:]
         var values: [String: String] = [:]
+        var labels: [String: String] = [:]
         var enabled: [String: Bool] = [:]
         var window = CGRect.null
         var navigation = CGRect.null
@@ -45,6 +46,7 @@ import XCTest
             if !id.isEmpty, result.frames[id] == nil || node.elementType == .button {
                 result.frames[id] = node.frame
                 result.values[id] = node.value as? String
+                result.labels[id] = node.label
                 result.enabled[id] = node.isEnabled
             }
             node.children.forEach(visit)
@@ -91,14 +93,30 @@ import XCTest
         if working { ids.insert("companion-interrupt", at: ids.count - 1) }
         if dismissButton { ids.append("companion-dismiss-keyboard") }
         if reviewButton {
-            let title = try XCTUnwrap(layout["companion-decision-show-in-chat"])
             let tray = try XCTUnwrap(layout["companion-pinned-decision"])
-            XCTAssertTrue(pixelContains(region, title), "\(state): the title is not clipped by navigation or keyboard", file: file, line: line)
-            let footerViewport = region.intersection(layout["companion-grant-footer-scroll"] ?? region)
-            XCTAssertTrue(pixelContains(footerViewport, title), "\(state): the title is not clipped by its actual footer viewport", file: file, line: line)
-            XCTAssertTrue(pixelContains(tray, title), "\(state): the entire title stays in its card", file: file, line: line)
-            XCTAssertEqual(layout.values["companion-decision-show-in-chat"], "1 of 2 waiting · Bash",
-                           "\(state): compact metadata stays complete for VoiceOver", file: file, line: line)
+            let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
+            // #543: the fallback follows the product's own measured fit on every OS and device, never the screen width.
+            // Collapse when the full rows + 2pt insets exceed the offered room; expand only with one caption line spare.
+            let fitValue = try XCTUnwrap(layout.values["companion-pinned-decision-fit"], "\(state): fit metrics are exported", file: file, line: line)
+            if let fitFrame = layout["companion-pinned-decision-fit"] {
+                XCTAssertTrue(pixelContains(tray, fitFrame), "\(state): the metrics element stays inside the card: \(fitFrame) in \(tray)", file: file, line: line)
+            }
+            assertFitInvariant(reviewOnly: reviewOnly, Self.fitMetrics(fitValue), state: state, file: file, line: line)
+            if reviewOnly {
+                XCTAssertNil(layout["companion-decision-show-in-chat"], "\(state): one Review control replaces the rows", file: file, line: line)
+                XCTAssertEqual(layout.labels["companion-review-approval"], "Review approval: Run xcodebuild, 1 of 2",
+                               "\(state): VoiceOver keeps the full request title", file: file, line: line)
+                XCTAssertEqual(layout.values["companion-review-approval"], "1 of 2 waiting · Bash",
+                               "\(state): position and tool stay complete for VoiceOver", file: file, line: line)
+            } else {
+                let title = try XCTUnwrap(layout["companion-decision-show-in-chat"])
+                XCTAssertTrue(pixelContains(region, title), "\(state): the title is not clipped by navigation or keyboard", file: file, line: line)
+                let footerViewport = region.intersection(layout["companion-grant-footer-scroll"] ?? region)
+                XCTAssertTrue(pixelContains(footerViewport, title), "\(state): the title is not clipped by its actual footer viewport", file: file, line: line)
+                XCTAssertTrue(pixelContains(tray, title), "\(state): the entire title stays in its card", file: file, line: line)
+                XCTAssertEqual(layout.values["companion-decision-show-in-chat"], "1 of 2 waiting · Bash",
+                               "\(state): compact metadata stays complete for VoiceOver", file: file, line: line)
+            }
             if editing, let keyboardTop = layout.keyboardTop {
                 XCTAssertLessThanOrEqual(composerRegion.maxY, keyboardTop, "\(state): composer bottom stays above keyboard", file: file, line: line)
                 XCTAssertGreaterThan(pixelAligned(keyboardTop - composerRegion.maxY), 0,
@@ -111,7 +129,7 @@ import XCTest
             XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).width, 44, file: file, line: line)
             XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).height, 44, file: file, line: line)
             if editing, let keyboardTop = layout.keyboardTop {
-                print("AX_COMPACT_GEOMETRY state=\(state) title=\(title) tray=\(tray) review=\(review) composer=\(composerRegion) keyboardTop=\(keyboardTop) clearance=\(keyboardTop - composerRegion.maxY)")
+                print("AX_COMPACT_GEOMETRY state=\(state) reviewOnly=\(reviewOnly) tray=\(tray) review=\(review) composer=\(composerRegion) keyboardTop=\(keyboardTop) clearance=\(keyboardTop - composerRegion.maxY)")
             }
         }
         XCTAssertEqual(layout["companion-interrupt"] != nil, working, "\(state): Interrupt shows only while Working", file: file, line: line)
@@ -297,8 +315,140 @@ import XCTest
         try workingRow(largestText: true)
     }
 
+    // MARK: #543 fit invariant, shared by every check and its negative controls
+
+    struct FitMetrics {
+        var natural: Double, offered: Double, caption: Double, measured: Bool, raw: String
+    }
+
+    /// Parses the DEBUG-only `companion-pinned-decision-fit` value: "natural=… offered=… caption=… measured=…".
+    static func fitMetrics(_ raw: String) -> FitMetrics {
+        let pairs = Dictionary(uniqueKeysWithValues: raw.split(separator: " ").compactMap { pair -> (String, String)? in
+            let parts = pair.split(separator: "=", maxSplits: 1)
+            return parts.count == 2 ? (String(parts[0]), String(parts[1])) : nil
+        })
+        return FitMetrics(natural: Double(pairs["natural"] ?? "") ?? 0, offered: Double(pairs["offered"] ?? "") ?? 0,
+                          caption: Double(pairs["caption"] ?? "") ?? 0, measured: pairs["measured"] == "true", raw: raw)
+    }
+
+    /// The product's own rule, with its hysteresis: collapse when the full rows + 2pt insets exceed the offered room;
+    /// stay collapsed until one caption line of room is spare. So Review-only ⇒ natural + 2 > offered − caption,
+    /// and full rows (when measured) ⇒ natural + 2 ≤ offered.
+    static func fitInvariantFailures(reviewOnly: Bool, _ m: FitMetrics) -> [String] {
+        if reviewOnly {
+            if !m.measured { return ["Review-only without a measurement: \(m.raw)"] }
+            if m.natural <= 0 { return ["Review-only before the full rows were measured: \(m.raw)"] }
+            if !(m.natural + 2 > m.offered - m.caption) { return ["Review-only while the full rows fit: \(m.raw)"] }
+        } else if m.measured, m.natural > 0, m.natural + 2 > m.offered {
+            return ["Full rows shown that don't fit their offered room: \(m.raw)"]
+        }
+        return []
+    }
+
+    func assertFitInvariant(reviewOnly: Bool, _ m: FitMetrics, state: String, file: StaticString = #filePath, line: UInt = #line) {
+        for failure in Self.fitInvariantFailures(reviewOnly: reviewOnly, m) {
+            XCTFail("\(state): \(failure)", file: file, line: line)
+        }
+    }
+
+    /// D2: both wrong states fail the shared assertion, deterministically and without the app; correct states pass.
+    func testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays() {
+        let fits = FitMetrics(natural: 100, offered: 140, caption: 20, measured: true, raw: "synthetic: rows fit")
+        let tooTall = FitMetrics(natural: 120, offered: 117.33, caption: 20, measured: true, raw: "synthetic: rows don't fit")
+        XCTAssertTrue(Self.fitInvariantFailures(reviewOnly: false, fits).isEmpty, "Full rows that fit pass")
+        XCTAssertTrue(Self.fitInvariantFailures(reviewOnly: true, tooTall).isEmpty, "Review-only for rows that don't fit passes")
+        let strict = XCTExpectedFailure.Options()
+        strict.isStrict = true
+        XCTExpectFailure("A wrongly collapsed tray must fail the invariant", options: strict) {
+            assertFitInvariant(reviewOnly: true, fits, state: "synthetic wrongly collapsed")
+        }
+        XCTExpectFailure("A wrongly full tray must fail the invariant", options: strict) {
+            assertFitInvariant(reviewOnly: false, tooTall, state: "synthetic wrongly full")
+        }
+    }
+
+    /// D1 + independence: in the typed-focused AX state, force each tray state (DEBUG launch arguments; measurement is
+    /// unaffected). The forced state that contradicts the measured fit must fail the invariant (strict expected failure);
+    /// the one that agrees must pass. The forced-full launch also checks the product's numbers against XCUI geometry.
+    func testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry() throws {
+        var sawWrong = false
+        var bandMetrics: [String] = []
+        for forced in ["--companion-ui-test-force-full-rows", "--companion-ui-test-force-review-only"] {
+            let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images",
+                                 "--companion-ui-test-fit-metrics", forced,
+                                 "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], attempts: 1)
+            // Caught (expected) failures must not stop the remaining checks.
+            continueAfterFailure = true
+            let river = element(app, "agent-preview-studio-river")
+            XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+            let composer = element(app, "companion-composer")
+            waitAndTap(river, until: composer, attempts: 1)
+            waitAndTap(app.buttons["companion-attach"], until: element(app, "companion-attachment-thumbnail"), attempts: 1)
+            focus(composer, in: app)
+            composer.typeText("Keep this direction")
+            let state = "forced \(forced)"
+            capture(app, state)
+            let layout = try layout(app)
+            captureGeometry(layout, state: state)
+            let keyboardTop = try XCTUnwrap(layout.keyboardTop, "\(state): keyboard")
+            let tray = try XCTUnwrap(layout["companion-pinned-decision"], "\(state): tray")
+            let composerRegion = try XCTUnwrap(layout["companion-composer-region"], "\(state): composer")
+            let footer = try XCTUnwrap(layout["companion-grant-footer-scroll"], "\(state): footer")
+            let m = Self.fitMetrics(try XCTUnwrap(layout.values["companion-pinned-decision-fit"], "\(state): metrics"))
+            XCTAssertTrue(m.measured && m.natural > 0, "\(state): measured: \(m.raw)")
+            let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
+            XCTAssertEqual(reviewOnly, forced == "--companion-ui-test-force-review-only", "\(state): the forced state is shown")
+            if !reviewOnly {
+                // Independence: the rendered tight card is the full rows + 1pt insets; the composer block runs from the
+                // card's bottom (no outer inset under tight rows) to the composer's content bottom + its 10pt padding.
+                let naturalRendered = Double(tray.height) - 2
+                XCTAssertEqual(m.natural, naturalRendered, accuracy: 2, "\(state): natural matches the rendered rows: \(m.raw) tray=\(tray)")
+                let composerBlock = Double(composerRegion.maxY + 10 - tray.maxY)
+                let visibleFooter = Double(keyboardTop - footer.minY)
+                let content = Double(composerRegion.maxY + 10 - tray.minY)
+                let offeredRendered = visibleFooter - composerBlock
+                if content >= visibleFooter - 0.5 {
+                    // The footer is at its maximum (its content overflows), so the room it offers is observable.
+                    XCTAssertEqual(m.offered, offeredRendered, accuracy: 2,
+                                   "\(state): offered matches XCUI geometry (footer at max): \(m.raw) visible=\(visibleFooter) composerBlock=\(composerBlock)")
+                    let fitsRendered = naturalRendered + 2 <= offeredRendered
+                    if abs((naturalRendered + 2) - offeredRendered) > 2 {
+                        XCTAssertEqual(fitsRendered, m.natural + 2 <= m.offered,
+                                       "\(state): the independent fit agrees with the product's: rendered \(naturalRendered)+2 vs \(offeredRendered); \(m.raw)")
+                    }
+                } else {
+                    // Footer below its maximum: the observed room is only a LOWER BOUND for the offered room.
+                    XCTAssertGreaterThanOrEqual(m.offered, offeredRendered - 2,
+                                                "\(state): offered is at least the observed room (LOWER BOUND only; footer not at max): \(m.raw) observed=\(offeredRendered)")
+                }
+            }
+            let wrong = reviewOnly ? !(m.natural + 2 > m.offered - m.caption) : m.natural + 2 > m.offered
+            print("FIT_NEGATIVE_CONTROL \(state) reviewOnly=\(reviewOnly) wrong=\(wrong) \(m.raw)")
+            bandMetrics.append("\(state): \(m.raw)")
+            if wrong {
+                sawWrong = true
+                let strict = XCTExpectedFailure.Options()
+                strict.isStrict = true
+                XCTExpectFailure("\(state) contradicts the measured fit and must be caught", options: strict) {
+                    assertFitInvariant(reviewOnly: reviewOnly, m, state: state)
+                }
+            } else {
+                assertFitInvariant(reviewOnly: reviewOnly, m, state: state)
+            }
+            app.terminate()
+        }
+        // Inside the hysteresis band (offered − caption < natural + 2 ≤ offered) both forced states are legitimate, so
+        // nothing on this device can be shown to be caught: record that as a skip with the metrics, never a silent pass.
+        if !sawWrong {
+            // Cross-check failures must stand: never convert a failed run into a skip.
+            if (testRun?.totalFailureCount ?? 0) > 0 { return }
+            throw XCTSkip("Measured fit is inside the hysteresis band; no forced state contradicts it on this device: \(bandMetrics.joined(separator: "; "))")
+        }
+        XCTAssertTrue(sawWrong, "At least one forced state contradicted the measured fit")
+    }
+
     private func workingRow(largestText: Bool) throws {
-        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images"]
+        let app = launchApp(["--companion-preview", "--companion-preview-assistive-keyboard", "--companion-sample-images", "--companion-ui-test-fit-metrics"]
                             + (largestText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []), attempts: 1)
         let river = element(app, "agent-preview-studio-river")
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))

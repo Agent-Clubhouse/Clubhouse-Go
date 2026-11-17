@@ -48,7 +48,13 @@ struct CompanionConversationHeaderFixture: View {
                 CompanionConversationView(store: store, agent: agent)
             } else { ProgressView("Preparing header fixture…") }
         }
+        // `--companion-preview-toolbar-scheme-flip` (#534): a synthetic mismatch. The palette keeps the launch
+        // appearance while the conversation and its bar items see the opposite colorScheme. It shows the bar glass
+        // keeps to the palette over an opposite environment, not that this is how iOS 27 drew it white.
+        .environment(\.colorScheme, arguments.contains("--companion-preview-toolbar-scheme-flip") != isLight ? .light : .dark)
     }
+
+    private var isLight: Bool { arguments.contains("--companion-header-light") }
 
 
     var body: some View {
@@ -99,7 +105,7 @@ struct CompanionConversationHeaderFixture: View {
             }
         }
         .companionTheme(theme)
-        .preferredColorScheme(arguments.contains("--companion-header-light") ? .light : .dark)
+        .preferredColorScheme(isLight ? .light : .dark)
         .task {
             guard !ready else { return }
             var host = CompanionPreviewService.hosts(now: .now, helperRequests: CompanionPreviewService.helperRequests,
@@ -107,7 +113,8 @@ struct CompanionConversationHeaderFixture: View {
             guard var agent = host.allAgents.first(where: { $0.id == target }) else { return }
             agent.name = arguments.contains("--companion-header-long-name")
                 ? "Alexandria — release coordination and simulator validation"
-                : "Header worker"
+                // One unbroken word, like the #554 report.
+                : arguments.contains("--companion-header-orchestrator-name") ? "Clubhouse-Orchestrator" : "Header worker"
             agent.status = arguments.contains("--companion-header-idle") ? .idle : .working
             agent.turnStartedAt = agent.status == .working ? Date().addingTimeInterval(-65) : nil
             agent.freeAgentMode = true
@@ -151,6 +158,15 @@ struct CompanionConversationHeaderFixture: View {
             if arguments.contains("--companion-header-synchronizing") { host.connection = .synchronizing }
             store.apply(.hosts([host]))
             ready = true
+            // `--companion-header-stream` (#554): a reply grows and the context ring moves, four ticks a second for 20s.
+            guard arguments.contains("--companion-header-stream") else { return }
+            for tick in 1...80 {
+                try? await Task.sleep(for: .milliseconds(250))
+                store.apply(.upsert(target, .message(.init(id: "header-fixture-stream", role: .assistant,
+                    text: String(repeating: "Streaming reply chunk. ", count: tick))), sequence: nil))
+                host.projects[0].agents[0].contextUsage = .init(used: 40_000 + 1_000 * tick, size: 200_000, reportedAt: .now)
+                store.apply(.hosts([host]))
+            }
         }
     }
 

@@ -391,6 +391,11 @@ class ReliableUITestCase: XCTestCase {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
+    /// Stability needs two observations of one frame. On hosted runners one portrait evaluation (existence, frame
+    /// and an isHittable snapshot) took ~4s (run 43962841990: 54.23s → 58.18s), so 5s admitted only one.
+    /// 15s fits at least three such observations; the conditions and the single touch are unchanged.
+    static let pinnedReviewReadinessBudget: TimeInterval = 15
+
     /// #448 keeps full Review in the request title's native long-press menu.
     /// The popup and the visible compact Review must have distinct, unique identifiers.
     func openPinnedDecisionReview(in app: XCUIApplication, until destination: XCUIElement,
@@ -431,7 +436,7 @@ class ReliableUITestCase: XCTestCase {
                 return false
             }
             return unchangedSince.duration(to: .now) >= .milliseconds(500)
-        }, timeout: 5)
+        }, timeout: Self.pinnedReviewReadinessBudget)
         let frame = item.frame
         let hittable = item.isHittable
         let readiness = "settled=\(settled) elapsed=\(started.duration(to: .now)) frame=\(frame) hittable=\(hittable) landscape=\(landscape) label=\(item.label)"
@@ -443,7 +448,7 @@ class ReliableUITestCase: XCTestCase {
         guard settled, frame == lastFrame, frame == item.frame, !frame.isEmpty,
               frame.minX.isFinite, frame.minY.isFinite, frame.maxX.isFinite, frame.maxY.isFinite,
               pixelContains(app.frame, frame), landscape || hittable else {
-            XCTFail("The native Review item must stay contained and unchanged for at least 500ms within 5s", file: file, line: line)
+            XCTFail("The native Review item must stay contained and unchanged for at least 500ms within \(Int(Self.pinnedReviewReadinessBudget))s", file: file, line: line)
             return
         }
         app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: frame.midX, dy: frame.midY)).tap()
