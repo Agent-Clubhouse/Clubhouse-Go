@@ -43,6 +43,7 @@ struct CompanionChatControlsBar: View, Equatable {
                 .contentShape(.circle)
                 .accessibilityLabel(["Chat controls", "Permissions: \(controls.currentLevel.label)", controls.modelLabel.map { "Model: \($0)" }]
                     .compactMap { $0 }.joined(separator: ", "))
+                .accessibilityInputLabels(["Chat controls", "Options"])
                 .accessibilityValue(controls.effortLabel)
                 .accessibilityHint("Permissions, model and reasoning effort")
                 .accessibilityIdentifier("companion-level-menu")

@@ -140,8 +140,11 @@ import XCTest
 
     func testDesktopThemesKeepHeaderAndLabeledComposerReadable() {
         for (theme, flags) in [
+            ("Light", ["--companion-header-light"]),
+            ("Dark", []),
             ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
             ("Catppuccin Mocha", ["--companion-header-mocha"]),
+            ("XXXL", ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]),
         ] {
             let app = launch(flags + ["--companion-header-no-leading"])
             let controls = app.buttons["companion-level-menu"]
