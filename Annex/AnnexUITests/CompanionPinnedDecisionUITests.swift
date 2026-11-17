@@ -144,7 +144,7 @@ import Vision
     }
 
     private func requestArrivingWhileTypingAtLargestText(appearance: [String]) throws {
-        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard",
+        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard", "--companion-ui-test-fit-metrics",
                                     "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] + appearance)
         let states = try typeThenAwaitRequest(app)
         let reviewOnly = states[0] == "Review-only request controls"
@@ -167,10 +167,37 @@ import Vision
 
     /// #543: standard text sizes never use the Review-only fallback, on any device.
     func testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray() throws {
-        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard"])
+        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard", "--companion-ui-test-fit-metrics"])
         let states = try typeThenAwaitRequest(app)
         XCTAssertFalse(states.contains("Review-only request controls"), "Standard sizes keep the title row: \(states)")
         XCTAssertTrue(summary(app).exists)
+    }
+
+    /// Diagnostic only (#545): one console line with every frame that shares the room above the keyboard, so a
+    /// cancelled CI lane (no uploaded bundle) still shows what takes the footer's room. No assertions.
+    private func printFooterRoom(_ app: XCUIApplication) {
+        guard let root = try? app.snapshot() else { print("FOOTER_ROOM snapshot unavailable"); return }
+        var frames: [String: CGRect] = [:], values: [String: String] = [:]
+        var navigation: CGRect?, keyboardTop: CGFloat?, paused: CGRect?
+        func visit(_ node: XCUIElementSnapshot) {
+            let id = node.identifier
+            if node.elementType == .navigationBar, navigation == nil { navigation = node.frame }
+            if node.elementType == .keyboard || id == "SystemInputAssistantView", node.frame.intersects(root.frame) {
+                keyboardTop = min(keyboardTop ?? .infinity, node.frame.minY)
+            }
+            if id == "companion-latest", (node.value as? String) == "Reading earlier messages" { paused = node.frame }
+            if !id.isEmpty, frames[id] == nil { frames[id] = node.frame; values[id] = node.value as? String }
+            node.children.forEach(visit)
+        }
+        visit(root)
+        func f(_ rect: CGRect?) -> String { rect.map { "(\($0.minX),\($0.minY),\($0.width),\($0.height))" } ?? "nil" }
+        let ids = ["companion-chat-header", "companion-chat-header-actions", "companion-transcript", "companion-latest",
+                   "companion-grant-footer-scroll", "companion-pinned-decision", "companion-chat-activity", "companion-composer-region"]
+        let parts = ["window=\(f(root.frame))", "nav=\(f(navigation))", "pausedChat=\(f(paused))"]
+            + ids.map { "\($0)=\(f(frames[$0]))" }
+            + ["keyboardTop=\(keyboardTop.map { "\($0)" } ?? "nil")", "fit=\(values["companion-pinned-decision-fit"] ?? "nil")",
+               "tray=\(values["companion-pinned-decision"] ?? "nil")"]
+        print("FOOTER_ROOM " + parts.joined(separator: " "))
     }
 
     /// Types first, waits for the late request, then samples the tray across at least eight activity ticks (1s each).
@@ -189,6 +216,7 @@ import Vision
         XCTAssertTrue(tray.waitForExistence(timeout: 20), "The late request's tray appears with its tick")
         let reviewButton = app.buttons["companion-review-approval"]
         XCTAssertTrue(reviewButton.waitForExistence(timeout: 10) || summary(app).exists, "The request is reachable")
+        printFooterRoom(app)
         var states: [String] = []
         var activity: [String] = []
         let started = Date()
