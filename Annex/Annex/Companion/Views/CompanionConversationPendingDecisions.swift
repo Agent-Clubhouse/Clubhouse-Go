@@ -53,7 +53,10 @@ struct CompanionConversationPendingDecisions: View {
                 .disabled(review != nil)
                 .padding(.horizontal, 12).padding(.vertical, usesTightAccessibilityRows ? 1 : 4)
                 .companionCardGlass(RoundedRectangle(cornerRadius: 20))
-                .padding(.horizontal, 16).padding(.vertical, 4)
+                // When AX rows are tight the footer can outgrow the room above the keyboard and scroll from its top,
+                // pushing the composer's own bottom margin under the keyboard. The composer's padding already
+                // separates the card, so return this outer inset to the composer (0pt clearance on iPhone 17, iOS 26.5).
+                .padding(.horizontal, 16).padding(.vertical, usesTightAccessibilityRows ? 0 : 4)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("companion-pinned-decision")
                 .accessibilityValue(isCompactPresentation ? "Compact request controls" : "Expanded request controls")

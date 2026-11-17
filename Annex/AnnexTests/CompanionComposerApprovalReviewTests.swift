@@ -369,12 +369,22 @@ import ClubhouseTransport
         return (request.results ?? []).compactMap { $0.topCandidates(1).first?.string }.joined(separator: " ")
     }
 
-    private func requireRenderedLabel(_ label: String, in window: UIWindow) async throws {
+    private func requireRenderedLabel(_ label: String, in window: UIWindow, file: StaticString = #filePath, line: UInt = #line) async throws {
         let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
             (try? self.renderedText(window).contains(label)) == true
         }, object: nil)
         await fulfillment(of: [updated], timeout: 3)
-        XCTAssertTrue(try renderedText(window).contains(label), "The mounted native Menu label updates after a genuine change")
+        let recognized = try renderedText(window)
+        if !recognized.contains(label) {
+            // Keep the evidence: an async fulfillment failure alone records no line, OCR or image.
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+            let attachment = XCTAttachment(image: image)
+            attachment.name = "Rendered window without \(label)"; attachment.lifetime = .keepAlways; add(attachment)
+        }
+        XCTAssertTrue(recognized.contains(label), "The mounted native Menu label updates after a genuine change: expected \(label); OCR: \(recognized)",
+                      file: file, line: line)
     }
 
     private func request(_ id: String) -> CompanionApproval {
