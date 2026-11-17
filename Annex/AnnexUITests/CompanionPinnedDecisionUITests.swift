@@ -153,8 +153,9 @@ import Vision
         if reviewOnly {
             XCTAssertEqual(review.value as? String, "1 of 3 waiting · Bash", "Position and tool stay complete for VoiceOver")
             XCTAssertFalse(summary(app).exists, "One Review control replaces the rows")
-            let tray = element(app, "companion-pinned-decision").frame
-            let footer = element(app, "companion-grant-footer-scroll").frame
+            // One snapshot for both frames: the working agent's activity line comes and goes between preview ticks and
+            // reflows the footer by its height, so two separate queries could pair frames from different layouts (#545).
+            let (tray, footer) = try frames(app, "companion-pinned-decision", "companion-grant-footer-scroll")
             XCTAssertGreaterThanOrEqual(pixelAligned(tray.minY), pixelAligned(footer.minY), "The waiting dot stays inside the card: \(tray), \(footer)")
         } else {
             // The full rows are shown only when they fit: the whole title stays above the composer and the keyboard.
@@ -171,6 +172,18 @@ import Vision
         let states = try typeThenAwaitRequest(app)
         XCTAssertFalse(states.contains("Review-only request controls"), "Standard sizes keep the title row: \(states)")
         XCTAssertTrue(summary(app).exists)
+    }
+
+    /// Two frames from ONE accessibility snapshot, so they always describe the same layout.
+    private func frames(_ app: XCUIApplication, _ first: String, _ second: String) throws -> (CGRect, CGRect) {
+        let root = try app.snapshot()
+        var found: [String: CGRect] = [:]
+        func visit(_ node: XCUIElementSnapshot) {
+            if node.identifier == first || node.identifier == second, found[node.identifier] == nil { found[node.identifier] = node.frame }
+            node.children.forEach(visit)
+        }
+        visit(root)
+        return (try XCTUnwrap(found[first], first), try XCTUnwrap(found[second], second))
     }
 
     /// Diagnostic only (#545): one console line with every frame that shares the room above the keyboard, so a
