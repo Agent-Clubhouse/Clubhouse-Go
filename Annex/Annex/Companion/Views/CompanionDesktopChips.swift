@@ -41,7 +41,12 @@ struct CompanionDesktopChips: View {
 
     private var available: [CompanionHost] { Self.uniqueHosts(hosts) }
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.chips) }
+        #endif
         Group {
             if available.count >= 2 {
                 ScrollView(.horizontal) {

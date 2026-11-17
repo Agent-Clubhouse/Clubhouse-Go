@@ -15,7 +15,6 @@ struct CompanionProjectPage: View {
     @State private var wakingProject: CompanionProjectTarget?
     @State private var pendingWake: (target: CompanionTarget, message: String)?
     @State private var finishedActionError: String?
-    @State private var shownProjectStateError: String?
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionTerminal) private var terminal
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -142,13 +141,7 @@ struct CompanionProjectPage: View {
                 if let error = finishedActionError ?? store.finishedError {
                     Text(error).foregroundStyle(Color(palette.warning)).accessibilityIdentifier("finished-error")
                 }
-                if let error = store.projectStateError ?? shownProjectStateError {
-                    Text(error).foregroundStyle(Color(palette.warning))
-                        .onChange(of: error, initial: true) { _, shown in
-                            shownProjectStateError = shown
-                            if store.projectStateError == shown { store.projectStateError = nil }
-                        }
-                }
+                if let error = store.projectStateError { Text(error).foregroundStyle(Color(palette.warning)) }
             }
         }
         .companionListStyle()

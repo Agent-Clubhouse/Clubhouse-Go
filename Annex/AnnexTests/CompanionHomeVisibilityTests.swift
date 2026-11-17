@@ -44,6 +44,9 @@ import ClubhouseTransport
     func testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
+        fixture.hosts[0].canUpdateApp = true
+        fixture.hosts[0].appUpdate = .init(state: .ready, currentVersion: "1.0.0", availableVersion: "1.1.0")
+        fixture.store.apply(.hosts(fixture.hosts))
         try await fixture.mount()
         let scope = try XCTUnwrap(fixture.scope)
         scope.wrappedValue = .host("synthetic-host-0")
@@ -57,7 +60,10 @@ import ClubhouseTransport
         try await fixture.wait { fixture.isFrozen && fixture.chatBodies > 0 && fixture.counts[.row, default: 0] > 0 && fixture.counts[.rowMenu, default: 0] > 0 }
         XCTAssertGreaterThan(fixture.counts[.projectMenu, default: 0], 0, "Real header menu child bodies were evaluated")
         XCTAssertGreaterThan(fixture.counts[.quietRows, default: 0], 0)
+        XCTAssertGreaterThan(fixture.counts[.appUpdate, default: 0], 0)
+        XCTAssertGreaterThan(fixture.counts[.chips, default: 0], 0)
         try await fixture.turn()
+        fixture.assertPushCost()
         let before = fixture.expensiveCounts
         for batch in 0..<10 {
             let rendered = fixture.chatBodies
@@ -89,10 +95,18 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.group()?.liveStatus, .approval, "Status refreshes without sorting")
         XCTAssertFalse(try fixture.renderedText().isEmpty)
         // Select All to include the changed machine, then repeat a push/pop with a visible offline banner.
+        let linkedBefore = fixture.counts[.linkedRows, default: 0]
         scope.wrappedValue = .all
-        try await fixture.wait { fixture.frames.last?.1.contains("Reconnecting") == true }
+        try await fixture.wait { fixture.frames.last?.1.contains("Reconnecting") == true && fixture.counts[.linkedRows, default: 0] > linkedBefore }
         fixture.push(.agent(target))
         try await fixture.wait { fixture.isFrozen }
+        fixture.assertPushCost()
+        XCTAssertGreaterThan(fixture.counts[.linkedRows, default: 0], 0)
+        let linked = fixture.expensiveCounts
+        let rendered = fixture.chatBodies
+        fixture.store.apply(.textDelta(target, messageID: "perf-stream", text: " linked", sequence: 101))
+        try await fixture.wait { fixture.chatBodies > rendered }
+        XCTAssertEqual(fixture.expensiveCounts, linked, "The All-scope linked-row body is frozen too")
         fixture.hosts[1].connection = .offline
         fixture.store.apply(.hosts(fixture.hosts))
         try await fixture.turn()
@@ -114,9 +128,12 @@ import ClubhouseTransport
         fixture.store.apply(.hosts(fixture.hosts))
         try await fixture.mount()
         let target = fixture.hosts[0].projects[0].agents[1].id // A real visible row, for settings and Terminal.
-        let sleeper = fixture.hosts[0].projects[0].agents[0].id // Unread sleeping agent offers Wake.
+        let sleeper = fixture.hosts[0].projects[0].agents[0].id // Open quiet rows are part of the captured display.
+        fixture.preferences.toggleFold("quiet:" + (try XCTUnwrap(fixture.group())).entry.orderKey)
+        try await fixture.turn()
         fixture.push(.agent(fixture.hosts[2].projects[0].agents[1].id))
         try await fixture.wait { fixture.isFrozen && fixture.frozenSettings != nil && fixture.frozenWake != nil && fixture.frozenTerminal != nil }
+        fixture.assertPushCost()
         let settings = try XCTUnwrap(fixture.frozenSettings)
         let wake = try XCTUnwrap(fixture.frozenWake)
         let terminal = try XCTUnwrap(fixture.frozenTerminal)
@@ -181,6 +198,30 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.group()?.agents.first?.id, target, "Unaffected held peers stay ordered across section changes")
     }
 
+    func testInactiveKeepsRecentHoldAndBackgroundStartsFresh() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        try await fixture.mount()
+        let original = try XCTUnwrap(fixture.group()).agents.map(\.id)
+        let phase = try XCTUnwrap(fixture.phase)
+        phase.wrappedValue = .inactive
+        try await fixture.wait { fixture.observedPhase == .inactive }
+        let target = fixture.hosts[0].projects[0].agents[2].id
+        fixture.hosts[0].projects[0].agents[2].status = .approval
+        fixture.hosts[0].projects[0].agents[2].lastActivity = Date(timeIntervalSince1970: 1_900_000_010)
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.wait { fixture.group()?.liveStatus == .approval }
+        XCTAssertEqual(fixture.group()?.agents.map(\.id), original, "Control Center/Face ID inactive must not end Recent")
+        phase.wrappedValue = .active
+        try await fixture.wait { fixture.observedPhase == .active }
+        XCTAssertEqual(fixture.group()?.agents.map(\.id), original)
+        phase.wrappedValue = .background
+        try await fixture.wait { fixture.observedPhase == .background }
+        phase.wrappedValue = .active
+        try await fixture.wait { fixture.observedPhase == .active && fixture.group()?.agents.first?.id == target }
+        XCTAssertEqual(fixture.group()?.agents.first?.status, .approval)
+    }
+
     func testRecentOrderStaysWhileVisibleThenRefreshesOnReturn() async throws {
         let fixture = try Fixture()
         defer { fixture.close() }
@@ -229,6 +270,7 @@ import ClubhouseTransport
         fixture.assertAlignment(saved)
         fixture.push(.agent(fixture.hosts[2].projects[0].agents[1].id))
         try await fixture.wait { fixture.isFrozen }
+        fixture.assertPushCost()
         fixture.pop()
         try await fixture.wait { !fixture.isFrozen && !anchor.testRestoring && anchor.testFrames[saved.id]?.intersects(anchor.testViewport) == true }
         fixture.assertAlignment(saved)
@@ -261,6 +303,10 @@ import ClubhouseTransport
         var frozenTerminal: CompanionTerminalAction?
         var rowActions: [CompanionTarget: CompanionHomeFrozenActions] = [:]
         var homeVisible = false
+        var phase: Binding<ScenePhase>?
+        var observedPhase: ScenePhase?
+        var snapshotAgentCounts: [Int] = []
+        var lastPush: (snapshots: Int, content: Int)?
         var expensiveCounts: [CompanionHomeBuildProbe.Kind: Int] { counts.filter { $0.key != .owner } }
 
         init() throws {
@@ -284,6 +330,8 @@ import ClubhouseTransport
 
         func mount() async throws {
             await store.load(dispatcher)
+            CompanionHomeBuildProbe.phase = { [weak self] in self?.observedPhase = $0 }
+            CompanionHomeBuildProbe.snapshotAgents = { [weak self] in self?.snapshotAgentCounts.append($0) }
             CompanionHomeBuildProbe.visibility = { [weak self] in self?.homeVisible = $0 }
             CompanionHomeBuildProbe.record = { [weak self] in self?.counts[$0, default: 0] += 1 }
             CompanionHomeBuildProbe.projection = { [weak self] in self?.projection = $0 }
@@ -301,20 +349,33 @@ import ClubhouseTransport
                 guard case .body = kind, target == (self?.streamTarget ?? self?.dispatcher) else { return }
                 self?.chatBodies += 1
             }
-            window.rootViewController = UIHostingController(rootView: CompanionRootView(store: store, preferences: preferences,
-                onPair: {}, onSettings: {}).companionTheme(.clubhouse).environment(\.scenePhase, .active))
+            let root = CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: {})
+            window.rootViewController = UIHostingController(rootView: HomeVisibilitySceneHost(root: root) { [weak self] in self?.phase = $0 }
+                .companionTheme(.clubhouse))
             window.makeKeyAndVisible()
-            try await wait { self.navigation != nil && self.anchor != nil && self.counts[.header, default: 0] > 0 && self.counts[.quiet, default: 0] > 0 }
+            try await wait { self.navigation != nil && self.anchor != nil && self.phase != nil && self.counts[.header, default: 0] > 0 && self.counts[.quiet, default: 0] > 0 }
             try await turn()
         }
 
         func group() -> CompanionProjectGroup? { projection?.projects.first { $0.entry.linkID == "synthetic-link-0" } }
 
         func push(_ route: CompanionRoute) {
+            lastPush = (counts[.snapshot, default: 0], counts[.content, default: 0])
             guard let navigation else { XCTFail("Root navigation must be mounted"); return }
             var next = navigation.wrappedValue
             next.setPath([route], for: .home, hosts: store.hosts)
             navigation.wrappedValue = next
+        }
+
+        func assertPushCost(file: StaticString = #filePath, line: UInt = #line) {
+            guard let lastPush else { XCTFail("A real push must precede its budget check", file: file, line: line); return }
+            XCTAssertEqual(counts[.snapshot, default: 0] - lastPush.snapshots, 1, "Exactly one display snapshot per push", file: file, line: line)
+            let constructions = counts[.content, default: 0] - lastPush.content
+            XCTAssertGreaterThan(constructions, 0, file: file, line: line)
+            XCTAssertLessThanOrEqual(constructions, 2, "At most live transition + frozen construction", file: file, line: line)
+            if let amount = snapshotAgentCounts.last {
+                XCTAssertLessThan(amount, hosts.flatMap(\.allAgents).count, "Predicate work is scoped to displayed rows/open folds, not the full catalog", file: file, line: line)
+            } else { XCTFail("Snapshot predicate count must be recorded", file: file, line: line) }
         }
 
         func pop() {
@@ -370,6 +431,7 @@ import ClubhouseTransport
         }
 
         func close() {
+            CompanionHomeBuildProbe.phase = nil; CompanionHomeBuildProbe.snapshotAgents = nil; phase = nil
             CompanionHomeBuildProbe.visibility = nil
             CompanionHomeBuildProbe.record = nil; CompanionHomeBuildProbe.projection = nil
             CompanionHomeBuildProbe.rowActions = nil; rowActions.removeAll()
@@ -381,6 +443,21 @@ import ClubhouseTransport
             window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
             store.shutdown(); defaults.removePersistentDomain(forName: suite)
         }
+    }
+}
+
+/// Test-owned lifecycle input; the real Root, Store and Home remain mounted across phase transitions.
+@MainActor private struct HomeVisibilitySceneHost: View {
+    let root: CompanionRootView
+    let onPhase: (Binding<ScenePhase>) -> Void
+    @State private var phase: ScenePhase = .active
+
+    init(root: CompanionRootView, onPhase: @escaping (Binding<ScenePhase>) -> Void) {
+        self.root = root; self.onPhase = onPhase
+    }
+
+    var body: some View {
+        root.environment(\.scenePhase, phase).onAppear { onPhase($phase) }
     }
 }
 

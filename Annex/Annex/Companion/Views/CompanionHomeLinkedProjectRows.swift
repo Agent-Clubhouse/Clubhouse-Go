@@ -19,7 +19,12 @@ struct CompanionHomeLinkedProjectRows: View {
         return context
     }
 
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+
     var body: some View {
+        #if DEBUG
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.linkedRows) }
+        #endif
         Group {
             CompanionAgentTreeRows(tree: group.tree, rows: group.tree.active, preferences: preferences, parentLines: parentLines)
             CompanionAgentTreeQuietFold(projectID: quiet.foldID, tree: group.tree, preferences: preferences,

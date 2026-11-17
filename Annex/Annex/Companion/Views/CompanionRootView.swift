@@ -504,17 +504,24 @@ struct CompanionHomeView: View {
             #endif
         }
         .onAppear { if scrollAnchor == nil { scrollAnchor = CompanionHomeScrollAnchorState() } }
-        .onChange(of: isPushed, initial: true) { _, pushed in
+        .onChange(of: isPushed, initial: true) { wasPushed, pushed in
             if isVisible && pushed { freezeInputs() }
-            else { frozenInputs = nil; frozenActions = nil }
+            else {
+                // Project pages already expose this inline; Back must not replay it as a Home alert.
+                if wasPushed && !pushed { store.projectStateError = nil }
+                frozenInputs = nil; frozenActions = nil
+            }
         }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { hold = nil }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .background { hold = nil }
+            #if DEBUG
+            CompanionHomeBuildProbe.phase?(phase)
+            #endif
         }
         .onChange(of: desktopSelection) { _, _ in hold = nil; scrollAnchor?.reset() }
         .onChange(of: preferences.projectSort) { _, _ in hold = nil }
         .navigationTitle("Clubhouse")
-        .alert("Couldn't change the project", isPresented: Binding(get: { !isPushed && store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
+        .alert("Couldn't change the project", isPresented: Binding(get: { isVisible && !isPushed && frozenInputs == nil && store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
             Button("OK", role: .cancel) {}
         } message: { Text(store.projectStateError ?? "") }
         .toolbar { homeToolbar }
@@ -556,7 +563,7 @@ struct CompanionHomeView: View {
             }
             .labelStyle(.iconOnly).buttonStyle(.glassProminent).buttonBorderShape(.circle)
             .companionProminentLabel()
-            .disabled(!store.hosts.contains { (desktopSelection.hostID == nil || $0.id == desktopSelection.hostID) && $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
+            .disabled(!isVisible || isPushed || !scopedHosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
             .keyboardShortcut("n", modifiers: .command)
         }
     }
@@ -678,6 +685,7 @@ struct CompanionHomeView: View {
     }
 
     private func freezeInputs() {
+        guard frozenInputs == nil else { return }
         let snapshot = makeFrozenInputs()
         let live = CompanionHomeFrozenActions(settings: agentSettings, wake: agentWake, terminal: terminal,
                                               openAgent: openAgent, openReview: openReview)
@@ -691,38 +699,57 @@ struct CompanionHomeView: View {
         CompanionHomeBuildProbe.record?(.snapshot)
         #endif
         let hosts = store.hosts, entries = store.projectEntries
-        let agents = hosts.flatMap(\.allAgents)
+        let layout = layout, scoped = scope, attention = scopedAttention
+        let shown = layout.projects + (preferences.idleExpanded ? layout.idle : [])
+        let full = Dictionary(entries.map { ($0.orderKey, $0) }, uniquingKeysWith: { first, _ in first })
         var finished: [CompanionProjectTarget: [CompanionFinishedRun]] = [:]
         var states: [CompanionProjectTarget: CompanionProjectMenuDisplay] = [:]
         var linked: [String: CompanionProjectMenuDisplay] = [:]
         var activity: [CompanionProjectTarget: Date] = [:]
         var terminals: [CompanionTerminalScope: CompanionTerminalAvailability] = [:]
         var wakeProjects: Set<CompanionProjectTarget> = []
-        for entry in entries {
-            linked[entry.orderKey] = .init(state: store.linkedProjectState(entry),
-                canChange: store.canChangeLinkedProjectState(entry), connectionHint: store.linkedProjectStateConnectionHint(entry))
+        // The closed idle footer still needs the shared-state presence, but not agent predicates or menus.
+        for group in layout.projects + layout.idle {
+            for member in group.entry.members { states[member.id] = .init(state: store.sharedProjectState(member.id)) }
+        }
+        var rowAgents: [CompanionTarget: CompanionAgent] = [:]
+        for group in shown {
+            let entry = group.entry, catalog = full[group.entry.orderKey] ?? group.entry
+            linked[entry.orderKey] = .init(state: store.linkedProjectState(catalog),
+                canChange: store.canChangeLinkedProjectState(catalog), connectionHint: store.linkedProjectStateConnectionHint(catalog))
             for member in entry.members {
                 finished[member.id] = store.finished(in: member.id)
-                states[member.id] = .init(state: store.sharedProjectState(member.id), lastActivity: store.lastActivity(for: member.id))
+                states[member.id] = .init(state: states[member.id]?.state, lastActivity: catalog.isLinked ? nil : store.lastActivity(for: member.id))
                 activity[member.id] = projectActivity(member.id)
                 terminals[.project(member.id)] = terminal?.availability(.project(member.id)) ?? .hidden
                 if renderCanWake(member) { wakeProjects.insert(member.id) }
             }
+            let key = "quiet:" + quietKey(group)
+            let rows = group.tree.active + (preferences.expandedFolds.contains(key) ? group.tree.sleeping + group.tree.finishedQuick : [])
+            for row in group.tree.visible(rows, collapsed: preferences.collapsedAgents(in: rows)) { rowAgents[row.id] = row.agent }
+        }
+        for item in attention { rowAgents[item.agent.id] = item.agent }
+        for host in scoped.hosts where isListed(host) && host.dispatcher?.isVisible == true {
+            if let agent = host.dispatcherAgent { rowAgents[agent.id] = agent }
         }
         var settings: Set<CompanionTarget> = []
         var wake: [CompanionTarget: [CompanionWakeChoice]] = [:]
         var dispatcherActivity: [CompanionTarget: CompanionCapturedActivity] = [:]
-        for agent in agents {
+        // Only rows actually represented in this scope/layout/open folds get per-agent Store predicates.
+        for agent in rowAgents.values {
             if agentSettings?.canOpen(agent.id) == true { settings.insert(agent.id) }
             wake[agent.id] = agentWake?.choices(agent.id) ?? []
             terminals[.agentShell(agent.id)] = terminal?.availability(.agentShell(agent.id)) ?? .hidden
             if agent.isDispatcher { dispatcherActivity[agent.id] = .init(date: store.lastActivity(of: agent)) }
         }
-        return .init(hosts: hosts, entries: entries, layout: layout, attention: store.attentionItems(),
+        #if DEBUG
+        CompanionHomeBuildProbe.snapshotAgents?(rowAgents.count)
+        #endif
+        return .init(hosts: hosts, entries: entries, layout: layout, attention: attention,
             rowContext: .init(hostNames: Dictionary(hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
-                impliedHostID: scope.impliedHostID, projectAccessDefaults: store.projectAccessDefaults, agentAccessDefaults: store.agentAccessDefaults),
+                impliedHostID: scoped.impliedHostID, projectAccessDefaults: store.projectAccessDefaults, agentAccessDefaults: store.agentAccessDefaults),
             finished: finished, finishedError: store.finishedError, states: states, linkedStates: linked,
-            projectActivity: activity, dispatcherActivity: dispatcherActivity, agents: Set(agents.map(\.id)),
+            projectActivity: activity, dispatcherActivity: dispatcherActivity, agents: Set(hosts.flatMap(\.allAgents).map(\.id)),
             settings: settings, wake: wake, terminal: terminals, wakeProjects: wakeProjects)
     }
 
