@@ -34,9 +34,9 @@ import Vision
                               height: tabs.minY - navigation.maxY)
             let geometry: [String: Any] = [
                 "step": step, "AXSize": "UICTContentSizeCategoryAccessibilityXXXL",
-                "row": NSStringFromCGRect(frame), "viewport": NSStringFromCGRect(viewport),
-                "navigation": NSStringFromCGRect(navigation), "tabs": NSStringFromCGRect(tabs),
-                "list": NSStringFromCGRect(list.frame), "hittable": row.isHittable,
+                "row": NSCoder.string(for: frame), "viewport": NSCoder.string(for: viewport),
+                "navigation": NSCoder.string(for: navigation), "tabs": NSCoder.string(for: tabs),
+                "list": NSCoder.string(for: list.frame), "hittable": row.isHittable,
                 "relativeContentDisplacement": initialRowY - frame.minY,
                 "absoluteScrollOffset": "Not exposed by XCUIElement"
             ]
