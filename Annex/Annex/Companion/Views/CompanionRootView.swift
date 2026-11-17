@@ -1260,7 +1260,7 @@ struct CompanionHomeView: View {
     }
 }
 
-private struct CompanionHomeViewport: Equatable {
+private nonisolated struct CompanionHomeViewport: Equatable, Sendable {
     let frame: CGRect
     let pushed: Bool
 }
