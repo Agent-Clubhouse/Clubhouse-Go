@@ -25,7 +25,7 @@ struct CompanionHomeRenderSnapshot {
 }
 
 /// Optional wrapper distinguishes a captured missing value from nil (the ordinary live path).
-struct CompanionCapturedActivity { let date: Date? }
+struct CompanionCapturedActivity: Equatable { let date: Date? }
 
 /// Optional display input for the existing menu bodies. Nil keeps every non-Home caller live.
 struct CompanionProjectMenuDisplay: Equatable {
@@ -46,24 +46,26 @@ struct CompanionHomeContentValues: Equatable {
     let states: [CompanionProjectTarget: CompanionProjectMenuDisplay]
     let linkedStates: [String: CompanionProjectMenuDisplay]
     let projectActivity: [CompanionProjectTarget: Date]
+    let dispatcherActivity: [CompanionTarget: CompanionCapturedActivity]
     let terminal: [CompanionTerminalScope: CompanionTerminalAvailability]
     let wakeProjects: Set<CompanionProjectTarget>
 
     init(snapshot: CompanionHomeRenderSnapshot) {
         self.init(hosts: snapshot.hosts, entries: snapshot.entries, attention: snapshot.attention,
                   finished: snapshot.finished, finishedError: snapshot.finishedError, states: snapshot.states,
-                  linkedStates: snapshot.linkedStates, projectActivity: snapshot.projectActivity,
+                  linkedStates: snapshot.linkedStates, projectActivity: snapshot.projectActivity, dispatcherActivity: snapshot.dispatcherActivity,
                   terminal: snapshot.terminal, wakeProjects: snapshot.wakeProjects)
     }
 
     init(hosts: [CompanionHost], entries: [CompanionProjectEntry], attention: [CompanionAttentionItem],
          finished: [CompanionProjectTarget: [CompanionFinishedRun]], finishedError: String?,
          states: [CompanionProjectTarget: CompanionProjectMenuDisplay], linkedStates: [String: CompanionProjectMenuDisplay],
-         projectActivity: [CompanionProjectTarget: Date], terminal: [CompanionTerminalScope: CompanionTerminalAvailability],
+         projectActivity: [CompanionProjectTarget: Date], dispatcherActivity: [CompanionTarget: CompanionCapturedActivity], terminal: [CompanionTerminalScope: CompanionTerminalAvailability],
          wakeProjects: Set<CompanionProjectTarget>) {
         self.hosts = hosts; self.entries = entries; self.attention = attention
         self.finished = finished; self.finishedError = finishedError; self.states = states
         self.linkedStates = linkedStates; self.projectActivity = projectActivity
+        self.dispatcherActivity = dispatcherActivity
         self.terminal = terminal; self.wakeProjects = wakeProjects
     }
 }

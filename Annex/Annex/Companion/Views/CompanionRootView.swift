@@ -655,7 +655,7 @@ struct CompanionHomeView: View {
                     CompanionAppUpdateLink(store: store, host: presentationHost(host))
                 }
                 if CompanionConnectionNotice(hosts: scopedHosts).isVisible {
-                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home", presentationHosts: presentationHosts, capturedHosts: display?.hosts)
+                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home", presentationHosts: presentationHosts, capturedHosts: display?.hosts ?? contentValues?.hosts)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
                 }
@@ -747,6 +747,10 @@ struct CompanionHomeView: View {
         var activity: [CompanionProjectTarget: Date] = [:]
         var terminals: [CompanionTerminalScope: CompanionTerminalAvailability] = [:]
         var wakeProjects: Set<CompanionProjectTarget> = []
+        var dispatcherActivity: [CompanionTarget: CompanionCapturedActivity] = [:]
+        for host in hosts {
+            if let agent = host.dispatcherAgent { dispatcherActivity[agent.id] = .init(date: store.lastActivity(of: agent)) }
+        }
         // The closed idle footer still needs the shared-state presence, but not agent predicates or menus.
         for group in layout.projects + layout.idle {
             for member in group.entry.members { states[member.id] = .init(state: store.sharedProjectState(member.id)) }
@@ -765,7 +769,7 @@ struct CompanionHomeView: View {
         }
         return .init(hosts: hosts, entries: entries, attention: attention,
             finished: finished, finishedError: store.finishedError, states: states, linkedStates: linked,
-            projectActivity: activity, terminal: terminals, wakeProjects: wakeProjects)
+            projectActivity: activity, dispatcherActivity: dispatcherActivity, terminal: terminals, wakeProjects: wakeProjects)
     }
 
     /// Capture only on entering a pushed route, never on a streamed chunk. No commands/authority are cached.
@@ -791,13 +795,12 @@ struct CompanionHomeView: View {
         }
         var settings: Set<CompanionTarget> = []
         var wake: [CompanionTarget: [CompanionWakeChoice]] = [:]
-        var dispatcherActivity: [CompanionTarget: CompanionCapturedActivity] = [:]
+        let dispatcherActivity = values.dispatcherActivity
         // Only rows actually represented in this scope/layout/open folds get per-agent Store predicates.
         for agent in rowAgents.values {
             if agentSettings?.canOpen(agent.id) == true { settings.insert(agent.id) }
             wake[agent.id] = agentWake?.choices(agent.id) ?? []
             terminals[.agentShell(agent.id)] = terminal?.availability(.agentShell(agent.id)) ?? .hidden
-            if agent.isDispatcher { dispatcherActivity[agent.id] = .init(date: store.lastActivity(of: agent)) }
         }
         #if DEBUG
         CompanionHomeBuildProbe.snapshotAgents?(rowAgents.count)
@@ -919,7 +922,8 @@ struct CompanionHomeView: View {
         if !shown.isEmpty {
             Section {
                 CompanionHomeForEach(shown, anchor: { .dispatcher($0.id) }) { host in
-                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: display?.dispatcherActivity[host.dispatcherAgent?.id ?? .init(hostID: host.id, projectID: "", agentID: "")], capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
+                    let activity = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] ?? contentValues?.dispatcherActivity[$0.id] }
+                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: activity, capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
                         .companionHomeAnchor(.dispatcher(host.id))
                         .listRowBackground(CompanionCardBackground())
                 }
