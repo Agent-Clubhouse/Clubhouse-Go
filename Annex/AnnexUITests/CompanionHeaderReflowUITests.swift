@@ -22,7 +22,9 @@ import XCTest
         return Frames(identity: identity, actions: actions, leading: leadingID.flatMap { found[$0] } ?? back)
     }
 
-    private func sampleReflow(_ flags: [String], name: String) {
+    enum Disturbance { case scroll, pushPop, background }
+
+    private func sampleReflow(_ flags: [String], name: String, disturbance: Disturbance = .scroll) {
         let app = launchApp(["--companion-preview", "--companion-preview-header-fixture", "--companion-header-stream"] + flags,
                             attempts: 1)
         let pushed = flags.contains("--companion-header-pushed")
@@ -36,13 +38,31 @@ import XCTest
         var samples = 0
         var violations: [String] = []
         let started = Date()
-        var scrolled = 0
+        var scrolled = 0 // disturbances so far
         while Date().timeIntervalSince(started) < 14 {
-            // Scroll the transcript mid-stream, as on the phone.
+            // Disturb the header twice mid-stream, as on the phone.
             if scrolled < 2, Date().timeIntervalSince(started) > Double(4 + 4 * scrolled) {
-                let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: scrolled == 0 ? 0.35 : 0.65))
-                start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset:
-                    CGVector(dx: 0.5, dy: scrolled == 0 ? 0.65 : 0.35)))
+                switch disturbance {
+                case .scroll:
+                    let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: scrolled == 0 ? 0.35 : 0.65))
+                    start.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset:
+                        CGVector(dx: 0.5, dy: scrolled == 0 ? 0.65 : 0.35)))
+                case .pushPop:
+                    if scrolled == 0 {
+                        // A back-swipe that's released early, so the chat stays.
+                        let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
+                        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
+                    } else {
+                        app.navigationBars.buttons["Back"].firstMatch.tap()
+                        let open = app.buttons["header-fixture-open-chat"]
+                        if open.waitForExistence(timeout: 5) { open.tap() }
+                        _ = app.buttons["companion-chat-header"].waitForExistence(timeout: 5)
+                    }
+                case .background:
+                    XCUIDevice.shared.press(.home)
+                    app.activate()
+                    _ = app.buttons["companion-chat-header"].waitForExistence(timeout: 10)
+                }
                 scrolled += 1
             }
             guard let f = frames(app, leadingID: leadingID) else { continue }
@@ -76,6 +96,14 @@ import XCTest
     }
     func testOrchestratorNameWithLeadingItemDoesNotReflowWhileStreaming() {
         sampleReflow(["--companion-header-orchestrator-name"], name: "orchestrator leading")
+    }
+    func testOrchestratorNameDoesNotReflowAcrossBackSwipeAndPushWhileStreaming() {
+        sampleReflow(["--companion-header-orchestrator-name", "--companion-header-pushed"], name: "orchestrator push-pop",
+                     disturbance: .pushPop)
+    }
+    func testOrchestratorNameDoesNotReflowAcrossBackgroundingWhileStreaming() {
+        sampleReflow(["--companion-header-orchestrator-name", "--companion-header-pushed"], name: "orchestrator background",
+                     disturbance: .background)
     }
     func testLongNameWithBackDoesNotReflowWhileStreaming() {
         sampleReflow(["--companion-header-long-name", "--companion-header-pushed"], name: "long back")
