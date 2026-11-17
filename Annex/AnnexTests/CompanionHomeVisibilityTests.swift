@@ -81,11 +81,11 @@ import ClubhouseTransport
             try await fixture.wait { fixture.chatBodies > rendered }
             XCTAssertEqual(fixture.expensiveCounts, before, "Every row/menu counter must stay fixed for rendered pushed batch \(batch)")
         }
-        fixture.attachStreamingCounters("100 pushed chunks", before: before, ownerBefore: ownerBefore)
         XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, 100)
         XCTAssertEqual(fixture.store.conversation(for: target).items.compactMap { item -> String? in
             if case .message(let message) = item, message.id == "perf-stream" { return message.text }; return nil
         }.first, "start" + String(repeating: " route", count: 100))
+        fixture.attachStreamingCounters("100 pushed chunks", before: before, ownerBefore: ownerBefore)
         // Status/connection changes while pushed must not redraw the backdrop, or wait one extra frame on pop.
         fixture.hosts[1].connection = .reconnecting
         fixture.hosts[0].projects[0].agents[2].status = .approval
@@ -119,8 +119,8 @@ import ClubhouseTransport
         let rendered = fixture.chatBodies
         fixture.store.apply(.textDelta(target, messageID: "perf-stream", text: " linked", sequence: 101))
         try await fixture.wait { fixture.chatBodies > rendered }
-        fixture.attachStreamingCounters("Linked pushed chunk", before: linked, ownerBefore: linkedOwnerBefore)
         XCTAssertEqual(fixture.expensiveCounts, linked, "The All-scope linked-row body is frozen too")
+        fixture.attachStreamingCounters("Linked pushed chunk", before: linked, ownerBefore: linkedOwnerBefore)
         fixture.hosts[1].connection = .offline
         fixture.store.apply(.hosts(fixture.hosts))
         try await fixture.turn()
