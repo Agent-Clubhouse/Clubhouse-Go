@@ -122,9 +122,9 @@ struct CompanionConversationComposer: View {
                             // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                             // A grant footer instead offers a bounded height so Review and the actions stay visible.
                             .fixedSize(horizontal: false, vertical: !fitsGrantFooter)
-                            .padding(.vertical, compactHeight ? 6 : 12).padding(.horizontal, 16)
+                            .padding(.vertical, (compactHeight ? 6 : 12) - actionInsetFromEditor / 2).padding(.horizontal, 16)
                             // The draft keeps the full text row as it grows; actions stay in their own row below.
-                            .frame(minHeight: composerRowHeight)
+                            .frame(minHeight: composerRowHeight - actionInsetFromEditor)
                             .focused($composerFocused)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steering message" : "Queued message") : "Message")
                             .accessibilityHint("Runs on your desktop. With a hardware keyboard, Return sends, Shift Return inserts a new line, and Command Return also sends.")
@@ -207,11 +207,7 @@ struct CompanionConversationComposer: View {
             composerCaption
         }
         // Large-text glass controls extend beyond the 44pt row; retain their keyboard clearance.
-        // Move existing bottom spacing inside the card: the circles clear its corners
-        // without increasing composer height or consuming keyboard clearance.
-        .padding(.horizontal, 16)
-        .padding(.top, composerVerticalPadding)
-        .padding(.bottom, composerVerticalPadding - actionBottomInset)
+        .padding(.horizontal, 16).padding(.vertical, composerVerticalPadding)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -308,7 +304,8 @@ struct CompanionConversationComposer: View {
     /// Keep the full-width draft above one action row at every text size and focus state.
     /// Retain the field subtree; typing does not select a different layout or control placement.
     private var inputRowLayout: AnyLayout {
-        AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        // Move the former 4pt inter-row gap below the actions; the editor retains its own text padding.
+        AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
     }
 
     private var composerLayout: AnyLayout {
@@ -319,6 +316,10 @@ struct CompanionConversationComposer: View {
 
     private var composerVerticalPadding: CGFloat { compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10 }
     private var actionBottomInset: CGFloat { min(6, composerVerticalPadding) }
+    // The first 4pt come from the former row gap. Reserve the remaining 2pt from the
+    // editor's vertical padding/minimum together, preserving the card's exact height
+    // and outer keyboard clearance even in the tight AX XXXL + attachment state.
+    private var actionInsetFromEditor: CGFloat { max(0, actionBottomInset - 4) }
 
     /// Icon-only actions keep a bounded glyph and a full target; the editor and textual labels scale normally.
     private var actionRowHeight: CGFloat { dynamicTypeSize.isAccessibilitySize ? 44 : composerRowHeight }
