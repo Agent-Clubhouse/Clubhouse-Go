@@ -13,6 +13,8 @@ struct CompanionConversationHeaderFixture: View {
     @State private var store = CompanionStore(service: CompanionPreviewService(showsContextWindow: true, showsAutoQuota: true))
     @State private var ready = false
     @State private var imageVersion = 0
+    /// The feedback screenshot path's own render of the window, shown over it for comparison.
+    @State private var feedbackCapture: UIImage?
     private let target = CompanionPreviewService.target
     private var arguments: [String] { ProcessInfo.processInfo.arguments }
     private var pushed: Bool { arguments.contains("--companion-header-pushed") }
@@ -29,6 +31,13 @@ struct CompanionConversationHeaderFixture: View {
                          colors: ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4", "subtext0": "#a6adc8",
                                   "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa", "accent2": "#74c7ec",
                                   "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"], gradient: [])
+        }
+        if arguments.contains("--companion-header-bright-wash") {
+            // A dark theme whose wash is bright green under the bar, like the reported phone.
+            return .init(id: "bright-wash", name: "Bright wash", source: "Desktop fixture", mode: .dark,
+                         colors: ["base": "#11181c", "mantle": "#0c1215", "crust": "#070b0d", "text": "#e8f0ee", "subtext0": "#9fb0ab",
+                                  "surface0": "#1f2a2e", "surface1": "#2c3a3f", "accent": "#5fd08a", "warning": "#f5c451",
+                                  "error": "#ff6b6b", "success": "#7be495"], gradient: ["#7dffb0", "#c8ff7a"])
         }
         return .clubhouse
     }
@@ -62,6 +71,12 @@ struct CompanionConversationHeaderFixture: View {
                                 store.apply(.resyncRequired(hostID: target.hostID))
                             }
                             .accessibilityIdentifier("header-fixture-refresh")
+                            Button("Show feedback capture") {
+                                let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+                                    .flatMap(\.windows).first(where: \.isKeyWindow)
+                                feedbackCapture = window.flatMap(CompanionFeedbackPresenter.freeze).map { UIImage(cgImage: $0) }
+                            }
+                            .accessibilityIdentifier("header-fixture-feedback-capture")
                             if arguments.contains("--companion-header-held-tail") {
                                 Button("Append held reply") {
                                     store.apply(.upsert(target, .message(.init(id: "header-fixture-incoming", role: .assistant,
@@ -74,6 +89,13 @@ struct CompanionConversationHeaderFixture: View {
                         .accessibilityIdentifier("header-fixture-menu")
                     }
                 }
+            }
+        }
+        .overlay {
+            if let feedbackCapture {
+                Image(uiImage: feedbackCapture).resizable().ignoresSafeArea()
+                    .onTapGesture { self.feedbackCapture = nil }
+                    .accessibilityIdentifier("header-fixture-capture-image")
             }
         }
         .companionTheme(theme)
@@ -126,6 +148,7 @@ struct CompanionConversationHeaderFixture: View {
             store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "header-fixture"))
             if arguments.contains("--companion-header-offline") { host.connection = .offline }
             if arguments.contains("--companion-header-reconnecting") { host.connection = .reconnecting }
+            if arguments.contains("--companion-header-synchronizing") { host.connection = .synchronizing }
             store.apply(.hosts([host]))
             ready = true
         }

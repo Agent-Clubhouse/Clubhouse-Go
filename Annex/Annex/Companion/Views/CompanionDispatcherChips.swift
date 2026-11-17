@@ -9,6 +9,7 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
     let replies: Set<String>
     let isWorking: Bool
     var select: (String) -> Void
+    var openSettings: () -> Void
     let content: Content
     @State private var expandedWhileWorking = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -17,13 +18,14 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
 
     init(desktops: [CompanionDispatcherDesktop], hosts: [CompanionHost], selectedHostID: String?,
          replies: Set<String>, isWorking: Bool, select: @escaping (String) -> Void,
-         @ViewBuilder content: () -> Content) {
+         openSettings: @escaping () -> Void, @ViewBuilder content: () -> Content) {
         self.desktops = desktops
         self.hosts = hosts
         self.selectedHostID = selectedHostID
         self.replies = replies
         self.isWorking = isWorking
         self.select = select
+        self.openSettings = openSettings
         self.content = content()
     }
 
@@ -48,7 +50,11 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
         select(desktop.id)
     }
     var body: some View {
-        VStack(spacing: 0) {
+        // The chips are a bar over the conversation rather than a row above it: the conversation's wash runs
+        // up behind the header and chips, and the transcript scrolls under one header (#529).
+        // One container: a bar on a multi-view builder would be applied to each of its views.
+        VStack(spacing: 0) { content }
+        .safeAreaBar(edge: .top, spacing: 0) {
             if desktops.count > 1 && !collapsed {
                 ScrollView(.horizontal) {
                     HStack(spacing: 8) {
@@ -82,11 +88,11 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
                 .scrollIndicators(.hidden)
                 .accessibilityIdentifier("dispatcher-chips")
             }
-            content
         }
         .toolbar {
-            if desktops.count > 1 && collapsed {
-                ToolbarItem(placement: .topBarLeading) {
+            // One leading item whose content changes, so expanding or collapsing never adds or removes a bar item.
+            ToolbarItem(placement: .topBarLeading) {
+                if desktops.count > 1 && collapsed {
                     Menu {
                         ForEach(desktops) { desktop in
                             Button { choose(desktop) } label: {
@@ -98,22 +104,35 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
                         }
                         Button("Show Dispatcher chips", systemImage: "chevron.down") { expandedWhileWorking = true }
                             .accessibilityIdentifier("dispatcher-expand-chips")
+                        Divider()
+                        settingsButton
                     } label: {
+                        let others = Array(desktops.filter { $0.id != selectedHostID }.prefix(3))
                         HStack(spacing: -10) {
-                            ForEach(Array(desktops.filter { $0.id != selectedHostID }.prefix(3))) { desktop in
-                                avatar(desktop, size: 28).overlay(Circle().stroke(Color(palette.background), lineWidth: 2))
+                            ForEach(others) { desktop in
+                                // A gap ring only where avatars overlap; a lone avatar has nothing to separate.
+                                avatar(desktop, size: 28)
+                                    .overlay { if others.count > 1 { Circle().stroke(Color(palette.background), lineWidth: 2) } }
                             }
                         }.frame(minWidth: 44, minHeight: 44)
                     }
                     .accessibilityLabel("Switch Dispatcher")
                     .accessibilityValue(replies.isEmpty ? "" : "New replies")
                     .accessibilityIdentifier("dispatcher-desktop-switcher")
+                } else {
+                    // Home's own Settings control.
+                    settingsButton.companionToolbarSecondary()
                 }
             }
         }
         .animation(usesReducedMotion ? nil : .snappy(duration: 0.2), value: collapsed)
         .onChange(of: isWorking) { _, _ in expandedWhileWorking = false }
         .onChange(of: selectedHostID) { _, _ in expandedWhileWorking = false }
+    }
+
+    private var settingsButton: some View {
+        Button("Settings", systemImage: "gearshape", action: openSettings)
+            .accessibilityIdentifier("dispatcher-settings")
     }
 
     @ViewBuilder private func avatar(_ desktop: CompanionDispatcherDesktop, size: CGFloat) -> some View {
@@ -151,16 +170,25 @@ struct CompanionDispatcherPreviewReports: View {
             }.accessibilityIdentifier("dispatcher-preview-finish-reply")
           }
           HStack {
+            // A turn spans several streamed messages; the Dispatcher stays working between them.
+            Button("Start turn") { report(status: .working) }.accessibilityIdentifier("dispatcher-preview-start-turn")
+            Button("Finish turn") { report(status: .idle) }.accessibilityIdentifier("dispatcher-preview-finish-turn")
+          }
+          HStack {
             Button("Disconnect desktop") { report(connection: .offline) }.accessibilityIdentifier("dispatcher-preview-disconnect")
             Button("Reconnect desktop") { report(connection: .connected) }.accessibilityIdentifier("dispatcher-preview-reconnect")
             Button("Report Dispatcher off") { report(enabled: false) }.accessibilityIdentifier("dispatcher-preview-off")
           }
         }.font(.caption).buttonStyle(.bordered).padding(.horizontal)
     }
-    private func report(connection: CompanionConnection? = nil, enabled: Bool? = nil) {
+    private func report(connection: CompanionConnection? = nil, enabled: Bool? = nil, status: CompanionAgentStatus? = nil) {
         var next = store.hosts
         guard let index = next.firstIndex(where: { $0.id == selectedHostID }) else { return }
         if let connection { next[index].connection = connection }
+        if let status {
+            next[index].dispatcher?.agent?.status = status
+            next[index].dispatcher?.agent?.turnStartedAt = status == .working ? .now : nil
+        }
         if let enabled { next[index].dispatcher?.enabled = enabled }
         store.apply(.hosts(next))
     }
