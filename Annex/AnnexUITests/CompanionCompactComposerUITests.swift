@@ -20,6 +20,7 @@ import XCTest
         /// How many elements carry each identifier; the native draft field must stay unique.
         var counts: [String: Int] = [:]
         var values: [String: String] = [:]
+        var labels: [String: String] = [:]
         var enabled: [String: Bool] = [:]
         var window = CGRect.null
         var navigation = CGRect.null
@@ -45,6 +46,7 @@ import XCTest
             if !id.isEmpty, result.frames[id] == nil || node.elementType == .button {
                 result.frames[id] = node.frame
                 result.values[id] = node.value as? String
+                result.labels[id] = node.label
                 result.enabled[id] = node.isEnabled
             }
             node.children.forEach(visit)
@@ -91,14 +93,28 @@ import XCTest
         if working { ids.insert("companion-interrupt", at: ids.count - 1) }
         if dismissButton { ids.append("companion-dismiss-keyboard") }
         if reviewButton {
-            let title = try XCTUnwrap(layout["companion-decision-show-in-chat"])
             let tray = try XCTUnwrap(layout["companion-pinned-decision"])
-            XCTAssertTrue(pixelContains(region, title), "\(state): the title is not clipped by navigation or keyboard", file: file, line: line)
-            let footerViewport = region.intersection(layout["companion-grant-footer-scroll"] ?? region)
-            XCTAssertTrue(pixelContains(footerViewport, title), "\(state): the title is not clipped by its actual footer viewport", file: file, line: line)
-            XCTAssertTrue(pixelContains(tray, title), "\(state): the entire title stays in its card", file: file, line: line)
-            XCTAssertEqual(layout.values["companion-decision-show-in-chat"], "1 of 2 waiting · Bash",
-                           "\(state): compact metadata stays complete for VoiceOver", file: file, line: line)
+            let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
+            // #543: only a phone too short for the tight AX rows above the keyboard (iPhone SE) collapses them.
+            if layout.window.width >= 402 {
+                XCTAssertFalse(reviewOnly, "\(state): iPhone 17 and Pro Max keep the title row", file: file, line: line)
+            }
+            if reviewOnly {
+                XCTAssertTrue(editing, "\(state): the Review-only fallback needs the keyboard up", file: file, line: line)
+                XCTAssertNil(layout["companion-decision-show-in-chat"], "\(state): one Review control replaces the rows", file: file, line: line)
+                XCTAssertEqual(layout.labels["companion-review-approval"], "Review approval: Run xcodebuild, 1 of 2",
+                               "\(state): VoiceOver keeps the full request title", file: file, line: line)
+                XCTAssertEqual(layout.values["companion-review-approval"], "1 of 2 waiting · Bash",
+                               "\(state): position and tool stay complete for VoiceOver", file: file, line: line)
+            } else {
+                let title = try XCTUnwrap(layout["companion-decision-show-in-chat"])
+                XCTAssertTrue(pixelContains(region, title), "\(state): the title is not clipped by navigation or keyboard", file: file, line: line)
+                let footerViewport = region.intersection(layout["companion-grant-footer-scroll"] ?? region)
+                XCTAssertTrue(pixelContains(footerViewport, title), "\(state): the title is not clipped by its actual footer viewport", file: file, line: line)
+                XCTAssertTrue(pixelContains(tray, title), "\(state): the entire title stays in its card", file: file, line: line)
+                XCTAssertEqual(layout.values["companion-decision-show-in-chat"], "1 of 2 waiting · Bash",
+                               "\(state): compact metadata stays complete for VoiceOver", file: file, line: line)
+            }
             if editing, let keyboardTop = layout.keyboardTop {
                 XCTAssertLessThanOrEqual(composerRegion.maxY, keyboardTop, "\(state): composer bottom stays above keyboard", file: file, line: line)
                 XCTAssertGreaterThan(pixelAligned(keyboardTop - composerRegion.maxY), 0,
@@ -111,7 +127,7 @@ import XCTest
             XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).width, 44, file: file, line: line)
             XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).height, 44, file: file, line: line)
             if editing, let keyboardTop = layout.keyboardTop {
-                print("AX_COMPACT_GEOMETRY state=\(state) title=\(title) tray=\(tray) review=\(review) composer=\(composerRegion) keyboardTop=\(keyboardTop) clearance=\(keyboardTop - composerRegion.maxY)")
+                print("AX_COMPACT_GEOMETRY state=\(state) reviewOnly=\(reviewOnly) tray=\(tray) review=\(review) composer=\(composerRegion) keyboardTop=\(keyboardTop) clearance=\(keyboardTop - composerRegion.maxY)")
             }
         }
         XCTAssertEqual(layout["companion-interrupt"] != nil, working, "\(state): Interrupt shows only while Working", file: file, line: line)

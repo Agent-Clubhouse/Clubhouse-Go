@@ -10,6 +10,9 @@ struct CompanionConversationPendingDecisions: View {
     @State private var expiryBoundary = Date.distantPast
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
+    /// The full rows' height at the offered width, measured while the Review-only fallback could apply.
+    @State private var naturalRowsHeight: CGFloat = 0
+    @State private var keyboardVisible = false
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
@@ -27,24 +30,19 @@ struct CompanionConversationPendingDecisions: View {
                let index = queue.firstIndex(of: decision) {
                 let presentation = store.decisionPresentation(decision, target: target)
                 Group {
-                    if usesSingleRow {
-                        HStack(spacing: 8) {
-                            identity(decision, presentation: presentation, index: index, queue: queue)
-                            actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
-                        }
+                    if usesReviewOnlyRow {
+                        reviewOnlyRow(decision, presentation: presentation, index: index, queue: queue)
                     } else {
-                        ViewThatFits(in: .horizontal) {
-                            HStack(spacing: 12) {
-                                identity(decision, presentation: presentation, index: index, queue: queue)
-                                    .fixedSize(horizontal: true, vertical: false)
-                                Spacer(minLength: 0)
-                                actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
-                            }
-                            VStack(alignment: .leading, spacing: usesTightAccessibilityRows ? 0 : 8) {
-                                identity(decision, presentation: presentation, index: index, queue: queue)
-                                HStack { Spacer(minLength: 0); actions(decision, presentation: presentation, index: index, count: queue.count) }
-                            }
-                        }
+                        rows(decision, presentation: presentation, index: index, queue: queue)
+                    }
+                }
+                .background(alignment: .top) {
+                    // Measure the full rows even while collapsed, so the fallback follows the actual room.
+                    if measuresNaturalRows {
+                        rows(decision, presentation: presentation, index: index, queue: queue)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .hidden().accessibilityHidden(true).allowsHitTesting(false)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { naturalRowsHeight = $0 }
                     }
                 }
                 .highPriorityGesture(selectionGesture(queue: queue, index: index))
@@ -59,8 +57,15 @@ struct CompanionConversationPendingDecisions: View {
                 .padding(.horizontal, 16).padding(.vertical, usesTightAccessibilityRows ? 0 : 4)
                 .accessibilityElement(children: .contain)
                 .accessibilityIdentifier("companion-pinned-decision")
-                .accessibilityValue(isCompactPresentation ? "Compact request controls" : "Expanded request controls")
+                .accessibilityValue(usesReviewOnlyRow ? "Review-only request controls"
+                    : isCompactPresentation ? "Compact request controls" : "Expanded request controls")
             }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
+            if !keyboardVisible { keyboardVisible = true }
+        }
+        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
+            if keyboardVisible { keyboardVisible = false }
         }
         .task(id: nextDeadline) {
             guard let nextDeadline else { return }
@@ -84,6 +89,67 @@ struct CompanionConversationPendingDecisions: View {
                 AccessibilityNotification.Announcement("\(isApproval(decision) ? "Approval" : "Question") needed: \(decision.summary). Review above the message box.").post()
             }
         }
+    }
+
+    @ViewBuilder private func rows(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, queue: [CompanionPendingDecision]) -> some View {
+        if usesSingleRow {
+            HStack(spacing: 8) {
+                identity(decision, presentation: presentation, index: index, queue: queue)
+                actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
+            }
+        } else {
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: 12) {
+                    identity(decision, presentation: presentation, index: index, queue: queue)
+                        .fixedSize(horizontal: true, vertical: false)
+                    Spacer(minLength: 0)
+                    actions(decision, presentation: presentation, index: index, count: queue.count).fixedSize()
+                }
+                VStack(alignment: .leading, spacing: usesTightAccessibilityRows ? 0 : 8) {
+                    identity(decision, presentation: presentation, index: index, queue: queue)
+                    HStack { Spacer(minLength: 0); actions(decision, presentation: presentation, index: index, count: queue.count) }
+                }
+            }
+        }
+    }
+
+    /// #543: when even the tight AX rows cannot fit above the keyboard (iPhone SE), keep every composer action
+    /// visible by showing one 44pt Review control. Its label carries the full request; position and tool are its value.
+    @ViewBuilder private func reviewOnlyRow(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, queue: [CompanionPendingDecision]) -> some View {
+        let count = queue.count
+        let position = count > 1 ? ", \(index + 1) of \(count)" : ""
+        let subtitle = "\(index + 1) of \(count) waiting · \(decisionTool(decision))"
+        HStack(spacing: 8) {
+            Spacer(minLength: 0)
+            if decision.isSubmitting {
+                ProgressView().frame(minWidth: 44, minHeight: 44).accessibilityLabel("Sending decision…")
+            } else if isApproval(decision) {
+                Button { openReview(decision, presentation: presentation) } label: {
+                    Image(systemName: "checklist").font(.system(size: 20, weight: .semibold))
+                }
+                .buttonStyle(DecisionActionStyle(primary: false))
+                .accessibilityLabel("Review approval: \(decision.summary)\(position)")
+                .accessibilityValue(subtitle)
+                .accessibilityHint("Opens the full request and decisions. Opening sends nothing.")
+                .accessibilityInputLabels(["Review"])
+                .accessibilityIdentifier("companion-review-approval")
+            } else {
+                Button { openReview(decision, presentation: presentation) } label: {
+                    Image(systemName: "questionmark.bubble").font(.system(size: 20, weight: .semibold))
+                }
+                .buttonStyle(DecisionActionStyle(primary: true))
+                .accessibilityLabel("Answer question: \(decision.summary)\(position)")
+                .accessibilityValue(subtitle)
+                .accessibilityHint("Opens the full question. Opening sends nothing.")
+                .accessibilityInputLabels(["Answer"])
+                .accessibilityIdentifier("companion-decision-answer")
+            }
+        }
+    }
+
+    private func decisionTool(_ decision: CompanionPendingDecision) -> String {
+        if case .approval(let approval) = decision { return approval.toolName }
+        return "Question"
     }
 
     private func identity(_ decision: CompanionPendingDecision, presentation: CompanionDecisionPresentation, index: Int, queue: [CompanionPendingDecision]) -> some View {
@@ -216,6 +282,10 @@ struct CompanionConversationPendingDecisions: View {
     private var usesTightAccessibilityRows: Bool {
         hasCompactRoom && dynamicTypeSize.isAccessibilitySize && verticalSizeClass == .regular
     }
+    /// Only tight AX rows with the keyboard up can need the fallback; elsewhere nothing is measured.
+    private var measuresNaturalRows: Bool { usesTightAccessibilityRows && keyboardVisible }
+    /// The full rows (plus the tight 1pt insets) exceed the room the footer offers this tray.
+    private var usesReviewOnlyRow: Bool { measuresNaturalRows && naturalRowsHeight + 2 > maximumHeight }
     private var usesSingleRow: Bool {
         verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
     }
