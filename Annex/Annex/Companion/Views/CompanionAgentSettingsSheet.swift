@@ -103,7 +103,6 @@ struct CompanionAgentMenu: ViewModifier {
     @Environment(\.companionAgentSettings) private var settings
     @Environment(\.companionAgentWake) private var wake
     @Environment(\.companionTerminal) private var terminal
-    @Environment(\.companionTelemetryScreen) private var screen
     #if DEBUG
     @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
     #endif
@@ -116,25 +115,42 @@ struct CompanionAgentMenu: ViewModifier {
             }
         }()
         #endif
-        let choices = wake?.choices(target) ?? []
         let hasSettingsItems = settings.map { $0.openDetails != nil || $0.canOpen(target) } ?? false
-        let hasTerminal = terminal?.availability(.agentShell(target)).isShown == true
-        if hasSettingsItems || !choices.isEmpty || hasTerminal {
-            content.contextMenu {
-                if let wake {
-                    ForEach(choices) { choice in
-                        Button(choice.label, systemImage: choice.systemImage) {
-                            CompanionUIActions.wake(choice, on: screen)
-                            wake.wake(target, choice)
-                        }
-                    }
-                }
-                if let settings { CompanionAgentMenuItems(target: target, actions: settings) }
-                CompanionTerminalMenuItem(scope: .agentShell(target))
-            }
+        // Details already guarantees a menu. Do not subscribe the row modifier to live
+        // Wake/Terminal availability merely to draw it; those values belong to the menu.
+        if hasSettingsItems || !(wake?.choices(target) ?? []).isEmpty || terminal?.availability(.agentShell(target)).isShown == true {
+            content.contextMenu { CompanionAgentContextMenu(target: target) }
         } else {
             content
         }
+    }
+}
+
+/// Native context-menu content is mounted when presented, independently of the list row.
+/// Availability and the same action callbacks remain live (or Home's captured display inputs).
+private struct CompanionAgentContextMenu: View {
+    let target: CompanionTarget
+    @Environment(\.companionAgentSettings) private var settings
+    @Environment(\.companionAgentWake) private var wake
+    @Environment(\.companionTelemetryScreen) private var screen
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
+
+    var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
+        #endif
+        if let wake {
+            ForEach(wake.choices(target)) { choice in
+                Button(choice.label, systemImage: choice.systemImage) {
+                    CompanionUIActions.wake(choice, on: screen)
+                    wake.wake(target, choice)
+                }
+            }
+        }
+        if let settings { CompanionAgentMenuItems(target: target, actions: settings) }
+        CompanionTerminalMenuItem(scope: .agentShell(target))
     }
 }
 
