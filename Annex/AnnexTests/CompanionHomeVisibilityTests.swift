@@ -432,7 +432,7 @@ import ClubhouseTransport
             let attachment = XCTAttachment(string: "Expected: \(expected)\nRecognized: \(text)")
             attachment.name = "Home bounded OCR readiness"
             attachment.lifetime = .keepAlways
-            XCTContext.runActivity(named: attachment.name) { activity in
+            XCTContext.runActivity(named: "Home bounded OCR readiness") { activity in
                 activity.add(attachment)
                 if let lastImage {
                     let pixels = XCTAttachment(image: lastImage)
