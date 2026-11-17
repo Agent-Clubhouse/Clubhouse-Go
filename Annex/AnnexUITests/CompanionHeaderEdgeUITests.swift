@@ -1,8 +1,8 @@
 import XCTest
 import UIKit
 
-/// The edges around a conversation: the theme wash behind the header and chips (#529) and the soft
-/// scroll edge behind the composer (#533).
+/// The edges around a conversation: the theme wash behind the header and chips (#529), and layout and keyboard
+/// regression guards for the transcript's bottom edge.
 @MainActor final class CompanionHeaderEdgeUITests: ReliableUITestCase {
     private func element(_ app: XCUIApplication, _ id: String) -> XCUIElement {
         app.descendants(matching: .any).matching(identifier: id).firstMatch
@@ -56,8 +56,9 @@ import UIKit
     }
     func testWashRunsBehindChipsLight() { washRunsBehindChips(["--companion-preview-light"], "light") }
 
-    /// #533: the soft bottom edge keeps the newest message fully above the composer, with the keyboard hidden,
-    /// shown and hidden again, and returns it to the same place.
+    /// A layout and keyboard regression guard, not a test of #533's soft edge (iOS 26.0 draws both edge styles alike):
+    /// the newest message stays fully above the composer with the keyboard hidden, shown and hidden again, and returns
+    /// to the same place.
     private func latestClearsComposer(_ flags: [String], _ name: String) {
         let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"] + flags, attempts: 1)
         XCTAssertTrue(app.buttons["companion-chat-header"].waitForExistence(timeout: 15))
@@ -70,7 +71,7 @@ import UIKit
         }
         clears("Keyboard hidden")
         let rest = latest.frame
-        capture(app, "533 Latest above composer - \(name)")
+        capture(app, "Bottom edge guard - latest above composer - \(name)")
         let composer = element(app, "companion-composer")
         composer.tap()
         let keyboard = app.keyboards.firstMatch
@@ -82,7 +83,7 @@ import UIKit
         XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
         clears("Keyboard shown")
         XCTAssertLessThanOrEqual(composerRegion.frame.maxY, keyboard.frame.minY + 1, "The composer sits above the keyboard")
-        capture(app, "533 Latest above composer with keyboard - \(name)")
+        capture(app, "Bottom edge guard - latest above composer with keyboard - \(name)")
         // A tap in the timeline's blank leading padding just above the composer dismisses without scrolling.
         let transcript = app.scrollViews["companion-transcript"].frame.intersection(app.frame)
         let point = CGPoint(x: transcript.minX + 8, y: min(transcript.maxY, composerRegion.frame.minY) - 12)

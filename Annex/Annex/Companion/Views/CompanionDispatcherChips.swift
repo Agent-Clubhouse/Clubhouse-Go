@@ -1,6 +1,21 @@
 import SwiftUI
 import ClubhouseTransport
 
+/// When the Dispatcher's turn takes the chips' reading space, and how the collapsed stack draws.
+enum CompanionDispatcherTurn {
+    /// The whole turn, including a permission or question in the middle of it, so the chips and the reader's Show
+    /// chips choice don't change at every prompt (#537). Only a live desktop's turn counts: a cached Working on an
+    /// offline or synchronizing desktop isn't live, as on Home. `turnStartedAt` isn't used: the desktop doesn't
+    /// always send a turn time, and a reconnect drops it unless the agent is working.
+    static func collapsesChips(agent: CompanionAgent?, isStreaming: Bool, connection: CompanionConnection?) -> Bool {
+        guard connection?.canOperate == true else { return false }
+        return isStreaming || [.working, .approval, .waiting].contains(agent?.status)
+    }
+
+    /// A gap ring separates overlapping avatars; a lone avatar has nothing to separate.
+    static func separatesAvatars(count: Int) -> Bool { count > 1 }
+}
+
 /// Dispatch has no All scope or machine labels. Home/project desktop-chip APIs remain unchanged.
 struct CompanionDispatcherSwitcher<Content: View>: View {
     let desktops: [CompanionDispatcherDesktop]
@@ -110,9 +125,12 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
                         let others = Array(desktops.filter { $0.id != selectedHostID }.prefix(3))
                         HStack(spacing: -10) {
                             ForEach(others) { desktop in
-                                // A gap ring only where avatars overlap; a lone avatar has nothing to separate.
                                 avatar(desktop, size: 28)
-                                    .overlay { if others.count > 1 { Circle().stroke(Color(palette.background), lineWidth: 2) } }
+                                    .overlay {
+                                        if CompanionDispatcherTurn.separatesAvatars(count: others.count) {
+                                            Circle().stroke(Color(palette.background), lineWidth: 2)
+                                        }
+                                    }
                             }
                         }.frame(minWidth: 44, minHeight: 44)
                     }
@@ -173,6 +191,8 @@ struct CompanionDispatcherPreviewReports: View {
             // A turn spans several streamed messages; the Dispatcher stays working between them.
             Button("Start turn") { report(status: .working) }.accessibilityIdentifier("dispatcher-preview-start-turn")
             Button("Finish turn") { report(status: .idle) }.accessibilityIdentifier("dispatcher-preview-finish-turn")
+            Button("Ask permission") { report(status: .approval) }.accessibilityIdentifier("dispatcher-preview-ask-permission")
+            Button("Resume turn") { report(status: .working) }.accessibilityIdentifier("dispatcher-preview-resume-turn")
           }
           HStack {
             Button("Disconnect desktop") { report(connection: .offline) }.accessibilityIdentifier("dispatcher-preview-disconnect")
@@ -187,7 +207,8 @@ struct CompanionDispatcherPreviewReports: View {
         if let connection { next[index].connection = connection }
         if let status {
             next[index].dispatcher?.agent?.status = status
-            next[index].dispatcher?.agent?.turnStartedAt = status == .working ? .now : nil
+            let started = next[index].dispatcher?.agent?.turnStartedAt
+            next[index].dispatcher?.agent?.turnStartedAt = status == .idle ? nil : started ?? .now
         }
         if let enabled { next[index].dispatcher?.enabled = enabled }
         store.apply(.hosts(next))

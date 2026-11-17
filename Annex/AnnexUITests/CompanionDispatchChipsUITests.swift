@@ -1,4 +1,5 @@
 import XCTest
+import UIKit
 
 @MainActor final class CompanionDispatchChipsUITests: ReliableUITestCase {
     private func open(_ flags: [String] = []) -> XCUIApplication {
@@ -211,13 +212,21 @@ import XCTest
             XCTAssertTrue(waitFor(identity, NSPredicate { _, _ in identity.frame == expandedIdentity }, timeout: 3),
                           "\(state): the identity stays centred: \(identity.frame) vs \(expandedIdentity)")
         }
+        // Sampled at once as well as settled, so a jump that springs back still fails.
+        func immediately(_ state: String) {
+            let rowNow = row.frame, identityNow = identity.frame
+            XCTAssertLessThanOrEqual(abs(rowNow.minY - expandedRow.minY), 1, "\(state), at once: \(rowNow) vs \(expandedRow)")
+            XCTAssertEqual(identityNow, expandedIdentity, "\(state), at once")
+        }
         app.buttons["Collapse Dispatchers"].tap()
+        immediately("Collapsed")
         XCTAssertTrue(stack.waitForExistence(timeout: 5))
         XCTAssertTrue(chips.waitForNonExistence(timeout: 5))
         held("Collapsed")
         capture(app, "529 Chip collapse keeps reading position")
         waitAndTap(stack, until: app.buttons["dispatcher-expand-chips"], attempts: 1)
         app.buttons["dispatcher-expand-chips"].tap()
+        immediately("Expanded again")
         XCTAssertTrue(chips.waitForExistence(timeout: 5))
         held("Expanded again")
     }
@@ -241,5 +250,100 @@ import XCTest
         app.buttons["dispatcher-settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
         app.buttons["settings-close"].tap()
+    }
+
+    private func openNaviWithReports(_ flags: [String] = ["--companion-preview-dark"]) -> XCUIApplication {
+        let app = open(["--companion-preview-dispatch-reports"] + flags)
+        let navi = app.buttons["dispatcher-desktop-preview-studio"]
+        XCTAssertTrue(navi.waitForExistence(timeout: 15))
+        navi.tap()
+        XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
+        return app
+    }
+
+    /// QA on #540: a permission or question in the middle of a turn is still the turn. The chips neither expand at
+    /// the prompt nor collapse again after it, and a Show chips choice survives it.
+    func testPermissionMidTurnKeepsChipsAndShowChoice() {
+        let app = openNaviWithReports()
+        let stack = app.buttons["dispatcher-desktop-switcher"]
+        let chips = app.scrollViews["dispatcher-chips"]
+        app.buttons["dispatcher-preview-start-turn"].tap()
+        XCTAssertTrue(stack.waitForExistence(timeout: 5))
+        let identity = app.buttons["companion-chat-header"]
+        let collapsedIdentity = identity.frame
+        app.buttons["dispatcher-preview-ask-permission"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["-/stack"], "A permission mid-turn doesn't expand the chips")
+        XCTAssertEqual(identity.frame, collapsedIdentity, "The header doesn't move at the prompt")
+        app.buttons["dispatcher-preview-resume-turn"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["-/stack"])
+        waitAndTap(stack, until: app.buttons["dispatcher-expand-chips"], attempts: 1)
+        app.buttons["dispatcher-expand-chips"].tap()
+        XCTAssertTrue(chips.waitForExistence(timeout: 5))
+        let shownFrame = chips.frame
+        app.buttons["dispatcher-preview-ask-permission"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["chips/-"], "Show chips holds through the permission")
+        app.buttons["dispatcher-preview-resume-turn"].tap()
+        XCTAssertEqual(Set(chipStates(app)), ["chips/-"], "and after the turn resumes")
+        XCTAssertEqual(chips.frame, shownFrame, "The chips never moved or re-animated")
+        capture(app, "537 Show chips held through a permission")
+    }
+
+    /// QA on #540: a cached Working on a desktop that isn't live doesn't hold the chips collapsed, as Home doesn't
+    /// count cached Working as live. The live turn collapses them again on reconnect.
+    func testOfflineDesktopsCachedTurnKeepsChips() {
+        let app = openNaviWithReports()
+        let stack = app.buttons["dispatcher-desktop-switcher"]
+        app.buttons["dispatcher-preview-start-turn"].tap()
+        XCTAssertTrue(stack.waitForExistence(timeout: 5))
+        app.buttons["dispatcher-preview-disconnect"].tap()
+        XCTAssertTrue(app.scrollViews["dispatcher-chips"].waitForExistence(timeout: 5), "Offline, the cached turn isn't live")
+        XCTAssertEqual(Set(chipStates(app)), ["chips/-"])
+        capture(app, "529 Offline desktop keeps chips")
+        app.buttons["dispatcher-preview-reconnect"].tap()
+        XCTAssertTrue(stack.waitForExistence(timeout: 5), "Back online, the live turn collapses the chips")
+    }
+
+    /// #529: the collapsed stack draws no gap ring around a single other Dispatcher's avatar. Just outside the
+    /// avatar's edge matches the pill's glass further out; the old ring was a dark band there.
+    func testSingleStackAvatarHasNoRing() {
+        let app = openNaviWithReports()
+        let stack = app.buttons["dispatcher-desktop-switcher"]
+        app.buttons["dispatcher-preview-start-reply"].tap()
+        XCTAssertTrue(stack.waitForExistence(timeout: 5))
+        // The 28pt avatar is centred in the stack's label; its ring would run from 13 to 15pt out.
+        let center = CGPoint(x: stack.frame.midX, y: stack.frame.midY)
+        func read() -> (XCUIScreenshot, Double, Double) {
+            let shot = app.screenshot()
+            return (shot, luminance(shot.image, at: CGPoint(x: center.x - 14.5, y: center.y)),
+                    luminance(shot.image, at: CGPoint(x: center.x - 18.5, y: center.y)))
+        }
+        // The leading item's glass morphs in; read once two consecutive captures agree (bounded).
+        var (screenshot, ringZone, glass) = read()
+        for _ in 0..<10 {
+            let next = read()
+            defer { (screenshot, ringZone, glass) = next }
+            if abs(next.1 - ringZone) < 0.001 && abs(next.2 - glass) < 0.001 { break }
+        }
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "529 Single stack avatar without ring"; attachment.lifetime = .keepAlways; add(attachment)
+        XCTAssertGreaterThan(glass, 0)
+        // The old ring (the theme background) read about 15 times darker than the glass beside it.
+        XCTAssertGreaterThan(ringZone, glass * 0.5, "No ring: \(ringZone) at the edge vs \(glass) on the glass")
+    }
+
+    private func luminance(_ image: UIImage, at point: CGPoint) -> Double {
+        guard let cgImage = image.cgImage else { return -1 }
+        let scale = CGFloat(cgImage.width) / image.size.width
+        let x = Int(point.x * scale), y = Int(point.y * scale)
+        var pixel = [UInt8](repeating: 0, count: 4)
+        guard let context = CGContext(data: &pixel, width: 1, height: 1, bitsPerComponent: 8, bytesPerRow: 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return -1 }
+        context.draw(cgImage, in: CGRect(x: -x, y: y - cgImage.height + 1, width: cgImage.width, height: cgImage.height))
+        func linear(_ c: UInt8) -> Double {
+            let v = Double(c) / 255
+            return v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4)
+        }
+        return 0.2126 * linear(pixel[0]) + 0.7152 * linear(pixel[1]) + 0.0722 * linear(pixel[2])
     }
 }
