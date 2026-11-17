@@ -4,10 +4,9 @@ import SwiftUI
 /// Changes show once the session's own event arrives, from the phone or the desktop alike.
 /// Equatable on its inputs, so streamed transcript updates don't rebuild the menus (each rebuild is costly mid-stream).
 struct CompanionChatControlsBar: View, Equatable {
-    // iOS 26's regular glass capsule adds 14pt vertically (the 44pt label measured 58pt).
-    // Reserve the rest inside its label; the outer frame alone doesn't enlarge the native AX target.
-    // UI coverage checks the resulting 44pt target in portrait, landscape and at XXXL.
-    private static let compactLabelMinimumHeight: CGFloat = 44 - 14
+    // Regular glass adds 14pt to the label. Size the native label itself so its
+    // accessibility target is 44pt; an outer frame alone does not enlarge it.
+    private static let compactLabelSize: CGFloat = 44 - 14
 
     let agentName: String
     let controls: CompanionChatControls
@@ -31,23 +30,21 @@ struct CompanionChatControlsBar: View, Equatable {
             if compact {
                 Menu {
                     levelMenu
-                        .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
                     if let label = controls.modelLabel { modelMenu(label) }
                     if controls.showsEffortChip { effortMenu }
                 } label: {
-                    ViewThatFits(in: .horizontal) {
-                        compactLabel(includingModel: true).fixedSize(horizontal: true, vertical: false)
-                        compactLabel(includingModel: false)
-                    }
-                    .dynamicTypeSize(...DynamicTypeSize.xxLarge)
-                    .frame(minHeight: Self.compactLabelMinimumHeight)
-                    .contentShape(Capsule())
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.system(size: 20))
+                        .frame(width: Self.compactLabelSize, height: Self.compactLabelSize)
                 }
-                .buttonStyle(.glass).buttonBorderShape(.capsule).controlSize(.regular)
-                .foregroundStyle(Color(palette.secondaryLabel))
-                .frame(minWidth: 44, minHeight: 44)
-                .accessibilityLabel("Chat controls")
-                .accessibilityValue([controls.currentLevel.label, controls.modelLabel, controls.effortLabel].compactMap { $0 }.joined(separator: ", "))
+                .buttonStyle(.glass).buttonBorderShape(.circle).controlSize(.regular)
+                .foregroundStyle(Color(controls.currentLevel >= .auto ? palette.warning : palette.secondaryLabel))
+                .frame(width: 44, height: 44)
+                .contentShape(.circle)
+                .accessibilityLabel(["Chat controls", "Permissions: \(controls.currentLevel.label)", controls.modelLabel.map { "Model: \($0)" }]
+                    .compactMap { $0 }.joined(separator: ", "))
+                .accessibilityInputLabels(["Chat controls", "Options"])
+                .accessibilityValue(controls.effortLabel)
                 .accessibilityHint("Permissions, model and reasoning effort")
                 .accessibilityIdentifier("companion-level-menu")
             } else {
@@ -58,16 +55,6 @@ struct CompanionChatControlsBar: View, Equatable {
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
-        }
-    }
-
-    private func compactLabel(includingModel: Bool) -> some View {
-        HStack(spacing: 5) {
-            Image(systemName: "slider.horizontal.3").font(.system(size: 20))
-            Text([controls.currentLevel.label, includingModel ? controls.modelLabel : nil]
-                .compactMap { $0 }.joined(separator: " · "))
-                .font(.caption)
-                .lineLimit(1)
         }
     }
 

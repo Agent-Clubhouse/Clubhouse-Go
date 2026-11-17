@@ -122,9 +122,9 @@ struct CompanionConversationComposer: View {
                             // than its content (20.33 vs 22pt at Large), and the text bobs as it scrolls to the caret.
                             // A grant footer instead offers a bounded height so Review and the actions stay visible.
                             .fixedSize(horizontal: false, vertical: !fitsGrantFooter)
-                            .padding(.vertical, compactHeight ? 6 : 12).padding(.horizontal, 16)
+                            .padding(.vertical, (compactHeight ? 6 : 12) - actionInsetFromEditor / 2).padding(.horizontal, 16)
                             // The draft keeps the full text row as it grows; actions stay in their own row below.
-                            .frame(minHeight: composerRowHeight)
+                            .frame(minHeight: composerRowHeight - actionInsetFromEditor)
                             .focused($composerFocused)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Steering message" : "Queued message") : "Message")
                             .accessibilityHint("Runs on your desktop. With a hardware keyboard, Return sends, Shift Return inserts a new line, and Command Return also sends.")
@@ -161,25 +161,43 @@ struct CompanionConversationComposer: View {
                             Button(action: sendMessage) {
                                 Image(systemName: agent.status == .working ? "arrow.turn.up.right" : "arrow.up")
                                     .font(.system(size: 20, weight: .bold))
+                                    .frame(width: 30, height: 30)
                             }
                             .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-                            // Keep the regular-size glass circle inside the field, with a full-size interaction target.
-                            .frame(minWidth: 44, maxWidth: dynamicTypeSize.isAccessibilitySize ? 44 : nil, minHeight: 44)
+                            // Match Options' native 44pt circle and shared row inset at every text size.
+                            .frame(width: 44, height: 44)
                             .contentShape(.circle)
                             .disabled(!sendEnabled)
                             .keyboardShortcut(.return, modifiers: .command)
                             .accessibilityLabel(agent.status == .working ? (agent.capabilities.contains(.steer) ? "Send steering message" : "Queue message") : "Send message")
                             .accessibilityHint(conversation.isLoading ? "Refreshing the conversation. You can send in a moment." : sendOutcomeHint)
                             .accessibilityIdentifier("companion-send")
-                            .padding(.horizontal, dynamicTypeSize.isAccessibilitySize ? 0 : 6)
                             .frame(height: actionRowHeight)
                         }
                         keyboardDismissButton
                     }
+                    // Equal insets for Options and Send; keep glass away from the card's
+                    // bottom corners even when accessibility text uses the compact row.
+                    .padding(.horizontal, 6)
+                    .padding(.bottom, actionBottomInset)
                 }
                 // Glass behind the draft over the theme card, as in the header. Wrapping the whole draft and action row
                 // in glass let it adapt to light in dark mode, taking the field and keyboard with it (text at 2:1).
                 .companionCardGlass(RoundedRectangle(cornerRadius: 24))
+                #if DEBUG
+                // The native editor/region AX frames omit padding. Expose the actual glass-card
+                // bounds only to UI tests so edge clearance is measured, not inferred from text.
+                .background {
+                    if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
+                        Color.clear
+                            .allowsHitTesting(false)
+                            .accessibilityElement()
+                            .accessibilityLabel("Composer card bounds")
+                            .accessibilityValue(compactHeight && !dynamicTypeSize.isAccessibilitySize ? "Compact" : "Regular")
+                            .accessibilityIdentifier("companion-composer-card-bounds")
+                    }
+                }
+                #endif
                 // Images dragged in on iPad join the attachments like pasted ones.
                 .onDrop(of: CompanionPastedImages.acceptedTypes, isTargeted: nil) { providers in
                     Task { _ = await pasteImages(providers) }
@@ -189,7 +207,7 @@ struct CompanionConversationComposer: View {
             composerCaption
         }
         // Large-text glass controls extend beyond the 44pt row; retain their keyboard clearance.
-        .padding(.horizontal, 16).padding(.vertical, compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10)
+        .padding(.horizontal, 16).padding(.vertical, composerVerticalPadding)
         .frame(maxWidth: 900)
         .frame(maxWidth: .infinity)
         .accessibilityElement(children: .contain)
@@ -286,7 +304,8 @@ struct CompanionConversationComposer: View {
     /// Keep the full-width draft above one action row at every text size and focus state.
     /// Retain the field subtree; typing does not select a different layout or control placement.
     private var inputRowLayout: AnyLayout {
-        AnyLayout(VStackLayout(alignment: .leading, spacing: 4))
+        // Move the former 4pt inter-row gap below the actions; the editor retains its own text padding.
+        AnyLayout(VStackLayout(alignment: .leading, spacing: 0))
     }
 
     private var composerLayout: AnyLayout {
@@ -294,6 +313,13 @@ struct CompanionConversationComposer: View {
             ? AnyLayout(VStackLayout(alignment: .leading, spacing: compactHeight ? 8 : 10))
             : AnyLayout(CompanionComposerLayout(spacing: compactHeight ? 8 : 10))
     }
+
+    private var composerVerticalPadding: CGFloat { compactHeight && !dynamicTypeSize.isAccessibilitySize ? 4 : 10 }
+    private var actionBottomInset: CGFloat { min(6, composerVerticalPadding) }
+    // The first 4pt come from the former row gap. Reserve the remaining 2pt from the
+    // editor's vertical padding/minimum together, preserving the card's exact height
+    // and outer keyboard clearance even in the tight AX XXXL + attachment state.
+    private var actionInsetFromEditor: CGFloat { max(0, actionBottomInset - 4) }
 
     /// Icon-only actions keep a bounded glyph and a full target; the editor and textual labels scale normally.
     private var actionRowHeight: CGFloat { dynamicTypeSize.isAccessibilitySize ? 44 : composerRowHeight }

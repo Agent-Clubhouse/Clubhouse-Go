@@ -134,6 +134,22 @@ import XCTest
         }
         XCTAssertEqual(layout["companion-interrupt"] != nil, working, "\(state): Interrupt shows only while Working", file: file, line: line)
         XCTAssertEqual(layout["companion-dismiss-keyboard"] != nil, dismissButton, "\(state): assistive dismiss", file: file, line: line)
+        let options = try XCTUnwrap(layout["companion-level-menu"])
+        let send = try XCTUnwrap(layout["companion-send"])
+        XCTAssertEqual(options.width, options.height, accuracy: 1, "\(state): Options is a circle", file: file, line: line)
+        let card = try XCTUnwrap(layout["companion-composer-card-bounds"])
+        let bottomInset: CGFloat = layout.values["companion-composer-card-bounds"] == "Compact" ? 4 : 6
+        for circle in [options, send] {
+            XCTAssertLessThanOrEqual(pixelAligned(circle.maxY), pixelAligned(card.maxY - bottomInset),
+                                     "\(state): circle clears the card bottom by \(bottomInset)pt", file: file, line: line)
+        }
+        let leadingInset = options.minX - card.minX
+        let trailingInset = card.maxX - send.maxX
+        XCTAssertGreaterThanOrEqual(leadingInset, 6, "\(state): Options clears the card edge", file: file, line: line)
+        // The assistive keyboard action follows Send when present; otherwise the circles mirror each other.
+        if !dismissButton {
+            XCTAssertEqual(leadingInset, trailingInset, accuracy: 1, "\(state): equal Options/Send insets", file: file, line: line)
+        }
         var previous: (id: String, frame: CGRect)?
         for id in ids {
             guard let frame = layout[id] else { XCTFail("\(state): \(id) must be exported", file: file, line: line); continue }
@@ -284,6 +300,58 @@ import XCTest
     }
 
     // MARK: Tests
+
+    /// Regression for #530: one native circle, current settings in AX, and effort in the pop-out menu.
+    private func circleMenu(_ flags: [String], state: String) {
+        let app = launchApp(["--companion-preview", "--companion-preview-header-fixture"] + flags, attempts: 1)
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(composer.waitForExistence(timeout: 10))
+        let options = app.buttons["companion-level-menu"]
+        let send = app.buttons["companion-send"]
+        assertMinimumTarget(options, "Chat controls")
+        XCTAssertEqual(options.frame.width, options.frame.height, accuracy: 1, "An icon-only circle")
+        XCTAssertTrue(options.staticTexts.allElementsBoundByIndex.isEmpty, "No visible model/access capsule")
+        XCTAssertTrue(options.label.contains("Auto-accept edits") && options.label.contains("Opus"), options.label)
+        XCTAssertTrue((options.value as? String ?? "").contains("High effort"))
+        // Measure the actual glass card, independently of the editor's internal text padding.
+        let bounds = element(app, "companion-composer-card-bounds")
+        XCTAssertTrue(bounds.exists)
+        let card = bounds.frame
+        let bottomInset: CGFloat = bounds.value as? String == "Compact" ? 4 : 6
+        for circle in [options.frame, send.frame] {
+            XCTAssertLessThanOrEqual(pixelAligned(circle.maxY), pixelAligned(card.maxY - bottomInset),
+                                     "The circle clears the card bottom by \(bottomInset)pt")
+        }
+        let leading = options.frame.minX - card.minX
+        let trailing = card.maxX - send.frame.maxX
+        XCTAssertGreaterThanOrEqual(leading, 6, "Options is inset from the composer card")
+        XCTAssertEqual(leading, trailing, accuracy: 1, "Options and Send mirror each other's inset")
+        capture(app, "circle \(state)")
+        waitAndTap(options, until: app.buttons["companion-permissions-menu"], attempts: 1)
+        XCTAssertTrue(app.buttons["companion-model-menu"].exists)
+        let effort = app.buttons["companion-effort-menu"]
+        XCTAssertTrue(effort.exists && effort.isEnabled)
+        capture(app, "native controls menu \(state)")
+        waitAndTap(effort, until: app.buttons["Low"], attempts: 1)
+        capture(app, "effort choices \(state)")
+        // Choosing effort uses the existing model command; merely opening menus sends nothing.
+        let receipt = app.staticTexts["Preview only. This action does not contact a desktop."]
+        XCTAssertFalse(receipt.exists)
+        app.buttons["Low"].tap()
+        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
+    }
+
+    func testCircleMenuLight() {
+        circleMenu(["--companion-header-light"], state: "light")
+    }
+
+    func testCircleMenuDark() {
+        circleMenu([], state: "dark")
+    }
+
+    func testCircleMenuAccessibilityXXXL() {
+        circleMenu(["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], state: "XXXL")
+    }
 
     func testIdleControlsStayCollapsedBeforeAndAfterTyping() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch", "--companion-preview-context-window"], attempts: 1)

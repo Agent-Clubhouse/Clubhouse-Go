@@ -140,13 +140,16 @@ import XCTest
 
     func testDesktopThemesKeepHeaderAndLabeledComposerReadable() {
         for (theme, flags) in [
+            ("Light", ["--companion-header-light"]),
+            ("Dark", []),
             ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
             ("Catppuccin Mocha", ["--companion-header-mocha"]),
+            ("XXXL", ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"]),
         ] {
             let app = launch(flags + ["--companion-header-no-leading"])
             let controls = app.buttons["companion-level-menu"]
-            XCTAssertTrue(controls.staticTexts["Auto-accept edits · Opus"].exists,
-                          "The collapsed composer names its access level and model")
+            XCTAssertTrue(controls.label.contains("Auto-accept edits") && controls.label.contains("Opus"),
+                          "The circular composer control names its access level and model for accessibility")
             XCTAssertEqual(app.buttons["companion-chat-header"].frame.midX, app.frame.midX, accuracy: 1)
             assertNamePillContrast(app)
             assertAvatarColour(app, theme)
