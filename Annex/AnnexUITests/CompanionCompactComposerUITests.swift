@@ -440,6 +440,8 @@ import XCTest
         // Inside the hysteresis band (offered − caption < natural + 2 ≤ offered) both forced states are legitimate, so
         // nothing on this device can be shown to be caught: record that as a skip with the metrics, never a silent pass.
         if !sawWrong {
+            // Cross-check failures must stand: never convert a failed run into a skip.
+            if (testRun?.totalFailureCount ?? 0) > 0 { return }
             throw XCTSkip("Measured fit is inside the hysteresis band; no forced state contradicts it on this device: \(bandMetrics.joined(separator: "; "))")
         }
         XCTAssertTrue(sawWrong, "At least one forced state contradicted the measured fit")
