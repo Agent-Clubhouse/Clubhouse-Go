@@ -13,6 +13,8 @@ nonisolated public enum AnnexDiagnosticOperation: String, Codable, CaseIterable,
     case http, httpTiming, response, tls, websocket, ping, replay, stream, legacyDiagnostic
     case projectorApply, timelineBuild, markdownParse, conversationBody, messageBody, storeApply, mainActorDelay
     case composerEditTurnDelay, typingConversationBody, scrollGeometry, readingPreference, readingFrameReduce, chatDisplayLinkCallbackGap, chatViewport
+    /// The chat header overflowed its bar (#554): widths and insets as numbers, what overflowed as events.
+    case headerOverflow
 }
 /// Only these fixed kinds can produce UI/model performance summaries.
 nonisolated public enum AnnexPerformanceOperation: String, CaseIterable, Sendable {
@@ -24,6 +26,8 @@ nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case iconHit, iconMiss, iconFailure, iconEviction
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
     case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
+    case headerSumExceedsBar, headerLeadingOutsideBar, headerPrincipalOutsideBar, headerTrailingOutsideBar
+    case headerWhileWorking, headerKeyboardVisible, headerAfterResize
     #if DEBUG
     case scenePhaseObserved, transitionQueued, transitionWaiting, transitionStarted, transitionCompleted
     case disconnectStarted, disconnectCompleted, socketCancelStarted, socketCancelCompleted, socketTaskCompleted
@@ -39,6 +43,8 @@ nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case statusCode, requestBytes, responseBytes, firstTokenMs, interChunkMs, maxInterChunkMs
     case chunks, bytes, attempt, backoffMs, discoveredCount, dnsMs, connectMs, tlsMs, firstByteMs
     case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
+    case headerBarWidth, headerLeadingOrigin, headerTrailingInset, headerLeadingReservation, headerPrincipalWidth
+    case headerTrailingReservation, headerOverflow, headerSampleAgeMs, headerStateBarWidth
     #if DEBUG
     case webSocketCloseCode
     #endif
@@ -222,7 +228,9 @@ nonisolated private extension AnnexDiagnosticNumber {
     static let allKeys: [Self] = {
         var keys: [Self] = [.cacheBytes, .durationMs, .statusCode, .requestBytes, .responseBytes, .firstTokenMs, .interChunkMs,
             .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
-            .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes]
+            .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes,
+            .headerBarWidth, .headerLeadingOrigin, .headerTrailingInset, .headerLeadingReservation, .headerPrincipalWidth,
+            .headerTrailingReservation, .headerOverflow, .headerSampleAgeMs, .headerStateBarWidth]
         #if DEBUG
         keys.append(.webSocketCloseCode)
         #endif

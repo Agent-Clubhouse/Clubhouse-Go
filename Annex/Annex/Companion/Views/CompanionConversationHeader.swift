@@ -61,6 +61,9 @@ struct CompanionConversationIdentityButton: View {
 /// the caller balances their fixed origins without moving the identity outside the native title's hit area.
 struct CompanionToolbarIdentityCenter: UIViewRepresentable {
     let correct: (CGRect, CGFloat) -> Void
+    /// Every settled sample, in or out of the bar, for the #554 overflow check. Not called during a navigation
+    /// transition, when items slide across the bar's edges by design.
+    var observe: ((CGRect, CGFloat) -> Void)? = nil
 
     func makeUIView(context: Context) -> Anchor {
         let view = Anchor()
@@ -71,15 +74,18 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
 
     func updateUIView(_ uiView: Anchor, context: Context) {
         uiView.correct = correct
+        uiView.observe = observe
         uiView.requestSample()
     }
 
     static func dismantleUIView(_ uiView: Anchor, coordinator: ()) {
         uiView.correct = nil
+        uiView.observe = nil
     }
 
     final class Anchor: UIView {
         var correct: ((CGRect, CGFloat) -> Void)?
+        var observe: ((CGRect, CGFloat) -> Void)?
         private var sampleQueued = false
 
         override func didMoveToWindow() {
@@ -104,6 +110,9 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
                 while let view = ancestor {
                     if let bar = view as? UINavigationBar {
                         let frame = convert(bounds, to: bar)
+                        if bar.bounds.width > 0, (bar.delegate as? UINavigationController)?.transitionCoordinator == nil {
+                            observe?(frame, bar.bounds.width)
+                        }
                         guard bar.bounds.width > 0, frame.minX >= -0.5,
                               frame.maxX <= bar.bounds.width + 0.5 else { return }
                         correct?(frame, bar.bounds.width)
@@ -113,6 +122,31 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
                 }
             }
         }
+    }
+}
+
+/// #554: the header's latest item extents, and one `headerOverflow` record per occurrence. A reference holder, so
+/// observing never invalidates the view.
+@MainActor final class CompanionHeaderOverflowMonitor {
+    enum Part { case leading, principal, trailing }
+    private var gate = CompanionHeaderOverflowGate()
+    private var extents: [Part: CompanionHeaderOverflow.Extent] = [:]
+    /// When the side reservations last took a sample inside the bar.
+    private var sampledAt: Date = .distantPast
+
+    // ARC-only teardown; reviewed in docs/isolated-deinit.md.
+    nonisolated deinit {}
+
+    func sampleAccepted(at now: Date = .now) { sampledAt = now }
+
+    func observe(_ part: Part, frame: CGRect, layout: CompanionHeaderOverflow.Layout, working: Bool, keyboardVisible: Bool,
+                 now: Date = .now) {
+        extents[part] = .init(minX: Double(frame.minX), maxX: Double(frame.maxX), barWidth: layout.barWidth)
+        let finding = CompanionHeaderOverflow.detect(layout, leading: extents[.leading], principal: extents[.principal],
+                                                     trailing: extents[.trailing])
+        guard gate.shouldReport(finding), let finding else { return }
+        let age = sampledAt == .distantPast ? 0 : max(0, now.timeIntervalSince(sampledAt) * 1_000)
+        finding.record(layout, sampleAgeMs: age, working: working, keyboardVisible: keyboardVisible)
     }
 }
 
