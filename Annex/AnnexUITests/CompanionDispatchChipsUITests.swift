@@ -212,8 +212,8 @@ import UIKit
             XCTAssertTrue(waitFor(identity, NSPredicate { _, _ in identity.frame == expandedIdentity }, timeout: 3),
                           "\(state): the identity stays centred: \(identity.frame) vs \(expandedIdentity)")
         }
-        // Sampled repeatedly from the tap through the animation window as well as settled, so a jump that springs
-        // back still fails. Each sample is one frame query of each element, about every 40ms.
+        // Sampled 12 times, about every 40ms, right after the tap, then once settled. XCUITest may resume after the
+        // animation, so this can't prove the absence of a mid-animation transient.
         func immediately(_ state: String) {
             var rows: [CGFloat] = [], identities: [CGRect] = []
             for _ in 0..<12 {
