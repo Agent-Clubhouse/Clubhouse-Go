@@ -175,8 +175,8 @@ import Vision
 
     /// Diagnostic only (#545): one console line with every frame that shares the room above the keyboard, so a
     /// cancelled CI lane (no uploaded bundle) still shows what takes the footer's room. No assertions.
-    private func printFooterRoom(_ app: XCUIApplication) {
-        guard let root = try? app.snapshot() else { print("FOOTER_ROOM snapshot unavailable"); return }
+    private func printFooterRoom(_ app: XCUIApplication, sample: String = "arrival") {
+        guard let root = try? app.snapshot() else { print("FOOTER_ROOM sample=\(sample) snapshot unavailable"); return }
         var frames: [String: CGRect] = [:], values: [String: String] = [:]
         var navigation: CGRect?, keyboardTop: CGFloat?, paused: CGRect?
         func visit(_ node: XCUIElementSnapshot) {
@@ -193,7 +193,7 @@ import Vision
         func f(_ rect: CGRect?) -> String { rect.map { "(\($0.minX),\($0.minY),\($0.width),\($0.height))" } ?? "nil" }
         let ids = ["companion-chat-header", "companion-chat-header-actions", "companion-transcript", "companion-latest",
                    "companion-grant-footer-scroll", "companion-pinned-decision", "companion-chat-activity", "companion-composer-region"]
-        let parts = ["window=\(f(root.frame))", "nav=\(f(navigation))", "pausedChat=\(f(paused))"]
+        let parts = ["sample=\(sample)", "window=\(f(root.frame))", "nav=\(f(navigation))", "pausedChat=\(f(paused))"]
             + ids.map { "\($0)=\(f(frames[$0]))" }
             + ["keyboardTop=\(keyboardTop.map { "\($0)" } ?? "nil")", "fit=\(values["companion-pinned-decision-fit"] ?? "nil")",
                "tray=\(values["companion-pinned-decision"] ?? "nil")"]
@@ -224,6 +224,8 @@ import Vision
             states.append(tray.value as? String ?? "")
             let line = element(app, "companion-chat-activity")
             activity.append(line.exists ? line.label : "")
+            // Diagnostic only (#545): the footer's room per tick, to catch a time-dependent shrink after arrival.
+            printFooterRoom(app, sample: "\(states.count)")
             Thread.sleep(forTimeInterval: 1)
         }
         let samples = XCTAttachment(string: zip(states, activity).map { "\($0) | \($1)" }.joined(separator: "\n"))
