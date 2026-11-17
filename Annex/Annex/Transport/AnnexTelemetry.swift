@@ -27,7 +27,7 @@ nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case found, resolved, snapshot, duplicate, gap, replayRequested, firstToken, chunk, completed
     case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
     case headerSumExceedsBar, headerLeadingOutsideBar, headerPrincipalOutsideBar, headerTrailingOutsideBar
-    case headerWhileWorking, headerKeyboardVisible
+    case headerWhileWorking, headerKeyboardVisible, headerAfterResize
     #if DEBUG
     case scenePhaseObserved, transitionQueued, transitionWaiting, transitionStarted, transitionCompleted
     case disconnectStarted, disconnectCompleted, socketCancelStarted, socketCancelCompleted, socketTaskCompleted
@@ -44,7 +44,7 @@ nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case chunks, bytes, attempt, backoffMs, discoveredCount, dnsMs, connectMs, tlsMs, firstByteMs
     case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
     case headerBarWidth, headerLeadingOrigin, headerTrailingInset, headerLeadingReservation, headerPrincipalWidth
-    case headerTrailingReservation, headerOverflow, headerSampleAgeMs
+    case headerTrailingReservation, headerOverflow, headerSampleAgeMs, headerStateBarWidth
     #if DEBUG
     case webSocketCloseCode
     #endif
@@ -230,7 +230,7 @@ nonisolated private extension AnnexDiagnosticNumber {
             .maxInterChunkMs, .chunks, .bytes, .attempt, .backoffMs, .discoveredCount, .dnsMs, .connectMs, .tlsMs, .firstByteMs,
             .snapshotBytes, .webSocketMessageLimitBytes, .transportFrameLimitBytes,
             .headerBarWidth, .headerLeadingOrigin, .headerTrailingInset, .headerLeadingReservation, .headerPrincipalWidth,
-            .headerTrailingReservation, .headerOverflow, .headerSampleAgeMs]
+            .headerTrailingReservation, .headerOverflow, .headerSampleAgeMs, .headerStateBarWidth]
         #if DEBUG
         keys.append(.webSocketCloseCode)
         #endif

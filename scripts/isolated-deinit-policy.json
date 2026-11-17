@@ -556,7 +556,7 @@
     "CompanionToolbarIdentityCenter.Anchor": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionConversationHeader.swift",
-      "reason": "UIView superclass owns UIKit layout state and the correction callback captures SwiftUI State. Coalesced main-queue samples capture the view weakly; dismantle clears the callback. Preserve UIKit/MainActor teardown."
+      "reason": "UIView superclass owns UIKit layout state and the correction callback captures SwiftUI State. Coalesced main-queue samples capture the view weakly; dismantle clears both callbacks. The #554 observe callback, like correct, captures SwiftUI State and the view's CompanionHeaderOverflowMonitor and is set and cleared alongside it. Preserve UIKit/MainActor teardown."
     },
     "CompanionComposerPasteHook.Coordinator": {
       "policy": "main_actor",
@@ -945,6 +945,21 @@
         ],
         "nestedValueProperties": {},
         "properties": {},
+        "storageMacros": []
+      }
+    },
+    "CompanionHeaderOverflowMonitor": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionConversationHeader.swift",
+      "reason": "#554 header overflow diagnostics. Owns only Sendable values: a CompanionHeaderOverflowGate Bool flag, a dictionary of Part to Extent (Double coordinates and bar width) and a Date sample time. No UI objects, callbacks, tasks, observers or teardown work; it records through AnnexTelemetry.shared, which it does not own. Constructed with no arguments as conversation-view State. Empty nonisolated deinit.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "extents": "[ Part : CompanionHeaderOverflow . Extent ]",
+          "gate": "CompanionHeaderOverflowGate",
+          "sampledAt": "Date"
+        },
         "storageMacros": []
       }
     }

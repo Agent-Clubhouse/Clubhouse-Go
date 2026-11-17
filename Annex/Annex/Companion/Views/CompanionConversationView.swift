@@ -91,7 +91,8 @@ struct CompanionConversationView: View {
     /// #554: checks each settled header sample against the bar; one diagnostic record per overflow.
     private func observeHeader(_ part: CompanionHeaderOverflowMonitor.Part, _ frame: CGRect, barWidth: CGFloat, availableWidth: CGFloat) {
         let layout = CompanionHeaderOverflow.Layout(
-            barWidth: Double(barWidth), leadingOrigin: Double(headerLeadingOrigin), trailingInset: Double(headerTrailingInset),
+            barWidth: Double(barWidth), stateBarWidth: Double(headerBarWidth > 0 ? headerBarWidth : availableWidth),
+            leadingOrigin: Double(headerLeadingOrigin), trailingInset: Double(headerTrailingInset),
             leadingReservation: Double(headerLeadingReservation), principalWidth: Double(headerPrincipalWidth(availableWidth)),
             trailingReservation: Double(headerTrailingReservation))
         headerOverflowMonitor.observe(part, frame: frame, layout: layout, working: agent.status == .working,

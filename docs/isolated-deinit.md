@@ -65,6 +65,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionRecoveryFixtureService` | arc_only | DEBUG-only Bool admission fence, target/enum/Int dictionaries and Sendable checked continuations; no callback, UI or transport owner. beginTeardown closes future holds before resuming pending requests; deinit does no work. |
 | `CompanionRecoveryFixtureScene` | arc_only | DEBUG-only synthetic service, a Store constructed with it, and Bool/Bool?/Int/target values. No callback, task storage, UIKit host/window or teardown action. |
 | `AnnexManualClock` | arc_only | Lock-protected value state and Sendable task continuations; no UIKit ownership. |
+| `CompanionHeaderOverflowMonitor` | arc_only | #554 header overflow diagnostics: a `CompanionHeaderOverflowGate` Bool flag, a Part→Extent dictionary of Doubles and a `Date` sample time. No UI object, callback, task or observer; records through `AnnexTelemetry.shared`, which it does not own. Constructed with no arguments as conversation-view State. The `CompanionToolbarIdentityCenter.Anchor` `observe` callback that feeds it is set and cleared with `correct` (main_actor, unchanged). |
 | `CompanionArchiveReader` | arc_only | Sendable transport reference and value target/session/event dictionary. The `windows` Bool is a plain desktop-platform flag for content path matching, with no owner, callback or teardown change; no UI fields. |
 | `CompanionArchiveTranscript` | main_actor | Injected reader protocol is not constrained to UI-free implementations. |
 | `CompanionChatPerformance.DisplayTarget` | arc_only | Stateless NSObject callback target; no stored fields or UI ownership. MainActor enum owns/invalidates the display link. |
@@ -184,7 +185,3 @@ The external Dispatcher restore-failure acknowledgment adds one value-only Bool 
 The external-launch authority correction adds one Store Bool (`hasReceivedHostReport`) and one DEBUG-only optional Runtime diagnostic value (`CompanionLaunchKeychainDiagnostic`: Int32 statuses and an outcome String). These distinguish unknown initial storage from a known empty report and retain status-only test evidence. They own no UI, callback, credentials or teardown work. Runtime and Store deinit bodies and policy modes stay unchanged. A capability probe uses a unique test-service Keychain item, deleting it synchronously after a successful add.
 
 Hosted entrypoint review: `Self.unitTestHost` is the unchanged Bool producer for the same lazy Runtime factory; capture ownership and teardown policy are unchanged.
-
-Header overflow instrumentation (#554) adds `CompanionHeaderOverflowMonitor`, a MainActor reference holder in
-the conversation view's State. It owns only Sendable values (a gate flag, item extents and a sample time),
-retains no UI objects, callbacks or tasks, and declares an empty nonisolated deinit.

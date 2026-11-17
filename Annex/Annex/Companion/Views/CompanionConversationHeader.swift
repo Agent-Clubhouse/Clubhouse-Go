@@ -132,7 +132,7 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
     private var gate = CompanionHeaderOverflowGate()
     private var extents: [Part: CompanionHeaderOverflow.Extent] = [:]
     /// When the side reservations last took a sample inside the bar.
-    private var sampledAt = Date.distantPast
+    private var sampledAt: Date = .distantPast
 
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
@@ -141,7 +141,7 @@ struct CompanionToolbarIdentityCenter: UIViewRepresentable {
 
     func observe(_ part: Part, frame: CGRect, layout: CompanionHeaderOverflow.Layout, working: Bool, keyboardVisible: Bool,
                  now: Date = .now) {
-        extents[part] = .init(minX: Double(frame.minX), maxX: Double(frame.maxX))
+        extents[part] = .init(minX: Double(frame.minX), maxX: Double(frame.maxX), barWidth: layout.barWidth)
         let finding = CompanionHeaderOverflow.detect(layout, leading: extents[.leading], principal: extents[.principal],
                                                      trailing: extents[.trailing])
         guard gate.shouldReport(finding), let finding else { return }

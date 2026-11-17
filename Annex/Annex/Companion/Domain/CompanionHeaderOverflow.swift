@@ -9,7 +9,11 @@ import ClubhouseTransport
 struct CompanionHeaderOverflow: Equatable, Sendable {
     /// The bar's own measurements and the widths the header asked for, in points.
     struct Layout: Equatable, Sendable {
+        /// The bar width in this sample.
         var barWidth: Double
+        /// The bar width the header's widths were computed from (State). It lags a rotation or resize until the
+        /// next accepted side sample.
+        var stateBarWidth: Double
         var leadingOrigin: Double
         var trailingInset: Double
         var leadingReservation: Double
@@ -22,10 +26,11 @@ struct CompanionHeaderOverflow: Equatable, Sendable {
         }
     }
 
-    /// An item's horizontal extent in the bar's coordinates.
+    /// An item's horizontal extent in the bar's coordinates, and the bar width it was measured in.
     struct Extent: Equatable, Sendable {
         var minX: Double
         var maxX: Double
+        var barWidth: Double
     }
 
     enum Kind: CaseIterable, Sendable {
@@ -47,7 +52,8 @@ struct CompanionHeaderOverflow: Equatable, Sendable {
     /// Half a point absorbs rounding; the layout is exact by construction otherwise.
     static let tolerance = 0.5
 
-    /// Nil when the header fits. Extents are optional: each is checked only when it has been observed.
+    /// Nil when the header fits. Extents are optional: each is checked only when it has been observed, and only
+    /// if it was measured in this sample's bar width, so an extent from before a rotation never counts.
     static func detect(_ layout: Layout, leading: Extent? = nil, principal: Extent? = nil, trailing: Extent? = nil) -> Self? {
         guard layout.barWidth > 0 else { return nil }
         var kinds: Set<Kind> = [], overflow = 0.0
@@ -55,18 +61,24 @@ struct CompanionHeaderOverflow: Equatable, Sendable {
             guard amount > tolerance else { return }
             kinds.insert(kind); overflow = max(overflow, amount)
         }
+        func current(_ extent: Extent?) -> Extent? {
+            extent.flatMap { abs($0.barWidth - layout.barWidth) <= tolerance ? $0 : nil }
+        }
         check(layout.total - layout.barWidth, .sumExceedsBar)
-        if let leading { check(-leading.minX, .leadingOutsideBar) }
-        if let principal { check(max(-principal.minX, principal.maxX - layout.barWidth), .principalOutsideBar) }
-        if let trailing { check(trailing.maxX - layout.barWidth, .trailingOutsideBar) }
+        if let leading = current(leading) { check(-leading.minX, .leadingOutsideBar) }
+        if let principal = current(principal) { check(max(-principal.minX, principal.maxX - layout.barWidth), .principalOutsideBar) }
+        if let trailing = current(trailing) { check(trailing.maxX - layout.barWidth, .trailingOutsideBar) }
         return kinds.isEmpty ? nil : Self(kinds: kinds, overflow: overflow)
     }
 
     /// One `headerOverflow` record: the layout, the overflow, how old the side samples are, and what was going on.
+    /// `headerAfterResize` marks a sample whose bar width the header's State hasn't caught up with yet (rotation,
+    /// iPad resize), so those can be told apart from an overflow at a settled width.
     func record(_ layout: Layout, sampleAgeMs: Double, working: Bool, keyboardVisible: Bool,
                 telemetry: AnnexTelemetry = .shared) {
         let span = telemetry.begin(.headerOverflow)
         span.number(.headerBarWidth, layout.barWidth)
+        span.number(.headerStateBarWidth, layout.stateBarWidth)
         span.number(.headerLeadingOrigin, layout.leadingOrigin)
         span.number(.headerTrailingInset, layout.trailingInset)
         span.number(.headerLeadingReservation, layout.leadingReservation)
@@ -75,6 +87,7 @@ struct CompanionHeaderOverflow: Equatable, Sendable {
         span.number(.headerOverflow, overflow)
         span.number(.headerSampleAgeMs, sampleAgeMs)
         for kind in Kind.allCases where kinds.contains(kind) { span.event(kind.event) }
+        if abs(layout.barWidth - layout.stateBarWidth) > Self.tolerance { span.event(.headerAfterResize) }
         if working { span.event(.headerWhileWorking) }
         if keyboardVisible { span.event(.headerKeyboardVisible) }
         span.end()
