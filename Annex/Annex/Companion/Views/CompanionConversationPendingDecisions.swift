@@ -156,7 +156,8 @@ struct CompanionConversationPendingDecisions: View {
     private var waitingDot: some View {
         Circle().fill(Color(palette.warning)).frame(width: 10, height: 10)
             .overlay(Circle().stroke(Color(palette.card), lineWidth: 2))
-            .offset(x: 2, y: -2)
+            // Inside the control's own bounds, so the one-row card keeps its measured 46pt and nothing pokes past the footer.
+            .offset(x: -4, y: 4)
             .accessibilityHidden(true).allowsHitTesting(false)
     }
 

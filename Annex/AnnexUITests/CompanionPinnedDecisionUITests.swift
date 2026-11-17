@@ -135,8 +135,17 @@ import Vision
     /// #543: typing first, then a request arrives. Every composer action stays above the keyboard. The tray shows one
     /// Review control only when the full rows do not fit, and the ticking activity line never flips it back and forth.
     func testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard() throws {
+        try requestArrivingWhileTypingAtLargestText(appearance: [])
+    }
+
+    /// The same contract in dark appearance; also captures the Review-only look for review.
+    func testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard() throws {
+        try requestArrivingWhileTypingAtLargestText(appearance: ["--companion-preview-dark"])
+    }
+
+    private func requestArrivingWhileTypingAtLargestText(appearance: [String]) throws {
         let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard",
-                                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+                                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] + appearance)
         let states = try typeThenAwaitRequest(app)
         let reviewOnly = states[0] == "Review-only request controls"
         let review = app.buttons["companion-review-approval"]
@@ -144,6 +153,9 @@ import Vision
         if reviewOnly {
             XCTAssertEqual(review.value as? String, "1 of 3 waiting · Bash", "Position and tool stay complete for VoiceOver")
             XCTAssertFalse(summary(app).exists, "One Review control replaces the rows")
+            let tray = element(app, "companion-pinned-decision").frame
+            let footer = element(app, "companion-grant-footer-scroll").frame
+            XCTAssertGreaterThanOrEqual(pixelAligned(tray.minY), pixelAligned(footer.minY), "The waiting dot stays inside the card: \(tray), \(footer)")
         } else {
             // The full rows are shown only when they fit: the whole title stays above the composer and the keyboard.
             let title = summary(app).frame
