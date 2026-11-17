@@ -25,7 +25,7 @@ struct CompanionConversationIdentityButton: View {
         }
         .foregroundStyle(Color(palette.label))
         .padding(.horizontal, 9).padding(.vertical, 3)
-        .companionCardGlass(Capsule(), interactive: true)
+        .companionToolbarCardGlass()
     }
 
     /// Like Messages: the photo centred over a small name pill, floating over the transcript. A short (landscape)
@@ -123,6 +123,21 @@ extension View {
     /// secondary label at 4.5:1 or better against the card.
     func companionCardGlass<S: Shape>(_ shape: S, interactive: Bool = false) -> some View {
         background { CompanionCardGlass(shape: shape, interactive: interactive) }
+    }
+
+    /// Interactive card glass for a header bar control, pinned to the palette's appearance (#534). On iOS 27.2 the
+    /// name pill and the trailing actions pill drew as white glass under the dark theme's light labels, while the
+    /// same glass off the bar (Latest) stayed dark. The likeliest, unproven, cause is that the bar's hosts adapt
+    /// their own appearance; pinning keeps the glass and its content on the palette's side either way.
+    func companionToolbarCardGlass() -> some View { modifier(CompanionToolbarCardGlass()) }
+}
+
+private struct CompanionToolbarCardGlass: ViewModifier {
+    @Environment(\.companionPalette) private var palette
+    func body(content: Content) -> some View {
+        content
+            .companionCardGlass(Capsule(), interactive: true)
+            .environment(\.colorScheme, palette.isDark ? .dark : .light)
     }
 }
 
