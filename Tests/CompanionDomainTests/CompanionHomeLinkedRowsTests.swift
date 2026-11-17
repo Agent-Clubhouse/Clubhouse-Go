@@ -26,7 +26,7 @@ struct CompanionHomeLinkedRowsTests {
         #expect(!group.tree.all.contains { $0.id.hostID == "combined-3" }, "Cached offline work is never live")
     }
 
-    @Test func sameMachineCopiesKeepProjectOriginsInAllAndSingleDesktopScopes() throws {
+    @MainActor @Test func sameMachineCopiesKeepProjectOriginsInAllAndSingleDesktopScopes() throws {
         // The same Studio/Docs/Travel members as --companion-preview-linked-projects-same-machine.
         var hosts = CompanionPreviewService.hosts(now: now)
         hosts[0].projects = hosts[0].projects.filter { $0.id == "clubhouse" }
