@@ -182,7 +182,11 @@ import Vision
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
         composer.typeText("Keep this draft")
         XCTAssertFalse(tray.exists, "The request must arrive after the keyboard is already up")
-        XCTAssertTrue(tray.waitForExistence(timeout: 45))
+        // The late request arrives on preview tick 75 (`pinnedArrivalStep`). Hosted runners stretch the 400ms tick
+        // (CI: fewer than 30 ticks in 25s), so wait on that tick's own notice, not on wall-clock time.
+        XCTAssertTrue(app.staticTexts["companion-notice-notice:pinned-progress-75"].waitForExistence(timeout: 180),
+                      "Preview tick 75, which carries the late request, must arrive")
+        XCTAssertTrue(tray.waitForExistence(timeout: 20), "The late request's tray appears with its tick")
         let reviewButton = app.buttons["companion-review-approval"]
         XCTAssertTrue(reviewButton.waitForExistence(timeout: 10) || summary(app).exists, "The request is reachable")
         var states: [String] = []
