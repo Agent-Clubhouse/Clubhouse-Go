@@ -184,3 +184,7 @@ The external Dispatcher restore-failure acknowledgment adds one value-only Bool 
 The external-launch authority correction adds one Store Bool (`hasReceivedHostReport`) and one DEBUG-only optional Runtime diagnostic value (`CompanionLaunchKeychainDiagnostic`: Int32 statuses and an outcome String). These distinguish unknown initial storage from a known empty report and retain status-only test evidence. They own no UI, callback, credentials or teardown work. Runtime and Store deinit bodies and policy modes stay unchanged. A capability probe uses a unique test-service Keychain item, deleting it synchronously after a successful add.
 
 Hosted entrypoint review: `Self.unitTestHost` is the unchanged Bool producer for the same lazy Runtime factory; capture ownership and teardown policy are unchanged.
+
+Header overflow instrumentation (#554) adds `CompanionHeaderOverflowMonitor`, a MainActor reference holder in
+the conversation view's State. It owns only Sendable values (a gate flag, item extents and a sample time),
+retains no UI objects, callbacks or tasks, and declares an empty nonisolated deinit.

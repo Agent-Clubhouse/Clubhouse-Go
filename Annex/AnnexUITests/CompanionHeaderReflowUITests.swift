@@ -2,6 +2,10 @@ import XCTest
 
 /// #554: with a long name while a reply streams and the transcript scrolls, the header must not reflow. The name
 /// stays centred between the side items and the trailing actions pill stays on screen, at every sampled tick.
+///
+/// Each sample is one accessibility snapshot, about every 70–90ms on the iOS 26.0 simulator, so a reflow shorter
+/// than that can slip between samples. Nothing is sampled while a disturbance (drag, push, background) runs; a
+/// sample with the name or actions missing counts as a violation, except within 1s after a disturbance.
 @MainActor final class CompanionHeaderReflowUITests: ReliableUITestCase {
     private struct Frames { let identity: CGRect; let actions: CGRect; let leading: CGRect? }
 
@@ -39,6 +43,8 @@ import XCTest
         var violations: [String] = []
         let started = Date()
         var scrolled = 0 // disturbances so far
+        var missing = 0, seenFull = false
+        var graceUntil = Date.distantPast
         while Date().timeIntervalSince(started) < 14 {
             // Disturb the header twice mid-stream, as on the phone.
             if scrolled < 2, Date().timeIntervalSince(started) > Double(4 + 4 * scrolled) {
@@ -64,8 +70,18 @@ import XCTest
                     _ = app.buttons["companion-chat-header"].waitForExistence(timeout: 10)
                 }
                 scrolled += 1
+                graceUntil = Date().addingTimeInterval(1)
             }
-            guard let f = frames(app, leadingID: leadingID) else { continue }
+            guard let f = frames(app, leadingID: leadingID) else {
+                // A missing name or actions pill is the #554 symptom itself, once the header has been seen whole.
+                if seenFull, Date() > graceUntil {
+                    missing += 1
+                    let t = String(format: "%.2f", Date().timeIntervalSince(started))
+                    violations.append("t=\(t)s name or actions missing from the header")
+                }
+                continue
+            }
+            seenFull = true
             samples += 1
             var problems: [String] = []
             if f.actions.maxX > screen.maxX + 0.5 { problems.append("actions past the right edge") }
@@ -81,13 +97,14 @@ import XCTest
                 }
             }
         }
-        print("HEADER_REFLOW \(name) samples=\(samples) violations=\(violations.count)")
+        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count)")
         violations.prefix(20).forEach { print("HEADER_REFLOW \(name) \($0)") }
         let report = XCTAttachment(string: violations.joined(separator: "\n"))
         report.name = "554 reflow samples \(name)"; report.lifetime = .keepAlways; add(report)
         let settled = XCTAttachment(screenshot: app.screenshot())
         settled.name = "554 after stream \(name)"; settled.lifetime = .keepAlways; add(settled)
-        XCTAssertGreaterThan(samples, 10, "\(name): too few header samples to judge")
+        XCTAssertGreaterThanOrEqual(samples, 100, "\(name): too few header samples to judge")
+        XCTAssertEqual(missing, 0, "\(name): the name or actions pill was missing in \(missing) samples")
         XCTAssertTrue(violations.isEmpty, "\(name): header reflowed in \(violations.count) of \(samples) samples; first: \(violations.first ?? "")")
     }
 
