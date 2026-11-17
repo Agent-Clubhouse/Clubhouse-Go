@@ -22,20 +22,7 @@ struct CompanionRootView: View {
     @State private var dispatcherLaunchChoice: String?
     @State private var externalLaunchDismissal = false
     @State private var dispatcherComposerFocus: CompanionDispatcherComposerFocus?
-    @State private var navigationState: CompanionNavigation
-    @StateObject private var homeScrollAnchor = CompanionHomeScrollAnchorState()
-    /// Suspend at the navigation write itself, before departing List geometry can run.
-    /// Native path bindings, tab selection, external opens and the hosted Root share this setter.
-    private var navigation: CompanionNavigation {
-        get { navigationState }
-        nonmutating set {
-            homeScrollAnchor.setPresented(newValue.tab == .home && (newValue.paths[.home] ?? []).isEmpty)
-            navigationState = newValue
-        }
-    }
-    private var navigationBinding: Binding<CompanionNavigation> {
-        Binding(get: { navigation }, set: { navigation = $0 })
-    }
+    @State private var navigation: CompanionNavigation
     private struct SpawnLaunch: Identifiable {
         let project: CompanionProjectTarget
         var hostID: String? = nil
@@ -62,7 +49,7 @@ struct CompanionRootView: View {
                                              lastHostID: preferences.lastHostID, lastDispatcherHostID: preferences.lastDispatcherHostID)
         navigation.update(hosts: store.hosts)
         if let target = store.selection { navigation.open(target, hosts: store.hosts) }
-        _navigationState = State(initialValue: navigation)
+        _navigation = State(initialValue: navigation)
         _decisionsLifetime = State(initialValue: CompanionStateLifetime { [store] in
             CompanionDecisionQueue { decision in
                 await store.respond(decision.approval, option: decision.option, target: decision.target)
@@ -71,7 +58,6 @@ struct CompanionRootView: View {
     }
 
     var body: some View {
-        let _ = homeScrollAnchor.setPresented(navigation.tab == .home && (navigation.paths[.home] ?? []).isEmpty)
         TabView(selection: Binding(get: { navigation.tab }, set: {
             if let action = navigation.selectFromTabBar($0) {
                 CompanionUIActions.record(action.control, on: action.screen)
@@ -84,7 +70,7 @@ struct CompanionRootView: View {
                                       onNewAgent: { target, hostID in navigation.interact(); spawnLaunch = .init(project: target, hostID: hostID) }, isPreview: isPreview,
                                       onInteraction: { navigation.interact() },
                                       isVisible: navigation.tab == .home,
-                                      isPushed: !(navigation.paths[.home] ?? []).isEmpty, navigationAnchor: homeScrollAnchor)
+                                      isPushed: !(navigation.paths[.home] ?? []).isEmpty)
                 }
             }
             if navigation.tabs.contains(.dispatcher) {
@@ -153,7 +139,7 @@ struct CompanionRootView: View {
         .onChange(of: externalLaunchReady) { _, _ in handleDispatcherLaunch() }
         .onChange(of: navigation.dispatcherDesktops) { _, _ in handleDispatcherLaunch() }
         #if DEBUG
-        .onAppear { CompanionHomeBuildProbe.navigation?(navigationBinding) }
+        .onAppear { CompanionHomeBuildProbe.navigation?($navigation) }
         #endif
         .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start(); mirrorSelection() }
@@ -422,8 +408,6 @@ struct CompanionHomeView: View {
     var onInteraction: () -> Void = {}
     var isVisible = true
     var isPushed = false
-    /// Root owns navigation-time suspension. Direct Home callers keep a lazy local owner.
-    var navigationAnchor: CompanionHomeScrollAnchorState? = nil
     #if DEBUG
     var hostedProjectMenu: ((CompanionLinkedProjectStateMenuItems) -> Void)? = nil
     #endif
@@ -448,9 +432,6 @@ struct CompanionHomeView: View {
     @State private var heldScope: CompanionDesktopSelection = .all
     @State private var heldSort: CompanionProjectSort = .recent
     @State private var holdGeneration: UInt64 = 0
-    @State private var homeScrollPosition = ScrollPosition()
-    @StateObject private var localScrollAnchor = CompanionHomeScrollAnchorState()
-    private var scrollAnchor: CompanionHomeScrollAnchorState { navigationAnchor ?? localScrollAnchor }
     @StateObject private var renderSession = CompanionHomeRenderSession()
     // Lazy List closures can retain earlier Home value copies. All copies consult the same
     // non-observable session so none can fall back to live Store reads during a push.
@@ -516,8 +497,6 @@ struct CompanionHomeView: View {
         #if DEBUG
         let _ = CompanionHomeBuildProbe.record?(.owner)
         #endif
-        // Suspend before departing geometry can replace the visible bookmark.
-        let _ = navigationAnchor == nil ? scrollAnchor.setPresented(isVisible && !isPushed) : ()
         // Freeze synchronously before constructing any pushed List content; no onChange gap.
         let _ = renderSession.prepare(visible: isVisible, pushed: isPushed) {
             let snapshot = makeFrozenInputs()
@@ -555,7 +534,7 @@ struct CompanionHomeView: View {
             CompanionHomeBuildProbe.phase?(phase)
             #endif
         }
-        .onChange(of: desktopSelection) { _, _ in hold = nil; holdGeneration &+= 1; scrollAnchor.reset() }
+        .onChange(of: desktopSelection) { _, _ in hold = nil; holdGeneration &+= 1 }
         .onChange(of: preferences.projectSort) { _, _ in hold = nil; holdGeneration &+= 1 }
         .navigationTitle("Clubhouse")
         .alert("Couldn't change the project", isPresented: Binding(get: { isVisible && !isPushed && frozenInputs == nil && store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
@@ -618,11 +597,10 @@ struct CompanionHomeView: View {
         let _ = CompanionHomeBuildProbe.frozen?(display != nil)
         let _ = CompanionHomeBuildProbe.frame?(display != nil, CompanionConnectionNotice(hosts: presentationHosts).title)
         #endif
-        return ScrollViewReader { proxy in
-        List {
+        return List {
             if !renderHosts.isEmpty {
                 summary
-                    .companionHomeAnchor(.summary)
+
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .listRowBackground(Color.clear)
@@ -633,7 +611,7 @@ struct CompanionHomeView: View {
             // Keep the scope owner mounted when the visible chip row disappears;
             // removing a selected desktop must restore All before filtering Home.
             CompanionDesktopChips(hosts: renderHosts, selection: $desktopSelection, onSelect: onInteraction)
-                .companionHomeAnchor(.desktops)
+
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
@@ -671,7 +649,6 @@ struct CompanionHomeView: View {
         }
         .companionListStyle()
         .companionTelemetryScreen(.home)
-        .environment(\.companionHomeScrollAnchor, scrollAnchor)
         #if DEBUG
         .environment(\.companionHomeBuildCounting, true)
         #endif
@@ -681,21 +658,13 @@ struct CompanionHomeView: View {
         .onChange(of: !isPushed && scenePhase == .active && hold == nil, initial: true) { _, needsSnapshot in
             if needsSnapshot && preferences.projectSort == .recent { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
         }
-        .scrollPosition($homeScrollPosition)
-        .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { _, geometry in
-            scrollAnchor.setGeometry(geometry)
-            if !isPushed { scrollAnchor.resume(proxy, position: $homeScrollPosition) { anchorAvailable($0, layout: layout) } }
-        }
-        .onChange(of: isPushed) { _, pushed in
-            if !pushed { scrollAnchor.resume(proxy, position: $homeScrollPosition) { anchorAvailable($0, layout: layout) } }
-        }
         .onAppear {
             observeConnectedHosts(renderHosts)
             expandedOfflineHosts.formIntersection(Set(renderHosts.map(\.id)))
         }
         .onAppear {
             #if DEBUG
-            CompanionHomeBuildProbe.state?(scrollAnchor, $desktopSelection)
+            CompanionHomeBuildProbe.state?($desktopSelection)
             #endif
         }
         .onChange(of: renderHosts) { _, hosts in
@@ -703,15 +672,13 @@ struct CompanionHomeView: View {
             expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
         }
         .onScrollPhaseChange { _, phase in
-            if phase == .interacting { scrollAnchor.cancelRestoration(); onInteraction() }
+            if phase == .interacting { onInteraction() }
             if preferences.projectSort != .recent {
                 if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
                 else if hold == nil { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
             }
         }
         .animation(reduceMotion ? nil : .snappy, value: layout.hold)
-
-        }
     }
 
     private func renderCanWake(_ member: CompanionProjectMember) -> Bool {
@@ -839,30 +806,6 @@ struct CompanionHomeView: View {
     }
 
     /// If the former row disappeared or moved into a closed fold, restoration explicitly falls back to the top.
-    private func anchorAvailable(_ anchor: CompanionHomeAnchor, layout: CompanionHomeLayout) -> Bool {
-        let groups = layout.projects + (preferences.idleExpanded ? layout.idle : [])
-        switch anchor {
-        case .summary: return !renderHosts.isEmpty
-        case .desktops: return true
-        case .idle: return !layout.idle.isEmpty
-        case .project(let target): return groups.contains { $0.entry.id == target }
-        case .agent(let target):
-            return groups.contains { group in
-                let rows = group.tree.active + (preferences.expandedFolds.contains("quiet:" + quietKey(group)) ? group.tree.sleeping + group.tree.finishedQuick : [])
-                return group.tree.visible(rows, collapsed: preferences.collapsedAgents(in: rows)).contains { $0.id == target }
-            }
-        case .finished(let target):
-            return groups.contains { $0.entry.members.contains { $0.id == .init(hostID: target.hostID, projectID: target.projectID) }
-                && preferences.expandedFolds.contains("quiet:" + quietKey($0)) }
-                && renderFinished(.init(hostID: target.hostID, projectID: target.projectID)).contains { $0.target == target }
-        case .quiet(let key): return groups.contains { $0.entry.orderKey == key || "\($0.entry.host.id)-\($0.entry.project.id)" == key }
-        case .attention(let target): return scopedAttention.contains { $0.agent.id == target }
-        case .dispatcher(let hostID): return scopedHosts.contains { $0.id == hostID && $0.dispatcher?.isVisible == true }
-        case .offline(let target): return groups.contains { $0.entry.members.contains { $0.id == target && !$0.host.connection.canOperate } }
-        case .cached(let target): return expandedOfflineHosts.contains(target.hostID) && renderHasAgent(target)
-        }
-    }
-
     private var presentationHosts: [CompanionHost] { scopedHosts.map(presentationHost) }
 
     private func presentationHost(_ host: CompanionHost) -> CompanionHost {
@@ -900,12 +843,12 @@ struct CompanionHomeView: View {
                     .foregroundStyle(Color(palette.secondaryLabel))
                     .listRowBackground(CompanionCardBackground())
             }
-            CompanionHomeForEach(items, anchor: { .attention($0.agent.id) }) { item in
+            ForEach(items) { item in
                 NavigationLink(value: item.agent.id) {
                     CompanionAgentListRow(agent: item.agent, hostTag: multipleHosts ? item.hostName : nil, detail: item.detail)
                 }
                 .accessibilityIdentifier("agent-\(item.agent.id.hostID)-\(item.agent.id.agentID)")
-                .companionHomeAnchor(.attention(item.agent.id))
+
                 .listRowBackground(CompanionCardBackground())
             }
         } header: {
@@ -925,10 +868,10 @@ struct CompanionHomeView: View {
         let shown = scopedHosts.filter { isListed($0) && $0.dispatcher?.isVisible == true }
         if !shown.isEmpty {
             Section {
-                CompanionHomeForEach(shown, anchor: { .dispatcher($0.id) }) { host in
+                ForEach(shown) { host in
                     let activity = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
                     CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: activity, capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
-                        .companionHomeAnchor(.dispatcher(host.id))
+
                         .listRowBackground(CompanionCardBackground())
                 }
             }
@@ -983,7 +926,7 @@ struct CompanionHomeView: View {
             }
             .textCase(nil)
         }
-        CompanionHomeForEach(layout.projects, anchor: { .project($0.entry.id) }) { group in projectSection(group, parentLines: parentLines) }
+        ForEach(layout.projects) { group in projectSection(group, parentLines: parentLines) }
         if !layout.idle.isEmpty {
             Section {
                 Button {
@@ -992,14 +935,14 @@ struct CompanionHomeView: View {
                     CompanionFoldLabel(text: "\(layout.idle.count) idle project\(layout.idle.count == 1 ? "" : "s")", isOpen: preferences.idleExpanded)
                 }
                 .accessibilityIdentifier("idle-projects-fold")
-                .companionHomeAnchor(.idle)
+
                 .listRowBackground(CompanionCardBackground())
             } footer: {
                 if preferences.idleExpanded { EmptyView() } else {
                     Text(idleFooter(layout.idle))
                 }
             }
-            if preferences.idleExpanded { CompanionHomeForEach(layout.idle, anchor: { .project($0.entry.id) }) { group in projectSection(group, parentLines: parentLines) } }
+            if preferences.idleExpanded { ForEach(layout.idle) { group in projectSection(group, parentLines: parentLines) } }
         }
     }
 
@@ -1023,7 +966,7 @@ struct CompanionHomeView: View {
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         return Section {
             projectHeader(group)
-                .companionHomeAnchor(.project(entry.id))
+
                 .buttonStyle(.borderless)
                 .navigationLinkIndicatorVisibility(.hidden)
                 .listRowSeparator(.hidden)
@@ -1032,7 +975,7 @@ struct CompanionHomeView: View {
                 CompanionHomeLinkedProjectRows(group: group, quiet: linkedQuiet(entry),
                     preferences: preferences, parentLines: parentLines, onDismissFinished: dismissFinished,
                     onClearFinished: clearFinished, canOpenFinished: { renderHasAgent($0) })
-                CompanionHomeForEach(entry.members.filter { !$0.host.connection.canOperate }, anchor: { .offline($0.id) }) { member in
+                ForEach(entry.members.filter { !$0.host.connection.canOperate }) { member in
                     offlineMember(entry, member)
                 }
             } else if entry.host.connection.canOperate {
@@ -1161,10 +1104,10 @@ struct CompanionHomeView: View {
         }
         .buttonStyle(.borderless)
         .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
-        .companionHomeAnchor(.offline(member.id))
+
         .listRowBackground(CompanionCardBackground())
         if expanded {
-            CompanionHomeForEach(cached, anchor: { .cached($0.id) }) { agent in
+            ForEach(cached) { agent in
                 CompanionAgentListRow(agent: agent)
                     .modifier(CompanionHomeRowInputs(store: store, snapshot: display, impliedHostID: member.host.id, actions: display == nil ? nil : frozenActions))
                     .environment(\.companionAgentSettings, nil)
@@ -1174,7 +1117,7 @@ struct CompanionHomeView: View {
                     .opacity(0.5)
                     .accessibilityLabel("\(agent.name), cached on \(machineLabel(entry, member)), desktop not connected")
                     .accessibilityIdentifier("cached-agent-\(agent.id.hostID)-\(agent.id.projectID)-\(agent.id.agentID)")
-                    .companionHomeAnchor(.cached(agent.id))
+
                     .listRowBackground(CompanionCardBackground())
             }
         }

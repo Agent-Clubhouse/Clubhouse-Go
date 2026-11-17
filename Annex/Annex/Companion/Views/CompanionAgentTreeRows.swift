@@ -86,11 +86,10 @@ struct CompanionAgentTreeRows: View {
     var body: some View {
         let collapsed = preferences.collapsedAgents(in: rows)
         let hasDisclosureColumn = rows.contains { $0.rollup.count > 0 }
-        CompanionHomeForEach(tree.visible(rows, collapsed: collapsed), anchor: { .agent($0.id) }) { row in
+        ForEach(tree.visible(rows, collapsed: collapsed)) { row in
             CompanionAgentTreeNavigationRow(row: row, collapsed: row.rollup.count > 0 && collapsed.contains(row.id), parentLine: parentLines[row.id], hasDisclosureColumn: hasDisclosureColumn, screen: screen,
                                             toggle: { preferences.toggleAgentCollapsed(row.id) })
                 .equatable()
-                .companionHomeAnchor(.agent(row.id))
                 .listRowBackground(CompanionCardBackground())
         }
     }
@@ -221,18 +220,15 @@ struct CompanionAgentTreeQuietFold: View {
         let isOpen = preferences.expandedFolds.contains(key)
         let catalog = Set(tree.all.map(\.id))
         if !text.isEmpty {
-            CompanionHomeAnchorRow(.quiet(projectID)) {
-                Button {
-                    CompanionUIActions.record(.expandQuietAgents, on: screen)
-                    withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
-                } label: { CompanionFoldLabel(text: text, isOpen: isOpen) }
-                .accessibilityIdentifier("fold-quiet-\(projectID)")
-                .companionHomeAnchor(.quiet(projectID))
-                .listRowBackground(CompanionCardBackground())
-            }
+            Button {
+                CompanionUIActions.record(.expandQuietAgents, on: screen)
+                withAnimation(reduceMotion ? nil : .snappy) { preferences.toggleFold(key) }
+            } label: { CompanionFoldLabel(text: text, isOpen: isOpen) }
+            .accessibilityIdentifier("fold-quiet-\(projectID)")
+            .listRowBackground(CompanionCardBackground())
             if isOpen {
                 CompanionAgentTreeRows(tree: tree, rows: quietRows, preferences: preferences, parentLines: parentLines)
-                CompanionHomeForEach(retainedRuns, anchor: { .finished($0.target) }) { run in
+                ForEach(retainedRuns) { run in
                     finishedRow(run, canOpen: canOpenFinished?(run.target) ?? catalog.contains(run.target))
                 }
                 if !retainedRuns.isEmpty, let onClearFinished {
@@ -250,7 +246,6 @@ struct CompanionAgentTreeQuietFold: View {
     @ViewBuilder private func finishedRow(_ run: CompanionFinishedRun, canOpen: Bool) -> some View {
         let row = finishedNavigationRow(run, canOpen: canOpen)
             .accessibilityIdentifier("finished-\(run.target.hostID)-\(run.target.projectID)-\(run.target.agentID)")
-            .companionHomeAnchor(.finished(run.target))
             .listRowBackground(CompanionCardBackground())
         if let onDismissFinished {
             row
