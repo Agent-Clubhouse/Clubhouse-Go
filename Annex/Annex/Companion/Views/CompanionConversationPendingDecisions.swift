@@ -12,6 +12,9 @@ struct CompanionConversationPendingDecisions: View {
     @State private var review: CompanionComposerApprovalReviewSelection?
     /// The full rows' height at the offered width, measured while tight AX rows apply.
     @State private var naturalRowsHeight: CGFloat = 0
+    /// One caption line at the current text size: the slack required before a collapsed tray expands again.
+    @State private var captionLineHeight: CGFloat = 0
+    @State private var reviewOnly = false
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
@@ -42,6 +45,9 @@ struct CompanionConversationPendingDecisions: View {
                             .fixedSize(horizontal: false, vertical: true)
                             .hidden().accessibilityHidden(true).allowsHitTesting(false)
                             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { naturalRowsHeight = $0 }
+                        Text(verbatim: "Ag").font(.caption).lineLimit(1).fixedSize()
+                            .hidden().accessibilityHidden(true).allowsHitTesting(false)
+                            .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { captionLineHeight = $0 }
                     }
                 }
                 .highPriorityGesture(selectionGesture(queue: queue, index: index))
@@ -60,6 +66,8 @@ struct CompanionConversationPendingDecisions: View {
                     : isCompactPresentation ? "Compact request controls" : "Expanded request controls")
             }
         }
+        .onChange(of: [naturalRowsHeight, maximumHeight, captionLineHeight], initial: true) { updateReviewOnly() }
+        .onChange(of: usesTightAccessibilityRows) { updateReviewOnly() }
         .task(id: nextDeadline) {
             guard let nextDeadline else { return }
             let delay = nextDeadline.timeIntervalSinceNow
@@ -277,9 +285,23 @@ struct CompanionConversationPendingDecisions: View {
     }
     /// Only tight AX rows can need the fallback; elsewhere nothing is measured.
     private var measuresNaturalRows: Bool { usesTightAccessibilityRows }
-    /// The full rows (plus the tight 1pt insets) exceed the room the footer offers this tray. That room already
-    /// excludes the keyboard, so a request arriving while someone types is measured against the same room.
-    private var usesReviewOnlyRow: Bool { measuresNaturalRows && naturalRowsHeight + 2 > maximumHeight }
+    private var usesReviewOnlyRow: Bool { measuresNaturalRows && reviewOnly }
+    /// Collapse when the full rows (plus the tight 1pt insets) exceed the room the footer offers; that room already
+    /// excludes the keyboard, so a request arriving while someone types is measured the same way. Expand only once a
+    /// further caption line of room is free: the ticking activity line above the composer must not flip the tray.
+    private func updateReviewOnly() {
+        guard measuresNaturalRows else {
+            if reviewOnly { reviewOnly = false }
+            return
+        }
+        guard naturalRowsHeight > 0 else { return }
+        let needed = naturalRowsHeight + 2
+        if needed > maximumHeight {
+            if !reviewOnly { reviewOnly = true }
+        } else if needed <= maximumHeight - captionLineHeight {
+            if reviewOnly { reviewOnly = false }
+        }
+    }
     private var usesSingleRow: Bool {
         verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
     }

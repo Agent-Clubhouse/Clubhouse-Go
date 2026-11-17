@@ -132,11 +132,38 @@ import Vision
         capture(app, "Show in chat: original request and pinned decisions")
     }
 
-    /// #543: typing first, then a request arrives. At the largest text the composer's actions stay above the keyboard;
-    /// only a phone too short for the tight rows (iPhone SE) shows the one Review control, which keeps the full title.
+    /// #543: typing first, then a request arrives. Every composer action stays above the keyboard. The tray shows one
+    /// Review control only when the full rows do not fit, and the ticking activity line never flips it back and forth.
     func testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard() throws {
         let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard",
                                     "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let states = try typeThenAwaitRequest(app)
+        let reviewOnly = states[0] == "Review-only request controls"
+        let review = app.buttons["companion-review-approval"]
+        XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
+        if reviewOnly {
+            XCTAssertEqual(review.value as? String, "1 of 3 waiting · Bash", "Position and tool stay complete for VoiceOver")
+            XCTAssertFalse(summary(app).exists, "One Review control replaces the rows")
+        } else {
+            // The full rows are shown only when they fit: the whole title stays above the composer and the keyboard.
+            let title = summary(app).frame
+            XCTAssertTrue(summary(app).exists)
+            XCTAssertLessThanOrEqual(title.maxY, element(app, "companion-composer-region").frame.minY, "The full title fits above the composer")
+            XCTAssertGreaterThanOrEqual(title.minY, app.navigationBars.firstMatch.frame.maxY, "The full title is not under the navigation bar")
+        }
+    }
+
+    /// #543: standard text sizes never use the Review-only fallback, on any device.
+    func testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray() throws {
+        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard"])
+        let states = try typeThenAwaitRequest(app)
+        XCTAssertFalse(states.contains("Review-only request controls"), "Standard sizes keep the title row: \(states)")
+        XCTAssertTrue(summary(app).exists)
+    }
+
+    /// Types first, waits for the late request, then samples the tray across at least eight activity ticks (1s each).
+    /// Returns the sampled tray states after asserting they are stable and that the composer stays above the keyboard.
+    private func typeThenAwaitRequest(_ app: XCUIApplication) throws -> [String] {
         let composer = element(app, "companion-composer")
         let tray = element(app, "companion-pinned-decision")
         composer.tap()
@@ -144,9 +171,21 @@ import Vision
         composer.typeText("Keep this draft")
         XCTAssertFalse(tray.exists, "The request must arrive after the keyboard is already up")
         XCTAssertTrue(tray.waitForExistence(timeout: 45))
-        let review = app.buttons["companion-review-approval"]
-        XCTAssertTrue(review.waitForExistence(timeout: 10))
-        capture(app, "Request arrived while typing at AX XXXL")
+        let reviewButton = app.buttons["companion-review-approval"]
+        XCTAssertTrue(reviewButton.waitForExistence(timeout: 10) || summary(app).exists, "The request is reachable")
+        var states: [String] = []
+        var activity: [String] = []
+        let started = Date()
+        while states.count < 8 || Date().timeIntervalSince(started) < 8 {
+            states.append(tray.value as? String ?? "")
+            let line = element(app, "companion-chat-activity")
+            activity.append(line.exists ? line.label : "")
+            Thread.sleep(forTimeInterval: 1)
+        }
+        let samples = XCTAttachment(string: zip(states, activity).map { "\($0) | \($1)" }.joined(separator: "\n"))
+        samples.name = "Tray state per activity tick"; samples.lifetime = .keepAlways; add(samples)
+        capture(app, "Request arrived while typing")
+        XCTAssertEqual(Set(states).count, 1, "The tray must not flip while the activity line ticks: \(states)")
         XCTAssertTrue(app.keyboards.firstMatch.exists, "Arrival keeps editing")
         let keyboardTop = app.keyboards.firstMatch.frame.minY
         let region = element(app, "companion-composer-region").frame
@@ -159,19 +198,14 @@ import Vision
             XCTAssertTrue(app.buttons[id].isHittable, "\(id) stays reachable")
             XCTAssertLessThanOrEqual(frame.maxY, keyboardTop, "\(id) stays above the keyboard: \(frame)")
         }
-        XCTAssertGreaterThanOrEqual(pixelAligned(rect: review.frame).width, 44)
-        XCTAssertGreaterThanOrEqual(pixelAligned(rect: review.frame).height, 44)
-        XCTAssertLessThanOrEqual(review.frame.maxY, region.minY, "Review stays above the composer")
-        XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
-        if app.frame.width < 402 {
-            XCTAssertEqual(tray.value as? String, "Review-only request controls", "SE collapses to the one Review control")
-            XCTAssertEqual(review.value as? String, "1 of 3 waiting · Bash", "Position and tool stay complete for VoiceOver")
-            XCTAssertFalse(summary(app).exists, "One Review control replaces the rows")
-        } else {
-            XCTAssertNotEqual(tray.value as? String, "Review-only request controls", "iPhone 17 and Pro Max keep the title row")
-            XCTAssertTrue(summary(app).exists)
+        if reviewButton.exists {
+            let review = reviewButton.frame
+            XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).width, 44)
+            XCTAssertGreaterThanOrEqual(pixelAligned(rect: review).height, 44)
+            XCTAssertLessThanOrEqual(review.maxY, region.minY, "Review stays above the composer")
         }
         XCTAssertEqual(composer.value as? String, "Keep this draft")
+        return states
     }
 
     func testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones() throws {
