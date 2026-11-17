@@ -41,7 +41,14 @@ struct CompanionDesktopChips: View {
 
     private var available: [CompanionHost] { Self.uniqueHosts(hosts) }
 
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
+
     var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.chips, when: countsHomeBuilds)
+        #endif
         Group {
             if available.count >= 2 {
                 ScrollView(.horizontal) {

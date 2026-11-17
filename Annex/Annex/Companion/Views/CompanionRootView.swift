@@ -68,7 +68,9 @@ struct CompanionRootView: View {
                 stack(.home) {
                     CompanionHomeView(store: store, preferences: preferences, onPair: { navigation.interact(); onPair() }, onSettings: { navigation.interact(); CompanionUIActions.record(.openSettings, on: .home); onSettings() },
                                       onNewAgent: { target, hostID in navigation.interact(); spawnLaunch = .init(project: target, hostID: hostID) }, isPreview: isPreview,
-                                      onInteraction: { navigation.interact() })
+                                      onInteraction: { navigation.interact() },
+                                      isVisible: navigation.tab == .home,
+                                      isPushed: !(navigation.paths[.home] ?? []).isEmpty)
                 }
             }
             if navigation.tabs.contains(.dispatcher) {
@@ -136,6 +138,9 @@ struct CompanionRootView: View {
         .onChange(of: CompanionDispatcherLaunchInbox.shared.pending, initial: true) { _, _ in handleDispatcherLaunch() }
         .onChange(of: externalLaunchReady) { _, _ in handleDispatcherLaunch() }
         .onChange(of: navigation.dispatcherDesktops) { _, _ in handleDispatcherLaunch() }
+        #if DEBUG
+        .onAppear { CompanionHomeBuildProbe.navigation?($navigation) }
+        #endif
         .modifier(CompanionHelperStartAlerts(store: store))
         .task { store.start(); mirrorSelection() }
         .onChange(of: navigation.tab) { _, _ in mirrorSelection() }
@@ -401,6 +406,8 @@ struct CompanionHomeView: View {
     var onNewAgent: (CompanionProjectTarget, String?) -> Void
     var isPreview = false
     var onInteraction: () -> Void = {}
+    var isVisible = true
+    var isPushed = false
     #if DEBUG
     var hostedProjectMenu: ((CompanionLinkedProjectStateMenuItems) -> Void)? = nil
     #endif
@@ -420,16 +427,60 @@ struct CompanionHomeView: View {
     @State private var wakingProject: CompanionProjectTarget?
     @State private var pendingProjectWake: (target: CompanionTarget, message: String)?
     @State private var finishedActionError: String?
-    /// The order rows were in when a scroll began. A changing Recent order waits until the list settles.
+    /// Recent peers keep their order for the entire Home tab session, including pushed routes.
     @State private var hold: CompanionListHold?
+    @State private var heldScope: CompanionDesktopSelection = .all
+    @State private var heldSort: CompanionProjectSort = .recent
+    @State private var holdGeneration: UInt64 = 0
+    @StateObject private var renderSession = CompanionHomeRenderSession()
+    // Lazy List closures can retain earlier Home value copies. All copies consult the same
+    // non-observable session so none can fall back to live Store reads during a push.
+    fileprivate var display: CompanionHomeRenderSnapshot? { renderSession.snapshot }
+    private var frozenInputs: CompanionHomeRenderSnapshot? { display }
+    private var frozenActions: CompanionHomeFrozenActions? { renderSession.actions }
+    @State private var arrangingEntries: [CompanionProjectEntry] = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionTerminal) private var terminal
+    @Environment(\.companionAgentSettings) private var agentSettings
+    @Environment(\.companionAgentWake) private var agentWake
+    @Environment(\.companionOpenAgent) private var openAgent
+    @Environment(\.companionOpenReview) private var openReview
+    @Environment(\.scenePhase) private var scenePhase
 
-    private var scope: CompanionHomeScope { .init(hosts: store.hosts, selectedHostID: desktopSelection.hostID) }
+    private var renderHosts: [CompanionHost] { display?.hosts ?? store.hosts }
+    private var renderEntries: [CompanionProjectEntry] { display?.entries ?? store.projectEntries }
+    private func renderFinished(_ target: CompanionProjectTarget) -> [CompanionFinishedRun] {
+        if let display { return display.finished[target] ?? [] }
+        return store.finished(in: target)
+    }
+    private func renderState(_ target: CompanionProjectTarget) -> CompanionProjectState? {
+        if let display { return display.states[target]?.state }
+        return store.sharedProjectState(target)
+    }
+    private func renderLinked(_ entry: CompanionProjectEntry) -> CompanionProjectState? {
+        if let display { return display.linkedStates[entry.orderKey]?.state }
+        return store.linkedProjectState(entry)
+    }
+    private func renderHasAgent(_ target: CompanionTarget) -> Bool {
+        if let display { return display.agents.contains(target) }
+        return store.agent(for: target) != nil
+    }
+
+    private var scope: CompanionHomeScope {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.scope)
+        #endif
+        return .init(hosts: renderHosts, selectedHostID: desktopSelection.hostID)
+    }
     private var scopedHosts: [CompanionHost] { scope.hosts }
-    private var scopedAttention: [CompanionAttentionItem] { store.attentionItems().filter { scope.contains($0.agent.id) } }
+    private var scopedAttention: [CompanionAttentionItem] {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.attention)
+        #endif
+        return (display?.attention ?? store.attentionItems()).filter { scope.contains($0.agent.id) }
+    }
     private var multipleHosts: Bool { scope.showsHostTags }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
     private func isListed(_ host: CompanionHost) -> Bool {
@@ -437,8 +488,104 @@ struct CompanionHomeView: View {
     }
 
     var body: some View {
-        List {
-            if !store.hosts.isEmpty {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.record?(.owner)
+        #endif
+        // Freeze synchronously before constructing any pushed List content; no onChange gap.
+        let _ = renderSession.prepare(visible: isVisible, pushed: isPushed) {
+            let snapshot = makeFrozenInputs()
+            let live = CompanionHomeFrozenActions(settings: agentSettings, wake: agentWake, terminal: terminal,
+                                                  openAgent: openAgent, openReview: openReview)
+            return (snapshot, live.capturingDisplay(snapshot, store: store))
+        }
+        // A concrete owner keeps pending Home sheets alive across content removal.
+        VStack(spacing: 0) {
+            if isVisible {
+                CompanionHomeContent(home: self, layout: layout).equatable()
+                    // Environment readers belong ABOVE the equality boundary. They cannot leave
+                    // live Store dependencies registered on the frozen content or its rows.
+                    .modifier(CompanionHomeRowInputs(store: store, snapshot: isPushed ? frozenInputs : nil,
+                        impliedHostID: isPushed ? frozenInputs?.rowContext.impliedHostID : scope.impliedHostID,
+                        actions: isPushed ? frozenActions : nil))
+                    .tint(Color((isPushed ? frozenInputs?.palette : nil)?.tint ?? palette.tint))
+                    .foregroundStyle(Color((isPushed ? frozenInputs?.palette : nil)?.label ?? palette.label))
+            }
+            else { Color.clear }
+        }
+        .onChange(of: isVisible, initial: true) { _, visible in
+            if !visible { hold = nil; holdGeneration &+= 1 }
+            #if DEBUG
+            CompanionHomeBuildProbe.visibility?(visible)
+            #endif
+        }
+        .onChange(of: isPushed, initial: true) { wasPushed, pushed in
+            // Project pages already expose this inline; Back must not replay it as a Home alert.
+            if wasPushed && !pushed { store.projectStateError = nil }
+        }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .background { hold = nil; holdGeneration &+= 1 }
+            #if DEBUG
+            CompanionHomeBuildProbe.phase?(phase)
+            #endif
+        }
+        .onChange(of: desktopSelection) { _, _ in hold = nil; holdGeneration &+= 1 }
+        .onChange(of: preferences.projectSort) { _, _ in hold = nil; holdGeneration &+= 1 }
+        .navigationTitle("Clubhouse")
+        .alert("Couldn't change the project", isPresented: Binding(get: { isVisible && !isPushed && frozenInputs == nil && store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
+            Button("OK", role: .cancel) {}
+        } message: { Text(store.projectStateError ?? "") }
+        .toolbar { homeToolbar }
+        .sheet(isPresented: $arranging) {
+            CompanionArrangeProjectsView(preferences: preferences, entries: arrangingEntries)
+        }
+        .sheet(item: $infoProject) { target in
+            CompanionProjectInfoSheet(store: store, project: target)
+        }
+        .sheet(item: $choosingProjectAction, onDismiss: completeProjectChoice) { launch in
+            CompanionProjectMachineChooser(store: store, project: launch.project, selection: launch.selection,
+                                           action: launch.action, screen: .home) { target in
+                pendingProjectChoice = (launch.action, target)
+                choosingProjectAction = nil
+            }
+        }
+        .sheet(item: $wakingProject, onDismiss: completeProjectWake) { target in
+            CompanionWakeSheet(store: store, project: target) { pendingProjectWake = ($0, $1) }
+        }
+    }
+
+    @ToolbarContentBuilder private var homeToolbar: some ToolbarContent {
+        ToolbarItem(placement: .topBarLeading) {
+            Button("Settings", systemImage: "gearshape", action: onSettings).companionToolbarSecondary()
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button("New agent", systemImage: "plus") {
+                // Existing launch semantics; no unrelated action-authority changes in this PR.
+                let current = layout
+                if let entry = (current.projects + current.idle).map(\.entry).first(where: \.canSpawn) {
+                    onNewAgent(entry.id, scope.selectedHostID)
+                }
+            }
+            .labelStyle(.iconOnly).buttonStyle(.glassProminent).buttonBorderShape(.circle)
+            .companionProminentLabel()
+            .disabled(!isVisible || isPushed || !scopedHosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
+            .keyboardShortcut("n", modifiers: .command)
+        }
+    }
+
+    // Evaluate the live projection in the owner, not under the content observation scope.
+    // A pushed content body must not retain the live conversation-activity subscription.
+    fileprivate func content(_ layout: CompanionHomeLayout) -> some View {
+        let renderedScope = desktopSelection, renderedSort = preferences.projectSort
+        let renderedGeneration = holdGeneration
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.record?(.content)
+        let _ = CompanionHomeBuildProbe.renderedSort?(renderedSort)
+        let _ = CompanionHomeBuildProbe.projection?(layout)
+        let _ = CompanionHomeBuildProbe.frozen?(display != nil)
+        let _ = CompanionHomeBuildProbe.frame?(display != nil, CompanionConnectionNotice(hosts: presentationHosts).title)
+        #endif
+        return List {
+            if !renderHosts.isEmpty {
                 summary
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -449,12 +596,12 @@ struct CompanionHomeView: View {
             }
             // Keep the scope owner mounted when the visible chip row disappears;
             // removing a selected desktop must restore All before filtering Home.
-            CompanionDesktopChips(hosts: store.hosts, selection: $desktopSelection, onSelect: onInteraction)
+            CompanionDesktopChips(hosts: renderHosts, selection: $desktopSelection, onSelect: onInteraction)
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
             if isPreview { CompanionPreviewLabel().listRowBackground(Color.clear) }
-            if store.hosts.isEmpty {
+            if renderHosts.isEmpty {
                 ContentUnavailableView {
                     Label("Pair a desktop", systemImage: "laptopcomputer")
                 } description: {
@@ -472,14 +619,14 @@ struct CompanionHomeView: View {
                     CompanionAppUpdateLink(store: store, host: presentationHost(host))
                 }
                 if CompanionConnectionNotice(hosts: scopedHosts).isVisible {
-                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home", presentationHosts: presentationHosts)
+                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home", presentationHosts: presentationHosts, capturedHosts: display?.hosts)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
                 }
                 needsYou
                 dispatchers
-                projects
-                if let error = finishedActionError ?? store.finishedError {
+                projects(layout)
+                if let error = finishedActionError ?? (display != nil ? display?.finishedError : store.finishedError) {
                     Text(error).foregroundStyle(Color(palette.warning))
                         .accessibilityIdentifier("home-finished-error")
                 }
@@ -487,76 +634,146 @@ struct CompanionHomeView: View {
         }
         .companionListStyle()
         .companionTelemetryScreen(.home)
-        .companionAgentRows(store: store, impliedHostID: scope.impliedHostID)
-        .onChange(of: desktopSelection) { _, _ in hold = nil }
-        .onAppear { observeConnectedHosts(store.hosts) }
-        .onChange(of: store.hosts) { _, hosts in
+        #if DEBUG
+        .environment(\.companionHomeBuildCounting, true)
+        #endif
+        .onChange(of: layout.hold, initial: true) { _, current in
+            if !isPushed && scenePhase == .active && preferences.projectSort == .recent { setHold(current, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
+        }
+        .onChange(of: !isPushed && scenePhase == .active && hold == nil, initial: true) { _, needsSnapshot in
+            if needsSnapshot && preferences.projectSort == .recent { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
+        }
+        .onAppear {
+            observeConnectedHosts(renderHosts)
+            expandedOfflineHosts.formIntersection(Set(renderHosts.map(\.id)))
+        }
+        .onAppear {
+            #if DEBUG
+            CompanionHomeBuildProbe.state?($desktopSelection)
+            #endif
+        }
+        .onChange(of: renderHosts) { _, hosts in
             observeConnectedHosts(hosts)
             expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
         }
         .onScrollPhaseChange { _, phase in
             if phase == .interacting { onInteraction() }
-            if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
-            else if hold == nil { hold = layout.hold }
+            if preferences.projectSort != .recent {
+                if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
+                else if hold == nil { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
+            }
         }
         .animation(reduceMotion ? nil : .snappy, value: layout.hold)
-        .navigationTitle("Clubhouse")
-        .alert("Couldn't change the project", isPresented: Binding(get: { store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
-            Button("OK", role: .cancel) {}
-        } message: { Text(store.projectStateError ?? "") }
-        .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button("Settings", systemImage: "gearshape", action: onSettings)
-                    .companionToolbarSecondary()
+    }
+
+    private func renderCanWake(_ member: CompanionProjectMember) -> Bool {
+        if let display { return display.wakeProjects.contains(member.id) }
+        return CompanionProjectMachineAction.wake.isAvailable(member, store: store, terminal: terminal)
+    }
+
+    private func renderTerminal(_ target: CompanionTerminalScope) -> CompanionTerminalAvailability {
+        if let display { return display.terminal[target] ?? .hidden }
+        return terminal?.availability(target) ?? .hidden
+    }
+
+    /// Capture only on entering a pushed route, never on a streamed chunk. No commands/authority are cached.
+    private func makeFrozenInputs() -> CompanionHomeRenderSnapshot {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.snapshot)
+        #endif
+        let hosts = store.hosts, entries = store.projectEntries
+        let layout = layout, scoped = scope, attention = scopedAttention
+        let shown = layout.projects + (preferences.idleExpanded ? layout.idle : [])
+        let full = Dictionary(entries.map { ($0.orderKey, $0) }, uniquingKeysWith: { first, _ in first })
+        var finished: [CompanionProjectTarget: [CompanionFinishedRun]] = [:]
+        var states: [CompanionProjectTarget: CompanionProjectMenuDisplay] = [:]
+        var linked: [String: CompanionProjectMenuDisplay] = [:]
+        var activity: [CompanionProjectTarget: Date] = [:]
+        var terminals: [CompanionTerminalScope: CompanionTerminalAvailability] = [:]
+        var wakeProjects: Set<CompanionProjectTarget> = []
+        // The closed idle footer still needs the shared-state presence, but not agent predicates or menus.
+        for group in layout.projects + layout.idle {
+            for member in group.entry.members { states[member.id] = .init(state: store.sharedProjectState(member.id)) }
+        }
+        var rowAgents: [CompanionTarget: CompanionAgent] = [:]
+        for group in shown {
+            let entry = group.entry, catalog = full[group.entry.orderKey] ?? group.entry
+            linked[entry.orderKey] = .init(state: store.linkedProjectState(catalog),
+                canChange: store.canChangeLinkedProjectState(catalog), connectionHint: store.linkedProjectStateConnectionHint(catalog))
+            for member in entry.members {
+                finished[member.id] = store.finished(in: member.id)
+                states[member.id] = .init(state: states[member.id]?.state, lastActivity: catalog.isLinked ? nil : store.lastActivity(for: member.id))
+                activity[member.id] = projectActivity(member.id)
+                terminals[.project(member.id)] = terminal?.availability(.project(member.id)) ?? .hidden
+                if renderCanWake(member) { wakeProjects.insert(member.id) }
             }
-            ToolbarItem(placement: .topBarTrailing) {
-                Button("New agent", systemImage: "plus") {
-                    // Start in the project at the top of Home, not the desktop's first.
-                    if let entry = (layout.projects + layout.idle).map(\.entry).first(where: \.canSpawn) { onNewAgent(entry.id, scope.selectedHostID) }
-                }
-                .labelStyle(.iconOnly)
-                .buttonStyle(.glassProminent)
-                .buttonBorderShape(.circle)
-                .companionProminentLabel()
-                .disabled(!scopedHosts.contains { $0.connection.canOperate && $0.canSpawn && !$0.projects.isEmpty })
-                .keyboardShortcut("n", modifiers: .command)
-            }
+            let key = "quiet:" + quietKey(group)
+            let rows = group.tree.active + (preferences.expandedFolds.contains(key) ? group.tree.sleeping + group.tree.finishedQuick : [])
+            for row in group.tree.visible(rows, collapsed: preferences.collapsedAgents(in: rows)) { rowAgents[row.id] = row.agent }
         }
-        .sheet(isPresented: $arranging) {
-            CompanionArrangeProjectsView(preferences: preferences, entries: orderedProjects)
+        for item in attention { rowAgents[item.agent.id] = item.agent }
+        for host in scoped.hosts where isListed(host) && host.dispatcher?.isVisible == true {
+            if let agent = host.dispatcherAgent { rowAgents[agent.id] = agent }
         }
-        .sheet(item: $infoProject) { target in
-            CompanionProjectInfoSheet(store: store, project: target)
+        var settings: Set<CompanionTarget> = []
+        var wake: [CompanionTarget: [CompanionWakeChoice]] = [:]
+        var dispatcherActivity: [CompanionTarget: CompanionCapturedActivity] = [:]
+        // Only rows actually represented in this scope/layout/open folds get per-agent Store predicates.
+        for agent in rowAgents.values {
+            if agentSettings?.canOpen(agent.id) == true { settings.insert(agent.id) }
+            wake[agent.id] = agentWake?.choices(agent.id) ?? []
+            terminals[.agentShell(agent.id)] = terminal?.availability(.agentShell(agent.id)) ?? .hidden
+            if agent.isDispatcher { dispatcherActivity[agent.id] = .init(date: store.lastActivity(of: agent)) }
         }
-        .sheet(item: $choosingProjectAction, onDismiss: completeProjectChoice) { launch in
-            CompanionProjectMachineChooser(store: store, project: launch.project, selection: launch.selection,
-                                           action: launch.action, screen: .home) { target in
-                pendingProjectChoice = (launch.action, target)
-                choosingProjectAction = nil
-            }
-        }
-        .sheet(item: $wakingProject, onDismiss: completeProjectWake) { target in
-            CompanionWakeSheet(store: store, project: target) { pendingProjectWake = ($0, $1) }
-        }
+        #if DEBUG
+        CompanionHomeBuildProbe.snapshotAgents?(rowAgents.count)
+        #endif
+        return .init(hosts: hosts, palette: palette,
+            helperLabels: Dictionary(hosts.map { ($0.id, $0.helperRoutingLabels) }, uniquingKeysWith: { first, _ in first }),
+            entries: entries, layout: layout, attention: attention,
+            rowContext: .init(hostNames: Dictionary(hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
+                impliedHostID: scoped.impliedHostID, projectAccessDefaults: store.projectAccessDefaults, agentAccessDefaults: store.agentAccessDefaults),
+            finished: finished, finishedError: store.finishedError, states: states, linkedStates: linked,
+            projectActivity: activity, dispatcherActivity: dispatcherActivity, agents: Set(hosts.flatMap(\.allAgents).map(\.id)),
+            settings: settings, wake: wake, terminal: terminals, wakeProjects: wakeProjects)
+    }
+
+    private func setHold(_ next: CompanionListHold, scope: CompanionDesktopSelection, sort: CompanionProjectSort, generation: UInt64) {
+        // A callback from the previous render must not relabel its old ordering as a new session.
+        guard generation == holdGeneration, scope == desktopSelection, sort == preferences.projectSort else { return }
+        heldScope = scope
+        heldSort = sort
+        if hold != next { hold = next }
+    }
+
+    private func linkedQuiet(_ entry: CompanionProjectEntry) -> CompanionHomeLinkedRows {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.quiet)
+        #endif
+        return .init(entry: entry, finished: renderFinished)
+    }
+
+    private func quietKey(_ group: CompanionProjectGroup) -> String {
+        group.entry.isLinked ? group.entry.orderKey : "\(group.entry.host.id)-\(group.entry.project.id)"
     }
 
     private var presentationHosts: [CompanionHost] { scopedHosts.map(presentationHost) }
 
     private func presentationHost(_ host: CompanionHost) -> CompanionHost {
-        guard store.hosts.count == 1 else { return host }
+        guard renderHosts.count == 1 else { return host }
         var display = host
         display.name = "This desktop"
         return display
     }
 
     private func machineLabel(_ entry: CompanionProjectEntry, _ member: CompanionProjectMember) -> String {
-        store.hosts.count == 1 ? member.project.name : entry.label(for: member)
+        renderHosts.count == 1 ? member.project.name : entry.label(for: member)
     }
 
     /// The first scrolling content row: the native title slot cannot fit the full summary at XXXL.
     private var summary: Text {
         let counts = CompanionHomeSummary(hosts: scopedHosts, needsYou: scopedAttention.count)
-        let connection = CompanionHomeSummary(hosts: store.hosts, needsYou: 0).connectionLabel
+        let connection = CompanionHomeSummary(hosts: renderHosts, needsYou: 0).connectionLabel
         let workingDot = Text("●").font(.caption2).foregroundColor(Color(palette.success))
         let attentionDot = Text("●").font(.caption2).foregroundColor(Color(palette.warning))
         let working = Text(counts.workingLabel).foregroundColor(Color(palette.secondaryLabel))
@@ -594,7 +811,7 @@ struct CompanionHomeView: View {
         }
     }
 
-    private var listedEntries: [CompanionProjectEntry] { scope.projects(store.projectEntries).filter { scope.selectedHostID != nil || $0.members.contains { isListed($0.host) } } }
+    private var listedEntries: [CompanionProjectEntry] { scope.projects(renderEntries).filter { scope.selectedHostID != nil || $0.members.contains { isListed($0.host) } } }
 
     /// Each listed desktop's Dispatcher while it's on: a pinned row above the projects, as on the desktop's sidebar.
     @ViewBuilder private var dispatchers: some View {
@@ -602,7 +819,7 @@ struct CompanionHomeView: View {
         if !shown.isEmpty {
             Section {
                 ForEach(shown) { host in
-                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil)
+                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: display?.dispatcherActivity[host.dispatcherAgent?.id ?? .init(hostID: host.id, projectID: "", agentID: "")], capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
                         .listRowBackground(CompanionCardBackground())
                 }
             }
@@ -620,22 +837,26 @@ struct CompanionHomeView: View {
     /// Agent and chat activity, plus the project's own activity: the desktop's when it shares project state,
     /// otherwise the last time it was marked active here.
     private func projectActivity(_ target: CompanionProjectTarget) -> Date? {
-        let marked = store.sharedProjectState(target).map(\.lastActivity) ?? preferences.projectActivity[CompanionProjectOrdering.key(target)]
-        let agents = store.hosts.first { $0.id == target.hostID }?.projects.first { $0.id == target.projectID }?.agents ?? []
+        if let display { return display.projectActivity[target] }
+        let marked = renderState(target).map(\.lastActivity) ?? preferences.projectActivity[CompanionProjectOrdering.key(target)]
+        let agents = renderHosts.first { $0.id == target.hostID }?.projects.first { $0.id == target.projectID }?.agents ?? []
         // Recorded catalog/turn times are stable between reports; per-tool chat timestamps churn.
         return ([marked] + agents.flatMap { [$0.lastActivity, $0.turnStartedAt] })
             .compactMap { $0 }.filter { $0.timeIntervalSinceReferenceDate.isFinite }.max()
     }
 
     private var layout: CompanionHomeLayout {
-        CompanionHomeLayout.build(listedEntries, sort: preferences.projectSort, customOrder: preferences.projectOrder,
-                                  rule: preferences.idleRule, hold: hold, shared: { store.sharedProjectState($0.id) },
+        if let display { return display.layout }
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.layout)
+        #endif
+        return CompanionHomeLayout.build(listedEntries, sort: preferences.projectSort, customOrder: preferences.projectOrder,
+                                  rule: preferences.idleRule, hold: heldScope == desktopSelection && heldSort == preferences.projectSort ? hold : nil, shared: { renderState($0.id) },
                                   projectActivity: projectActivity, agentActivity: store.lastActivity(of:))
     }
 
-    @ViewBuilder private var projects: some View {
-        let layout = layout
-        let parentLines = CompanionAgentTree.parentLines(hosts: store.hosts)
+    @ViewBuilder private func projects(_ layout: CompanionHomeLayout) -> some View {
+        let parentLines = CompanionAgentTree.parentLines(hosts: renderHosts)
         Section {
         } header: {
             VStack(alignment: .leading, spacing: 8) {
@@ -677,7 +898,7 @@ struct CompanionHomeView: View {
                 ForEach(CompanionProjectSort.allCases) { Text($0.label).tag($0) }
             }
             if preferences.projectSort == .custom {
-                Button("Arrange projects…", systemImage: "line.3.horizontal") { arranging = true }
+                Button("Arrange projects…", systemImage: "line.3.horizontal") { arrangingEntries = orderedProjects; arranging = true }
             }
         } label: {
             CompanionAccessoryLabel(title: preferences.projectSort.label, isMenu: true)
@@ -696,9 +917,9 @@ struct CompanionHomeView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(CompanionCardBackground())
             if entry.isLinked {
-                CompanionHomeLinkedProjectRows(group: group, quiet: .init(entry: entry, finished: store.finished(in:)),
+                CompanionHomeLinkedProjectRows(group: group, quiet: linkedQuiet(entry),
                     preferences: preferences, parentLines: parentLines, onDismissFinished: dismissFinished,
-                    onClearFinished: clearFinished, canOpenFinished: { store.agent(for: $0) != nil })
+                    onClearFinished: clearFinished, canOpenFinished: { renderHasAgent($0) })
                 ForEach(entry.members.filter { !$0.host.connection.canOperate }) { member in
                     offlineMember(entry, member)
                 }
@@ -715,6 +936,9 @@ struct CompanionHomeView: View {
     }
 
     private func projectHeader(_ group: CompanionProjectGroup) -> some View {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.header)
+        #endif
         let entry = group.entry
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         // Bound the Debug builder's generic value storage. Reuse one erased menu for
@@ -741,7 +965,7 @@ struct CompanionHomeView: View {
         return AnyView(HStack(spacing: 6) {
             CompanionProjectBadge(project: entry.project)
                 .overlay(alignment: .bottomTrailing) {
-                    if let state = CompanionHomeProjectActivity(entry: entry, recordedProjectActivity: projectActivity).status {
+                    if let state = group.liveStatus {
                         Circle().fill(Color(state.dot.color(in: palette))).frame(width: 8, height: 8)
                             .accessibilityHidden(true)
                     }
@@ -793,7 +1017,7 @@ struct CompanionHomeView: View {
 
     private func lastSeen(_ host: CompanionHost) -> Date? {
         // Presence is read-only context. Never infer desktop reachability from an agent's activity.
-        let reported = store.hosts.flatMap { $0.dispatcherPresence?.remotes ?? [] }
+        let reported = renderHosts.flatMap { $0.dispatcherPresence?.remotes ?? [] }
             .filter { $0.machineId.caseInsensitiveCompare(host.id) == .orderedSame }
             .compactMap { remote in remote.lastSeen.flatMap {
                 (try? Date.ISO8601FormatStyle(includingFractionalSeconds: true).parse($0))
@@ -824,7 +1048,7 @@ struct CompanionHomeView: View {
         if expanded {
             ForEach(cached) { agent in
                 CompanionAgentListRow(agent: agent)
-                    .companionAgentRows(store: store, impliedHostID: member.host.id)
+                    .modifier(CompanionHomeRowInputs(store: store, snapshot: display, impliedHostID: member.host.id, actions: display == nil ? nil : frozenActions))
                     .environment(\.companionAgentSettings, nil)
                     .environment(\.companionAgentWake, nil)
                     .environment(\.companionTerminal, nil)
@@ -839,13 +1063,13 @@ struct CompanionHomeView: View {
 
     @ViewBuilder private func projectRows(tree: CompanionAgentTree, projectID: String, target: CompanionProjectTarget,
                                           parentLines: [CompanionTarget: String]) -> some View {
-        let runs = store.finished(in: target)
+        let runs = renderFinished(target)
         CompanionAgentTreeRows(tree: tree, rows: tree.active, preferences: preferences, parentLines: parentLines)
         CompanionAgentTreeQuietFold(projectID: projectID, tree: tree, preferences: preferences,
                                    parentLines: parentLines, finishedRuns: runs,
                                    onDismissFinished: dismissFinished,
                                    onClearFinished: { clearFinished(target) },
-                                   canOpenFinished: { store.agent(for: $0) != nil })
+                                   canOpenFinished: { renderHasAgent($0) })
         if tree.all.isEmpty && runs.isEmpty {
             Text("No agents yet").foregroundStyle(Color(palette.secondaryLabel))
                 .listRowBackground(CompanionCardBackground())
@@ -879,7 +1103,7 @@ struct CompanionHomeView: View {
     /// The idle window the folded projects use: their desktop's when it shares project state, else this phone's.
     private func idleFooter(_ idle: [CompanionProjectGroup]) -> String {
         let windows = Set(idle.map { group in
-            store.sharedProjectState(group.id) != nil ? group.entry.host.idleDays : preferences.idleDays
+            renderState(group.id) != nil ? group.entry.host.idleDays : preferences.idleDays
         })
         guard windows.count == 1, let days = windows.first ?? nil else { return "No recent activity, or marked inactive." }
         return days > 0 ? "No activity for \(days) days, or marked inactive." : "Marked inactive."
@@ -888,17 +1112,18 @@ struct CompanionHomeView: View {
     /// Home shares Wake/Info with Project; linked state always follows the catalog's group contract.
     @ViewBuilder private func projectContextMenuItems(_ group: CompanionProjectGroup) -> some View {
         let entry = group.entry
-        let catalogEntry = store.projectEntry(containing: entry.id) ?? entry
+        let catalogEntry = renderEntries.first { $0.members.contains { $0.id == entry.id } } ?? entry
         CompanionProjectMenuItems(store: store, preferences: preferences, entry: catalogEntry,
-            canWake: entry.members.contains { CompanionProjectMachineAction.wake.isAvailable($0, store: store, terminal: terminal) },
+            canWake: entry.members.contains { renderCanWake($0) },
+            capturedDisplay: display?.states[entry.id],
             onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
-        if store.linkedProjectState(catalogEntry) != nil {
+        if renderLinked(catalogEntry) != nil {
             linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
         } else if entry.isLinked {
             // Old hosts retain their per-copy state and days-idle rule.
             ForEach(entry.members) { member in
                 let single = CompanionProjectEntry(host: member.host, project: member.project)
-                let state = store.sharedProjectState(member.id)
+                let state = renderState(member.id)
                 Menu(machineLabel(entry, member)) {
                     projectMenuItems(.init(entry: single,
                         isPinned: state?.pinned ?? preferences.pinnedProjects.contains(single.orderKey),
@@ -909,17 +1134,17 @@ struct CompanionHomeView: View {
                 .disabled(state != nil && !member.host.connection.canOperate)
             }
         } else if catalogEntry.isLinked { projectMenuItems(group) }
-        if entry.members.contains(where: { terminal?.availability(.project($0.id)).isShown == true }) {
+        if entry.members.contains(where: { renderTerminal(.project($0.id)).isShown }) {
             Button("Terminal", systemImage: "terminal") {
                 CompanionUIActions.record(.openProjectTerminal, on: .home)
                 beginProjectAction(.terminal, entry: entry)
             }
-            .disabled(!entry.members.contains { CompanionProjectMachineAction.terminal.isAvailable($0, store: store, terminal: terminal) })
+            .disabled(!entry.members.contains { renderTerminal(.project($0.id)).isAvailable })
         }
     }
 
     private func linkedStateMenu(entry: CompanionProjectEntry, isIdle: Bool) -> CompanionLinkedProjectStateMenuItems {
-        let menu = CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: isIdle)
+        let menu = CompanionLinkedProjectStateMenuItems(store: store, entry: entry, isIdle: isIdle, capturedDisplay: display?.linkedStates[entry.orderKey])
         #if DEBUG
         hostedProjectMenu?(menu)
         #endif
@@ -958,7 +1183,7 @@ struct CompanionHomeView: View {
 
     private func projectMenuItems(_ group: CompanionProjectGroup, expectedLinkID: String? = nil) -> some View {
         let key = group.entry.orderKey, project = group.id
-        let shared = store.sharedProjectState(project)
+        let shared = renderState(project)
         let isMarked = shared?.inactive ?? preferences.inactiveProjects.contains(key)
         func change(local: @escaping () -> Void, remote: @escaping () async -> Void) {
             guard let current = store.resolveProjectActionEntry(containing: project, expectedLinkID: expectedLinkID ?? group.entry.linkID),
@@ -981,6 +1206,17 @@ struct CompanionHomeView: View {
             }
         }
     }
+}
+
+/// On a push install captured display inputs once; subsequent parent updates do not rebuild the List.
+/// Descendants receive value presentation inputs; residual child/event rebuilds are tracked in #557.
+private struct CompanionHomeContent: View, Equatable {
+    let home: CompanionHomeView
+    let layout: CompanionHomeLayout
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.home.isPushed && rhs.home.isPushed && lhs.home.display != nil && rhs.home.display != nil
+    }
+    var body: some View { home.content(layout) }
 }
 
 /// A concrete boundary keeps the Home header's menu out of its inline generic row type.
@@ -1071,13 +1307,65 @@ struct CompanionDispatcherRow: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
     var hostTag: String?
-    @Environment(\.companionOpenAgent) private var openAgent
-    @Environment(\.companionPalette) private var palette
+    var capturedActivity: CompanionCapturedActivity? = nil
+    /// Home passes the captured execution handle explicitly. The frozen branch has no
+    /// open-agent Environment reader for Root's changing closure to invalidate directly.
+    var capturedOpenAgent: (@MainActor (CompanionTarget) -> Void)? = nil
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
 
     var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.row, when: countsHomeBuilds)
+        #endif
+        if let capturedOpenAgent {
+            CompanionDispatcherRowContent(host: host, hostTag: hostTag,
+                detail: detail, openAgent: capturedOpenAgent)
+        } else {
+            CompanionLiveDispatcherRow(host: host, hostTag: hostTag, detail: detail)
+        }
+    }
+
+    private var detail: String? {
+        guard let agent = host.dispatcherAgent else { return nil }
+        if let note = host.dispatcher?.statusNote { return note }
+        if let message = agent.detail?.message, !message.isEmpty { return message }
+        let value: Date?
+        if let capturedActivity { value = capturedActivity.date }
+        else { value = store.lastActivity(of: agent) }
+        return value?.formatted(.relative(presentation: .named))
+    }
+}
+
+/// Nil/default callers keep the existing live Environment action, including Dispatch.
+private struct CompanionLiveDispatcherRow: View {
+    let host: CompanionHost
+    let hostTag: String?
+    let detail: String?
+    @Environment(\.companionOpenAgent) private var openAgent
+    var body: some View {
+        CompanionDispatcherRowContent(host: host, hostTag: hostTag, detail: detail, openAgent: openAgent)
+    }
+}
+
+private struct CompanionDispatcherRowContent: View {
+    let host: CompanionHost
+    let hostTag: String?
+    let detail: String?
+    let openAgent: @MainActor (CompanionTarget) -> Void
+    @Environment(\.companionPalette) private var palette
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
+
+    var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.dispatcherContent, when: countsHomeBuilds)
+        #endif
         if let agent = host.dispatcherAgent {
             Button { openAgent(agent.id) } label: {
-                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: host.dispatcher?.statusNote ?? activity(agent))
+                CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: detail)
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("dispatcher-row-\(host.id)")
@@ -1095,13 +1383,6 @@ struct CompanionDispatcherRow: View {
             .accessibilityElement(children: .combine)
             .accessibilityIdentifier("dispatcher-row-pending-\(host.id)")
         }
-    }
-
-    /// "Asked Atlas to fix the build", or when it was last active.
-    private func activity(_ agent: CompanionAgent) -> String? {
-        if let message = agent.detail?.message, !message.isEmpty { return message }
-        guard let date = store.lastActivity(of: agent) else { return nil }
-        return date.formatted(.relative(presentation: .named))
     }
 }
 

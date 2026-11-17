@@ -30,7 +30,7 @@ struct CompanionAgentStatusLine: Equatable {
     }
 }
 
-struct CompanionAgentRowContext {
+struct CompanionAgentRowContext: Equatable {
     var hostNames: [String: String] = [:]
     var impliedHostID: String?
     var projectOriginLabels: [CompanionProjectTarget: String] = [:]
@@ -185,6 +185,10 @@ struct CompanionAgentTreeQuietFold: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.companionAgentRowContext) private var rowContext
 
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
+
     var retainedRuns: [CompanionFinishedRun] {
         var seen: Set<CompanionTarget> = []
         return (finishedRuns ?? []).filter { seen.insert($0.target).inserted }
@@ -209,6 +213,9 @@ struct CompanionAgentTreeQuietFold: View {
     }
 
     var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.quietRows, when: countsHomeBuilds)
+        #endif
         let key = "quiet:\(projectID)"
         let isOpen = preferences.expandedFolds.contains(key)
         let catalog = Set(tree.all.map(\.id))

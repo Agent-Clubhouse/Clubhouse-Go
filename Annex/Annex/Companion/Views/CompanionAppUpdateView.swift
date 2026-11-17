@@ -29,7 +29,14 @@ struct CompanionAppUpdateLink: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
     var settingsRow = false
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
+
     var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.appUpdate, when: countsHomeBuilds)
+        #endif
         if host.hasAppUpdateAffordance {
             NavigationLink {
                 CompanionAppUpdateView(store: store, hostID: host.id)

@@ -962,6 +962,23 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionHomeRenderSession": {
+      "policy": "main_actor_task",
+      "reason": "SwiftUI StateObject teardown reproduced the isolated-deinit runtime abort: swift_task_deinitOnExecutorImpl / TaskLocal StopLookupScope / invalid free. Snapshot is display values only, but execution handles can retain Root SwiftUI State/bindings. A nonisolated deinit copies both fields into a real MainActor Task and extends their lifetime there, so the last captured UI owner is released on MainActor without invoking the isolated-deinit runtime. No task handle, observer token, proxy, view controller or factory is stored. prepare clears handles synchronously on pop/tab exit. Exact fields and deinit body are gated.",
+      "source": "Annex/Annex/Companion/Views/CompanionHomeRenderSnapshot.swift",
+      "deinit": "nonisolated deinit { Task { @ MainActor [ actions , snapshot ] in withExtendedLifetime ( ( actions , snapshot ) ) { } } }",
+      "surface": {
+        "bases": [
+          "ObservableObject"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "actions": "CompanionHomeFrozenActions ?",
+          "snapshot": "CompanionHomeRenderSnapshot ?"
+        },
+        "storageMacros": []
+      }
     }
   },
   "captureSites": {

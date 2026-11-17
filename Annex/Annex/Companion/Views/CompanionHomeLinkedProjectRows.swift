@@ -19,7 +19,14 @@ struct CompanionHomeLinkedProjectRows: View {
         return context
     }
 
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
+
     var body: some View {
+        #if DEBUG
+        let _ = CompanionHomeBuildProbe.count(.linkedRows, when: countsHomeBuilds)
+        #endif
         Group {
             CompanionAgentTreeRows(tree: group.tree, rows: group.tree.active, preferences: preferences, parentLines: parentLines)
             CompanionAgentTreeQuietFold(projectID: quiet.foldID, tree: group.tree, preferences: preferences,

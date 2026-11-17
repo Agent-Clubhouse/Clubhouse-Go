@@ -46,8 +46,13 @@ struct CompanionAgentTree: Sendable, Equatable {
 
     static func build(_ agents: [CompanionAgent], sort: CompanionProjectSort,
                       held: [CompanionTarget]? = nil, lastActivity: (CompanionAgent) -> Date?) -> Self {
-        var ordered = CompanionAgentOrdering.ordered(agents, sort: sort, lastActivity: lastActivity)
-        if let held { ordered = CompanionListHold.apply(ordered, order: held, id: \.id) }
+        var ordered: [CompanionAgent]
+        if sort == .recent, let held {
+            ordered = CompanionListHold.apply(agents, order: held, id: \.id)
+        } else {
+            ordered = CompanionAgentOrdering.ordered(agents, sort: sort, lastActivity: lastActivity)
+            if let held { ordered = CompanionListHold.apply(ordered, order: held, id: \.id) }
+        }
         let byID = Dictionary(ordered.indices.filter { !ordered[$0].isQuick }.map { (ordered[$0].id, $0) },
                               uniquingKeysWith: { first, _ in first })
         var parents = ordered.map { agent in
