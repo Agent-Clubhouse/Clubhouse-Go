@@ -302,8 +302,20 @@ struct CompanionConversationPendingDecisions: View {
     }
     /// Only tight AX rows can need the fallback; elsewhere nothing is measured.
     private var measuresNaturalRows: Bool { usesTightAccessibilityRows }
-    private var usesReviewOnlyRow: Bool { measuresNaturalRows && reviewOnly }
+    private var usesReviewOnlyRow: Bool {
+        #if DEBUG
+        // UI-test negative controls only: force the shown state while measurement continues unchanged.
+        if measuresNaturalRows, let forced = Self.forcedReviewOnly { return forced }
+        #endif
+        return measuresNaturalRows && reviewOnly
+    }
     #if DEBUG
+    private static let forcedReviewOnly: Bool? = {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--companion-ui-test-force-review-only") { return true }
+        if arguments.contains("--companion-ui-test-force-full-rows") { return false }
+        return nil
+    }()
     /// UI tests only (`--companion-ui-test-fit-metrics`): the measured inputs of the Review-only decision, so a test
     /// can assert the fit itself on any OS and device. Absent from the accessibility tree otherwise.
     private static let exposesFitMetrics = ProcessInfo.processInfo.arguments.contains("--companion-ui-test-fit-metrics")
