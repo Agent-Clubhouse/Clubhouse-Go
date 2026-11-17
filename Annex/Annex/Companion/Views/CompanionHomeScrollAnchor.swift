@@ -8,8 +8,9 @@ enum CompanionHomeAnchor: Hashable {
 }
 
 /// Non-observable scroll bookkeeping: geometry must not rebuild Home on every scrolling pixel.
+/// StateObject provides lazy owner lifetime only; no published fields or change notifications.
 /// Owns only identifiers, rectangles and scalar flags; no views, controllers, callbacks or tasks.
-@MainActor final class CompanionHomeScrollAnchorState {
+@MainActor final class CompanionHomeScrollAnchorState: ObservableObject {
     nonisolated deinit {}
     struct Bookmark {
         let id: CompanionHomeAnchor

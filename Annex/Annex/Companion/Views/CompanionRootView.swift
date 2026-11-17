@@ -434,7 +434,7 @@ struct CompanionHomeView: View {
     @State private var heldScope: CompanionDesktopSelection = .all
     @State private var heldSort: CompanionProjectSort = .recent
     @State private var holdGeneration: UInt64 = 0
-    @State private var scrollAnchor: CompanionHomeScrollAnchorState?
+    @StateObject private var scrollAnchor = CompanionHomeScrollAnchorState()
     @StateObject private var renderSession = CompanionHomeRenderSession()
     private var frozenInputs: CompanionHomeRenderSnapshot? { renderSession.snapshot }
     private var frozenActions: CompanionHomeFrozenActions? { renderSession.actions }
@@ -513,14 +513,13 @@ struct CompanionHomeView: View {
             else { Color.clear }
         }
         .onChange(of: isVisible, initial: true) { _, visible in
-            if !visible { scrollAnchor?.suspend(); hold = nil; holdGeneration &+= 1 }
+            if !visible { scrollAnchor.suspend(); hold = nil; holdGeneration &+= 1 }
             #if DEBUG
             CompanionHomeBuildProbe.visibility?(visible)
             #endif
         }
-        .onAppear { if scrollAnchor == nil { scrollAnchor = CompanionHomeScrollAnchorState() } }
         .onChange(of: isPushed, initial: true) { wasPushed, pushed in
-            if pushed { scrollAnchor?.suspend() }
+            if pushed { scrollAnchor.suspend() }
             // Project pages already expose this inline; Back must not replay it as a Home alert.
             if wasPushed && !pushed { store.projectStateError = nil }
         }
@@ -530,7 +529,7 @@ struct CompanionHomeView: View {
             CompanionHomeBuildProbe.phase?(phase)
             #endif
         }
-        .onChange(of: desktopSelection) { _, _ in hold = nil; holdGeneration &+= 1; scrollAnchor?.reset() }
+        .onChange(of: desktopSelection) { _, _ in hold = nil; holdGeneration &+= 1; scrollAnchor.reset() }
         .onChange(of: preferences.projectSort) { _, _ in hold = nil; holdGeneration &+= 1 }
         .navigationTitle("Clubhouse")
         .alert("Couldn't change the project", isPresented: Binding(get: { isVisible && !isPushed && frozenInputs == nil && store.projectStateError != nil }, set: { if !$0 { store.projectStateError = nil } })) {
@@ -656,28 +655,28 @@ struct CompanionHomeView: View {
                           width: max(0, rect.width - insets.leading - insets.trailing),
                           height: max(0, rect.height - insets.top - insets.bottom)), pushed: isPushed)
         }) { _, value in
-            scrollAnchor?.setViewport(value.frame)
+            scrollAnchor.setViewport(value.frame)
             if !value.pushed && value.frame.height > 0 {
                 // The geometry callback runs after List's first layout, when scroll IDs exist.
-                scrollAnchor?.resume(proxy) { anchorAvailable($0, layout: layout) }
+                scrollAnchor.resume(proxy) { anchorAvailable($0, layout: layout) }
             }
         }
         .onAppear {
             observeConnectedHosts(renderHosts)
             expandedOfflineHosts.formIntersection(Set(renderHosts.map(\.id)))
         }
-        .onChange(of: scrollAnchor != nil, initial: true) { _, _ in
+        .onAppear {
             #if DEBUG
-            if let scrollAnchor { CompanionHomeBuildProbe.state?(scrollAnchor, $desktopSelection) }
+            CompanionHomeBuildProbe.state?(scrollAnchor, $desktopSelection)
             #endif
         }
-        .onDisappear { scrollAnchor?.suspend() }
+        .onDisappear { scrollAnchor.suspend() }
         .onChange(of: renderHosts) { _, hosts in
             observeConnectedHosts(hosts)
             expandedOfflineHosts.formIntersection(Set(hosts.map(\.id)))
         }
         .onScrollPhaseChange { _, phase in
-            if phase == .interacting { scrollAnchor?.cancelRestoration(); onInteraction() }
+            if phase == .interacting { scrollAnchor.cancelRestoration(); onInteraction() }
             if preferences.projectSort != .recent {
                 if phase == .idle { withAnimation(reduceMotion ? nil : .snappy) { hold = nil } }
                 else if hold == nil { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
