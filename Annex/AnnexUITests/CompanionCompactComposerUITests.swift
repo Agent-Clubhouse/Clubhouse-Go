@@ -95,13 +95,13 @@ import XCTest
         if reviewButton {
             let tray = try XCTUnwrap(layout["companion-pinned-decision"])
             let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
-            // #543: only a phone too short for the tight AX rows above the keyboard (iPhone SE) collapses them.
+            // #543: any phone may collapse when the full rows genuinely don't fit; this fixture's one-line title fits at ≥402pt.
             if layout.window.width >= 402 {
-                XCTAssertFalse(reviewOnly, "\(state): iPhone 17 and Pro Max keep the title row", file: file, line: line)
+                XCTAssertFalse(reviewOnly, "\(state): this fixture's one-line title keeps the title row at ≥402pt", file: file, line: line)
             }
             if reviewOnly {
                 // Measured fit, not keyboard state: a three-line unfocused draft on SE also outgrows the tight rows.
-                XCTAssertLessThan(layout.window.width, 402, "\(state): only an SE-class width needs the Review-only fallback", file: file, line: line)
+                XCTAssertLessThan(layout.window.width, 402, "\(state): this fixture collapses only below 402pt", file: file, line: line)
                 XCTAssertNil(layout["companion-decision-show-in-chat"], "\(state): one Review control replaces the rows", file: file, line: line)
                 XCTAssertEqual(layout.labels["companion-review-approval"], "Review approval: Run xcodebuild, 1 of 2",
                                "\(state): VoiceOver keeps the full request title", file: file, line: line)
