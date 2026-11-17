@@ -46,27 +46,20 @@ struct CompanionHomeContentValues: Equatable {
     let states: [CompanionProjectTarget: CompanionProjectMenuDisplay]
     let linkedStates: [String: CompanionProjectMenuDisplay]
     let projectActivity: [CompanionProjectTarget: Date]
-    let dispatcherActivity: [CompanionTarget: CompanionCapturedActivity]
-    let terminal: [CompanionTerminalScope: CompanionTerminalAvailability]
-    let wakeProjects: Set<CompanionProjectTarget>
 
     init(snapshot: CompanionHomeRenderSnapshot) {
         self.init(hosts: snapshot.hosts, entries: snapshot.entries, attention: snapshot.attention,
                   finished: snapshot.finished, finishedError: snapshot.finishedError, states: snapshot.states,
-                  linkedStates: snapshot.linkedStates, projectActivity: snapshot.projectActivity, dispatcherActivity: snapshot.dispatcherActivity,
-                  terminal: snapshot.terminal, wakeProjects: snapshot.wakeProjects)
+                  linkedStates: snapshot.linkedStates, projectActivity: snapshot.projectActivity)
     }
 
     init(hosts: [CompanionHost], entries: [CompanionProjectEntry], attention: [CompanionAttentionItem],
          finished: [CompanionProjectTarget: [CompanionFinishedRun]], finishedError: String?,
          states: [CompanionProjectTarget: CompanionProjectMenuDisplay], linkedStates: [String: CompanionProjectMenuDisplay],
-         projectActivity: [CompanionProjectTarget: Date], dispatcherActivity: [CompanionTarget: CompanionCapturedActivity], terminal: [CompanionTerminalScope: CompanionTerminalAvailability],
-         wakeProjects: Set<CompanionProjectTarget>) {
+         projectActivity: [CompanionProjectTarget: Date]) {
         self.hosts = hosts; self.entries = entries; self.attention = attention
         self.finished = finished; self.finishedError = finishedError; self.states = states
         self.linkedStates = linkedStates; self.projectActivity = projectActivity
-        self.dispatcherActivity = dispatcherActivity
-        self.terminal = terminal; self.wakeProjects = wakeProjects
     }
 }
 
