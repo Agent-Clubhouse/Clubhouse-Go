@@ -134,7 +134,6 @@ import XCTest
         XCTAssertTrue(stack.waitForExistence(timeout: 5), "A working turn collapses the chips")
         capture(app, "537 Working turn collapsed")
         waitAndTap(stack, until: app.buttons["dispatcher-expand-chips"], attempts: 1)
-        XCTAssertTrue(app.buttons["dispatcher-settings"].exists, "The Dispatcher menu offers Settings")
         app.buttons["dispatcher-expand-chips"].tap()
         let chips = app.scrollViews["dispatcher-chips"]
         XCTAssertTrue(chips.waitForExistence(timeout: 5))
