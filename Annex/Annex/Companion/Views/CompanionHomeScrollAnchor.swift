@@ -164,7 +164,7 @@ struct CompanionHomeAnchorRow<Row: View>: View {
                                 stableSamples: 0, corrections: 0, remaining: remaining - 1)
                     return
                 }
-                if let saved = self.bookmark, let frame = self.frames[saved.id], frame.intersects(self.viewport) {
+                if let saved = self.bookmark, let frame = self.frames[saved.id] {
                     let desired = self.viewport.minY + saved.alignment.y * (self.viewport.height - frame.height)
                     let delta = frame.minY - desired
                     if abs(delta) <= 1 || corrections >= 2 { self.cancelRestoration(); return }
@@ -175,6 +175,9 @@ struct CompanionHomeAnchorRow<Row: View>: View {
                     self.settle(proxy, position: position, generation: generation, previous: nil,
                                 stableSamples: 0, corrections: nextCorrections, remaining: remaining - 1)
                     return
+                } else if let saved = self.bookmark, corrections == 0 {
+                    proxy.scrollTo(saved.id, anchor: saved.alignment)
+                    nextCorrections += 1 // One identity retry shares the two-correction budget.
                 }
             }
             self.settle(proxy, position: position, generation: generation, previous: current,
