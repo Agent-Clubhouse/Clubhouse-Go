@@ -1,4 +1,5 @@
 import XCTest
+import Vision
 
 @MainActor final class CompanionCombinedLinkedHomeUITests: ReliableUITestCase {
     private let arguments = ["--companion-preview", "--companion-preview-combined-linked-home"]
@@ -18,7 +19,42 @@ import XCTest
         attachment.name = "536 \(name)"; attachment.lifetime = .keepAlways; add(attachment)
     }
 
-    func testCombinedActiveTreesAndQuietFoldLightDarkAndXXXL() {
+    private func assertFullOriginVisible(_ name: String, in row: XCUIElement, app: XCUIApplication) throws {
+        // Hittability alone permits a partially clipped AX row. Bring the whole row
+        // between navigation and tabs with bounded real List scroll gestures.
+        let top = app.navigationBars.firstMatch.frame.maxY
+        let bottom = app.tabBars.firstMatch.frame.minY
+        let viewport = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: bottom - top)
+        for _ in 0..<8 {
+            if viewport.contains(row.frame) { break }
+            let startY = row.frame.maxY > bottom ? 0.65 : 0.45
+            let endY = row.frame.maxY > bottom ? 0.45 : 0.65
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
+                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY)))
+        }
+        XCTAssertTrue(viewport.contains(row.frame), "The full AX row must clear navigation and the floating tab bar")
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: XCTUnwrap(app.screenshot().image.cgImage)).perform([request])
+        let lines = (request.results ?? []).compactMap { observation -> (String, CGRect)? in
+            guard let text = observation.topCandidates(1).first?.string else { return nil }
+            let box = observation.boundingBox
+            let frame = CGRect(x: app.frame.minX + box.minX * app.frame.width,
+                               y: app.frame.minY + (1 - box.maxY) * app.frame.height,
+                               width: box.width * app.frame.width, height: box.height * app.frame.height)
+            return row.frame.intersects(frame) ? (text, frame) : nil
+        }
+        XCTAssertTrue(lines.map(\.0).joined(separator: " ").contains(name), "Pixels must show the entire machine name, with no truncation")
+        XCTAssertGreaterThanOrEqual(lines.filter { name.contains($0.0) }.count, 2,
+                                    "The deliberately long machine badge must wrap at AX5, rather than shrink or truncate")
+        for (_, frame) in lines {
+            XCTAssertTrue(row.frame.contains(frame), "Rendered text must stay inside the row")
+            XCTAssertTrue(viewport.contains(frame), "Rendered text must stay inside the visible viewport")
+        }
+    }
+
+    func testCombinedActiveTreesAndQuietFoldLightDarkAndXXXL() throws {
         let appearances: [(String, [String])] = [
             ("light", ["--companion-preview-light"]),
             ("dark", ["--companion-preview-dark"]),
@@ -31,6 +67,10 @@ import XCTest
             let river = element(app, "agent-combined-1-root")
             reveal(river, in: app)
             XCTAssertTrue(river.label.contains("River") && river.label.contains("Travel MacBook"))
+            if name == "XXXL" {
+                try assertFullOriginVisible("Travel MacBook with a long desktop name", in: river, app: app)
+                capture(app, "full untruncated long origin and unclipped row XXXL")
+            }
             let willow = element(app, "agent-combined-1-helper")
             reveal(willow, in: app)
             XCTAssertTrue(willow.label.contains("Willow") && willow.label.contains("Travel MacBook"))
@@ -101,8 +141,34 @@ import XCTest
         XCTAssertTrue(scrollUntilExists(cached, in: app) && scrollTo(cached, in: app))
         XCTAssertTrue(cached.label.contains("cached on Offline Mac"))
         XCTAssertFalse(cached.isEnabled)
-        XCTAssertFalse(app.buttons["agent-combined-3-root"].exists)
+        XCTAssertFalse(element(app, "agent-combined-3-root").exists)
         capture(app, "offline cached disclosure remains separate and non-actionable")
+    }
+
+    func testSameMachineLinkedCopiesKeepProjectOriginsInAllAndStudioScope() {
+        let app = launchApp(["--companion-preview", "--companion-preview-linked-projects",
+                             "--companion-preview-linked-projects-same-machine"], attempts: 1)
+        let studio = element(app, "agent-preview-studio-cedar")
+        let docs = element(app, "agent-preview-studio-docs-agent")
+        reveal(studio, in: app)
+        XCTAssertTrue(studio.label.contains("Studio Mac · Clubhouse"))
+        reveal(docs, in: app)
+        XCTAssertTrue(docs.label.contains("Studio Mac · Docs"))
+        capture(app, "same-machine linked copies retain project origin in All")
+        let chip = app.buttons["desktop-chip-host-preview-studio"]
+        XCTAssertTrue(scrollTo(chip, in: app, up: false)); chip.tap()
+        XCTAssertTrue(chip.isSelected)
+        reveal(studio, in: app)
+        XCTAssertTrue(studio.label.contains("Studio Mac · Clubhouse"), "Machine scope does not make project origin redundant")
+        reveal(docs, in: app)
+        XCTAssertTrue(docs.label.contains("Studio Mac · Docs"))
+        XCTAssertFalse(element(app, "agent-preview-laptop-river").exists)
+        let fold = app.buttons["fold-quiet-link:preview-linked-clubhouse"]
+        reveal(fold, in: app); fold.tap()
+        let sleeping = element(app, "agent-preview-studio-juniper")
+        reveal(sleeping, in: app)
+        XCTAssertTrue(sleeping.label.contains("Studio Mac · Clubhouse"), "Expanded quiet rows keep the same project attribution")
+        capture(app, "same-machine scope retains project origins in active and quiet rows")
     }
 
     func testDismissThenClearAffectOnlyRetainedRunsAcrossMachines() {

@@ -33,6 +33,7 @@ struct CompanionAgentStatusLine: Equatable {
 struct CompanionAgentRowContext {
     var hostNames: [String: String] = [:]
     var impliedHostID: String?
+    var projectOriginLabels: [CompanionProjectTarget: String] = [:]
     var projectAccessDefaults: [CompanionProjectTarget: CompanionPermissionLevel] = [:]
     var agentAccessDefaults: [CompanionTarget: CompanionPermissionLevel] = [:]
 
@@ -46,6 +47,7 @@ struct CompanionAgentRowContext {
     }
 
     func hostTag(for target: CompanionTarget, fallback: String? = nil) -> String? {
+        if let label = projectOriginLabels[.init(hostID: target.hostID, projectID: target.projectID)] { return label }
         guard target.hostID != impliedHostID else { return nil }
         guard !hostNames.isEmpty else { return fallback }
         return hostNames.count > 1 ? hostNames[target.hostID] : nil

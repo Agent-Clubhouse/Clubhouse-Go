@@ -6,7 +6,7 @@ import ClubhouseTransport
 /// and a disconnected machine whose cached Working state must never count as live.
 enum CompanionHomeLinkedFixture {
     static func hosts(now: Date = Date()) -> [CompanionHost] {
-        let names = ["Studio Mac", "Travel MacBook", "Archive Mac", "Offline Mac"]
+        let names = ["Studio Mac", "Travel MacBook with a long desktop name", "Archive Mac", "Offline Mac"]
         var hosts: [CompanionHost] = []
         for index in names.indices {
             let hostID = "combined-\(index)"

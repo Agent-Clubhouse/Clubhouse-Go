@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+import ClubhouseTransport
 @testable import CompanionDomain
 
 struct CompanionHomeLinkedRowsTests {
@@ -23,6 +24,30 @@ struct CompanionHomeLinkedRowsTests {
         #expect(group.tree.active.map(\.parentName) == [nil, "River", nil, "Cedar"])
         #expect(group.tree.sleeping.map(\.agent.name) == ["Juniper"], "A quiet-only desktop contributes to the one fold")
         #expect(!group.tree.all.contains { $0.id.hostID == "combined-3" }, "Cached offline work is never live")
+    }
+
+    @Test func sameMachineCopiesKeepProjectOriginsInAllAndSingleDesktopScopes() throws {
+        // The same Studio/Docs/Travel members as --companion-preview-linked-projects-same-machine.
+        var hosts = CompanionPreviewService.hosts(now: now)
+        hosts[0].projects = hosts[0].projects.filter { $0.id == "clubhouse" }
+        hosts[0].projects.append(.init(id: "docs", name: "Docs", agents: []))
+        let links: [AnnexProjectLinks.Group] = [.init(id: "preview-linked-clubhouse", projects: [
+            .init(machine: "preview-studio", projectId: "clubhouse"),
+            .init(machine: "preview-laptop", projectId: "notes"),
+            .init(machine: "preview-studio", projectId: "docs")
+        ])]
+        let entry = try #require(CompanionLinkedProjects.entries(hosts: hosts, links: links).first)
+        let studio = CompanionProjectTarget(hostID: "preview-studio", projectID: "clubhouse")
+        let docs = CompanionProjectTarget(hostID: "preview-studio", projectID: "docs")
+        let travel = CompanionProjectTarget(hostID: "preview-laptop", projectID: "notes")
+        let all = CompanionHomeLinkedRows(entry: entry, finished: { _ in [] })
+        #expect(all.projectOriginLabels == [studio: "Studio Mac · Clubhouse", docs: "Studio Mac · Docs"])
+        #expect(all.projectOriginLabels[travel] == nil, "Ordinary members keep the normal machine-only badge")
+        let scoped = try #require(CompanionHomeScope(hosts: hosts, selectedHostID: "preview-studio").projects([entry]).first)
+        #expect(scoped.isLinked && scoped.members.count == 2)
+        #expect(CompanionHomeLinkedRows(entry: scoped, finished: { _ in [] }).projectOriginLabels == all.projectOriginLabels,
+                "A desktop scope must still distinguish two local projects")
+        #expect(scoped.orderKey == entry.orderKey)
     }
 
     @Test func combinedTreeUsesSelectedSortAndHeldOrderWithoutMovingHelpers() throws {

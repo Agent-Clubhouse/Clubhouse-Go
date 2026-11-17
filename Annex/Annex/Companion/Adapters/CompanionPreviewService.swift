@@ -267,7 +267,10 @@ import ClubhouseTransport
                let project = hosts[0].projects.first(where: { $0.id == "clubhouse" }) {
                 hosts[0].projects = [project]
                 if ProcessInfo.processInfo.arguments.contains("--companion-preview-linked-projects-same-machine") {
-                    hosts[0].projects.append(.init(id: "docs", name: "Docs", agents: []))
+                    hosts[0].projects.append(.init(id: "docs", name: "Docs", agents: [
+                        .init(id: .init(hostID: hosts[0].id, projectID: "docs", agentID: "docs-agent"),
+                              name: "Docs agent", subtitle: "Review the documentation", status: .idle)
+                    ]))
                 }
                 hosts[1].connection = .connected
                 hosts[1].projects[0].name = project.name

@@ -86,7 +86,6 @@ final class CompanionLinkedProjectUITests: ReliableUITestCase {
         let laptop = element(app, "agent-preview-laptop-river")
         XCTAssertTrue(scrollUntilExists(laptop, in: app))
         XCTAssertTrue(laptop.label.contains("Travel MacBook"), "The connected copy retains its origin without a machine subheader")
-        XCTAssertTrue(scrollUntilExists(element(app, "agent-preview-laptop-river"), in: app))
         XCTAssertFalse(element(app, "open-project-preview-laptop-notes").exists, "Disconnecting does not unlink the group")
         screenshot(app, "Linked Home retains offline member without stale agents")
     }
