@@ -24,12 +24,10 @@ struct CompanionTerminalMenuItem: View {
     let scope: CompanionTerminalScope
     @Environment(\.companionTelemetryScreen) private var screen
     @Environment(\.companionTerminal) private var terminal
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
     var body: some View {
         #if DEBUG
-        let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.rowMenu) }
         #endif
         if let terminal {
             let availability = terminal.availability(scope)

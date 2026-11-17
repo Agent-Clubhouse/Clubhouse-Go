@@ -19,13 +19,11 @@ struct CompanionHomeLinkedProjectRows: View {
         return context
     }
 
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
 
     var body: some View {
         #if DEBUG
-        let _ = CompanionHomeBuildProbe.count(.linkedRows, when: countsHomeBuilds)
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.linkedRows) }
         #endif
         Group {
             CompanionAgentTreeRows(tree: group.tree, rows: group.tree.active, preferences: preferences, parentLines: parentLines)

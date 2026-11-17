@@ -26,3 +26,5 @@ Tests and split:
 - Existing AgentRow/AgentTree/shared-menu/linked/ProjectPage/LargeCatalog checks remain in the manifest. A real UI edge swipe checks title/back label/nonblank content before and after; mid-gesture recording is visual evidence only.
 
 Original failed bundles and the deinit crash evidence remain retained. No CPU-percentage, battery or installed-device improvement is inferred from hosted counters alone.
+
+Follow-up branch for #557: this draft restores the original anchor integration and BOTH original failing methods byte-for-byte, alongside the narrower #551 test. It is a preserved failing reproduction, not a claimed fix. The current user-approved shipping behavior and release-note disclosure above remain unchanged until #557 is actually resolved. No follow-up runtime PASS is claimed.

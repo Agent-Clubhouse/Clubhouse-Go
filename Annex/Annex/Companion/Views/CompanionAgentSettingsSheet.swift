@@ -104,17 +104,13 @@ struct CompanionAgentMenu: ViewModifier {
     @Environment(\.companionAgentWake) private var wake
     @Environment(\.companionTerminal) private var terminal
     @Environment(\.companionTelemetryScreen) private var screen
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
     func body(content: Content) -> some View {
         #if DEBUG
-        let _ = {
-            if countsHomeBuilds {
-                CompanionHomeBuildProbe.record?(.rowMenu)
-                CompanionHomeBuildProbe.rowActions?(target, settings, wake, terminal)
-            }
-        }()
+        let _ = homeAnchor.map { _ in
+            CompanionHomeBuildProbe.record?(.rowMenu)
+            CompanionHomeBuildProbe.rowActions?(target, settings, wake, terminal)
+        }
         #endif
         let choices = wake?.choices(target) ?? []
         let hasSettingsItems = settings.map { $0.openDetails != nil || $0.canOpen(target) } ?? false
@@ -162,12 +158,10 @@ struct CompanionAgentMenuItems: View {
     let target: CompanionTarget
     let actions: CompanionAgentSettingsAction
     @Environment(\.companionTelemetryScreen) private var screen
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
     var body: some View {
         #if DEBUG
-        let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.rowMenu) }
         #endif
         if let openDetails = actions.openDetails {
             Button("Agent details", systemImage: "info.circle") {

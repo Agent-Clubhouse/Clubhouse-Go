@@ -979,6 +979,35 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionHomeScrollAnchorState": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionHomeScrollAnchor.swift",
+      "reason": "Home-only non-observable scroll bookkeeping owns a dictionary of full value identifiers and CGRects, one CGRect viewport, a Bookmark of a value identifier and SwiftUI UnitPoint, Bool flags, a UInt64 resume generation and an Int callback bound. A transient main-queue closure captures this owner weakly and a value ScrollViewProxy; no closure/proxy is stored, and departure cancels the request by generation. No UIKit/View/controller/task/callback owner or teardown side effect; empty nonisolated deinit is ARC-safe.",
+      "surface": {
+        "bases": [
+          "ObservableObject"
+        ],
+        "nestedValueProperties": {
+          "CompanionHomeScrollAnchorState.Bookmark": {
+            "alignment": "UnitPoint",
+            "id": "CompanionHomeAnchor"
+          }
+        },
+        "properties": {
+          "bookmark": "Bookmark ?",
+          "frames": "[ CompanionHomeAnchor : CGRect ]",
+          "restorationCallbacks": "Int",
+          "restoreRequested": "Bool",
+          "restoring": "Bool",
+          "resumeApplied": "Bool",
+          "presented": "Bool",
+          "resumeGeneration": "UInt64",
+          "suspended": "Bool",
+          "viewport": "CGRect"
+        },
+        "storageMacros": []
+      }
     }
   },
   "captureSites": {

@@ -251,13 +251,11 @@ struct CompanionProjectMenuItems: View {
 
     @Environment(\.companionTelemetryScreen) private var screen
 
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
 
     var body: some View {
         #if DEBUG
-        let _ = CompanionHomeBuildProbe.count(.projectMenu, when: countsHomeBuilds)
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.projectMenu) }
         #endif
         Button("Wake with a message", systemImage: "sun.max") {
             CompanionUIActions.record(.wakeAgent, on: screen)
@@ -292,13 +290,11 @@ struct CompanionLinkedProjectStateMenuItems: View {
         await store.setLinkedProject(current, inactive: inactive)
     }
 
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
 
     var body: some View {
         #if DEBUG
-        let _ = CompanionHomeBuildProbe.count(.projectMenu, when: countsHomeBuilds)
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.projectMenu) }
         #endif
         let state = if let capturedDisplay { capturedDisplay.state } else { store.linkedProjectState(entry) }
         if let shared = state {
@@ -332,13 +328,11 @@ private struct CompanionSingleProjectStateMenuItems: View {
 
     @Environment(\.companionTelemetryScreen) private var screen
 
-    #if DEBUG
-    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
-    #endif
+    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
 
     var body: some View {
         #if DEBUG
-        let _ = CompanionHomeBuildProbe.count(.projectMenu, when: countsHomeBuilds)
+        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.projectMenu) }
         #endif
         let state = if let capturedDisplay { capturedDisplay.state } else { store.sharedProjectState(entry.id) }
         let lastActivity = if let capturedDisplay { capturedDisplay.lastActivity } else { store.lastActivity(for: entry.id) }
