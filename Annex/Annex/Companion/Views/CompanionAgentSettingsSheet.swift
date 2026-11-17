@@ -104,7 +104,9 @@ struct CompanionAgentMenu: ViewModifier {
     @Environment(\.companionAgentWake) private var wake
     @Environment(\.companionTerminal) private var terminal
     @Environment(\.companionTelemetryScreen) private var screen
-    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
     func body(content: Content) -> some View {
         #if DEBUG
         let _ = homeAnchor.map { _ in
@@ -158,10 +160,12 @@ struct CompanionAgentMenuItems: View {
     let target: CompanionTarget
     let actions: CompanionAgentSettingsAction
     @Environment(\.companionTelemetryScreen) private var screen
-    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
     var body: some View {
         #if DEBUG
-        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.rowMenu) }
+        let _ = CompanionHomeBuildProbe.count(.rowMenu, when: countsHomeBuilds)
         #endif
         if let openDetails = actions.openDetails {
             Button("Agent details", systemImage: "info.circle") {

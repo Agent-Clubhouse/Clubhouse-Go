@@ -41,11 +41,13 @@ struct CompanionDesktopChips: View {
 
     private var available: [CompanionHost] { Self.uniqueHosts(hosts) }
 
-    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
 
     var body: some View {
         #if DEBUG
-        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.chips) }
+        let _ = CompanionHomeBuildProbe.count(.chips, when: countsHomeBuilds)
         #endif
         Group {
             if available.count >= 2 {

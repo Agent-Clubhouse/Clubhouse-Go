@@ -154,7 +154,9 @@ struct CompanionDesktopConnectionBanner: View {
     var capturedHosts: [CompanionHost]? = nil
     @State private var retryAttempts: [String: UUID] = [:]
 
-    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
 
     #if DEBUG
     /// Hosted tests exercise the mounted banner's actual action and disabled predicate.
@@ -169,7 +171,7 @@ struct CompanionDesktopConnectionBanner: View {
 
     var body: some View {
         #if DEBUG
-        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.connection) }
+        let _ = CompanionHomeBuildProbe.count(.connection, when: countsHomeBuilds)
         #endif
         let notice = CompanionConnectionNotice(hosts: presentationHosts ?? store.hosts)
         #if DEBUG
