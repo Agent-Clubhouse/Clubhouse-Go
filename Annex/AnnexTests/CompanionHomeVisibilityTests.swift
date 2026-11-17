@@ -486,7 +486,7 @@ import ClubhouseTransport
                 let attachment = XCTAttachment(string: evidence.joined(separator: "\n"))
                 attachment.name = "Home push transition and List realisation readiness"
                 attachment.lifetime = .keepAlways
-                XCTContext.runActivity(named: attachment.name) { $0.add(attachment) }
+                XCTContext.runActivity(named: attachment.name ?? "Home render evidence") { $0.add(attachment) }
             }
             func isTransitioning(_ controller: UIViewController) -> Bool {
                 controller.transitionCoordinator != nil || controller.isBeingPresented || controller.isBeingDismissed
@@ -521,7 +521,7 @@ import ClubhouseTransport
             let attachment = XCTAttachment(string: text)
             attachment.name = "Home counters: " + phase
             attachment.lifetime = .keepAlways
-            XCTContext.runActivity(named: attachment.name) { $0.add(attachment) }
+            XCTContext.runActivity(named: attachment.name ?? "Home render evidence") { $0.add(attachment) }
         }
 
         func assertPushCost(file: StaticString = #filePath, line: UInt = #line) {
