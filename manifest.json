@@ -1,0 +1,53 @@
+{
+  "head": "b9990663a7e85aedfde074a57d4a3af4ab241c09",
+  "files": {
+    "home-linked-light.png": {
+      "source": "C1/combined-attachments/7706807F-A82D-480A-A2FE-934708BC78CE.png",
+      "sha256": "22ea7e788a96c9b61648bc0d0cfe83ffd1ec9b0724c67bbf0515310a57f17f43"
+    },
+    "home-linked-dark.png": {
+      "source": "C1/combined-attachments/7D166462-346D-4C11-9328-B9983F855991.png",
+      "sha256": "c1cc280761b1f5ebe95808cb1279503028a94cf6c14274b8bfede672fff36fda"
+    },
+    "home-full-origin-XXXL.png": {
+      "source": "C1/combined-attachments/3BBC82CF-0A8D-46AE-A65B-EF7066E831BA.png",
+      "sha256": "45122dc058be6d3ff9dd7a8d007458a09ec01f00addecaf84b685d14093bafc5"
+    },
+    "home-one-quiet-fold-XXXL.png": {
+      "source": "C1/combined-attachments/6052AB5E-5662-4CEC-BCD4-CC8789E2AF9E.png",
+      "sha256": "65deb8c82ebb9058ea841cfd538a7eb536964dce3f2ffb1e205b4e4bcd6bd584"
+    },
+    "home-expanded-quiet-XXXL.png": {
+      "source": "C1/combined-attachments/515022F4-95DC-41B6-89B9-2849766BB0B2.png",
+      "sha256": "95746df02376c6fc0e474b610c1d172d13d51fa160223fadb934b9850039a208"
+    },
+    "home-before-push.png": {
+      "source": "C1/swipe-attachments/5EAA71FA-D317-4884-8DA5-7AB6F5A5694B.png",
+      "sha256": "a6299efec51dddeea704d2bb69efe0cc84b27df45d4f40d7d0b131fb6b49c302"
+    },
+    "agent-pushed.png": {
+      "source": "C1/swipe-attachments/1926747E-D24F-4C2A-808D-D3AD7AD9FB15.png",
+      "sha256": "3c784a4655cc76298f10ab2d97510f6423ed094f2a75e57333560655d63ca3b8"
+    },
+    "home-after-real-swipe.png": {
+      "source": "C1/swipe-attachments/A08266AC-B200-4DFB-B1A0-C6ABF96599C3.png",
+      "sha256": "a2725fe5d2b6948531d4b64c9fa0e18153d0a683afc18483cb969ac7aa1b1cea"
+    },
+    "home-fresh-first-pop.png": {
+      "source": "B-after-r11/pushed-attachments/45E17CEB-E152-4764-84E9-46428E13DD04.png",
+      "sha256": "16d2fba8895e979dce4cc49ea040435e7f8829dcf55685f5424c9f5c4013d012"
+    },
+    "origin-geometry-step-0.json": {
+      "source": "C1/combined-attachments/98DC62FC-CDA2-4EBB-8A19-E1CAFD745647.json",
+      "sha256": "2c3ecdfdb5d82b540b11bd1e005525b30ad73d8ba7ba7fe1b75613fe478bdc74"
+    },
+    "origin-geometry-step-1.json": {
+      "source": "C1/combined-attachments/30B543B8-7292-4E50-9AE0-76711A4840EA.json",
+      "sha256": "93bdafe87b82e685b36fd693fc55c656458f1f77563ffe26767605076a5ae769"
+    },
+    "origin-every-ocr-box.json": {
+      "source": "C1/combined-attachments/EAE5DE66-E27D-4C8A-9828-7B7E47CBE09E.json",
+      "sha256": "7d47672f5f856cb93ac1c39b4638611c4c545310a64579b699e436e4c2336851"
+    }
+  }
+}
