@@ -27,6 +27,7 @@ enum CompanionHomeLinkedFixture {
             }
             if index < 3 {
                 var finished = agent("finished", ["Maple", "Birch", "Ash"][index], .completed, secondsAgo: 120)
+                finished.subtitle = "\(finished.name) synthetic task"
                 finished.isQuick = true
                 finished.hasExited = true
                 agents.append(finished)
