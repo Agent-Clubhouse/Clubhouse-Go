@@ -372,11 +372,16 @@ import ClubhouseTransport
     private func requireRenderedLabel(_ label: String, in window: UIWindow, file: StaticString = #filePath, line: UInt = #line) async throws {
         let started = ContinuousClock.now
         var polls = 0
-        let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
+        // One OCR pass costs ~1.2s locally and 2.5–3s+ on hosted runners, so a 3s wall-clock wait could expire before
+        // its first evaluation (#545). Bound by evaluations instead: at least 3 OCR passes and the original 3s,
+        // with a 15s wall-clock cap. The condition is unchanged.
+        while true {
             polls += 1
-            return (try? self.renderedText(window).contains(label)) == true
-        }, object: nil)
-        await fulfillment(of: [updated], timeout: 3)
+            if (try? renderedText(window).contains(label)) == true { break }
+            let elapsed = started.duration(to: .now)
+            if (polls >= 3 && elapsed >= .seconds(3)) || elapsed >= .seconds(15) { break }
+            try await Task.sleep(for: .milliseconds(100))
+        }
         let recognized = try renderedText(window)
         // Diagnostic only (#545): how long the mounted label took and how many OCR polls the 3s wait admitted.
         print("RENDER_WAIT label=\(label) elapsed=\(started.duration(to: .now)) found=\(recognized.contains(label)) ocrPolls=\(polls)")
