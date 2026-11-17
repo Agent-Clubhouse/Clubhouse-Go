@@ -243,7 +243,7 @@ struct CompanionConversationView: View {
                     }
                     .buttonStyle(.plain)
                     .companionToolbarSecondary()
-                    .companionCardGlass(Capsule(), interactive: true)
+                    .companionToolbarCardGlass()
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("companion-chat-header-actions")
                     .frame(width: headerTrailingReservation, alignment: .trailing)
