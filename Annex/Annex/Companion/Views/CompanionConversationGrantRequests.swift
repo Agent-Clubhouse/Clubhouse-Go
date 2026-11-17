@@ -47,7 +47,8 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
         #if DEBUG
         // Classify capped vs naturally sized footers without adding another AX element.
         .accessibilityValue(String(format: "%.2f", maximumHeight),
-                            isEnabled: ProcessInfo.processInfo.arguments.contains("--ui-testing-fast"))
+                            isEnabled: ProcessInfo.processInfo.arguments.contains("--ui-testing-fast")
+                                && ProcessInfo.processInfo.arguments.contains("--companion-ui-test-fit-metrics"))
         #endif
     }
 
