@@ -1,3 +1,4 @@
+import Combine
 import SwiftUI
 
 /// Full identities keep equal agent names on different desktops separate.
