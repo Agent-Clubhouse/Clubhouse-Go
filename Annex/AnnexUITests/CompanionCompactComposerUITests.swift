@@ -466,17 +466,23 @@ import XCTest
             XCTAssertTrue(m.measured && m.natural > 0, "\(state): measured: \(m.raw)")
             let reviewOnly = layout.values["companion-pinned-decision"] == "Review-only request controls"
             XCTAssertEqual(reviewOnly, forced == "--companion-ui-test-force-review-only", "\(state): the forced state is shown")
+            let footerMaximum = try XCTUnwrap(Double(try XCTUnwrap(layout.values["companion-grant-footer-maximum"],
+                                                                 "\(state): DEBUG footer maximum")))
+            let visibleFooter = Double(keyboardTop - footer.minY)
+            XCTAssertGreaterThan(footerMaximum, 0, "\(state): a valid reported maximum")
+            XCTAssertLessThanOrEqual(visibleFooter, footerMaximum + 1, "\(state): the visible footer cannot exceed its maximum")
             if !reviewOnly {
                 // Independence: the rendered tight card is the full rows + 1pt insets; the composer block runs from the
                 // card's bottom (no outer inset under tight rows) to the composer's content bottom + its 10pt padding.
                 let naturalRendered = Double(tray.height) - 2
                 XCTAssertEqual(m.natural, naturalRendered, accuracy: 2, "\(state): natural matches the rendered rows: \(m.raw) tray=\(tray)")
                 let composerBlock = Double(composerRegion.maxY + 10 - tray.maxY)
-                let visibleFooter = Double(keyboardTop - footer.minY)
-                let content = Double(composerRegion.maxY + 10 - tray.minY)
                 let offeredRendered = visibleFooter - composerBlock
-                if content >= visibleFooter - 0.5 {
-                    // The footer is at its maximum (its content overflows), so the room it offers is observable.
+                let atMaximum = visibleFooter >= footerMaximum - 0.5
+                print("FIT_GEOMETRY_BRANCH \(state) exact=\(atMaximum) visible=\(visibleFooter) maximum=\(footerMaximum)")
+                if atMaximum {
+                    // Use the DEBUG maximum only to identify a capped footer, including exact-cap equality.
+                    // The asserted natural/offered values remain independently derived from XCUI frames.
                     XCTAssertEqual(m.offered, offeredRendered, accuracy: 2,
                                    "\(state): offered matches XCUI geometry (footer at max): \(m.raw) visible=\(visibleFooter) composerBlock=\(composerBlock)")
                     let fitsRendered = naturalRendered + 2 <= offeredRendered
