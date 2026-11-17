@@ -381,7 +381,7 @@ import ClubhouseTransport
     ]
     #if DEBUG
     /// The synthetic pinned approval; launch arguments select the broader-only or incomplete variants.
-    static func pinnedApproval(id: String, title: String, arguments: [String], now: Date = .now) -> CompanionApproval {
+    nonisolated static func pinnedApproval(id: String, title: String, arguments: [String], now: Date = .now) -> CompanionApproval {
         var options: [CompanionApprovalOption] = [
             .init(id: "allow", label: "Allow once", kind: .allowOnce),
             .init(id: "always", label: "Always allow", kind: .allowAlways, scope: "preview:*"),

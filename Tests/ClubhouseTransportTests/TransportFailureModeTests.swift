@@ -480,14 +480,24 @@ private struct ScheduledConditionTimeout: Error {}
 
 /// Wait for scheduled work's actual condition, giving other executors a chance to run.
 /// A yield count can expire in milliseconds while the actor we await has not been scheduled.
-private func settle(_ done: () async -> Bool) async throws {
+/// On timeout, the poll count separates a starved waiter (few polls) from a condition that never held (many).
+private func settle(_ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
     let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+    var polls = 0
     repeat {
+        polls += 1
         if await done() { return }
         try await Task.sleep(for: .milliseconds(1))
     } while ContinuousClock.now < deadline
-    Issue.record("Scheduled condition did not become true within 10 seconds")
+    let observed = await state?() ?? ""
+    Issue.record("Scheduled condition did not become true within 10 seconds (\(polls) polls)\(observed.isEmpty ? "" : "; " + observed)")
     throw ScheduledConditionTimeout()
+}
+
+/// The live socket and clock state the snapshot-grace tests wait on.
+private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async -> String {
+    guard let socket = await io.sockets.first else { return "sockets=0 openAttempts=\(await io.openAttempts) sleepers=\(clock.sleeperCount)" }
+    return "sockets=\(await io.sockets.count) openAttempts=\(await io.openAttempts) receiveCalls=\(await socket.receiveCalls) closed=\(await socket.closed) sleepers=\(clock.sleeperCount)"
 }
 
 @Test func commandsOlderThanTheDesktopsRetentionAreUnknownAndNeverSent() async throws {
@@ -584,11 +594,11 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle {
+    try await settle({
         guard let socket = await io.sockets.first else { return false }
         let calls = await socket.receiveCalls, closed = await socket.closed
         return closed || (calls >= 2 && clock.sleeperCount == 2)
-    }
+    }, state: { await graceState(io, clock) })
     try #require(await io.sockets.first?.closed == false, "Keep the authenticated socket open during grace")
     let before = try await collect(stream) { if case .message(let frame) = $0 { frame.type == "error" } else { false } }
     #expect(reconnectAttempts(before).isEmpty)
@@ -616,11 +626,11 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle {
+    try await settle({
         guard let socket = await io.sockets.first else { return false }
         let calls = await socket.receiveCalls, closed = await socket.closed
         return closed || (calls >= 2 && clock.sleeperCount == 2)
-    }
+    }, state: { await graceState(io, clock) })
     let socket = try #require(await io.sockets.first)
     try #require(await socket.closed == false)
     clock.advance(by: .seconds(29))
@@ -641,7 +651,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle { clock.sleeperCount >= 1 }
+    try await settle({ clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
     #expect(clock.sleeperCount == 1, "Only the ping interval runs before any explicit snapshot failure")
     clock.advance(by: .seconds(31))
     let socket = try #require(await io.sockets.first)
