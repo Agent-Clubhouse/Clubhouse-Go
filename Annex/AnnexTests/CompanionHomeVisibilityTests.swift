@@ -72,6 +72,7 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, sequenceBeforeReadiness, "Readiness must not deliver any stream chunks")
         fixture.assertPushCost()
         let before = fixture.expensiveCounts
+        let ownerBefore = fixture.counts[.owner, default: 0]
         for batch in 0..<10 {
             let rendered = fixture.chatBodies
             for chunk in 0..<10 {
@@ -80,6 +81,7 @@ import ClubhouseTransport
             try await fixture.wait { fixture.chatBodies > rendered }
             XCTAssertEqual(fixture.expensiveCounts, before, "Every row/menu counter must stay fixed for rendered pushed batch \(batch)")
         }
+        fixture.attachStreamingCounters("100 pushed chunks", before: before, ownerBefore: ownerBefore)
         XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, 100)
         XCTAssertEqual(fixture.store.conversation(for: target).items.compactMap { item -> String? in
             if case .message(let message) = item, message.id == "perf-stream" { return message.text }; return nil
@@ -113,9 +115,11 @@ import ClubhouseTransport
         fixture.assertPushCost()
         XCTAssertGreaterThan(fixture.counts[.linkedRows, default: 0], 0)
         let linked = fixture.expensiveCounts
+        let linkedOwnerBefore = fixture.counts[.owner, default: 0]
         let rendered = fixture.chatBodies
         fixture.store.apply(.textDelta(target, messageID: "perf-stream", text: " linked", sequence: 101))
         try await fixture.wait { fixture.chatBodies > rendered }
+        fixture.attachStreamingCounters("Linked pushed chunk", before: linked, ownerBefore: linkedOwnerBefore)
         XCTAssertEqual(fixture.expensiveCounts, linked, "The All-scope linked-row body is frozen too")
         fixture.hosts[1].connection = .offline
         fixture.store.apply(.hosts(fixture.hosts))
@@ -505,6 +509,19 @@ import ClubhouseTransport
             }
             XCTFail("Native push and List realisation did not settle within 5s", file: file, line: line)
             throw NSError(domain: "HomeListReadiness", code: 1)
+        }
+
+        /// Value-only evidence, sampled outside rendering; never observes Store in a body callback.
+        func attachStreamingCounters(_ phase: String, before: [CompanionHomeBuildProbe.Kind: Int], ownerBefore: Int) {
+            let after = expensiveCounts
+            let rows = Set(before.keys).union(after.keys).map { kind in
+                "\(kind): \(before[kind, default: 0]) -> \(after[kind, default: 0])"
+            }.sorted()
+            let text = (["owner: \(ownerBefore) -> \(counts[.owner, default: 0])"] + rows).joined(separator: "\n")
+            let attachment = XCTAttachment(string: text)
+            attachment.name = "Home counters: " + phase
+            attachment.lifetime = .keepAlways
+            XCTContext.runActivity(named: attachment.name) { $0.add(attachment) }
         }
 
         func assertPushCost(file: StaticString = #filePath, line: UInt = #line) {
