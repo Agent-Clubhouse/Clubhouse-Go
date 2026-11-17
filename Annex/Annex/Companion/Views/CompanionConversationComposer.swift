@@ -184,6 +184,20 @@ struct CompanionConversationComposer: View {
                 // Glass behind the draft over the theme card, as in the header. Wrapping the whole draft and action row
                 // in glass let it adapt to light in dark mode, taking the field and keyboard with it (text at 2:1).
                 .companionCardGlass(RoundedRectangle(cornerRadius: 24))
+                #if DEBUG
+                // The native editor/region AX frames omit padding. Expose the actual glass-card
+                // bounds only to UI tests so edge clearance is measured, not inferred from text.
+                .background {
+                    if ProcessInfo.processInfo.arguments.contains("--ui-testing-fast") {
+                        Color.clear
+                            .allowsHitTesting(false)
+                            .accessibilityElement()
+                            .accessibilityLabel("Composer card bounds")
+                            .accessibilityValue(compactHeight && !dynamicTypeSize.isAccessibilitySize ? "Compact" : "Regular")
+                            .accessibilityIdentifier("companion-composer-card-bounds")
+                    }
+                }
+                #endif
                 // Images dragged in on iPad join the attachments like pasted ones.
                 .onDrop(of: CompanionPastedImages.acceptedTypes, isTargeted: nil) { providers in
                     Task { _ = await pasteImages(providers) }
