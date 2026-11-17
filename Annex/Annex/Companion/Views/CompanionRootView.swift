@@ -501,7 +501,7 @@ struct CompanionHomeView: View {
         // A concrete owner keeps pending Home sheets alive across content removal.
         VStack(spacing: 0) {
             if isVisible {
-                CompanionHomeContent(home: self).equatable()
+                CompanionHomeContent(home: self, layout: layout).equatable()
                     // Environment readers belong ABOVE the equality boundary. They cannot leave
                     // live Store dependencies registered on the frozen content or its rows.
                     .modifier(CompanionHomeRowInputs(store: store, snapshot: isPushed ? frozenInputs : nil,
@@ -572,8 +572,9 @@ struct CompanionHomeView: View {
         }
     }
 
-    fileprivate var content: some View {
-        let layout = layout
+    // Evaluate the live projection in the owner, not under the content observation scope.
+    // A pushed content body must not retain the live conversation-activity subscription.
+    fileprivate func content(_ layout: CompanionHomeLayout) -> some View {
         let renderedScope = desktopSelection, renderedSort = preferences.projectSort
         let renderedGeneration = holdGeneration
         #if DEBUG
@@ -1211,10 +1212,11 @@ struct CompanionHomeView: View {
 /// Descendants receive value presentation inputs; residual child/event rebuilds are tracked in #557.
 private struct CompanionHomeContent: View, Equatable {
     let home: CompanionHomeView
+    let layout: CompanionHomeLayout
     static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.home.isPushed && rhs.home.isPushed && lhs.home.display != nil && rhs.home.display != nil
     }
-    var body: some View { home.content }
+    var body: some View { home.content(layout) }
 }
 
 /// A concrete boundary keeps the Home header's menu out of its inline generic row type.
