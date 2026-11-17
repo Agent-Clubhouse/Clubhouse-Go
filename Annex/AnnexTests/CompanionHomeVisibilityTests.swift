@@ -413,7 +413,7 @@ import ClubhouseTransport
         }
 
         func list(in view: UIView) -> UICollectionView? {
-            (view as? UICollectionView) ?? view.subviews.lazy.compactMap { list(in: $0) }.first
+            (view as? UICollectionView) ?? view.subviews.lazy.compactMap { self.list(in: $0) }.first
         }
 
         func renderedText() throws -> String {
