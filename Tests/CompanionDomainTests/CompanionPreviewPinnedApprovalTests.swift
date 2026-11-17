@@ -27,6 +27,11 @@ import Testing
         #expect(custom?.label == "Allow once" && custom?.kind == .other, "The label alone never makes a one-off allow")
     }
 
+    @Test func lateArrivalWaitsLongerThanTheDefaultTick() {
+        #expect(CompanionPreviewService.pinnedArrivalStep(arguments: []) == 20)
+        #expect(CompanionPreviewService.pinnedArrivalStep(arguments: ["--companion-preview-pinned-late"]) == 75)
+    }
+
     @Test func incompleteInputUsesTheReviewSummaryAndKeepsTheDefaultOptions() {
         let approval = CompanionPreviewService.pinnedApproval(id: "pinned-second", title: "Edit preview notes",
             arguments: ["--companion-preview-pinned-incomplete"], now: now)

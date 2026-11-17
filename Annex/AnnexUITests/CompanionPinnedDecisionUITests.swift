@@ -132,6 +132,48 @@ import Vision
         capture(app, "Show in chat: original request and pinned decisions")
     }
 
+    /// #543: typing first, then a request arrives. At the largest text the composer's actions stay above the keyboard;
+    /// only a phone too short for the tight rows (iPhone SE) shows the one Review control, which keeps the full title.
+    func testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard() throws {
+        let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard",
+                                    "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let composer = element(app, "companion-composer")
+        let tray = element(app, "companion-pinned-decision")
+        composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        composer.typeText("Keep this draft")
+        XCTAssertFalse(tray.exists, "The request must arrive after the keyboard is already up")
+        XCTAssertTrue(tray.waitForExistence(timeout: 45))
+        let review = app.buttons["companion-review-approval"]
+        XCTAssertTrue(review.waitForExistence(timeout: 10))
+        capture(app, "Request arrived while typing at AX XXXL")
+        XCTAssertTrue(app.keyboards.firstMatch.exists, "Arrival keeps editing")
+        let keyboardTop = app.keyboards.firstMatch.frame.minY
+        let region = element(app, "companion-composer-region").frame
+        XCTAssertGreaterThan(pixelAligned(keyboardTop - region.maxY), 0, "Composer keeps a measured margin above the keyboard: \(region), \(keyboardTop)")
+        var actions = ["companion-level-menu", "companion-send", "companion-dismiss-keyboard"]
+        if app.buttons["companion-attach"].exists { actions.append("companion-attach") }
+        if app.buttons["companion-interrupt"].exists { actions.append("companion-interrupt") }
+        for id in actions {
+            let frame = app.buttons[id].frame
+            XCTAssertTrue(app.buttons[id].isHittable, "\(id) stays reachable")
+            XCTAssertLessThanOrEqual(frame.maxY, keyboardTop, "\(id) stays above the keyboard: \(frame)")
+        }
+        XCTAssertGreaterThanOrEqual(pixelAligned(rect: review.frame).width, 44)
+        XCTAssertGreaterThanOrEqual(pixelAligned(rect: review.frame).height, 44)
+        XCTAssertLessThanOrEqual(review.frame.maxY, region.minY, "Review stays above the composer")
+        XCTAssertEqual(review.label, "Review approval: Run preview build, 1 of 3")
+        if app.frame.width < 402 {
+            XCTAssertEqual(tray.value as? String, "Review-only request controls", "SE collapses to the one Review control")
+            XCTAssertEqual(review.value as? String, "1 of 3 waiting · Bash", "Position and tool stay complete for VoiceOver")
+            XCTAssertFalse(summary(app).exists, "One Review control replaces the rows")
+        } else {
+            XCTAssertNotEqual(tray.value as? String, "Review-only request controls", "iPhone 17 and Pro Max keep the title row")
+            XCTAssertTrue(summary(app).exists)
+        }
+        XCTAssertEqual(composer.value as? String, "Keep this draft")
+    }
+
     func testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones() throws {
         let app = openRiver()
         awaitApproval(app)

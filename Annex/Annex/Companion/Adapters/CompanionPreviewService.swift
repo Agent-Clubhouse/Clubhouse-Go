@@ -380,6 +380,10 @@ import ClubhouseTransport
               dispose: .init(uncommittedFiles: 2, unpushedCommits: 1, unmergedCommits: 1, workAtRisk: true)),
     ]
     #if DEBUG
+    /// The 400ms tick on which pinned requests arrive; "late" leaves time to start typing first (#543).
+    nonisolated static func pinnedArrivalStep(arguments: [String]) -> Int {
+        arguments.contains("--companion-preview-pinned-late") ? 75 : 20
+    }
     /// The synthetic pinned approval; launch arguments select the broader-only or incomplete variants.
     nonisolated static func pinnedApproval(id: String, title: String, arguments: [String], now: Date = .now) -> CompanionApproval {
         var options: [CompanionApprovalOption] = [
@@ -409,7 +413,7 @@ import ClubhouseTransport
             if Self.showsPinnedDecisions, let previous = pinnedDecisionStep {
                 let pinnedStep = previous + 1
                 pinnedDecisionStep = pinnedStep
-                if pinnedStep == 20 {
+                if pinnedStep == Self.pinnedArrivalStep(arguments: ProcessInfo.processInfo.arguments) {
                     for (id, title) in [("pinned-first", "Run preview build"), ("pinned-second", "Edit preview notes")] {
                         continuation?.yield(.upsert(Self.target, .approval(Self.pinnedApproval(id: id, title: title,
                             arguments: ProcessInfo.processInfo.arguments)), sequence: nil))

@@ -10,9 +10,8 @@ struct CompanionConversationPendingDecisions: View {
     @State private var expiryBoundary = Date.distantPast
     @State private var selectedID: String?
     @State private var review: CompanionComposerApprovalReviewSelection?
-    /// The full rows' height at the offered width, measured while the Review-only fallback could apply.
+    /// The full rows' height at the offered width, measured while tight AX rows apply.
     @State private var naturalRowsHeight: CGFloat = 0
-    @State private var keyboardVisible = false
     @Environment(\.verticalSizeClass) private var verticalSizeClass
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.colorScheme) private var colorScheme
@@ -60,12 +59,6 @@ struct CompanionConversationPendingDecisions: View {
                 .accessibilityValue(usesReviewOnlyRow ? "Review-only request controls"
                     : isCompactPresentation ? "Compact request controls" : "Expanded request controls")
             }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in
-            if !keyboardVisible { keyboardVisible = true }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
-            if keyboardVisible { keyboardVisible = false }
         }
         .task(id: nextDeadline) {
             guard let nextDeadline else { return }
@@ -282,9 +275,10 @@ struct CompanionConversationPendingDecisions: View {
     private var usesTightAccessibilityRows: Bool {
         hasCompactRoom && dynamicTypeSize.isAccessibilitySize && verticalSizeClass == .regular
     }
-    /// Only tight AX rows with the keyboard up can need the fallback; elsewhere nothing is measured.
-    private var measuresNaturalRows: Bool { usesTightAccessibilityRows && keyboardVisible }
-    /// The full rows (plus the tight 1pt insets) exceed the room the footer offers this tray.
+    /// Only tight AX rows can need the fallback; elsewhere nothing is measured.
+    private var measuresNaturalRows: Bool { usesTightAccessibilityRows }
+    /// The full rows (plus the tight 1pt insets) exceed the room the footer offers this tray. That room already
+    /// excludes the keyboard, so a request arriving while someone types is measured against the same room.
     private var usesReviewOnlyRow: Bool { measuresNaturalRows && naturalRowsHeight + 2 > maximumHeight }
     private var usesSingleRow: Bool {
         verticalSizeClass == .compact || (isCompactPresentation && !dynamicTypeSize.isAccessibilitySize)
