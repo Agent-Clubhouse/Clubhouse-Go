@@ -29,11 +29,13 @@ struct CompanionAppUpdateLink: View {
     @Bindable var store: CompanionStore
     let host: CompanionHost
     var settingsRow = false
-    @Environment(\.companionHomeScrollAnchor) private var homeAnchor
+    #if DEBUG
+    @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
+    #endif
 
     var body: some View {
         #if DEBUG
-        let _ = homeAnchor.map { _ in CompanionHomeBuildProbe.record?(.appUpdate) }
+        let _ = CompanionHomeBuildProbe.count(.appUpdate, when: countsHomeBuilds)
         #endif
         if host.hasAppUpdateAffordance {
             NavigationLink {

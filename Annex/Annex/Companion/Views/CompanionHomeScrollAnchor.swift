@@ -8,6 +8,53 @@ enum CompanionHomeAnchor: Hashable {
     case quiet(String), finished(CompanionTarget), offline(CompanionProjectTarget), cached(CompanionTarget)
 }
 
+/// List must know an offscreen row's anchor from its DATA identity. A nested explicit
+/// .id is only registered after that lazy row is realised. Non-Home callers keep their
+/// original ForEach identifiers and hierarchy.
+struct CompanionHomeForEach<Value: Identifiable, Row: View>: View {
+    let values: [Value]
+    let anchor: (Value) -> CompanionHomeAnchor
+    let row: (Value) -> Row
+    @Environment(\.companionHomeScrollAnchor) private var owner
+
+    init(_ values: [Value], anchor: @escaping (Value) -> CompanionHomeAnchor,
+         @ViewBuilder row: @escaping (Value) -> Row) {
+        self.values = values; self.anchor = anchor; self.row = row
+    }
+
+    private struct Item: Identifiable {
+        let id: CompanionHomeAnchor
+        let index: Int
+    }
+
+    var body: some View {
+        if owner != nil {
+            // Keep only small IDs/indices in the identity projection, not another array
+            // of by-value Hosts/ProjectGroups (#524's Debug stack constraint).
+            ForEach(values.indices.map { Item(id: anchor(values[$0]), index: $0) }) { row(values[$0.index]) }
+        } else {
+            ForEach(values) { row($0) }
+        }
+    }
+}
+
+/// Quiet disclosures are singleton rows rather than elements of an existing data loop.
+/// Giving that singleton a data ID also makes it addressable before its body is mounted.
+struct CompanionHomeAnchorRow<Row: View>: View {
+    let id: CompanionHomeAnchor
+    let row: Row
+    @Environment(\.companionHomeScrollAnchor) private var owner
+
+    init(_ id: CompanionHomeAnchor, @ViewBuilder row: () -> Row) {
+        self.id = id; self.row = row()
+    }
+
+    var body: some View {
+        if owner != nil { ForEach([id], id: \.self) { _ in row } }
+        else { row }
+    }
+}
+
 /// Non-observable scroll bookkeeping: geometry must not rebuild Home on every scrolling pixel.
 /// StateObject provides lazy owner lifetime only; no published fields or change notifications.
 /// Owns only identifiers, rectangles and scalar flags; no views, controllers, callbacks or tasks.

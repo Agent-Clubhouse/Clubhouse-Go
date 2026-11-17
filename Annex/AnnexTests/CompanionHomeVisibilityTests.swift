@@ -65,6 +65,11 @@ import ClubhouseTransport
         XCTAssertGreaterThan(fixture.counts[.appUpdate, default: 0], 0)
         XCTAssertGreaterThan(fixture.counts[.chips, default: 0], 0)
         try await fixture.turn()
+        // Baseline after native push/lazy realisation settles, not during its animation.
+        // No chunk is delivered until readiness; every subsequent zero-work check remains strict.
+        let sequenceBeforeReadiness = fixture.store.conversation(for: target).lastSequence
+        try await fixture.waitForPushedRealisation()
+        XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, sequenceBeforeReadiness, "Readiness must not deliver any stream chunks")
         fixture.assertPushCost()
         let before = fixture.expensiveCounts
         for batch in 0..<10 {
@@ -102,6 +107,9 @@ import ClubhouseTransport
         try await fixture.wait { fixture.frames.last?.1.contains("Reconnecting") == true && fixture.counts[.linkedRows, default: 0] > linkedBefore }
         fixture.push(.agent(target))
         try await fixture.wait { fixture.isFrozen }
+        let linkedSequenceBeforeReadiness = fixture.store.conversation(for: target).lastSequence
+        try await fixture.waitForPushedRealisation()
+        XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, linkedSequenceBeforeReadiness, "Linked readiness must not deliver any stream chunks")
         fixture.assertPushCost()
         XCTAssertGreaterThan(fixture.counts[.linkedRows, default: 0], 0)
         let linked = fixture.expensiveCounts
@@ -461,6 +469,42 @@ import ClubhouseTransport
             var next = navigation.wrappedValue
             next.setPath([route], for: .home, hosts: store.hosts)
             navigation.wrappedValue = next
+        }
+
+        /// A bounded setup condition, never an action retry or a stream-counter allowance.
+        /// Native navigation completion plus TWO equal row/menu samples >=250ms apart.
+        func waitForPushedRealisation(file: StaticString = #filePath, line: UInt = #line) async throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 5
+            var sampled: [CompanionHomeBuildProbe.Kind: Int]?
+            var sampledAt: TimeInterval = 0
+            var evidence: [String] = []
+            defer {
+                let attachment = XCTAttachment(string: evidence.joined(separator: "\n"))
+                attachment.name = "Home push transition and List realisation readiness"
+                attachment.lifetime = .keepAlways
+                XCTContext.runActivity(named: attachment.name) { $0.add(attachment) }
+            }
+            func isTransitioning(_ controller: UIViewController) -> Bool {
+                controller.transitionCoordinator != nil || controller.isBeingPresented || controller.isBeingDismissed
+                    || controller.children.contains(where: isTransitioning)
+                    || controller.presentedViewController.map(isTransitioning) == true
+            }
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                try await turn()
+                let now = ProcessInfo.processInfo.systemUptime
+                let transitioning = window.rootViewController.map(isTransitioning) ?? true
+                if !isFrozen || transitioning {
+                    sampled = nil
+                } else if sampled == nil || now - sampledAt >= 0.25 {
+                    let current: [CompanionHomeBuildProbe.Kind: Int] = [.row: counts[.row, default: 0], .rowMenu: counts[.rowMenu, default: 0]]
+                    evidence.append("time=\(now) transitionComplete=\(!transitioning) row=\(current[.row, default: 0]) rowMenu=\(current[.rowMenu, default: 0]) interval=\(sampled == nil ? 0 : now - sampledAt)")
+                    if let sampled, current == sampled { return }
+                    sampled = current; sampledAt = now
+                }
+                try await Task.sleep(for: .milliseconds(20)) // Condition polling only.
+            }
+            XCTFail("Native push and List realisation did not settle within 5s", file: file, line: line)
+            throw NSError(domain: "HomeListReadiness", code: 1)
         }
 
         func assertPushCost(file: StaticString = #filePath, line: UInt = #line) {
