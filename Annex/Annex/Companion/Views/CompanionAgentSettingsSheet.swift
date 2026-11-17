@@ -109,10 +109,12 @@ struct CompanionAgentMenu: ViewModifier {
     #endif
     func body(content: Content) -> some View {
         #if DEBUG
-        let _ = homeAnchor.map { _ in
-            CompanionHomeBuildProbe.record?(.rowMenu)
-            CompanionHomeBuildProbe.rowActions?(target, settings, wake, terminal)
-        }
+        let _ = {
+            if countsHomeBuilds {
+                CompanionHomeBuildProbe.record?(.rowMenu)
+                CompanionHomeBuildProbe.rowActions?(target, settings, wake, terminal)
+            }
+        }()
         #endif
         let choices = wake?.choices(target) ?? []
         let hasSettingsItems = settings.map { $0.openDetails != nil || $0.canOpen(target) } ?? false
