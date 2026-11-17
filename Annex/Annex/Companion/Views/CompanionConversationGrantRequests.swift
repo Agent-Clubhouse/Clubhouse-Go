@@ -11,28 +11,32 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
     let maximumHeight: CGFloat
     var showInChat: (String) -> Void = { _ in }
     @ViewBuilder var composer: Composer
-    @State private var composerHeight: CGFloat = 0
+    @State private var idealComposerHeight: CGFloat = 0
     @State private var footerHeight: CGFloat = 0
 
     var body: some View {
         // Keep the composer mounted across fit/keyboard changes. When the keyboard leaves less
         // room than this footer, Review stays first and the rest remains reachable by scrolling.
         ScrollView(.vertical) {
-            FooterLayout {
+            FooterLayout(maximumHeight: maximumHeight) {
                 // Concrete slots survive the final request disappearing during footer removal.
                 VStack(spacing: 0) {
                     CompanionConversationGrantRequests(store: store, target: target,
-                        maximumHeight: max(0, maximumHeight - composerHeight) / 2)
+                        maximumHeight: max(0, maximumHeight - idealComposerHeight) / 2)
                     CompanionConversationPendingDecisions(store: store, target: target,
-                        maximumHeight: max(0, maximumHeight - composerHeight)
+                        maximumHeight: max(0, maximumHeight - idealComposerHeight)
                             / (store.grantRequests(for: target).isEmpty ? 1 : 2),
                         // The tray shares this room with the composer. An expanded text-action row must
                         // not consume the transcript/editor space just because the whole viewport is tall.
-                        compactHeight: max(0, maximumHeight - composerHeight) < 360, showInChat: showInChat)
+                        compactHeight: max(0, maximumHeight - idealComposerHeight) < 360, showInChat: showInChat)
                 }
                 VStack(spacing: 0) { composer }
                 .environment(\.companionComposerFitsGrantFooter, true)
-                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { composerHeight = $0 }
+                // Measure the ideal proposal through a separate transparent slot, not the placed
+                // editor. A capped editor must never feed its smaller height back into tray fit.
+                Color.clear.frame(width: 0)
+                    .allowsHitTesting(false).accessibilityHidden(true)
+                    .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { idealComposerHeight = $0 }
             }
             .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { footerHeight = $0 }
         }
@@ -53,30 +57,46 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
     }
 
     private struct FooterLayout: Layout {
+        let maximumHeight: CGFloat
+
+        private struct Sizes {
+            let requests: CGSize
+            let idealComposer: CGSize
+            let placedComposer: CGSize
+        }
+
         func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
             guard let sizes = sizes(width: proposal.width, subviews: subviews) else { return .zero }
-            return CGSize(width: proposal.width ?? max(sizes.0.width, sizes.1.width),
-                          height: sizes.0.height + sizes.1.height)
+            return CGSize(width: proposal.width ?? max(sizes.requests.width, sizes.placedComposer.width),
+                          height: sizes.requests.height + sizes.placedComposer.height)
         }
 
         func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
             guard let sizes = sizes(width: bounds.width, subviews: subviews) else { return }
-            subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(sizes.0))
-            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + sizes.0.height),
-                             proposal: ProposedViewSize(sizes.1))
+            subviews[0].place(at: bounds.origin, proposal: ProposedViewSize(sizes.requests))
+            subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + sizes.requests.height),
+                             proposal: ProposedViewSize(sizes.placedComposer))
+            // This noninteractive geometry carrier reports only the IDEAL height. It adds no
+            // content size, creates no second editor and does not mutate state during layout.
+            subviews[2].place(at: bounds.origin, anchor: .topLeading,
+                             proposal: ProposedViewSize(width: 0, height: sizes.idealComposer.height))
         }
 
-        private func sizes(width: CGFloat?, subviews: Subviews) -> (CGSize, CGSize)? {
-            guard subviews.count == 2 else {
-                assertionFailure("Conversation footer requires its two concrete requests/composer containers")
+        private func sizes(width: CGFloat?, subviews: Subviews) -> Sizes? {
+            guard subviews.count == 3 else {
+                assertionFailure("Conversation footer requires requests, composer and its ideal-height carrier")
                 return nil
             }
-            // Measure the native editor and its actions at their ideal height first. Capping them by
-            // the current tray creates a circular fit: a capped editor reports less room is needed,
-            // so the tray never switches to compact and the eighth line cannot grow.
-            let composer = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
-            let grants = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
-            return (grants, composer)
+            let idealComposer = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
+            let requests = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
+            let budget = max(0, maximumHeight - requests.height)
+            // Review/requests stay first. The editor gets the remainder and scrolls internally,
+            // reserving its fixed action row, inset and one native line. Preserve natural growth
+            // whenever it fits. Below that floor the composer refuses further compression;
+            // the existing whole-footer scroll remains the fallback, with Review at its start.
+            let placedComposer = idealComposer.height <= budget ? idealComposer
+                : subviews[1].sizeThatFits(ProposedViewSize(width: width, height: budget))
+            return Sizes(requests: requests, idealComposer: idealComposer, placedComposer: placedComposer)
         }
     }
 }

@@ -643,11 +643,14 @@ import XCTest
         let composer = element(app, "companion-composer")
         waitAndTap(river, until: composer, attempts: 1)
         focus(composer, in: app)
+        let oneLineFloor = composer.frame.height
         let draft = (1...8).map { "Line \($0)" }.joined(separator: "\n")
         composer.typeText(draft)
         XCTAssertEqual(composer.value as? String, draft)
         try assertRow(app, working: true, state: "pending grant eight lines", editing: true)
         let snapshot = try layout(app)
+        XCTAssertGreaterThanOrEqual(pixelAligned(try XCTUnwrap(snapshot["companion-composer"]).height),
+                                    pixelAligned(oneLineFloor), "The bounded editor retains at least one native line")
         let review = app.buttons["companion-grant-review"]
         XCTAssertTrue(review.exists && review.isEnabled && review.isHittable)
         assertMinimumTarget(review, "Review")
@@ -662,6 +665,61 @@ import XCTest
         XCTAssertEqual(composer.value as? String, draft, "Review keeps the entire draft")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         try assertRow(app, working: true, state: "pending grant after Review", editing: true)
+    }
+
+    /// A focused AX editor is already one native line: requests plus its fixed actions/image form the
+    /// minimum floor. Where that floor cannot fit, Review stays first and the footer itself must scroll.
+    func testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor() throws {
+        let app = launchApp(["--companion-preview", "--companion-preview-working-composer",
+                             "--companion-preview-grant-requests", "--companion-sample-images",
+                             "--companion-ui-test-fit-metrics",
+                             "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], attempts: 1)
+        let river = element(app, "agent-preview-studio-river")
+        XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
+        let composer = element(app, "companion-composer")
+        waitAndTap(river, until: composer, attempts: 1)
+        waitAndTap(app.buttons["companion-attach"], until: element(app, "companion-attachment-thumbnail"), attempts: 1)
+        focus(composer, in: app)
+        let draft = "Keep direction"
+        composer.typeText(draft)
+        let initial = try layout(app)
+        let keyboardTop = try XCTUnwrap(initial.keyboardTop)
+        let region = try XCTUnwrap(initial["companion-composer-region"])
+        let editor = try XCTUnwrap(initial["companion-composer"])
+        let send = app.buttons["companion-send"]
+        let review = app.buttons["companion-grant-review"]
+        XCTAssertTrue(review.exists && review.isHittable)
+        assertMinimumTarget(review, "Review")
+        XCTAssertTrue(pixelContains(visibleRegion(initial), review.frame), "Review is first, entirely above the keyboard")
+        XCTAssertLessThanOrEqual(review.frame.maxY, region.minY, "Requests precede the composer")
+        XCTAssertLessThanOrEqual(pixelAligned(editor.maxY), pixelAligned(send.frame.minY), "The native editor never covers its fixed actions")
+        capture(app, "grant footer minimum floor before scroll")
+        captureGeometry(initial, state: "grant footer minimum floor before scroll")
+        let requiresScroll = region.maxY > keyboardTop
+        print("FLOOR_BRANCH window=\(initial.window) branch=\(requiresScroll ? "scroll" : "fits") composer=\(region) keyboardTop=\(keyboardTop)")
+        if requiresScroll {
+            // Both points lie in the footer's outer margin, outside the native editor and keyboard.
+            let footer = try XCTUnwrap(initial["companion-grant-footer-scroll"])
+            let visibleFooter = CGRect(x: footer.minX, y: footer.minY, width: footer.width,
+                                       height: max(0, keyboardTop - footer.minY))
+            let startPoint = CGPoint(x: initial.window.maxX - 6, y: keyboardTop - 12)
+            let endPoint = CGPoint(x: initial.window.maxX - 6, y: footer.minY + 12)
+            XCTAssertTrue(visibleFooter.contains(startPoint) && visibleFooter.contains(endPoint), "Both drag points lie inside the visible footer")
+            XCTAssertFalse(editor.contains(startPoint) || editor.contains(endPoint), "The drag avoids the native editor")
+            XCTAssertLessThan(startPoint.y, keyboardTop, "The drag avoids the keyboard")
+            XCTAssertGreaterThan(startPoint.y, endPoint.y, "The fallback drag scrolls toward Send")
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: startPoint.x, dy: startPoint.y))
+            let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: endPoint.x, dy: endPoint.y))
+            start.press(forDuration: 0.05, thenDragTo: end)
+            let scrolled = try layout(app)
+            XCTAssertTrue(send.isHittable && pixelContains(visibleRegion(scrolled), send.frame), "Below the minimum floor, whole-footer scrolling exposes Send")
+            XCTAssertTrue(app.keyboards.firstMatch.exists, "Footer scrolling keeps the keyboard")
+            XCTAssertEqual(composer.value as? String, draft, "Footer scrolling keeps the draft")
+            capture(app, "grant footer minimum floor after scroll")
+            captureGeometry(scrolled, state: "grant footer minimum floor after scroll")
+        } else {
+            try assertRow(app, working: true, state: "grant footer minimum floor fits", editing: true, reviewButton: true)
+        }
     }
 
     private func ordinaryWorkingDraft(softWrap: Bool) throws {
