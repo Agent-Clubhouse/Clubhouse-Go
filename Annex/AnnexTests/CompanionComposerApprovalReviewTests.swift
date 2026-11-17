@@ -370,11 +370,16 @@ import ClubhouseTransport
     }
 
     private func requireRenderedLabel(_ label: String, in window: UIWindow, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let started = ContinuousClock.now
+        var polls = 0
         let updated = XCTNSPredicateExpectation(predicate: NSPredicate { _, _ in
-            (try? self.renderedText(window).contains(label)) == true
+            polls += 1
+            return (try? self.renderedText(window).contains(label)) == true
         }, object: nil)
         await fulfillment(of: [updated], timeout: 3)
         let recognized = try renderedText(window)
+        // Diagnostic only (#545): how long the mounted label took and how many OCR polls the 3s wait admitted.
+        print("RENDER_WAIT label=\(label) elapsed=\(started.duration(to: .now)) found=\(recognized.contains(label)) ocrPolls=\(polls)")
         if !recognized.contains(label) {
             // Keep the evidence: an async fulfillment failure alone records no line, OCR or image.
             let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
