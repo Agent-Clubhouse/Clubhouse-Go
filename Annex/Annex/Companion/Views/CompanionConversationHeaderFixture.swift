@@ -107,7 +107,8 @@ struct CompanionConversationHeaderFixture: View {
             guard var agent = host.allAgents.first(where: { $0.id == target }) else { return }
             agent.name = arguments.contains("--companion-header-long-name")
                 ? "Alexandria — release coordination and simulator validation"
-                : "Header worker"
+                // One unbroken word, like the #554 report.
+                : arguments.contains("--companion-header-orchestrator-name") ? "Clubhouse-Orchestrator" : "Header worker"
             agent.status = arguments.contains("--companion-header-idle") ? .idle : .working
             agent.turnStartedAt = agent.status == .working ? Date().addingTimeInterval(-65) : nil
             agent.freeAgentMode = true
@@ -151,6 +152,15 @@ struct CompanionConversationHeaderFixture: View {
             if arguments.contains("--companion-header-synchronizing") { host.connection = .synchronizing }
             store.apply(.hosts([host]))
             ready = true
+            // `--companion-header-stream` (#554): a reply grows and the context ring moves, four ticks a second for 20s.
+            guard arguments.contains("--companion-header-stream") else { return }
+            for tick in 1...80 {
+                try? await Task.sleep(for: .milliseconds(250))
+                store.apply(.upsert(target, .message(.init(id: "header-fixture-stream", role: .assistant,
+                    text: String(repeating: "Streaming reply chunk. ", count: tick))), sequence: nil))
+                host.projects[0].agents[0].contextUsage = .init(used: 40_000 + 1_000 * tick, size: 200_000, reportedAt: .now)
+                store.apply(.hosts([host]))
+            }
         }
     }
 
