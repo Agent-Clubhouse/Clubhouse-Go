@@ -39,6 +39,9 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
         .scrollDisabled(footerHeight <= maximumHeight)
         .scrollDismissesKeyboard(.never)
         .scrollBounceBehavior(.basedOnSize)
+        // A fixed-content container, not a reading surface. Its frame reaches under the keyboard and tab bar,
+        // so system edge effects would paint their own band from the footer's top edge (#533).
+        .scrollEdgeEffectHidden(true)
         .frame(height: min(footerHeight, maximumHeight))
         .accessibilityIdentifier("companion-grant-footer-scroll")
     }
