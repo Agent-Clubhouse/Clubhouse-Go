@@ -58,18 +58,38 @@ import Vision
             start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
         }
         XCTAssertTrue(viewport.contains(row.frame), "The full AX row must clear navigation and the floating tab bar")
+        let screenshot = app.screenshot()
+        let pixels = XCTAttachment(screenshot: screenshot)
+        pixels.name = "536 AX5 origin OCR pixels"; pixels.lifetime = .keepAlways; add(pixels)
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = .accurate
         request.usesLanguageCorrection = false
-        try VNImageRequestHandler(cgImage: XCTUnwrap(app.screenshot().image.cgImage)).perform([request])
+        try VNImageRequestHandler(cgImage: XCTUnwrap(screenshot.image.cgImage)).perform([request])
+        func normalized(_ text: String) -> String {
+            text.lowercased().components(separatedBy: CharacterSet.alphanumerics.inverted)
+                .filter { !$0.isEmpty }.joined(separator: " ")
+        }
+        let expected = ["River", "Working", "Synthetic linked project task", name].map(normalized)
+        var boxes: [[String: Any]] = []
         let lines = (request.results ?? []).compactMap { observation -> (String, CGRect)? in
             guard let text = observation.topCandidates(1).first?.string else { return nil }
             let box = observation.boundingBox
             let frame = CGRect(x: app.frame.minX + box.minX * app.frame.width,
                                y: app.frame.minY + (1 - box.maxY) * app.frame.height,
                                width: box.width * app.frame.width, height: box.height * app.frame.height)
-            return row.frame.intersects(frame) ? (text, frame) : nil
+            // Vision can merge the sibling helper chevron and avatar into a pseudo-word.
+            // Attribute by the fixture's real text, then check every accepted box strictly.
+            let candidate = normalized(text)
+            let accepted = !candidate.isEmpty && expected.contains { (" " + $0 + " ").contains(" " + candidate + " ") }
+            boxes.append(["text": text, "normalized": candidate, "accepted": accepted,
+                          "frame": NSCoder.string(for: frame)])
+            return accepted ? (text, frame) : nil
         }
+        let data = try JSONSerialization.data(withJSONObject: boxes, options: [.sortedKeys])
+        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+        attachment.name = "536 AX5 every OCR box and attribution"
+        attachment.lifetime = .keepAlways; add(attachment)
+        XCTAssertTrue(lines.contains { normalized($0.0) == "river" }, "Accepted OCR must include the row title")
         XCTAssertTrue(lines.map(\.0).joined(separator: " ").contains(name), "Pixels must show the entire machine name, with no truncation")
         XCTAssertGreaterThanOrEqual(lines.filter { name.contains($0.0) }.count, 2,
                                     "The deliberately long machine badge must wrap at AX5, rather than shrink or truncate")
