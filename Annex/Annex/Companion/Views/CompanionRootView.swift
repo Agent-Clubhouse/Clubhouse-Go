@@ -696,20 +696,11 @@ struct CompanionHomeView: View {
                 .listRowSeparator(.hidden)
                 .listRowBackground(CompanionCardBackground())
             if entry.isLinked {
-                ForEach(entry.members) { member in
-                    if member.host.connection.canOperate {
-                        Text(machineLabel(entry, member))
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(Color(palette.secondaryLabel))
-                            .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
-                            .listRowBackground(CompanionCardBackground())
-                        projectRows(tree: CompanionAgentTree.build(member.project.agents.filter { !CompanionFinishedRuns.hasFinished($0) }, sort: preferences.projectSort,
-                                                                   held: hold?.agents[entry.id], lastActivity: store.lastActivity(of:)),
-                                    projectID: "\(member.host.id)-\(member.project.id)", target: member.id, parentLines: parentLines)
-                            .companionAgentRows(store: store, impliedHostID: member.host.id)
-                    } else {
-                        offlineMember(entry, member)
-                    }
+                CompanionHomeLinkedProjectRows(group: group, quiet: .init(entry: entry, finished: store.finished(in:)),
+                    preferences: preferences, parentLines: parentLines, onDismissFinished: dismissFinished,
+                    onClearFinished: clearFinished, canOpenFinished: { store.agent(for: $0) != nil })
+                ForEach(entry.members.filter { !$0.host.connection.canOperate }) { member in
+                    offlineMember(entry, member)
                 }
             } else if entry.host.connection.canOperate {
                 projectRows(tree: group.tree, projectID: projectID, target: entry.id, parentLines: parentLines)
@@ -870,10 +861,18 @@ struct CompanionHomeView: View {
     }
 
     private func clearFinished(_ target: CompanionProjectTarget) {
+        clearFinished([target])
+    }
+
+    private func clearFinished(_ targets: [CompanionProjectTarget]) {
         finishedActionError = nil
         Task {
-            await store.clearFinished(in: target)
-            finishedActionError = store.finishedError
+            var firstError: String?
+            for target in targets {
+                await store.clearFinished(in: target)
+                if firstError == nil { firstError = store.finishedError }
+            }
+            finishedActionError = firstError
         }
     }
 

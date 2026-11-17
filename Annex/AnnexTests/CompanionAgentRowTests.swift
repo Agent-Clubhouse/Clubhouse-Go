@@ -44,6 +44,14 @@ import SwiftUI
         XCTAssertNil(context.hostTag(for: agent.id, fallback: "Studio Mac"))
     }
 
+    func testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression() {
+        var context = CompanionAgentRowContext(hostNames: ["studio": "Studio Mac"], impliedHostID: "studio",
+            projectOriginLabels: [.init(hostID: "studio", projectID: "clubhouse"): "Studio Mac · Clubhouse"])
+        XCTAssertEqual(context.hostTag(for: agent.id), "Studio Mac · Clubhouse")
+        context.projectOriginLabels = [:]
+        XCTAssertNil(context.hostTag(for: agent.id, fallback: "Studio Mac"))
+    }
+
     func testPermissionStatusDoesNotRepeatAttentionLabel() {
         var value = agent
         value.detail = .init(state: "needs_permission", message: "Run xcodebuild", toolName: "Bash")
