@@ -48,7 +48,13 @@ struct CompanionConversationHeaderFixture: View {
                 CompanionConversationView(store: store, agent: agent)
             } else { ProgressView("Preparing header fixture…") }
         }
+        // `--companion-preview-toolbar-scheme-flip` (#534): a synthetic mismatch. The palette keeps the launch
+        // appearance while the conversation and its bar items see the opposite colorScheme. It shows the bar glass
+        // keeps to the palette over an opposite environment, not that this is how iOS 27 drew it white.
+        .environment(\.colorScheme, arguments.contains("--companion-preview-toolbar-scheme-flip") != isLight ? .light : .dark)
     }
+
+    private var isLight: Bool { arguments.contains("--companion-header-light") }
 
 
     var body: some View {
@@ -99,7 +105,7 @@ struct CompanionConversationHeaderFixture: View {
             }
         }
         .companionTheme(theme)
-        .preferredColorScheme(arguments.contains("--companion-header-light") ? .light : .dark)
+        .preferredColorScheme(isLight ? .light : .dark)
         .task {
             guard !ready else { return }
             var host = CompanionPreviewService.hosts(now: .now, helperRequests: CompanionPreviewService.helperRequests,
