@@ -457,7 +457,7 @@ struct CompanionHomeView: View {
     private var frozenInputs: CompanionHomeRenderSnapshot? { display }
     private var frozenActions: CompanionHomeFrozenActions? { renderSession.actions }
     /// Set on the value copy handed to Content. The owner alone may use live fallbacks.
-    fileprivate var contentValues: CompanionHomeContentValues? = nil
+    var contentValues: CompanionHomeContentValues? = nil
     @State private var arrangingEntries: [CompanionProjectEntry] = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -838,7 +838,7 @@ struct CompanionHomeView: View {
         case .summary: return !renderHosts.isEmpty
         case .desktops: return true
         case .idle: return !layout.idle.isEmpty
-        case .project(let key): return groups.contains { $0.entry.orderKey == key }
+        case .project(let target): return groups.contains { $0.entry.id == target }
         case .agent(let target):
             return groups.contains { group in
                 let rows = group.tree.active + (preferences.expandedFolds.contains("quiet:" + quietKey(group)) ? group.tree.sleeping + group.tree.finishedQuick : [])
@@ -975,7 +975,7 @@ struct CompanionHomeView: View {
             }
             .textCase(nil)
         }
-        CompanionHomeForEach(layout.projects, anchor: { .project($0.entry.orderKey) }) { group in projectSection(group, parentLines: parentLines) }
+        CompanionHomeForEach(layout.projects, anchor: { .project($0.entry.id) }) { group in projectSection(group, parentLines: parentLines) }
         if !layout.idle.isEmpty {
             Section {
                 Button {
@@ -991,7 +991,7 @@ struct CompanionHomeView: View {
                     Text(idleFooter(layout.idle))
                 }
             }
-            if preferences.idleExpanded { CompanionHomeForEach(layout.idle, anchor: { .project($0.entry.orderKey) }) { group in projectSection(group, parentLines: parentLines) } }
+            if preferences.idleExpanded { CompanionHomeForEach(layout.idle, anchor: { .project($0.entry.id) }) { group in projectSection(group, parentLines: parentLines) } }
         }
     }
 
@@ -1015,7 +1015,7 @@ struct CompanionHomeView: View {
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         return Section {
             projectHeader(group)
-                .companionHomeAnchor(.project(entry.orderKey))
+                .companionHomeAnchor(.project(entry.id))
                 .buttonStyle(.borderless)
                 .navigationLinkIndicatorVisibility(.hidden)
                 .listRowSeparator(.hidden)

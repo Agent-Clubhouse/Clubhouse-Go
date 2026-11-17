@@ -4,7 +4,7 @@ import SwiftUI
 /// Full identities keep equal agent names on different desktops separate.
 enum CompanionHomeAnchor: Hashable {
     case summary, desktops, idle
-    case attention(CompanionTarget), dispatcher(String), project(String), agent(CompanionTarget)
+    case attention(CompanionTarget), dispatcher(String), project(CompanionProjectTarget), agent(CompanionTarget)
     case quiet(String), finished(CompanionTarget), offline(CompanionProjectTarget), cached(CompanionTarget)
 }
 
