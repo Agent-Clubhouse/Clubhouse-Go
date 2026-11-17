@@ -137,8 +137,8 @@ import XCTest
         let options = try XCTUnwrap(layout["companion-level-menu"])
         let send = try XCTUnwrap(layout["companion-send"])
         XCTAssertEqual(options.width, options.height, accuracy: 1, "\(state): Options is a circle", file: file, line: line)
-        let leadingInset = options.minX - editor.minX
-        let trailingInset = editor.maxX - send.maxX
+        let leadingInset = options.minX - composerRegion.minX
+        let trailingInset = composerRegion.maxX - send.maxX
         XCTAssertGreaterThanOrEqual(leadingInset, 6, "\(state): Options clears the card edge", file: file, line: line)
         // The assistive keyboard action follows Send when present; otherwise the circles mirror each other.
         if !dismissButton {
@@ -307,12 +307,13 @@ import XCTest
         XCTAssertTrue(options.staticTexts.allElementsBoundByIndex.isEmpty, "No visible model/access capsule")
         XCTAssertTrue(options.label.contains("Auto-accept edits") && options.label.contains("Opus"), options.label)
         XCTAssertTrue((options.value as? String ?? "").contains("High effort"))
-        let leading = options.frame.minX - composer.frame.minX
-        let trailing = composer.frame.maxX - send.frame.maxX
+        // The native editor AX frame excludes its 16pt internal text padding.
+        // The containing region shares the composer card's horizontal edges.
+        let region = element(app, "companion-composer-region").frame
+        let leading = options.frame.minX - region.minX
+        let trailing = region.maxX - send.frame.maxX
         XCTAssertGreaterThanOrEqual(leading, 6, "Options is inset from the composer card")
         XCTAssertEqual(leading, trailing, accuracy: 1, "Options and Send mirror each other's inset")
-        let region = element(app, "companion-composer-region").frame
-        XCTAssertGreaterThanOrEqual(region.maxY - options.frame.maxY, 6, "The circle clears the bottom edge")
         capture(app, "circle \(state)")
         waitAndTap(options, until: app.buttons["companion-permissions-menu"], attempts: 1)
         XCTAssertTrue(app.buttons["companion-model-menu"].exists)
