@@ -131,12 +131,18 @@ struct CompanionHomeRowInputs: ViewModifier {
 
 /// SwiftUI creates this storage lazily once. Mutating these non-published display values during
 /// the owner's construction cannot schedule another body pass. Captured execution handles can
-/// retain Root's UI State, so their destruction intentionally stays isolated to MainActor.
+/// retain Root's UI State, so a real MainActor task owns their final release.
 @MainActor final class CompanionHomeRenderSession: ObservableObject {
     private(set) var snapshot: CompanionHomeRenderSnapshot?
     private(set) var actions: CompanionHomeFrozenActions?
 
-    isolated deinit {}
+    nonisolated deinit {
+        // Root/UI State captured by these handles must be released inside a real Swift
+        // task. The isolated-deinit runtime itself aborts during SwiftUI teardown (#551).
+        Task { @MainActor [actions, snapshot] in
+            withExtendedLifetime((actions, snapshot)) {}
+        }
+    }
 
     func prepare(visible: Bool, pushed: Bool,
                  capture: () -> (CompanionHomeRenderSnapshot, CompanionHomeFrozenActions)) {
