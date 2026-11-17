@@ -321,6 +321,9 @@ import ClubhouseTransport
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-large-catalog") {
                 hosts = CompanionLargeCatalogFixture.hosts()
             }
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-combined-linked-home") {
+                hosts = CompanionHomeLinkedFixture.hosts()
+            }
             #endif
             self.sentHosts = hosts
             continuation.yield(.hosts(hosts))
