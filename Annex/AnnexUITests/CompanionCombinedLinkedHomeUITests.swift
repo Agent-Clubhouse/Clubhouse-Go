@@ -21,16 +21,41 @@ import Vision
 
     private func assertFullOriginVisible(_ name: String, in row: XCUIElement, app: XCUIApplication) throws {
         // Hittability alone permits a partially clipped AX row. Bring the whole row
-        // between navigation and tabs with bounded real List scroll gestures.
-        let top = app.navigationBars.firstMatch.frame.maxY
-        let bottom = app.tabBars.firstMatch.frame.minY
-        let viewport = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: bottom - top)
-        for _ in 0..<8 {
-            if viewport.contains(row.frame) { break }
-            let startY = row.frame.maxY > bottom ? 0.65 : 0.45
-            let endY = row.frame.maxY > bottom ? 0.45 : 0.65
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: startY))
-                .press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: endY)))
+        // between navigation and tabs. Held, measured List drags avoid inertial overshoot.
+        let list = app.collectionViews.firstMatch
+        XCTAssertTrue(list.exists)
+        let initialRowY = row.frame.minY
+        var viewport = CGRect.zero
+        for step in 0...8 {
+            let navigation = app.navigationBars.firstMatch.frame
+            let tabs = app.tabBars.firstMatch.frame
+            let frame = row.frame
+            viewport = CGRect(x: app.frame.minX, y: navigation.maxY, width: app.frame.width,
+                              height: tabs.minY - navigation.maxY)
+            let geometry: [String: Any] = [
+                "step": step, "AXSize": "UICTContentSizeCategoryAccessibilityXXXL",
+                "row": NSStringFromCGRect(frame), "viewport": NSStringFromCGRect(viewport),
+                "navigation": NSStringFromCGRect(navigation), "tabs": NSStringFromCGRect(tabs),
+                "list": NSStringFromCGRect(list.frame), "hittable": row.isHittable,
+                "relativeContentDisplacement": initialRowY - frame.minY,
+                "absoluteScrollOffset": "Not exposed by XCUIElement"
+            ]
+            let data = try JSONSerialization.data(withJSONObject: geometry, options: [.sortedKeys])
+            let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
+            attachment.name = "536 AX5 origin geometry step \(step)"
+            attachment.lifetime = .keepAlways; add(attachment)
+            print("COMBINED_ORIGIN_GEOMETRY \(String(decoding: data, as: UTF8.self))")
+            XCTAssertLessThanOrEqual(frame.height, viewport.height, "An oversized row is a product failure, not a scroll failure")
+            if viewport.contains(frame) || step == 8 { break }
+            let area = viewport.intersection(list.frame)
+            XCTAssertGreaterThan(area.height, 0)
+            let distance = max(-area.height * 0.4, min(area.height * 0.4, frame.midY - viewport.midY))
+            let origin = list.coordinate(withNormalizedOffset: .zero)
+            let start = origin.withOffset(CGVector(dx: area.midX - list.frame.minX,
+                                                  dy: area.midY + distance / 2 - list.frame.minY))
+            let end = origin.withOffset(CGVector(dx: area.midX - list.frame.minX,
+                                                dy: area.midY - distance / 2 - list.frame.minY))
+            start.press(forDuration: 0.05, thenDragTo: end, withVelocity: .slow, thenHoldForDuration: 0.2)
         }
         XCTAssertTrue(viewport.contains(row.frame), "The full AX row must clear navigation and the floating tab bar")
         let request = VNRecognizeTextRequest()
