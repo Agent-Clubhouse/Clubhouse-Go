@@ -41,6 +41,8 @@ import XCTest
         assertMinimumTarget(controls, "Chat controls")
         XCTAssertTrue(controls.label.contains("Auto-accept edits") && controls.label.contains("Opus"),
                       "The circle names the current access and model for VoiceOver and Voice Control: \(controls.label)")
+        XCTAssertTrue(controls.label.contains("Permissions: Auto-accept edits"),
+                      "The circle retains the current permission level when the short menu entry shows only its context")
         let appearance = flags.contains("--companion-header-latte") ? "Latte"
             : flags.contains("--companion-header-mocha") ? "Mocha"
             : flags.contains("--companion-header-light") ? "Light" : "Dark"
