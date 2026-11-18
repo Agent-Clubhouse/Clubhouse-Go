@@ -65,6 +65,10 @@ public actor AnnexTransportRegistry {
         return try await AnnexTelemetry.shared.measure(.pairing) {
             guard !busyHosts.contains(host.hostID) else { throw AnnexTransportError.commandInFlight }
             if persistence == .persistent && pairings == nil { throw AnnexTransportError.persistenceFailed(errSecNotAvailable) }
+            if persistence == .persistent, networkStates[host.hostID] == nil {
+                let evidence = Self.observations(in: networkStates)
+                guard evidence[host.hostID] != nil || evidence.count < AnnexNetworkObservation.maximumCount else { throw AnnexTransportError.commandTooLarge }
+            }
             revision = UUID()
             busyHosts.insert(host.hostID)
             defer { busyHosts.remove(host.hostID) }
@@ -85,7 +89,9 @@ public actor AnnexTransportRegistry {
             if let stamp = result.serverPairing {
                 network?.observations?[host.hostID] = .init(certFingerprint: host.certificatePin.sha256, pairing: stamp)
             }
-            guard (network?.observations?.count ?? 0) <= AnnexNetworkObservation.maximumCount else { throw AnnexTransportError.commandTooLarge }
+            if let evidence = network?.observations {
+                network?.observations = Self.bounded(evidence, knownHosts: Set(networkStates.keys).union([host.hostID]))
+            }
             let hostLabel = label.flatMap { $0.isEmpty ? nil : $0 } ?? result.alias
             if persistence == .persistent, let pairings {
                 try await pairings.save(AnnexSavedPairing(host: host, alias: hostLabel, routes: Self.merge(routes).filter { !$0.sameAddress(as: host.endpoint) },
@@ -185,13 +191,25 @@ public actor AnnexTransportRegistry {
             guard requestedRevision == revision else { return all() }
             var journal: [AnnexNetworkRemoval] = []
             for removal in saved.compactMap(\.network).flatMap(\.removals) where !journal.contains(removal) { journal.append(removal) }
-            let states = Dictionary(uniqueKeysWithValues: saved.compactMap { pairing in pairing.network.map { (pairing.host.hostID, $0) } })
+            let states = Dictionary(saved.compactMap { pairing in pairing.network.map { (pairing.host.hostID, $0) } }, uniquingKeysWith: { first, _ in first })
             var observations = Self.observations(in: states)
             for pairing in saved {
                 Self.observeSavedState(pairing.network, hostID: pairing.host.hostID, pin: pairing.host.certificatePin.sha256, into: &observations)
             }
             Self.prune(&observations, endedBy: journal)
-            guard observations.count <= AnnexNetworkObservation.maximumCount else { throw AnnexTransportError.commandTooLarge }
+            if observations.count > AnnexNetworkObservation.maximumCount {
+                // Divergent interrupted saves may have a larger union. First
+                // persist every known host's winner while keeping each original
+                // map/journal intact. Only then may bounded replication drop any
+                // excess evidence; interruption cannot strand an old own stamp.
+                for index in saved.indices where saved[index].network != nil {
+                    guard requestedRevision == revision else { return all() }
+                    let previous = saved[index].network
+                    Self.applyObservation(observations[saved[index].host.hostID], pin: saved[index].host.certificatePin.sha256, to: &saved[index].network)
+                    if saved[index].network != previous { try await pairings.save(saved[index]) }
+                }
+            }
+            observations = Self.bounded(observations, knownHosts: Set(states.keys))
             // A previous process may have stopped after copying the journal to
             // only some items. Spread it before deleting any ended pairing.
             for index in saved.indices where saved[index].network != nil {
@@ -284,11 +302,19 @@ extension AnnexTransportRegistry {
     }
     private static func observeSavedState(_ state: AnnexNetworkState?, hostID: String, pin: String,
                                           into observations: inout [String: AnnexNetworkObservation]) {
-        guard let state else { return }
+        guard let state, AnnexNetworkObservation.validHostID(hostID) else { return }
+        // Supplemental evidence cannot override an already approved pin.
+        if let previous = observations[hostID], previous.certFingerprint != pin { observations.removeValue(forKey: hostID) }
         let stamp = state.member.map { AnnexNetworkPairing(id: $0.pairingId ?? "", joinedAt: $0.joinedAt) } ?? state.serverPairing
-        guard let stamp else { return }
-        let observation = AnnexNetworkObservation(certFingerprint: pin, pairing: stamp)
+        guard let stamp, let observation = AnnexNetworkObservation(certFingerprint: pin, pairing: stamp) else { return }
         observations[hostID] = .winning(observation, over: observations[hostID])
+    }
+    private static func bounded(_ observations: [String: AnnexNetworkObservation], knownHosts: Set<String>) -> [String: AnnexNetworkObservation] {
+        let keys = observations.keys.sorted { lhs, rhs in
+            if knownHosts.contains(lhs) != knownHosts.contains(rhs) { return knownHosts.contains(lhs) }
+            return lhs < rhs
+        }
+        return Dictionary(uniqueKeysWithValues: keys.prefix(AnnexNetworkObservation.maximumCount).compactMap { id in observations[id].map { (id, $0) } })
     }
     private static func applyObservation(_ observation: AnnexNetworkObservation?, pin: String, to state: inout AnnexNetworkState?) {
         guard let observation, observation.certFingerprint == pin else { return }
@@ -319,6 +345,7 @@ extension AnnexTransportRegistry {
     private func applyNetwork(_ view: AnnexNetworkSnapshot, from source: String) async throws {
         guard let own = networkStates[source], let identity = identities[source] else { return }
         let networkRevision = revision
+        guard view.removals.allSatisfy(\.isValid) else { throw AnnexTransportError.malformedResponse }
         let phone = try AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.pairingIdentity.publicKeyBase64)
         // Leaving takes nothing else from this view (#3107), especially new hosts.
         if view.removals.contains(where: { $0.fingerprint.lowercased() == phone && $0.ends(pairingID: own.pairing.id, joinedAt: own.pairing.joinedAt) }) {
@@ -336,6 +363,8 @@ extension AnnexTransportRegistry {
             }
         }
         let previousObservations = observations
+        // Ended unknown epochs cannot pin a future legitimate certificate.
+        Self.prune(&observations, endedBy: journal)
         // Resolve each desktop's generation from the whole view before deleting
         // anything. A later pairing beats an old tombstone, even for the sender.
         var members: [String: AnnexNetworkMember] = [:]
@@ -350,16 +379,22 @@ extension AnnexTransportRegistry {
                     throw AnnexTransportError.identityMismatch
                 }
             }
-            guard let pin = try? member.validatedCertificatePin(), AnnexNetworkRemoval.date(member.joinedAt) != nil,
-                  member.pairingId != "",
-                  (member.hosts.isEmpty && member.port != 0) || !member.endpoints.isEmpty else { continue }
-            if let previous = observations[id], previous.certFingerprint != pin.sha256 { throw AnnexTransportError.identityMismatch }
-            let candidate = AnnexNetworkObservation(certFingerprint: pin.sha256, pairing: .init(id: member.pairingId ?? "", joinedAt: member.joinedAt))
+            guard AnnexNetworkObservation.validHostID(id), member.pairingId != "", member.hasValidRouteHints,
+                  let pin = try? member.validatedCertificatePin(),
+                  let candidate = AnnexNetworkObservation(certFingerprint: pin.sha256, pairing: .init(id: member.pairingId ?? "", joinedAt: member.joinedAt)) else { continue }
+            if let previous = observations[id], previous.certFingerprint != pin.sha256 { continue }
+            // Refuse only new unknown trust when full. Known generations and
+            // removals continue to advance, even in an oversized incoming view.
+            if state == nil, observations[id] == nil, observations.count >= AnnexNetworkObservation.maximumCount { continue }
             let winning = AnnexNetworkObservation.winning(candidate, over: observations[id])
             observations[id] = winning
             members[id] = member.keepingPairing(id: winning.pairing.id.isEmpty ? nil : winning.pairing.id, joinedAt: winning.pairing.joinedAt)
         }
-        if let stamp = observations[source]?.pairing,
+        // Use the winning self stamp: a legitimately rejoined pinned sender P2
+        // makes its P1 removal stale, exactly as for every other known desktop.
+        let sourceStamp = observations[source]?.pairing ?? previousObservations[source]?.pairing ??
+            own.member.map { AnnexNetworkPairing(id: $0.pairingId ?? "", joinedAt: $0.joinedAt) } ?? own.serverPairing
+        if let stamp = sourceStamp,
            journal.contains(where: { $0.fingerprint.lowercased() == source && $0.ends(pairingID: stamp.id.isEmpty ? nil : stamp.id, joinedAt: stamp.joinedAt) }) {
             // A removed source can update known desktops, but cannot establish
             // even addressless ordering trust for a previously unknown desktop.
@@ -369,8 +404,17 @@ extension AnnexTransportRegistry {
             }
         }
         Self.prune(&observations, endedBy: journal)
-        // Never evict evidence to make room: refuse the oversized update atomically.
-        guard observations.count <= AnnexNetworkObservation.maximumCount else { throw AnnexTransportError.commandTooLarge }
+        if observations.count > AnnexNetworkObservation.maximumCount {
+            // As in restoration, protect every own stamp before reducing a
+            // divergent union. Keep old journals/maps until this phase completes.
+            for id in networkStates.keys.sorted() {
+                Self.applyObservation(observations[id], pin: registrations[id]?.host.certificatePin.sha256 ?? "", to: &networkStates[id])
+                try await saveNetworkState(for: id)
+                guard networkRevision == revision else { return }
+            }
+        }
+        observations = Self.bounded(observations, knownHosts: Set(networkStates.keys))
+        members = members.filter { networkStates[$0.key] != nil || observations[$0.key] != nil }
         // Save the winning stamp and journal together before deleting anything.
         // An interrupted write must not restore the old generation with its tombstone.
         for id in Array(networkStates.keys) {

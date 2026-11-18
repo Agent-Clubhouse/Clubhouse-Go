@@ -32,12 +32,6 @@ nonisolated public struct AnnexSavedPairing: Sendable, CustomStringConvertible, 
     static func decode(_ data: Data) throws -> AnnexSavedPairing {
         let value = try JSONDecoder().decode(Archive.self, from: data)
         guard value.version == 1 else { throw AnnexTransportError.malformedResponse }
-        if let observations = value.network?.observations {
-            guard observations.count <= AnnexNetworkObservation.maximumCount,
-                  observations.keys.allSatisfy({ $0.count == 64 && $0.allSatisfy { "0123456789abcdef".contains($0) } }) else {
-                throw AnnexTransportError.malformedResponse
-            }
-        }
         return try AnnexSavedPairing(host: value.host, alias: value.alias, routes: value.routes ?? [], identity: AnnexClientIdentity.restore(value.identity), credential: AnnexCredential(bearerToken: value.bearerToken), network: value.network)
     }
 }

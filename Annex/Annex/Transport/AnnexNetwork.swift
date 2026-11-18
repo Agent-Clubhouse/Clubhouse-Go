@@ -66,6 +66,12 @@ nonisolated public struct AnnexNetworkMember: Codable, Sendable, Equatable {
         guard let port, port > 0 else { return [] }
         return hosts.prefix(8).compactMap { try? .advertised(host: $0, port: port) }
     }
+    var hasValidRouteHints: Bool {
+        guard port != 0 else { return false }
+        // Missing port is valid. The placeholder only validates host syntax;
+        // endpoints above still returns no routes until a real port is known.
+        return hosts.isEmpty || hosts.prefix(8).contains { (try? AnnexEndpoint.advertised(host: $0, port: port ?? 1)) != nil }
+    }
     func keepingPairing(id: String?, joinedAt: String) -> Self {
         .init(fingerprint: fingerprint, publicKey: publicKey, name: name, icon: icon, color: color, kind: kind,
               hosts: hosts, port: port, certFingerprint: certFingerprint, certPem: certPem, online: online,
@@ -102,18 +108,22 @@ nonisolated public struct AnnexNetworkObservation: Codable, Sendable, Equatable 
     public let certFingerprint: String
     public let pairing: AnnexNetworkPairing
 
-    init(certFingerprint: String, pairing: AnnexNetworkPairing) {
-        self.certFingerprint = certFingerprint; self.pairing = pairing
+    init?(certFingerprint: String, pairing: AnnexNetworkPairing) {
+        guard let pin = try? AnnexCertificatePin(sha256: certFingerprint),
+              AnnexNetworkRemoval.date(pairing.joinedAt) != nil else { return nil }
+        self.certFingerprint = pin.sha256; self.pairing = pairing
     }
     private enum CodingKeys: String, CodingKey { case certFingerprint, pairing }
     public init(from decoder: any Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        certFingerprint = try values.decode(String.self, forKey: .certFingerprint)
-        pairing = try values.decode(AnnexNetworkPairing.self, forKey: .pairing)
-        guard (try? AnnexCertificatePin(sha256: certFingerprint))?.sha256 == certFingerprint,
-              AnnexNetworkRemoval.date(pairing.joinedAt) != nil else { throw AnnexTransportError.malformedResponse }
+        guard let valid = Self(certFingerprint: try values.decode(String.self, forKey: .certFingerprint),
+                               pairing: try values.decode(AnnexNetworkPairing.self, forKey: .pairing)) else { throw AnnexTransportError.malformedResponse }
+        self = valid
     }
     static let maximumCount = 512
+    static func validHostID(_ id: String) -> Bool {
+        id == id.lowercased() && AnnexPairingIdentity.isValidFingerprint(id)
+    }
     static func winning(_ candidate: Self, over previous: Self?) -> Self {
         guard let previous else { return candidate }
         // Match the receiver's existing immutable-stamp comparison exactly.
@@ -133,11 +143,15 @@ nonisolated public struct AnnexNetworkRemoval: Codable, Sendable, Equatable {
     /// #3107: compare the pairing stamp, never the phone's clock or removedAt
     /// for a stamped removal. A legacy record without an id counts as that pairing.
     public func ends(pairingID: String?, joinedAt memberJoinedAt: String) -> Bool {
-        if let pairingId, let joinedAt {
+        if let pairingId {
             if pairingID == nil || pairingID == pairingId { return true }
+            guard let joinedAt else { return false }
             return Self.noLater(memberJoinedAt, than: joinedAt)
         }
         return Self.noLater(memberJoinedAt, than: removedAt)
+    }
+    var isValid: Bool {
+        !fingerprint.isEmpty && pairingId != "" && Self.date(removedAt) != nil && (joinedAt.map { Self.date($0) != nil } ?? true)
     }
     private static func noLater(_ lhs: String, than rhs: String) -> Bool {
         guard let l = date(lhs), let r = date(rhs) else { return true }
@@ -169,4 +183,38 @@ nonisolated public struct AnnexNetworkState: Codable, Sendable, Equatable {
     public var needsIntroduction: Bool
     /// Optional for archives saved before addressless ordering evidence existed.
     public var observations: [String: AnnexNetworkObservation]? = nil
+
+    public init(pairing: AnnexNetworkPairing, serverPairing: AnnexNetworkPairing?, member: AnnexNetworkMember?, learned: Bool,
+                removals: [AnnexNetworkRemoval], needsIntroduction: Bool, observations: [String: AnnexNetworkObservation]? = nil) {
+        self.pairing = pairing; self.serverPairing = serverPairing; self.member = member; self.learned = learned
+        self.removals = removals; self.needsIntroduction = needsIntroduction; self.observations = observations
+    }
+    private enum CodingKeys: String, CodingKey { case pairing, serverPairing, member, learned, removals, needsIntroduction, observations }
+    private struct HostKey: CodingKey {
+        let stringValue: String
+        var intValue: Int? { nil }
+        init?(stringValue: String) { self.stringValue = stringValue }
+        init?(intValue: Int) { return nil }
+    }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        pairing = try values.decode(AnnexNetworkPairing.self, forKey: .pairing)
+        serverPairing = try values.decodeIfPresent(AnnexNetworkPairing.self, forKey: .serverPairing)
+        member = try values.decodeIfPresent(AnnexNetworkMember.self, forKey: .member)
+        learned = try values.decode(Bool.self, forKey: .learned)
+        removals = try values.decode([AnnexNetworkRemoval].self, forKey: .removals)
+        needsIntroduction = try values.decode(Bool.self, forKey: .needsIntroduction)
+        // Ordering evidence is supplemental. A malformed entry must never make
+        // the atomic identity/credential item, or all other items, unloadable.
+        observations = nil
+        if let entries = try? values.nestedContainer(keyedBy: HostKey.self, forKey: .observations) {
+            var valid: [String: AnnexNetworkObservation] = [:]
+            for key in entries.allKeys.sorted(by: { $0.stringValue < $1.stringValue }) where valid.count < AnnexNetworkObservation.maximumCount {
+                if AnnexNetworkObservation.validHostID(key.stringValue), let observation = try? entries.decode(AnnexNetworkObservation.self, forKey: key) {
+                    valid[key.stringValue] = observation
+                }
+            }
+            observations = valid
+        }
+    }
 }

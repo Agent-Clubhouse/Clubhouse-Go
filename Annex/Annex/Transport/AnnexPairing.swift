@@ -9,10 +9,15 @@ nonisolated public struct AnnexPairingIdentity: Sendable {
     private static let spkiPrefix = Data([0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00])
     var privateKeyData: Data { privateKey.rawRepresentation }
     public var publicKeyBase64: String { (Self.spkiPrefix + privateKey.publicKey.rawRepresentation).base64EncodedString() }
+    private static let fingerprintByteCount = 16
+    static func isValidFingerprint(_ value: String) -> Bool {
+        let bytes = value.split(separator: ":", omittingEmptySubsequences: false)
+        return bytes.count == fingerprintByteCount && bytes.allSatisfy { $0.count == 2 && $0.allSatisfy { $0.isASCII && $0.isHexDigit } }
+    }
     public static func fingerprint(publicKeyBase64: String) throws -> String {
         guard let bytes = Data(base64Encoded: publicKeyBase64), bytes.count == 44,
               bytes.prefix(12) == spkiPrefix else { throw AnnexTransportError.identityMismatch }
-        return SHA256.hash(data: bytes).prefix(16).map { String(format: "%02x", $0) }.joined(separator: ":")
+        return SHA256.hash(data: bytes).prefix(fingerprintByteCount).map { String(format: "%02x", $0) }.joined(separator: ":")
     }
 }
 
