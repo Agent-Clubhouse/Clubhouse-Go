@@ -753,7 +753,7 @@ struct CompanionComposerApprovalReviewSheet: View {
 }
 
 /// Independent minimums for the footer's activity policy. Actual activity text is never an input.
-struct CompanionActivityFloor: Equatable {
+nonisolated struct CompanionActivityFloor: Equatable, Sendable {
     var editor: CGFloat
     var line: CGFloat
     static let zero = Self(editor: 0, line: 0)
