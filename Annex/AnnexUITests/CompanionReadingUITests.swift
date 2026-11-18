@@ -25,6 +25,54 @@ import UIKit
         return CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
     }
 
+    private struct ReadingRestoreFrames: Equatable {
+        let anchor: CGRect
+        let viewport: CGRect
+        let keyboard: CGRect?
+    }
+
+    /// Existence precedes the asynchronous bookmark restore. Observe public frames for
+    /// longer than its two-second budget; never wait for the expected bookmark itself.
+    /// A settled wrong position must still fail the unchanged six-point assertion.
+    private func waitForReadingRestoration(_ anchor: XCUIElement, in app: XCUIApplication, context: String,
+                                           file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        let start = ProcessInfo.processInfo.systemUptime
+        let timeout: TimeInterval = 8
+        let stableInterval: TimeInterval = 2.25
+        var stableSince: TimeInterval?
+        var previous: ReadingRestoreFrames?
+        var samples: [String] = []
+        defer {
+            let trace = XCTAttachment(string: samples.joined(separator: "\n"))
+            trace.name = "\(context) restoration frame timeline"
+            trace.lifetime = .keepAlways
+            add(trace)
+            screenshot(app, "\(context) restoration readiness")
+        }
+        while ProcessInfo.processInfo.systemUptime - start < timeout {
+            checkTimeLeft("waiting for \(context) reading restoration", file: file, line: line)
+            let exists = anchor.exists
+            let frame = exists ? anchor.frame : .zero
+            let viewport = transcriptViewport(app)
+            let keyboard = app.keyboards.firstMatch
+            let keyboardFrame = keyboard.exists ? keyboard.frame : nil
+            let now = ProcessInfo.processInfo.systemUptime
+            let current = ReadingRestoreFrames(anchor: frame, viewport: viewport, keyboard: keyboardFrame)
+            let ready = exists && !frame.isEmpty && !viewport.isEmpty
+            if !ready || current != previous { stableSince = ready ? now : nil }
+            samples.append("t=\(now - start) exists=\(exists) anchor=\(frame) viewport=\(viewport) keyboard=\(String(describing: keyboardFrame)) stableFor=\(stableSince.map { now - $0 } ?? 0)")
+            previous = ready ? current : nil
+            if now - start < timeout, let stableSince, now - stableSince >= stableInterval {
+                samples.append("settled t=\(now - start)")
+                return true
+            }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+        }
+        samples.append("timed out without stable public frames")
+        XCTFail("\(context): reading entry, viewport and keyboard must settle within \(timeout)s", file: file, line: line)
+        return false
+    }
+
     /// Real transcript gestures replace setup through the arrows removed by #447.
     private func dragTranscript(_ app: XCUIApplication, by distance: CGFloat) {
         let viewport = gestureViewport(app)
@@ -302,12 +350,12 @@ import UIKit
         app.buttons.matching(NSPredicate(format: "label == %@", "Search")).firstMatch.tap()
         app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch.tap()
         openRiver(app)
-        XCTAssertTrue(anchor.waitForExistence(timeout: 10))
+        guard waitForReadingRestoration(anchor, in: app, context: "Tab return") else { return }
         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Tab return preserves the reader's place")
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
         openRiver(app)
-        XCTAssertTrue(anchor.waitForExistence(timeout: 10))
+        guard waitForReadingRestoration(anchor, in: app, context: "Chat reopen") else { return }
         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Leaving and reopening restores the entry bookmark")
         navigateToChatEnd(app)
         XCTAssertFalse(latest.exists, "Returning to the true bottom resumes following")
