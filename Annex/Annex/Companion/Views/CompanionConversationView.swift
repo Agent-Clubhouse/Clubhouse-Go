@@ -942,17 +942,22 @@ struct CompanionConversationView: View {
     /// Uncredited #569 diagnostic overlay: values/identities only, no transcript text.
     private func traceReading(_ event: String, details: String = "") {
         guard tracesFollow, ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") else { return }
+        if event == "save-attempt" {
+            CompanionReading569Trace.saveCaller["\(target)"] = details
+            return
+        }
         let saved = readingBookmark.position
         let frame = saved.entryID.flatMap { readingViewport.frames[$0] }
-        if event == "window" || event == "frames" || event == "save-attempt" {
-            let key = "\(target):\(event):\(event == "save-attempt" ? details : "")"
+        if event == "window" || event == "frames" {
+            let key = "\(target):\(event)"
             let values = "\(details) \(saved) frame=\(String(describing: frame)) metrics=\(String(describing: readingViewport.metrics)) height=\(String(describing: readingViewport.frameContentHeight)) follow=\(followLatest)"
             guard CompanionReading569Trace.previous[key] != values else { return }
             CompanionReading569Trace.previous[key] = values
         }
+        let caller = event == "saved" ? CompanionReading569Trace.saveCaller["\(target)"] ?? "unknown" : ""
         let nearby = readingViewport.frames.filter { $0.key.hasPrefix("message:reading-") && abs($0.value.lowerBound - saved.offset) < 600 }
             .sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.lowerBound)" }.joined(separator: ",")
-        NSLog("%@", "READING569 t=\(ProcessInfo.processInfo.systemUptime) event=\(event) entry=\(saved.entryID ?? "nil") distance=\(saved.distanceFromEntry) offset=\(saved.offset) entryFrame=\(String(describing: frame)) metrics=\(String(describing: readingViewport.metrics)) frameHeight=\(String(describing: readingViewport.frameContentHeight)) restoring=\(readingViewport.isRestoring) outcome=\(String(describing: readingViewport.restoration?.outcome)) follow=\(followLatest) nearby=\(nearby) \(details)")
+        NSLog("%@", "READING569 t=\(ProcessInfo.processInfo.systemUptime) event=\(event) entry=\(saved.entryID ?? "nil") distance=\(saved.distanceFromEntry) offset=\(saved.offset) entryFrame=\(String(describing: frame)) metrics=\(String(describing: readingViewport.metrics)) frameHeight=\(String(describing: readingViewport.frameContentHeight)) restoring=\(readingViewport.isRestoring) outcome=\(String(describing: readingViewport.restoration?.outcome)) follow=\(followLatest) nearby=\(nearby) \(caller) \(details)")
     }
     #endif
 
@@ -1177,5 +1182,6 @@ private struct CompanionReadingFrames: PreferenceKey {
 /// Diagnostic cache only; no Observable or View State writes and no product lifetime changes.
 @MainActor private enum CompanionReading569Trace {
     static var previous: [String: String] = [:]
+    static var saveCaller: [String: String] = [:]
 }
 #endif
