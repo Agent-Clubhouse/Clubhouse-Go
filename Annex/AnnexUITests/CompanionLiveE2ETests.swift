@@ -544,6 +544,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         submit.tap()
         XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5), "Finish editing the name before opening form options")
         XCTAssertTrue(app.navigationBars["New agent"].exists, "Submitting the name keeps the new-agent sheet open")
+        // #466 defaults to templates; this case exercises plain durable/worktree settings.
+        let managed = app.switches["new-agent-managed"]
+        XCTAssertTrue(scrollTo(managed, in: app, maxSwipes: 4), "The desktop offers the managed/plain creation choice")
+        setSwitch(managed, on: false, in: app)
         let workspace = app.buttons["new-agent-workspace-tools"]
         XCTAssertTrue(scrollTo(workspace, in: app, maxSwipes: 4))
         workspace.tap()
