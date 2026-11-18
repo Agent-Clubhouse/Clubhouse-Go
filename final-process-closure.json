@@ -1,0 +1,11 @@
+{
+  "time": "2026-11-18T03:24:50.185067+00:00",
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "simulator_uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA",
+  "simulator_state": "Shutdown",
+  "system_booted": [],
+  "owned_active_swift_or_xcodebuild": [],
+  "D_receipt": "package-ordering-r1-receipt.json",
+  "combined_receipt": "combined-coverage-r1-receipt.json",
+  "package_tickets_exited": true
+}

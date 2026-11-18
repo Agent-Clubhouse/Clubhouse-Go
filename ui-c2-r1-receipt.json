@@ -1,0 +1,112 @@
+{
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "phase": "C2",
+  "started_at": "2026-11-18T02:57:26.906533+00:00",
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 834 total, 9 running, 825 sleeping, 5996 threads \n2026/11/17 18:57:27\nLoad Avg: 6.79, 9.67, 10.35 \nCPU usage: 13.39% user, 9.54% sys, 77.6% idle \nSharedLibs: 1029M resident, 187M data, 163M linkedit.\nMemRegions: 1238194 total, 12G resident, 481M private, 3897M shared.\nPhysMem: 51G used (7101M wired, 6430M compressor), 12G unused.\nVM: 439T vsize, 6144M framework vsize, 9858212(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1338716956/1559G in, 553701866/414G out.\nDisks: 2142777574/25T read, 2926051259/34T written.\n\n\nProcesses: 834 total, 4 running, 830 sleeping, 5873 threads \n2026/11/17 18:57:37\nLoad Avg: 6.05, 9.42, 10.25 \nCPU usage: 10.94% user, 3.28% sys, 85.76% idle \nSharedLibs: 1029M resident, 187M data, 163M linkedit.\nMemRegions: 41 total, 1376K resident, 481M private, 3897M shared.\nPhysMem: 52G used (7101M wired, 6430M compressor), 12G unused.\nVM: 439T vsize, 6144M framework vsize, 9858212(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1338719225/1559G in, 553704353/414G out.\nDisks: 2142782363/25T read, 2926065136/34T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   729214.\nPages active:                                1268430.\nPages inactive:                              1234515.\nPages speculative:                             36085.\nPages throttled:                                   0.\nPages wired down:                             454432.\nPages purgeable:                               17752.\n\"Translation faults\":                   111203721892.\nPages copy-on-write:                     10691529994.\nPages zero filled:                       56265390321.\nPages reactivated:                       11743724053.\nPages purged:                              289344495.\nFile-backed pages:                           1369671.\nAnonymous pages:                             1169359.\nPages stored in compressor:                  1124832.\nPages occupied by compressor:                 411651.\nDecompressions:                           6115879459.\nCompressions:                             6815914220.\nPageins:                                  1512689122.\nPageouts:                                   12220985.\nSwapins:                                     9858212.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   717886.\nPages active:                                1274744.\nPages inactive:                              1237251.\nPages speculative:                             38279.\nPages throttled:                                   0.\nPages wired down:                             454442.\nPages purgeable:                               17532.\n\"Translation faults\":                   111203803909.\nPages copy-on-write:                     10691532042.\nPages zero filled:                       56265441737.\nPages reactivated:                       11743724060.\nPages purged:                              289344497.\nFile-backed pages:                           1372101.\nAnonymous pages:                             1178173.\nPages stored in compressor:                  1124404.\nPages occupied by compressor:                 411542.\nDecompressions:                           6115879887.\nCompressions:                             6815914220.\nPageins:                                  1512689533.\nPageouts:                                   12220985.\nSwapins:                                     9858212.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 11947442176,
+      "inactive_bytes": 20226293760,
+      "free_plus_inactive_bytes": 32173735936
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 11761844224,
+      "inactive_bytes": 20271120384,
+      "free_plus_inactive_bytes": 32032964608
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 85.76,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source": "/tmp/ux-528-visible-proof/tickets/after-build-r2/source",
+  "DD": "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD",
+  "build_receipt": "/tmp/ux-528-visible-proof/after-build-r2-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "69ad2df98b28e8cdf0f23adc6232318424d37727f20c8546db7b3b09790d073f",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "b5ee4b900fb3c78c1e9c204abad7ce0b6ad0daae8ec53c5811491a7daf83ae89",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "724045a03fb99596fc5cf325a48f2215e3baff6dde7b64fada1e1dd8c3b37f1c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "a5c88643618dad2e87c2d5de9a6520c398eb9e179095508a9bb44aa0dc99db1f"
+  },
+  "overlay": {
+    "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+    "file_sha256": "7f3f0e589949285f544517e70831bc97cbe7688730a70dc1b60f2fd9f21f17a6",
+    "base_file_sha256": "d206ebe597fdb09f0881d26078229be46a13de66804d7548259dd09b3f417a35",
+    "patch_sha256": "76859dcfd573a1a88664248896a634145d4c6c77104853bfb65de4e62ba3507f",
+    "additive_inverse_verified": true
+  },
+  "simulator_uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA",
+  "postboot_resources_record_only": "Processes: 987 total, 67 running, 920 sleeping, 7352 threads \n2026/11/17 18:57:43\nLoad Avg: 15.42, 11.25, 10.89 \nCPU usage: 60.8% user, 35.23% sys, 4.67% idle \nSharedLibs: 1029M resident, 187M data, 163M linkedit.\nMemRegions: 1261858 total, 14G resident, 1639M private, 4337M shared.\nPhysMem: 58G used (9141M wired, 6429M compressor), 5662M unused.\nVM: 498T vsize, 6144M framework vsize, 9858212(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1338720859/1559G in, 553705881/414G out.\nDisks: 2142799330/25T read, 2926099743/34T written.\n\n\n",
+  "runs": [
+    {
+      "selectors": [
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testHomeAndProjectPageMergeMachinesAndUnlinkSplitsThem",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testSpawningRequiresChoosingTheMachine",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testDisconnectedMemberKeepsItsPlaceWithoutShowingCachedAgents",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testProjectOptionsDisambiguateTwoProjectsOnTheSameMachine",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testNeedsYouUsesOneProjectHeadingWithMachineLabels",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testAllRequiresAnExplicitWakeMachineAndASelectedDesktopActsDirectly",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testAllTerminalChoosesOneMachineAndOpensOnlyItsShell",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testSingleProjectMenuKeepsPinInactiveAndReadOnlyInfo",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testLinkedToolbarUsesSharedPinAndInactiveEvenInASelectedDesktopScope",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testLinkedToolbarMixedVersionDisablesSharedChangesAndShowsConnectionHint",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testLinkedToolbarOldHostsRetainPerCopyStateFallback",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testLight",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testDark",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testLatte",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testMocha",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testAccessibilityXXXL",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testPartiallyOfflineGroupCanPinThroughItsConnectedCopy",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testMixedVersionGroupShowsDisabledSharedControlsAndExplains",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testOldHostDaysIdleMemberOffersMarkActiveWithoutAnExplicitInactiveMark",
+        "ClubhouseGoUITests/CompanionChatChromeUITests/testOfflineCaptionAppearsOnlyWhileReconnecting",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testPinnedRowOpensTheDispatchersChatAndSettings",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testDraftSurvivesTabSwitchAndDisconnectAndOffMovesHomeOnce",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testEveryLastTabRestoresAfterRelaunch",
+        "ClubhouseGoUITests/CompanionGrantRequestUITests/testDesktopUpdateInChatRequiresExplicitRestartMode",
+        "ClubhouseGoUITests/CompanionGrantRequestUITests/testDispatcherGrantOpenChatSwitchesTabsAndShowsTheRequest",
+        "ClubhouseGoUITests/CompanionAppUpdateUITests/testReadyRequestPresentsOwnInterruptionReviewAndRestartWhenIdleWithoutLeavingTheScreen"
+      ],
+      "normal_dispatcher": false,
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-528-visible-proof/tickets/ui-c2-r1/run-1/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    }
+  ],
+  "rc": 0,
+  "admitted_at": "2026-11-18T02:57:26.885865+00:00",
+  "closed_at": "2026-11-18T03:04:58.221738+00:00",
+  "duration_seconds": 451.3378413328901,
+  "hard_bound_seconds": 1440,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 31,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-528-visible-proof/ui-c2-r1-receipt.json",
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}
