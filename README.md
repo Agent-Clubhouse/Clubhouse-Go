@@ -1,7 +1,7 @@
-# #582 first-paint evidence — work in progress
+# #582 / draft #584 evidence (work in progress)
 
-Draft PR #584: https://github.com/Agent-Clubhouse/Clubhouse-Go/pull/584
+Cumulative source fbb7a7ee6 is UNBUILT and UNTESTED. Independent source/configuration review is pending. No #582 heavy ticket has been admitted. Beta.3 release-gate A/B has host priority until its exact cleanup.
 
-Current code head `b1b6e141ed6743968ff257cde03b85400b42d627`, base main `77b24899170c6da76067f205a93f2b06bf9aede8`. QA approved the static proposal with conditions; the cumulative implementation and exact proof configuration are awaiting static review. No app build, test, recording or simulator admission has occurred. Beta.3 phone/archive/live E2E retains host priority.
+The current proposal-and-proof bundle includes the lazy immutable seed, per-mount seed counters, idle-only identity handoff and disclosed DEBUG phase/ownership tests. New hosted scope is 11 methods/12 executions, plus two pre-launch recorded UI methods. All four existing Reading/restore/hidden contracts remain byte-identical to main77b24899.
 
-[Proposal and prepared proof](proposal-and-proof). The cache proposal at the top is superseded by the approved transcript-child extraction section. Existing Reading/restore/hidden/value contract methods are byte-identical to main. No first-frame or runtime success is claimed.
+The CPU source-only preparer has not run. It will create identical additive test overlays on main/head for the 16-step Home scroll measurement and paused transcript streaming cost. Generated overlay identities require review before measured builds. No runtime acceptance is claimed.

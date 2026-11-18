@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""#569 exact-head guarded proof. No assertion retries. Hosted parameters need independent audit."""
-import hashlib, importlib.util, json, os, re, signal, subprocess, sys, time
+"""#582 exact-head guarded proof. No assertion retries. Hosted parameters need independent audit."""
+import hashlib, importlib.util, json, os, re, signal, subprocess, sys, time, shutil
 from pathlib import Path
 R=Path('/tmp/ux-582-proof')
 M=json.loads((R/'manifest.json').read_text())
@@ -183,6 +183,41 @@ def test(state):
     save(state);return state['rc']
 
 
+def coverage(state):
+    state['source_provenance']=verify_source(REPO)
+    assert run(['git','fetch','origin'],OUT/'fetch.log',REPO)==0
+    main=capture(['git','rev-parse','origin/main']).strip()
+    combined=OUT/'source'
+    subprocess.run(P+['git','worktree','add','--detach',str(combined),M['head']],cwd=REPO,check=True)
+    merge_rc=run(['git','merge','--no-ff','--no-edit',main],OUT/'merge.log',combined)
+    state.update(main_at_runtime=main, merge_rc=merge_rc, combined_source=str(combined))
+    if merge_rc:
+        state.update(rc=1,stop='Merge conflict; no resolution authorized',conflicts=capture(['git','diff','--name-only','--diff-filter=U'],combined).splitlines())
+        save(state);return 1
+    assert not capture(['git','status','--porcelain'],combined).strip()
+    state['combined_head']=capture(['git','rev-parse','HEAD'],combined).strip()
+    state['combined_tree']=capture(['git','rev-parse','HEAD^{tree}'],combined).strip()
+    expected_tree=capture(['git','merge-tree','--write-tree',M['head'],main],REPO).splitlines()[0]
+    state['fresh_merge_tree']=expected_tree
+    assert state['combined_tree']==expected_tree,'Combined tree differs from a fresh merge'
+    changed_main=set(capture(['git','diff','--name-only',M['base'],main],REPO).splitlines())
+    product_files={'Annex/Annex/Companion/Domain/CompanionReadingPosition.swift',
+                   'Annex/Annex/Companion/Views/CompanionConversationView.swift'}
+    state['main_product_overlap']=sorted(changed_main & product_files)
+    assert not state['main_product_overlap'],'Main touched tested product files; review before coverage'
+    assert run(['git','fetch','origin'],OUT/'refetch.log',REPO)==0
+    assert capture(['git','rev-parse','origin/main']).strip()==main,'Main changed before compile; STOP'
+    assert not (combined/'.build').exists(),'Fresh coverage build only'
+    shim=OUT/'bin';shim.mkdir()
+    shutil.copy2('/tmp/ux-528-proof/coverage-bin/swift',shim/'swift')
+    state.update(swift_jobs=2,swift_shim_sha256=digest(shim/'swift'))
+    os.environ['PATH']=str(shim)+os.pathsep+os.environ['PATH']
+    save(state)
+    state['coverage_rc']=run(['bash','scripts/coverage.sh','--check'],OUT/'coverage.log',combined)
+    state['rc']=state['coverage_rc'];save(state);return state['rc']
+
+
+
 def worker():
     state={'head':M['head'],'phase':PHASE,'started_at':g.utc()}
     try:
@@ -192,6 +227,7 @@ def worker():
         assert not OUT.exists(),'Fresh label required';OUT.mkdir(parents=True)
         assert capture(['git','rev-parse','HEAD']).strip()==M['head']
         assert not capture(['git','status','--porcelain']).strip(),'Clean source required'
+        if PHASE=='D':return coverage(state)
         if PHASE=='A':return build(state)
         if CFG['kind'] in ('hosted','UI'):return test(state)
         raise ValueError('Unknown phase')
@@ -247,6 +283,20 @@ def supervisor():
         child.wait()
         rc = 124 if isinstance(error, subprocess.TimeoutExpired) else 143
     state = json.loads(STATE.read_text()) if STATE.exists() else {}
+    process_rows=subprocess.check_output(['/bin/ps','-axo','pid=,ppid=,pgid=,comm='],text=True).splitlines()
+    owned=[row.strip() for row in process_rows if len(row.split())>=4 and row.split()[2]==str(child.pid)]
+    state['owned_process_group']=child.pid
+    state['owned_processes_before_cleanup']=owned
+    if owned:
+        os.killpg(child.pid,signal.SIGTERM)
+        time.sleep(2)
+        remaining=[row.strip() for row in subprocess.check_output(['/bin/ps','-axo','pid=,ppid=,pgid=,comm='],text=True).splitlines() if len(row.split())>=4 and row.split()[2]==str(child.pid)]
+        if remaining:
+            os.killpg(child.pid,signal.SIGKILL)
+            time.sleep(0.2)
+        rc=1
+        state['stop']='Unexpected surviving owned process group; cleaned, acceptance STOP'
+    state['owned_processes_after_cleanup']=[row.strip() for row in subprocess.check_output(['/bin/ps','-axo','pid=,ppid=,pgid=,comm='],text=True).splitlines() if len(row.split())>=4 and row.split()[2]==str(child.pid)]
     state.update(rc=rc, admitted_at=admitted, closed_at=g.utc(), duration_seconds=time.monotonic()-started,
                  hard_bound_seconds=LIMIT, swap_watch=watch, receipt_path=str(RECEIPT))
     try: cleanup(state)
