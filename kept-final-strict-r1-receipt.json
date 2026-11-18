@@ -1,0 +1,59 @@
+{
+  "head": "48a6f022135c4df68a8b867e330ae16c1fdb5a4b",
+  "phase": "strict",
+  "started_at": "2026-11-17T23:28:03.746028+00:00",
+  "clean_test_only_measurement_overlay": true,
+  "guard": {
+    "top": "Processes: 835 total, 3 running, 1 stuck, 831 sleeping, 5845 threads \n2026/11/17 15:28:04\nLoad Avg: 3.88, 8.28, 8.41 \nCPU usage: 4.29% user, 8.58% sys, 87.11% idle \nSharedLibs: 1018M resident, 183M data, 131M linkedit.\nMemRegions: 1236405 total, 13G resident, 581M private, 3983M shared.\nPhysMem: 51G used (7123M wired, 5486M compressor), 12G unused.\nVM: 439T vsize, 6144M framework vsize, 9858191(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1328023891/1547G in, 550052304/412G out.\nDisks: 2127007885/25T read, 2902678227/34T written.\n\n\nProcesses: 834 total, 6 running, 828 sleeping, 5890 threads \n2026/11/17 15:28:14\nLoad Avg: 4.04, 8.17, 8.37 \nCPU usage: 6.2% user, 3.29% sys, 90.67% idle \nSharedLibs: 1018M resident, 183M data, 131M linkedit.\nMemRegions: 0 total, 0B resident, 581M private, 3983M shared.\nPhysMem: 50G used (7123M wired, 5486M compressor), 13G unused.\nVM: 439T vsize, 6144M framework vsize, 9858191(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1328025956/1547G in, 550054318/412G out.\nDisks: 2127018884/25T read, 2902689449/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 90.67,
+    "physmem_unused_bytes": 13958643712.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 6442450944,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "overlay_sha256": "ec0ba8bf3d8c0b96c1b90441ec1b83c29400a62ad5bc174c844b6b0e8eb07ce3",
+  "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+  "artifact_sha256": {
+    "/tmp/ux-557-proof/kept-final/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "d9a8b00777bbffa7e53c7bffd14d92023336ebf4a802b337115f708425dafcae",
+    "/tmp/ux-557-proof/kept-final/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "0de79ba0ab3f9b86517b8e78f8377cbe14e0847695b556697841dfd3287c0268",
+    "/tmp/ux-557-proof/kept-final/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "50b92ca123dc6dd283a2da2a24f2ed6a116c0ebe4f41148dc603d6d63daa9604"
+  },
+  "simulator_uuid": "6F006A13-7D77-4124-979F-93991B2FD332",
+  "runs": [
+    {
+      "name": "strict",
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession"
+      ],
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-557-proof/kept-final-strict-r1/strict/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0
+    }
+  ],
+  "rc": 0,
+  "admitted_at": "2026-11-17T23:28:03.723883+00:00",
+  "closed_at": "2026-11-17T23:28:35.775330+00:00",
+  "duration_seconds": 32.051507709,
+  "hard_bound_seconds": 480,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 3,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}

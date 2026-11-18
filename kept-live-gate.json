@@ -1,0 +1,16 @@
+{
+  "head": "48a6f022135c4df68a8b867e330ae16c1fdb5a4b",
+  "pass": true,
+  "primary_counts_pass": true,
+  "dispatcher_pass": true,
+  "native_menu_work_per_batch": 0,
+  "row_menu_total_equals_main": true,
+  "receipts": {
+    "kept-final-build-r1": "/tmp/ux-557-proof/kept-final-build-r1-receipt.json",
+    "kept-final-strict-r1": "/tmp/ux-557-proof/kept-final-strict-r1-receipt.json",
+    "kept-final-live-before-r1": "/tmp/ux-557-proof/kept-final-live-before-r1-receipt.json",
+    "kept-final-live-after-r1": "/tmp/ux-557-proof/kept-final-live-after-r1-receipt.json"
+  },
+  "comparison": "/tmp/ux-557-proof/kept-live-comparison.json",
+  "notes": "No phone CPU/battery inference. Broader simulator tickets still wait for composer attribution cleanup."
+}

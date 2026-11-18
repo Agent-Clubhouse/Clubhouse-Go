@@ -1,11 +1,57 @@
-# #551 exact-head Home evidence
+# Home pushed freeze evidence for #558
 
-Source head b9990663a7e85aedfde074a57d4a3af4ab241c09. Generated DEBUG fixtures only; images are original, unedited xcresult exports.
+Code head: `48a6f022135c4df68a8b867e330ae16c1fdb5a4b`. Baseline: `67b8e5b88b84de190e0234290978615f33362d96`.
 
-B-after-r11: 27/0/0 hosted, strict/deinit/Python policy PASS. C1: 14/0/0 UI, strict PASS. C2 and package proof are separate and pending at publication. No whole-PR green claim follows from these images.
+All fixtures are generated synthetic catalogs and memory services. Images are original XCTest PNG attachments, with their origins and SHA256 in [manifest.json](manifest.json). No phone data or phone install is involved.
 
-Inspected: linked Home light/dark, full wrapped machine origin at accessibility XXXL, one quiet fold and expanded attribution, Home before push, pushed agent, Home after a real edge swipe, and fresh connection state on first pop. The origin row is 600pt high within the 757pt viewport; one bounded drag brought it fully inside. Eleven expected text lines are accepted and strictly bounds-checked. The sibling chevron/avatar OCR pseudo-word VR. is excluded by attribution; centre-in-row unexpected text still gets strict bounds checks.
+| Gate | Result |
+|---|---|
+| Fresh Debug build / compiled deinit / policy | PASS / PASS / 20 PASS |
+| Full strict pushed method | 1/0 PASS; byte-identical method fingerprint retained |
+| Clean live streaming measurement | 2 main + 2 head invocations PASS; every head batch meets baseline and fixed count ceiling |
+| Hosted regression | 27/27 PASS, no skips, retries or crashes |
+| UI C1 | 14/14 PASS, strict PASS, no skips, retries or crashes |
+| UI C2 | Pending |
+| Package D and combined coverage | Pending |
 
-The passing UI bundle retained no recording, so mid-gesture visual continuity is UNVERIFIED. Before/after title/back-label/nonblank assertions passed, and their images are included. Finished-run visible names can ellipsize at XXXL; these captures do not claim all text everywhere is untruncated.
+See [the count table](kept-live-report.md) and [raw comparison](kept-live-comparison.json). Counts are the primary performance gate. Supporting app process CPU is not a phone battery or CPU-percentage claim. The cheap Home owner still reevaluates; all expensive pushed child counters remain unchanged.
 
-Returning to Home from another tab scrolls to the top; scroll restore follows in #557. Original strict pushed-row and anchor tests remain in unrun draft #558. No physical-device CPU/battery claim.
+## Current-head screenshots
+
+Fresh Home after 100 hidden Dispatch updates:
+
+![Fresh title on Home](home-fresh-after-dispatch.png)
+
+Current connection state on first pop:
+
+![Connection and update status after pop](home-fresh-connection-after-pop.png)
+
+Large catalog: 8 desktops, 384 projects, 7,680 agents:
+
+![Large catalog Home](home-large-catalog.png)
+
+Linked rows hosted fixture:
+
+![Linked rows](linked-rows-hosted.png)
+
+Project page light and dark regression captures:
+
+![Project page light](project-page-light.png)
+
+![Project page dark](project-page-dark.png)
+
+## Deliberate limits
+
+Returning Home from another tab still scrolls to the top. Anchor restore is excluded, preserved unproven in #567 / Draft #568. The LargeCatalog hosted test constructs the production menu VALUE factory. C1 separately opens the live native project-header menu and checks Pin, Mark inactive and Project info. Frozen Home and agent-row native-menu coverage gap #564 remains open. Main already rebuilds visible Home on streamed updates from any loaded conversation; reducing that existing cost is the next #528 follow-up, not a claim made here.
+
+## Native UI light, dark and AX5
+
+![Linked Home light](home-linked-light.png)
+
+![Linked Home dark](home-linked-dark.png)
+
+![Full machine name at AX5](home-full-origin-AX5.png)
+
+The AX5 test retained strict row/viewport bounds, full-name and multiline OCR checks. [All OCR boxes and attribution](origin-every-ocr-box.json) and [geometry step 0](origin-geometry-step-0.json) / [step 1](origin-geometry-step-1.json) are retained.
+
+![Home after real swipe-back](home-after-real-swipe.png)
