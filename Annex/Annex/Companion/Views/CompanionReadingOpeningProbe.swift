@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Opt-in test observation only. No transcript text, State writes, timers or production callback.
 @MainActor enum CompanionReadingOpeningProbe {
-    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump }
+    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump, openingRequest }
     struct Sample {
         let phase: Phase
         let mountID: UUID

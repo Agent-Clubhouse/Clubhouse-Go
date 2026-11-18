@@ -617,6 +617,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
     @State private var pendingIdentityRelease = false
     @State private var transcriptIsMounted = true
+    @State private var didRequestOpeningIdentity = false
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -919,7 +920,19 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 readingViewport.restoration = restoration
                 await restoreReadingPosition(saved, id: restoration.id)
             }
-            .onAppear { transcriptIsMounted = true }
+            .onAppear {
+                transcriptIsMounted = true
+                // Consume once for this transcript identity, including Latest/missing-ID openings.
+                // A retained appearance or history reload must not replay a stale bookmark request.
+                guard !didRequestOpeningIdentity else { return }
+                didRequestOpeningIdentity = true
+                guard !followLatest, !identityPositionIsUserOwned,
+                      let id = readingScrollPosition.viewID(type: String.self) else { return }
+                #if DEBUG
+                traceOpening(.openingRequest, firstEntryID: entries.first?.id)
+                #endif
+                proxy.scrollTo(id, anchor: .top)
+            }
             .onDisappear {
                 transcriptIsMounted = false
                 pendingIdentityRelease = false
