@@ -767,6 +767,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    #if DEBUG
+                    traceOpening(.frames, firstEntryID: entries.first?.id)
+                    #endif
                     updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
