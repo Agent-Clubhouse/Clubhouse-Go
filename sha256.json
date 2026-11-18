@@ -1,7 +1,18 @@
 {
-  "README.md": "76ea9ed308a3271f04a93477508ee4dc7b9243c73fa5382840d6c165b8b35a03",
-  "original-e45/original-e45-return-frames.png": "68c17e555d46fe4ecf4ad425ac3d7963bb280b4198971cbdcc96935dda1f0899",
+  "README.md": "02da1d4f28dd0bb85cdafc74d1f75a35a94f718a79aa9cb916d2306115290263",
+  "b829-confirmation-r1/C4904509-50A4-4510-BEE3-60A938E51130.txt": "a2378499947d3c2de19bf4d3dd3fea46becdee0d96be8738a37f7861f214cf05",
+  "b829-confirmation-r1/C8C307CB-2450-464A-9F13-D8A5B04022EF.txt": "87eb5a4181f1879862d9d38f4dae8a89559978fb194977e8631d8dbe24eb8613",
+  "b829-confirmation-r1/README.md": "80e198c58e860131702cf1390f90cabbdbdd3ecdf0bc1ce3d2d51035d7b2d757",
+  "b829-confirmation-r1/actual-order.json": "95bed9a5dcd1c66387aaa79fdaefe70d0c2c1306240fd39603d3837a0d988525",
+  "b829-confirmation-r1/app-reading-restore-stdout.txt": "3fe56148fefb23edfdcddcdf5908104fd0650c214d8d13c9133647e1d98782ea",
+  "b829-confirmation-r1/app-reading-trace-records.json": "6d3252080c9f7f1ac0805ed3e63b0d9531e691fd806b45c731f33960c1c98718",
+  "b829-confirmation-r1/app-reading-trace.txt": "ecaaecb7b035165039e39157f9f1b8effe9e7677dea54a440a5b5258c71068ef",
+  "b829-confirmation-r1/c-confirm-r1-closure.json": "ab38e6e678d4422809ccf7d52282556be4a2d2e3f52b6766a7c8177df8fdcff7",
+  "b829-confirmation-r1/reading-frame-summary.json": "6731289eca3f41705605ed7bc46e91eee566e3b655a4e393414e6b4ba483e6e9",
+  "b829-confirmation-r1/selected-method-identity-main-vs-b829.json": "7e4a8a0e14d8987431ad345bdf84ad1d4858bed1a13680d02410c1e6ade7a713",
+  "b829-confirmation-r1/summary.json": "5f9e45db7fe9a6b1e16dfa1d9293627b60e3a9b993ab136ef1eee6bf2804500e",
   "original-e45/diagnosis-before-run.json": "c1cf6d9eae746c2eec7f7abdebdb95d0abeee212e947f8f66a2566195794e736",
   "original-e45/original-e45-reading-activities.json": "d3a0bbc5e822ea062df98df8959ef81062c763d9670c6e05e31cf6f65dec6d42",
-  "original-e45/original-e45-reading-product-trace.txt": "cf627076cf50dd21479233e7bb2c8a9c9ec60a433f3872c21cc064b4c544d9fd"
+  "original-e45/original-e45-reading-product-trace.txt": "cf627076cf50dd21479233e7bb2c8a9c9ec60a433f3872c21cc064b4c544d9fd",
+  "original-e45/original-e45-return-frames.png": "68c17e555d46fe4ecf4ad425ac3d7963bb280b4198971cbdcc96935dda1f0899"
 }

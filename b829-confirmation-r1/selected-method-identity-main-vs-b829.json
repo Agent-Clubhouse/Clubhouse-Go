@@ -1,0 +1,122 @@
+{
+  "method_count": 23,
+  "all_selected_methods_identical": true,
+  "support_file_identical": true,
+  "methods": {
+    "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt": {
+      "method_identical": true,
+      "b829_sha256": "4883ff681a28897f16077ba9019d0da1914c5dd001417501b6d232ee3fb68a74",
+      "main_sha256": "4883ff681a28897f16077ba9019d0da1914c5dd001417501b6d232ee3fb68a74"
+    },
+    "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt": {
+      "method_identical": true,
+      "b829_sha256": "289e9b5e047575d3891438319d78d09ff480eb19b0e4f589d7880a998b05bb85",
+      "main_sha256": "289e9b5e047575d3891438319d78d09ff480eb19b0e4f589d7880a998b05bb85"
+    },
+    "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark": {
+      "method_identical": true,
+      "b829_sha256": "8623e32e949968247b80f6d65bfe14f210818faf8af34ba4171ce908cc1abedf",
+      "main_sha256": "8623e32e949968247b80f6d65bfe14f210818faf8af34ba4171ce908cc1abedf"
+    },
+    "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark": {
+      "method_identical": true,
+      "b829_sha256": "79b981131f2a80cb770304857d8da6e038117eb7cd590d39b8713f2210a002ce",
+      "main_sha256": "79b981131f2a80cb770304857d8da6e038117eb7cd590d39b8713f2210a002ce"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing": {
+      "method_identical": true,
+      "b829_sha256": "c8d7e60f449901e2abf1d8c78e2d16c8cfbf496751824718f19e1b382dd85243",
+      "main_sha256": "c8d7e60f449901e2abf1d8c78e2d16c8cfbf496751824718f19e1b382dd85243"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader": {
+      "method_identical": true,
+      "b829_sha256": "9221740676a8532b709ac2708b0e850110b94fdb1d52142702cd98730df6a073",
+      "main_sha256": "9221740676a8532b709ac2708b0e850110b94fdb1d52142702cd98730df6a073"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming": {
+      "method_identical": true,
+      "b829_sha256": "275179926e1364d9124aec98712d4e2e1ce0547d55b42fd1b16ea9913eb0b718",
+      "main_sha256": "275179926e1364d9124aec98712d4e2e1ce0547d55b42fd1b16ea9913eb0b718"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused": {
+      "method_identical": true,
+      "b829_sha256": "c56b6eb12b54b26386437d2b01fe98e158b2a34faa13befb2f39c26245688720",
+      "main_sha256": "c56b6eb12b54b26386437d2b01fe98e158b2a34faa13befb2f39c26245688720"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming": {
+      "method_identical": true,
+      "b829_sha256": "ad7a417e00def3cda06bdc76f88c2b71ec077412266e45268e99a9893c095a6b",
+      "main_sha256": "ad7a417e00def3cda06bdc76f88c2b71ec077412266e45268e99a9893c095a6b"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls": {
+      "method_identical": true,
+      "b829_sha256": "26a83c6f091f3d06848cdcafda0aead49c6f7fc22456a076c0e7275be2f36a80",
+      "main_sha256": "26a83c6f091f3d06848cdcafda0aead49c6f7fc22456a076c0e7275be2f36a80"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming": {
+      "method_identical": true,
+      "b829_sha256": "544a04911b4a086f19a1c83799398e892755aa5f318f2cbbdbc1190ebb859751",
+      "main_sha256": "544a04911b4a086f19a1c83799398e892755aa5f318f2cbbdbc1190ebb859751"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry": {
+      "method_identical": true,
+      "b829_sha256": "51aa38d80f2c6831035fd19e9e8faeee98043c0f1ec4a72b94bc6914e3317912",
+      "main_sha256": "51aa38d80f2c6831035fd19e9e8faeee98043c0f1ec4a72b94bc6914e3317912"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout": {
+      "method_identical": true,
+      "b829_sha256": "496ffbcc6d01f1e2faeaf853b4c9d47857ff0a66b067f99d23298aaa20822e4a",
+      "main_sha256": "496ffbcc6d01f1e2faeaf853b4c9d47857ff0a66b067f99d23298aaa20822e4a"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible": {
+      "method_identical": true,
+      "b829_sha256": "c77c675940fdac7b55a02963eb17aefc3e92d4c0e80f85fe7f7c6642a4d6cd69",
+      "main_sha256": "c77c675940fdac7b55a02963eb17aefc3e92d4c0e80f85fe7f7c6642a4d6cd69"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact": {
+      "method_identical": true,
+      "b829_sha256": "a39c4047b7ec57f6fca1c8fa60e2e0b7f91475168dc19521f94f8418d4ce4ac7",
+      "main_sha256": "a39c4047b7ec57f6fca1c8fa60e2e0b7f91475168dc19521f94f8418d4ce4ac7"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing": {
+      "method_identical": true,
+      "b829_sha256": "5bb3bb30fcb25173e42590059dbf497240a611cba4fe42a79c91f3c6d659394a",
+      "main_sha256": "5bb3bb30fcb25173e42590059dbf497240a611cba4fe42a79c91f3c6d659394a"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate": {
+      "method_identical": true,
+      "b829_sha256": "4187262f3d3afba6919b92fb8927d481bbef27bf44b67c9750bb3ce8e63a2501",
+      "main_sha256": "4187262f3d3afba6919b92fb8927d481bbef27bf44b67c9750bb3ce8e63a2501"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction": {
+      "method_identical": true,
+      "b829_sha256": "1df0b94ab38c300c72fac3267ea1591efdad40974b12eff486e571154eeea3ea",
+      "main_sha256": "1df0b94ab38c300c72fac3267ea1591efdad40974b12eff486e571154eeea3ea"
+    },
+    "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail": {
+      "method_identical": true,
+      "b829_sha256": "f8a044c5543346e4b0935dd20aaa0d08c40165ab20b3cda266b3959e5362b789",
+      "main_sha256": "f8a044c5543346e4b0935dd20aaa0d08c40165ab20b3cda266b3959e5362b789"
+    },
+    "ClubhouseGoUITests/CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry": {
+      "method_identical": true,
+      "b829_sha256": "3e0560b3118bebcd8a09f043ef1dad32a40b86d0a3024e679103e2e22e20b510",
+      "main_sha256": "3e0560b3118bebcd8a09f043ef1dad32a40b86d0a3024e679103e2e22e20b510"
+    },
+    "ClubhouseGoUITests/CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays": {
+      "method_identical": true,
+      "b829_sha256": "34ade24a7f5645a3efb583854690b426461636695d560997709ff19c2451910e",
+      "main_sha256": "34ade24a7f5645a3efb583854690b426461636695d560997709ff19c2451910e"
+    },
+    "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard": {
+      "method_identical": true,
+      "b829_sha256": "3e9970ec50ffa921f3bc2fd6c505b337985670971f38eaea7149e85479fa1f04",
+      "main_sha256": "3e9970ec50ffa921f3bc2fd6c505b337985670971f38eaea7149e85479fa1f04"
+    },
+    "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard": {
+      "method_identical": true,
+      "b829_sha256": "51ae586c6461d19b55af733b4ec1a649818d7f0a811aa378fd5d53134f6d6cb4",
+      "main_sha256": "51ae586c6461d19b55af733b4ec1a649818d7f0a811aa378fd5d53134f6d6cb4"
+    }
+  }
+}

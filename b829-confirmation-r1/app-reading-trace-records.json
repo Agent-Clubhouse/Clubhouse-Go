@@ -1,0 +1,108 @@
+{
+  "case": "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "start_epoch": 1794986529.086,
+  "end_epoch": 1794986589.62096,
+  "sources": [
+    "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+    "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError.txt"
+  ],
+  "all_trace_count": 109,
+  "target_records": [
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1394318,
+      "text": "2026-11-17 23:22:15.068529-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=mount from=1 to=1 userPositioned=0 interacting=0 offset=-5.684341886080802e-14 contentHeight=277.66666666666663 containerHeight=1175.3333333333333 messageCount=4",
+      "previous_timestamp": "2026-11-17 23:22:15.068529-0800",
+      "timestamp": "2026-11-17 23:22:15.068529-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1394322,
+      "text": "2026-11-17 23:22:15.118656-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=mount from=1 to=1 userPositioned=0 interacting=0 offset=1447.0 contentHeight=2085.333333333333 containerHeight=814.6666666666666 messageCount=183",
+      "previous_timestamp": "2026-11-17 23:22:15.118656-0800",
+      "timestamp": "2026-11-17 23:22:15.118656-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1407803,
+      "text": "2026-11-17 23:22:19.300928-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=nativeUpward from=1 to=0 userPositioned=0 interacting=0 offset=1570.6666666666667 contentHeight=2214.6666666666665 containerHeight=814.6666666666666 messageCount=189",
+      "previous_timestamp": "2026-11-17 23:22:19.300928-0800",
+      "timestamp": "2026-11-17 23:22:19.300928-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1407806,
+      "text": "2026-11-17 23:22:19.323729-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=bottom from=0 to=1 userPositioned=0 interacting=0 offset=1576.3333333333333 contentHeight=2214.6666666666665 containerHeight=814.6666666666666 messageCount=189",
+      "previous_timestamp": "2026-11-17 23:22:19.323729-0800",
+      "timestamp": "2026-11-17 23:22:19.323729-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1407809,
+      "text": "2026-11-17 23:22:19.337087-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=nativeUpward from=1 to=0 userPositioned=0 interacting=0 offset=1573.0 contentHeight=2214.6666666666665 containerHeight=814.6666666666666 messageCount=189",
+      "previous_timestamp": "2026-11-17 23:22:19.337087-0800",
+      "timestamp": "2026-11-17 23:22:19.337087-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1504355,
+      "text": "2026-11-17 23:22:46.049677-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=restore from=1 to=0 userPositioned=0 interacting=0 offset=1881.6666666666667 contentHeight=2804.333333333333 containerHeight=814.6666666666666 messageCount=207",
+      "previous_timestamp": "2026-11-17 23:22:46.049677-0800",
+      "timestamp": "2026-11-17 23:22:46.049677-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1504356,
+      "text": "2026-11-17 23:22:46.049738-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=mount from=0 to=0 userPositioned=0 interacting=0 offset=1881.6666666666667 contentHeight=2804.333333333333 containerHeight=814.6666666666666 messageCount=207",
+      "previous_timestamp": "2026-11-17 23:22:46.049738-0800",
+      "timestamp": "2026-11-17 23:22:46.049738-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1504363,
+      "text": "READING_RESTORE outcome=arrived attempts=1 durationMs=155.7100834324956",
+      "previous_timestamp": "2026-11-17 23:22:46.181945-0800",
+      "next_timestamp": "2026-11-17 23:22:47.218667-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1612252,
+      "text": "2026-11-17 23:22:55.523791-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=restore from=1 to=0 userPositioned=0 interacting=0 offset=1987.3333333333333 contentHeight=2910.0 containerHeight=863.6666666666666 messageCount=213",
+      "previous_timestamp": "2026-11-17 23:22:55.523791-0800",
+      "timestamp": "2026-11-17 23:22:55.523791-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1612253,
+      "text": "2026-11-17 23:22:55.523848-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=mount from=0 to=0 userPositioned=0 interacting=0 offset=1987.3333333333333 contentHeight=2910.0 containerHeight=863.6666666666666 messageCount=213",
+      "previous_timestamp": "2026-11-17 23:22:55.523848-0800",
+      "timestamp": "2026-11-17 23:22:55.523848-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1612260,
+      "text": "READING_RESTORE outcome=arrived attempts=1 durationMs=174.63266663253307",
+      "previous_timestamp": "2026-11-17 23:22:55.663031-0800",
+      "next_timestamp": "2026-11-17 23:22:56.698989-0800",
+      "overlaps_target_interval": true
+    },
+    {
+      "file": "/tmp/ux-569-proof/tickets/c-confirm-r1/diagnostics/0_Test_ux-569-b829-confirm_Diagnostics/ClubhouseGoUITests-C3E41520-7627-4171-A893-158D89FC0AC1-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-4EB51A45-2423-4DB2-B1DB-83808CB09A41/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "line": 1688815,
+      "text": "2026-11-17 23:23:03.295413-0800 ClubhouseGo[51712:455092868] CHAT_FOLLOW reason=latest from=0 to=1 userPositioned=0 interacting=0 offset=14306.666666666666 contentHeight=17586.0 containerHeight=814.6666666666666 messageCount=218",
+      "previous_timestamp": "2026-11-17 23:23:03.295413-0800",
+      "timestamp": "2026-11-17 23:23:03.295413-0800",
+      "overlaps_target_interval": true
+    }
+  ]
+}
