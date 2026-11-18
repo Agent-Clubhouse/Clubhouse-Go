@@ -72,6 +72,10 @@ import Testing
         service.historyValue = .init(items: [.approval(a), .question(q)], lastSequence: 10, sessionID: "generated-session")
         await store.load(target, force: true); parity("history replace")
         #expect(store.homeDecisionItems[target]?.count == 2)
+        #expect(store.homeAttentionItems(now: now).first { $0.agent.id == target }?.kind == .approval(a))
+        let afterDeadline = now.addingTimeInterval(3_601)
+        assertParity(store, targets: targets, now: afterDeadline, step: "deadline passes without Store traffic")
+        #expect(store.homeAttentionItems(now: afterDeadline).first { $0.agent.id == target }?.kind == .question(q))
 
         apply(.timeline(target, items: [.question(q), .approval(a)], sequence: 20, reset: true, sessionID: "generated-session"), "timeline replace/order")
         apply(.upsert(target, .approval(approval("stale", now: now)), sequence: 19), "rejected old sequence")
