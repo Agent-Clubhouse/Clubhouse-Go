@@ -1,0 +1,15 @@
+{
+  "base": "2381d4243706ffedb94bf39fa76161181a9ee442",
+  "head": "ba80d0a21eec463abc54879fad7f3520892c13e7",
+  "existing_methods": {
+    "testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh": "80c452e737fe8ac640bf1a093f85e5b00c4ab364f317b700a2d9ba61f13f2b63",
+    "testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession": "c91a5ae0a770c37814b2d1d478a9e3bd525908631b93ade9b5842b25cb3b9ad2",
+    "testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh": "03ecb22f32aa6ab5cfeaf7aa98709c1feacf523c6b63ae029b1944c158a1ffd5",
+    "testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability": "bbd6dcbfe743506231740452d98493f698b8941eb82006bb69901c8e03c378a3",
+    "testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections": "92c3e3d0cadc1d49e84368e166c71568c3c293fa9e65faa52f4689c0898c9dc3",
+    "testInactiveKeepsRecentHoldAndBackgroundStartsFresh": "8273d91911926bab7f976d9b71a98895cb6a129c0550e2759e91765dbb1604d6",
+    "testRecentOrderStaysWhileVisibleThenRefreshesOnReturn": "547e1d4a7d3d5589c04e811d9bda6184d1674e35ce06eb62d24d07edc8619101",
+    "testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks": "9534c9be791b2f51641b2ec836634722880fecd66fade9c6dc7e6fdbf27c7aa1"
+  },
+  "existing_all_byte_identical": true
+}

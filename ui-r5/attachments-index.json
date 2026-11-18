@@ -1,0 +1,1214 @@
+[
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_671950CA-3A75-4F3C-9560-67A7E548F44C.txt",
+    "path": "ui-r5/attachments/211B2506-10F0-42AA-966D-05B7C2AC12AD.txt",
+    "sha256": "911a08c75a9b22c111535aefb38c10f1f30b47616a5bedff36fb1647c46f8c20"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_7AAAA809-87CE-4D24-A099-A63E0FB60CF7.png",
+    "path": "ui-r5/attachments/04A626E8-6C74-4622-9780-F014C96870E5.png",
+    "sha256": "84fcd1ebf9c7af0bc7076cfe767a8e12b13084300b44d037ede9ea1c0b3b67e7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_727E654C-C4DA-4E89-B20C-0E0B342EA651.txt",
+    "path": "ui-r5/attachments/CE931899-697A-414D-AF3F-EE91E2738232.txt",
+    "sha256": "fcf3d225dd47202e85622aaa952a972e62c5195ceefdb3931d1f9b2e59cc36f3"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Running native Home menu dark AX5 native AX_0_4A1A11A5-1C57-42A8-A5FA-E2D2B36074E8.txt",
+    "path": "ui-r5/attachments/FF367D62-015F-4871-BBE2-1C0DFB2E159C.txt",
+    "sha256": "e2490a139536fde0708ef19ca9730cac03da65e25a82c0957dc933790e358fca"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Running native Home menu dark AX5_0_4E8CD3FB-2D6A-4106-B0ED-5E3F45947B1E.png",
+    "path": "ui-r5/attachments/8CAB31D0-72FF-437A-AE43-D9345BE25F39.png",
+    "sha256": "84fcd1ebf9c7af0bc7076cfe767a8e12b13084300b44d037ede9ea1c0b3b67e7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_2F0DB154-9712-4F9F-89ED-63D7DD90FF95.txt",
+    "path": "ui-r5/attachments/20F62FC3-8D84-420D-9253-56DAEC2C4CC3.txt",
+    "sha256": "8bfe2b828a38168434388362d70927074a1cdb927efe3edd0c1ab050547733a4"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_7B96EEAC-4FD6-4A7E-B7EA-32C9F017630C.png",
+    "path": "ui-r5/attachments/46E432C3-E03E-4CB6-8E47-D7A0F63BCA1F.png",
+    "sha256": "84fcd1ebf9c7af0bc7076cfe767a8e12b13084300b44d037ede9ea1c0b3b67e7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_7AC02589-85AB-4061-9A5F-2F1D7DE6168F.txt",
+    "path": "ui-r5/attachments/1605729B-772F-4A66-9C64-765303E116F8.txt",
+    "sha256": "c31d031c25f8c992ceb54c0e69626d033e8ac025fa69659377b69912f5022d0f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_914A75CA-508A-4337-AB42-0885EFED59A6.txt",
+    "path": "ui-r5/attachments/143A3856-EBBA-4014-8F76-F63E28EB8C4D.txt",
+    "sha256": "182d60c5a6c2f7bc889bf009bc7aa721d94da580b796e406113a243efe4d899f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_1E12737F-13EE-400D-B8B6-D40AE6885741.png",
+    "path": "ui-r5/attachments/CEF9666D-15E8-4366-82A1-9A4E1F5A5067.png",
+    "sha256": "84fcd1ebf9c7af0bc7076cfe767a8e12b13084300b44d037ede9ea1c0b3b67e7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_845BEA59-B7B7-4EF8-86EF-F631B5C702DE.txt",
+    "path": "ui-r5/attachments/1E80F589-E182-4242-8E68-F80E88FB3629.txt",
+    "sha256": "df63ed3aba5c35c1b32b7b4fea000ff0b58e68a4c5ac4a727249042eb939fe45"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_2BA01E28-37B0-4A03-A62E-08413031B97C.txt",
+    "path": "ui-r5/attachments/2E00BE16-C056-405B-B237-6D5BEC4DEB81.txt",
+    "sha256": "a562ea3592f1a62f6de9fc72426e906393897856d11981a1d369402457d56d85"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_5BC2EDFF-6168-41EF-A8A6-598983549640.png",
+    "path": "ui-r5/attachments/F982C907-C509-45C4-87CD-82DB1BEA7CA6.png",
+    "sha256": "84fcd1ebf9c7af0bc7076cfe767a8e12b13084300b44d037ede9ea1c0b3b67e7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_92E1B471-47D0-4DEA-9637-9528FC6EA49F.txt",
+    "path": "ui-r5/attachments/E8340C84-53C6-4A67-B69C-BB371B14EF71.txt",
+    "sha256": "fcf3d225dd47202e85622aaa952a972e62c5195ceefdb3931d1f9b2e59cc36f3"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation native AX_0_0A815CB0-874D-414F-9CCB-693655579D81.txt",
+    "path": "ui-r5/attachments/CCD10A2B-EC3C-47A9-9B4D-4FD8F2333408.txt",
+    "sha256": "f12f06543bc07ff57d501b8819c36b0810898cb9c7a89258a483974d4f81ccb9"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation_0_52A73A34-DAEE-4B45-8CE4-E4B53E08DC20.png",
+    "path": "ui-r5/attachments/BB86D868-AB44-4200-9D59-E9C89FBE314B.png",
+    "sha256": "84fcd1ebf9c7af0bc7076cfe767a8e12b13084300b44d037ede9ea1c0b3b67e7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar native AX_0_AC40D907-8158-44D7-9C02-D74AAD73353A.txt",
+    "path": "ui-r5/attachments/B0BDD2E6-F4D8-4DD3-B812-88A226DC06A9.txt",
+    "sha256": "926dcfe2347ca4154aa77b3f7d1becded6b746f8e2f5d157bc467a8bb4bce63d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar_0_9393ADC8-B9C0-4B10-B518-DC04AF4C5D56.png",
+    "path": "ui-r5/attachments/D8ABB0AE-DB10-4899-A37B-5C5341AC8847.png",
+    "sha256": "8d3747f82c25565e5540ec47cb087ea2f57d558ce27c7a043a12f217f8ba658f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row before single long-press_0_04EAF7A7-B3BA-4E47-AD75-CABBEF9BDB7B.txt",
+    "path": "ui-r5/attachments/D442CE13-ACFB-4A4F-BA21-672B306F31D6.txt",
+    "sha256": "d1543a1e1e3c0cbe60016c0b49d8006f21c4e4f02cef1daad258b471f263580e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_720E31D9-9CA2-4110-952D-192A5676E7B1.txt",
+    "path": "ui-r5/attachments/5CDF6A0D-13CB-41C5-96E7-D8F58D28ACDD.txt",
+    "sha256": "1594b2cabdbdaddc150f32df3110510b1b42e6fdac3626581fbf9a80c22fe90d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_FE4293D5-2926-4978-BBF6-38F31AA2F789.png",
+    "path": "ui-r5/attachments/EA94F78F-05AD-43B6-8A0A-44F445B86071.png",
+    "sha256": "e4ff68cd40e15cdb358bde35f26963f5fc8132aceae21296aaca4717f2040fb8"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_C0EB78E8-CD59-42FD-A0FB-EB74369D50CB.txt",
+    "path": "ui-r5/attachments/8C778CED-E6F7-4624-9261-00FECA61412B.txt",
+    "sha256": "e5d97ae2091fd3b6443941a5cc0ce7c023e014dfbd768157773e49ad8f3bde1c"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Sleeping native Home menu dark AX5 native AX_0_80F5C570-2633-4B93-A303-E2B788200ABF.txt",
+    "path": "ui-r5/attachments/6FA666C1-B9D8-4C75-98FE-E263393350DC.txt",
+    "sha256": "7af56a444682b6175c99e6224268907297fb1da60b39bd1d108deeace5a2e556"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Sleeping native Home menu dark AX5_0_A810A2BD-3CF2-44A4-9F56-DB4A538CE63C.png",
+    "path": "ui-r5/attachments/9379768E-A456-42B8-8FA9-B565DA265BDB.png",
+    "sha256": "e4ff68cd40e15cdb358bde35f26963f5fc8132aceae21296aaca4717f2040fb8"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Terminal native AX_0_51D8F43A-5C28-42BD-BF5F-51402C0AB9AF.txt",
+    "path": "ui-r5/attachments/A2021906-4C8D-4C71-B52D-AD9819738943.txt",
+    "sha256": "f3273678331285c42e1b310acd8a6374fca105d802cf5f21ec24afc8573ada93"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Terminal_0_698BA92F-881C-4E2E-8280-EE13F1E8A1F1.png",
+    "path": "ui-r5/attachments/A7BC4783-6055-4F21-8FAD-FE308B94929B.png",
+    "sha256": "84f8a2f0854a77f140ce3ada6be57482f4d9e75c750b773f1dbfb333eca786c9"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_857D93EE-22C1-42A6-AA17-DC953A0208DE.txt",
+    "path": "ui-r5/attachments/24AF13EB-B019-4B65-9A1C-27583495B534.txt",
+    "sha256": "569f001a16dd7b8d133e3a9c57b6bf1206b3fc61080bdef3fc0eda4a89609844"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_2F353999-BF08-4DB5-85BA-DA8DF6BB9FC8.txt",
+    "path": "ui-r5/attachments/B1331BAB-16E9-4E31-8054-774F3B4EBAD9.txt",
+    "sha256": "8eeea308222d3ea6fbcd9243ae33ba21252c17bb7bf1fc2c0fbaf2300c24def1"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_FB06BDBB-C101-4071-904D-360B435EF0F3.png",
+    "path": "ui-r5/attachments/104138DA-6412-46E4-9E7F-9B182F169029.png",
+    "sha256": "81dc110ba4fafe0d013f17c829f01729fb0321205153d64b361e81c78f0f3c0a"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_83BF5CE1-5E04-47F8-90A1-F8F9DE22AB15.txt",
+    "path": "ui-r5/attachments/0BAB9242-634C-4DF8-B66A-992AB3F2F96B.txt",
+    "sha256": "d672dfd851d581b7b482e5654f6bab1a1550c66736b55cdd70f56869a121f6a2"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent settings native AX_0_C17B0379-DF6F-4C81-BDE1-9EA1F7F806EE.txt",
+    "path": "ui-r5/attachments/C7E8313F-3F87-42F9-A221-727FC18C9C8D.txt",
+    "sha256": "217b76a50ae6fd9800bd48e5fc03febd55e095b149de9e7ea0745ddec505bf12"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent settings_0_AD843CDF-4861-47E2-B0E3-0990824AAD43.png",
+    "path": "ui-r5/attachments/876DDB14-248E-4B4F-ADB3-5B32B87FB19F.png",
+    "sha256": "a6dfb9d46f8e0d82ac3f973fc4cfc2ff571ee63175cb620269c6ed31366779ad"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_64274725-93A1-45DE-BB6E-544323A5EC5F.txt",
+    "path": "ui-r5/attachments/B8EFEB76-8F76-45E6-BFE8-5CCB9A9A4C3C.txt",
+    "sha256": "1afca11b5aeb15f59326a4ca2af99c00f177d6c4860f2dd1c58dcb23876c7923"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_62728097-8198-409F-8E4B-AC94725C13FA.txt",
+    "path": "ui-r5/attachments/4EEC6891-5FBA-439B-8BA5-2A388C537753.txt",
+    "sha256": "2edae2f64e289b21d37d1b2dd7da518ae74a310fab48a682866923187f987f51"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_45441B11-9C78-4CD5-BAA5-CE1D68BFCD89.png",
+    "path": "ui-r5/attachments/FF77D875-E7E3-47B5-AFD6-66454D4D4BA7.png",
+    "sha256": "26d36aa0a87461f1e7b5efd6b747a2f1b4b2d3e4d350dffb0cf9dbd8cefefba8"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_8BA4E8DE-B0A7-4FF9-A892-1261C796C9C8.txt",
+    "path": "ui-r5/attachments/BAFB8D18-588E-4292-8A9B-360DF8F0B35C.txt",
+    "sha256": "a7e6ad6c7e48f3d246b2e041f873c886a605e0d3cde6bd9148fd023e37ee14a6"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent details native AX_0_8FD77733-3C57-42BB-B4AC-5E7BCA45B53C.txt",
+    "path": "ui-r5/attachments/75D2A2D4-1912-45F5-BEE8-BBF8A2C76715.txt",
+    "sha256": "35416bbe366384ec8b55f38b18b903a3fd0730ce8247150e921157f4547d060a"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent details_0_558D4184-0026-43DD-9CA9-51DE54DE5130.png",
+    "path": "ui-r5/attachments/6C1C9A64-12D9-4620-A86A-D94B5AD44D2E.png",
+    "sha256": "a4f5e6a7b156a462e91747029bd775d976769fb9b3c7cc3fb393d547b0f93b2f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_5230BB8A-0AF8-4565-B4AF-2CAA52276DC2.txt",
+    "path": "ui-r5/attachments/220090E8-37B4-43F5-9F0E-BB4F881D08E6.txt",
+    "sha256": "e85dc90d01e78bd835c7664dae15eb787c2be13ba07e67c8a2f9fccc4dc6094e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_B2CB0AAB-02AC-42E4-B2C7-D5F74EB65B02.txt",
+    "path": "ui-r5/attachments/9BB7AC1A-502A-4FC8-8A6E-839F60E9913E.txt",
+    "sha256": "05cd20521198208dc77ffcfbac9c2024473d29d9bb062ab15377c0cea4f94f6e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_D26D3730-896C-458B-979F-B80573D87824.png",
+    "path": "ui-r5/attachments/3765F95B-CBEC-4B52-BBFB-6C2EEA355CD0.png",
+    "sha256": "a62f4c9f60ca9ab6af3dc0c52459ec40e10f6f4371ead127f44f7ed5f864eeee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_47E06BAF-294A-495E-AE54-A8287EF2B904.txt",
+    "path": "ui-r5/attachments/0D1FC823-E877-4DB3-96A5-E18F8DA495BE.txt",
+    "sha256": "aad3b2e71185f7a108931d8e42b7305e04eed77baba58591e3bea4d04987a783"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session native AX_0_89D7ECF5-3A70-4474-BC6F-67DCB87785B1.txt",
+    "path": "ui-r5/attachments/9C1601F9-3A34-48C1-94B6-3D7E7C9059D0.txt",
+    "sha256": "a5cfe20b95a559eff133b7fb43efd4c8d6892aaaf031414d18324216f4c332b7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session_0_6C6E14C6-D7F5-44D2-8CD7-9ABD9836932A.png",
+    "path": "ui-r5/attachments/C483E0D0-F719-43EF-A002-FF0261C5B4FB.png",
+    "sha256": "a62f4c9f60ca9ab6af3dc0c52459ec40e10f6f4371ead127f44f7ed5f864eeee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_CB4553A3-6637-4E9F-BB8D-0A1AB0107F25.txt",
+    "path": "ui-r5/attachments/CA51F228-5DDE-434D-A537-D9B76F400A71.txt",
+    "sha256": "5c711822d64a250f6b001ecc74a083c5fae71c12efd89c64e6125e2fc47a3199"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume native AX_0_ACE2E305-6451-4D23-8FFB-88808ED4ABCB.txt",
+    "path": "ui-r5/attachments/FF72527D-5951-46B8-B346-3824D7D5F10C.txt",
+    "sha256": "4e9ad2320e479a371b120890d8fd25d66bf2865209dfcffc6a6e93e929ebb237"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume_0_A8CF6E3E-91F1-44A5-9EDA-2824513B1A82.png",
+    "path": "ui-r5/attachments/BAE08422-2D13-4CBB-BE4C-184208E01025.png",
+    "sha256": "a62f4c9f60ca9ab6af3dc0c52459ec40e10f6f4371ead127f44f7ed5f864eeee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_2147CF21-4A51-4146-9AAB-D613425090EC.txt",
+    "path": "ui-r5/attachments/56B83C26-184A-4187-A58A-1E1983194FFE.txt",
+    "sha256": "e0fd16cc6e1bd5989c4a3804ce20e184f40d56128039a28b5267df9fc04589c2"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation native AX_0_B9CC50C5-2F7E-495D-83BC-ECAE14A579D9.txt",
+    "path": "ui-r5/attachments/B3CA5F7E-F052-431D-8D6B-4E12CD480BC1.txt",
+    "sha256": "5a39d8a8e21325ef06a3abdce544df3740b10d6bd92cf72b117f4c86829b9082"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation_0_C9BACEDE-F1A3-41D6-AA75-555341C68FB3.png",
+    "path": "ui-r5/attachments/5A76F6BD-0000-410D-B7DB-3569373158B7.png",
+    "sha256": "a62f4c9f60ca9ab6af3dc0c52459ec40e10f6f4371ead127f44f7ed5f864eeee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper native AX_0_D4191552-A293-4CEF-A446-90BD0FBC3E46.txt",
+    "path": "ui-r5/attachments/0FF97271-8DF2-4C92-A625-37E5831168FF.txt",
+    "sha256": "d487d6e3d1cb869ce101497855ecfdeb2595ce06d24c353ecff2fcc7e6d85368"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper_0_97927D3A-90F1-4D0D-A197-FD6E954C0F72.png",
+    "path": "ui-r5/attachments/55B25AD8-2F14-457D-A1C0-C18095ADB799.png",
+    "sha256": "53c3bf013b6a349027a0a489b5de28461860cd369222d6358abd17f6c5dd2a63"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row before single long-press_0_41768706-CEA2-48AB-9713-4CF67E4E4DBD.txt",
+    "path": "ui-r5/attachments/9A8BF5C0-08F9-4EC6-A9E4-A0F82EDEA111.txt",
+    "sha256": "0869ea398c168978689181e67049e9a1967735d4d501cfcb6eca1a4d316b5896"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_96B6FFF2-E105-4334-8DC6-59D359861AB5.txt",
+    "path": "ui-r5/attachments/D561AFDC-E2F9-4177-8864-FD958C042986.txt",
+    "sha256": "26d6e7a9e768c3070b66d1f3588b3b784416710f723848aed405c52c5978436b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_50421F64-6A32-4D52-B38A-DEF20678ADA6.png",
+    "path": "ui-r5/attachments/F9E571D2-A53E-423A-8703-3787F0EBDC65.png",
+    "sha256": "d7e3ad61ed5fe7dc018198cd05b29440f40a22d92ff7c51a739053b6d40c2d0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_FA9545CF-DD2A-43BD-AB52-ED6F5F0DE955.txt",
+    "path": "ui-r5/attachments/3DF656A8-C654-40CF-A946-C6CE3E7786E0.txt",
+    "sha256": "fcf3d225dd47202e85622aaa952a972e62c5195ceefdb3931d1f9b2e59cc36f3"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Running native Home menu light AX5 native AX_0_F1230A0E-AD3E-4252-B543-40FB9B62B4EA.txt",
+    "path": "ui-r5/attachments/113620A2-6B08-44E3-AA51-20F23A296964.txt",
+    "sha256": "39055a3de3faebd60207bc8cdcd27ddb2e5fe593cdd4f208b53dfb293122d734"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Running native Home menu light AX5_0_2E098D31-4BC4-4C42-9A39-21367C5E3FA6.png",
+    "path": "ui-r5/attachments/4FD40E2F-3301-4DE5-98CD-42B1299EC711.png",
+    "sha256": "d7e3ad61ed5fe7dc018198cd05b29440f40a22d92ff7c51a739053b6d40c2d0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_6E531DDB-BFBB-429E-B496-BF0D577D1B97.txt",
+    "path": "ui-r5/attachments/EC051A5F-377F-47CC-A71A-35C8DA8EDD03.txt",
+    "sha256": "24baece447f603d4211b9526f18357f53ddc977f526b44ac0c1016f74b1c651e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_2A665BD1-5663-48CA-8B6E-097327A37D55.png",
+    "path": "ui-r5/attachments/0FA3B474-DC48-42D0-ADA6-C4ED62669C33.png",
+    "sha256": "d7e3ad61ed5fe7dc018198cd05b29440f40a22d92ff7c51a739053b6d40c2d0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_5BAAEF93-C5D3-43BE-BDE2-8CA285821533.txt",
+    "path": "ui-r5/attachments/F178EB67-7823-4AC0-9575-7A21AF7B4100.txt",
+    "sha256": "c31d031c25f8c992ceb54c0e69626d033e8ac025fa69659377b69912f5022d0f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_06C9287B-52AE-4981-BE02-BBA628F0BBF9.txt",
+    "path": "ui-r5/attachments/DBDEC8D5-81C1-49B1-9A0D-7B227810233B.txt",
+    "sha256": "e5231c43e4807e3739792029c83c477e9a19f6ab0ff25009106ff7cb9c5a94bf"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_0ED58C29-7029-4240-82F9-EE7B3584E2DC.png",
+    "path": "ui-r5/attachments/F9A2DAFF-F892-410A-8A36-30C4960C54A8.png",
+    "sha256": "d7e3ad61ed5fe7dc018198cd05b29440f40a22d92ff7c51a739053b6d40c2d0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_A83B7FF3-4D19-41D3-BC1A-264AD14C4EB0.txt",
+    "path": "ui-r5/attachments/371F0237-7567-4AE9-90F8-6BC27528336D.txt",
+    "sha256": "df63ed3aba5c35c1b32b7b4fea000ff0b58e68a4c5ac4a727249042eb939fe45"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_716C62CD-4170-40D7-A2D6-0DFEE0AAB3D9.txt",
+    "path": "ui-r5/attachments/7C984805-B542-4E8A-8507-A6EFC2EF0F80.txt",
+    "sha256": "a57159cbc4ce0d7fdbacc9731004bda67d1e5f84662f8197cc3ea7ddb55f094c"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_3116296C-DF31-4270-8C01-F9674EB7E852.png",
+    "path": "ui-r5/attachments/3381CDA6-654F-46B1-9A65-6F35A1F202D3.png",
+    "sha256": "d7e3ad61ed5fe7dc018198cd05b29440f40a22d92ff7c51a739053b6d40c2d0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_EC843235-3C36-47AA-BE45-1C083322AECC.txt",
+    "path": "ui-r5/attachments/08E168B7-76FB-4C19-BAA4-D0683CFF44C7.txt",
+    "sha256": "fcf3d225dd47202e85622aaa952a972e62c5195ceefdb3931d1f9b2e59cc36f3"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation native AX_0_D6A852AC-BF49-425E-A46B-54F31669A9B9.txt",
+    "path": "ui-r5/attachments/D7BBFFEF-BA4C-4082-AC30-3D8093F1678E.txt",
+    "sha256": "e435e53dd9c21e2e46c17c79a6ae6b5f24bdce7622db3152c8d0967c2482741b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation_0_92EADBAE-F13D-4989-BF63-E47609CEB9A6.png",
+    "path": "ui-r5/attachments/08D1AFE2-5202-4B08-809E-9DB8DFD07971.png",
+    "sha256": "d7e3ad61ed5fe7dc018198cd05b29440f40a22d92ff7c51a739053b6d40c2d0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 2 \u2014 agent-preview-studio-cedar native AX_0_5A44081C-372B-4A78-97DF-A76D41AEB2EF.txt",
+    "path": "ui-r5/attachments/9C0B1B64-DCA4-4DA8-9196-E6AAD6D2B9CF.txt",
+    "sha256": "9b889c14ae2b07f0a072a30bf66d7fee4130751cd450db1423228dd50003457f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 2 \u2014 agent-preview-studio-cedar_0_0813B9FE-6412-49B9-BF5B-5675111A090C.png",
+    "path": "ui-r5/attachments/8EC3BBD9-0C44-4999-A7DC-C2C44CFF2579.png",
+    "sha256": "4b7c5560c392d31cd5fce031690ddbd74d4a8277cf515ada72ddd257cdb327b7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row before single long-press_0_B8670EA1-A99D-4B89-8EDF-D96ED31CBFF1.txt",
+    "path": "ui-r5/attachments/8D8D39B3-5BFD-4466-9BC6-ECF2C6C1BC4D.txt",
+    "sha256": "8d051bf1962f0f592a91fb8374cdf9cc51afbf53410a451e9d400d5a4a476497"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 1 \u2014 agent-preview-studio-cedar native AX_0_CA43C6F7-3487-463F-AB11-18D99AC39A3C.txt",
+    "path": "ui-r5/attachments/F3A302E5-25E2-4686-88D2-06E29F9FB659.txt",
+    "sha256": "2f3051160f385dab24b91c8958e5abefbb4352cb428cad82f8c7a820e56868a9"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 1 \u2014 agent-preview-studio-cedar_0_DD0CB7B2-3081-4F8F-BA5A-287D7050483C.png",
+    "path": "ui-r5/attachments/A8047B0A-89CF-4F5E-ABF9-2A4A4B96DC86.png",
+    "sha256": "58433ad001fde60b05965a7fa5ffb3c05de3a4c7cac092f197b5e2a4dd7fe5be"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row before single long-press_0_10992AA1-58DF-4C0F-87F0-287DD39A8DAC.txt",
+    "path": "ui-r5/attachments/F2AE532E-DE3F-4F67-98C6-500F2F528F71.txt",
+    "sha256": "5f8e7f7b12cecafd0eca3dad1b6d3116afd6921d89ea24002582deeeb758f3e2"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar native AX_0_C87E4FDD-8DCF-4EA8-AA32-A79E06DBCE29.txt",
+    "path": "ui-r5/attachments/C42CD586-766D-45BC-AA05-6F9A4E67625F.txt",
+    "sha256": "8d0765dfc4e762fc44aa02436ca03f156ae1b0495cf7af1f2d80bfcc4999d70d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar_0_2A49C81E-9096-4E9E-9EB0-12A959B7835F.png",
+    "path": "ui-r5/attachments/EA875650-DCE7-445F-BB96-18208BCC6B29.png",
+    "sha256": "c9a6c5b68538abe4167af9f474c121b30b8bd6019cf61ba37a9114e86a78a1df"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row before single long-press_0_60401C69-9A3F-4B86-BE8A-0A5EFD7E652A.txt",
+    "path": "ui-r5/attachments/8D56719F-73DA-4678-B5EA-B61DD081E1CC.txt",
+    "sha256": "7187e9e8917de5730e023bcfec7dece107b6e8dba72d259dc6c2b1f7d5841cef"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_BF7F4F65-A1BA-4A6F-82C7-B79B4E62B3AF.txt",
+    "path": "ui-r5/attachments/5A0A0268-2CED-444C-8B0A-2C003FDD605A.txt",
+    "sha256": "da3d5b7ca7ad598873517e141dc5cbcf68011d89968de1f2f964c573267d5715"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_9F77B0BB-9A9F-4BD5-B5CF-C79D0290A940.png",
+    "path": "ui-r5/attachments/D2A7D2F2-F0ED-4629-9FBE-C2F2284E2E17.png",
+    "sha256": "5599ef74582485f2296ba108a756195a25ae42b38251d0707238793c3e359541"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_6E772B8C-E603-490B-B2D7-8A1665E94865.txt",
+    "path": "ui-r5/attachments/03B19D42-8914-407B-B148-3862A680E227.txt",
+    "sha256": "2b1fba0b06c381aeabe32ed7041d976aa7d9551999b61bef16ec8997aa8fb935"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Sleeping native Home menu light AX5 native AX_0_06F25F13-C6F3-415B-BC22-99B3A37DB386.txt",
+    "path": "ui-r5/attachments/730742E5-5EC7-43C3-B5B5-804574EDB08C.txt",
+    "sha256": "a7eb8d8476d27c340ca25b37bf219e9b47065f8c9ee2d6283f50691dde4d78e6"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Sleeping native Home menu light AX5_0_F79125A0-3CEA-4282-9E8D-43DC0627CC3F.png",
+    "path": "ui-r5/attachments/0F6EB679-64A2-4623-A0E6-2AA3261CA20B.png",
+    "sha256": "5599ef74582485f2296ba108a756195a25ae42b38251d0707238793c3e359541"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Terminal native AX_0_68254665-5511-48E7-9533-751542D3C429.txt",
+    "path": "ui-r5/attachments/6355884E-05DC-4BEE-AF8E-7EDAF841F3B7.txt",
+    "sha256": "6fbb959349f9f059bab0eb3050067d1a2146e6b28af0e5f3af10a4b128593d08"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Terminal_0_52B637AB-6A06-4B4F-9F9C-A7AC9C8EF71B.png",
+    "path": "ui-r5/attachments/F2924CA0-92C0-42DB-8E96-7C1A992AB642.png",
+    "sha256": "9a02c8b7ab02d26dfa51df4110fbcc64606efec3a73e5106154a248acbd2d53c"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_725C4099-5BBE-408B-9786-A2EB877FBEB0.txt",
+    "path": "ui-r5/attachments/EEA62D99-5EBD-4AD7-AC86-910D566A7DCD.txt",
+    "sha256": "98a410760034e0a074d0388bb5e4a7625341f5f7eca97812cedd2e61495c9c0b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_0A77D6E7-3F8B-4A50-977F-C0DCC8B9EF9C.txt",
+    "path": "ui-r5/attachments/24064771-F47C-4924-B13D-5615691EADCD.txt",
+    "sha256": "bf4724c403b6cf44d873ff91017daa039460e47ffbb878af3710314267786bc6"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_FC5F043F-9491-4411-AF38-7D77A21B7276.png",
+    "path": "ui-r5/attachments/154D0F83-F698-430F-A07F-40F9EDD57E41.png",
+    "sha256": "d768cad5a4fcc73798ab42bca78d9d6c1844552a6481207971162d5dc03bcf3c"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_DDD19DAC-470B-4377-86E8-E9AE8133E0DE.txt",
+    "path": "ui-r5/attachments/0DFC090D-5441-4F1F-8235-4B8ACF92913A.txt",
+    "sha256": "d2deb83f490606e1852a63f1e9449bc8e363420056b77be216ef7bc96b6d53ba"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent settings native AX_0_5611FFF7-C33D-426D-9DEC-FA536A09CF76.txt",
+    "path": "ui-r5/attachments/C0F265CA-8ABB-4B60-9EF6-072CE8B26CDC.txt",
+    "sha256": "aac27c02d24d2fbc0135daf81974598f9b67d62a24913bc2336c11bbc295dd66"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent settings_0_96B624DC-ED37-4154-832C-7F52A271D3BF.png",
+    "path": "ui-r5/attachments/4D1B6355-19FA-4E8F-818F-916F7EE7AB76.png",
+    "sha256": "088fac17c92b294fde7ea573fed02843cde009d6971a3ffec7895fa44cefff92"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_FB209C49-DE1F-4A5A-B425-7FED7B49B8DB.txt",
+    "path": "ui-r5/attachments/07182083-352C-4979-BCC6-A94A8F6B6A1F.txt",
+    "sha256": "e5180862fb8516383e9dc8c608aa59859d9e8ecff749aadcf5de34ead95e715b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_261A54D8-4506-4D6C-8029-74A776CB38EB.txt",
+    "path": "ui-r5/attachments/C9656944-9067-4E5A-836C-3B82A8E1F9A4.txt",
+    "sha256": "67a8c550f8a2a4129087ed5ebe234352a061560882c48ea9bebaecdd020bf968"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_28F65B56-C560-4D57-B2AC-F5E0CB6A7547.png",
+    "path": "ui-r5/attachments/87A1DDAE-1A19-468D-9E08-B94D567EA5B2.png",
+    "sha256": "c8abf56c40ff5f61655cad235899ae12b1909a4f53432af3235ffd3b09fcc8a6"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_2C0F35F8-E081-43B3-AAAC-AD8285AAE843.txt",
+    "path": "ui-r5/attachments/8255C831-854D-4677-AB82-7A51D42BD226.txt",
+    "sha256": "32374d560a820d56386ff5f7bf3d841f366c021c20e4374440e45551bbec094c"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent details native AX_0_F27B5346-B179-452B-AB2A-87FA3819E4A5.txt",
+    "path": "ui-r5/attachments/9C7A6E15-6292-4266-A008-260E32F58F4A.txt",
+    "sha256": "d07c6d9af9a8bfa5f4b1c51006b725c418d2ed314dea1a54ee0da510823ddfaf"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 1 \u2014 Agent details_0_5B8659A1-AE59-47CA-BA12-0583F1708C85.png",
+    "path": "ui-r5/attachments/42A66F21-D0F3-456E-8CD1-3F4B6AB5EF79.png",
+    "sha256": "13af38bb1d5a69a07ec7aae1da3384163cb1e988492497d11b895f628411881f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_32525149-EC95-4890-B246-CDC34569F885.txt",
+    "path": "ui-r5/attachments/BDFFF0BB-C61B-4C40-9C5B-A4E16AC3D61E.txt",
+    "sha256": "8b73bb665bc334578471d4aed7a9d4c8881afc9c4fe2009a1f16561baee68b15"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_24C999BA-0B4C-4DD0-ADE9-45C70C173FBF.txt",
+    "path": "ui-r5/attachments/AAB627E4-2CE2-4869-94EB-90493B735467.txt",
+    "sha256": "3eb14294b14262c83788f6d7f4ec6c81230b0e0c84a57c4871a8b6b3ea5b308d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_A687F719-C514-43E4-B014-8BAA6BCE2588.png",
+    "path": "ui-r5/attachments/85760123-C041-4CD8-A978-7A662DD91FCC.png",
+    "sha256": "890964f910261d0d00bdb96266743e3ca5424d51eed0277592adf7bfaca16a70"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_A5A07113-9473-408F-808E-D78AC16BA48B.txt",
+    "path": "ui-r5/attachments/C99D5C05-20D7-4AE1-8BF1-5F8C831C4800.txt",
+    "sha256": "c0755a9ba7802698c31cb88548a1334d6e191e44f2d7816a8b77f15342ec2774"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session native AX_0_3A6A48D9-36EB-4131-A0CC-B9E534F867D4.txt",
+    "path": "ui-r5/attachments/31188FC6-4A09-47C6-86F7-FDC39A9167B9.txt",
+    "sha256": "7d6c1c94e3c7da5d870659ed6a90700d241607985fb423d29ae2dc1f29131a9f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session_0_4C633D0E-FAE3-4658-81CE-C7533DE8581F.png",
+    "path": "ui-r5/attachments/79009D53-814D-4793-94BC-5DFD5A2537B6.png",
+    "sha256": "890964f910261d0d00bdb96266743e3ca5424d51eed0277592adf7bfaca16a70"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_1E5FA043-9228-4834-954C-E1436CC20B73.txt",
+    "path": "ui-r5/attachments/D621250F-C92D-4B71-9931-86D84DEFC499.txt",
+    "sha256": "40a8bcde8d1db792632bb26636054ac8a472dbede20b6f52ddcbb4b92ee8affb"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume native AX_0_F0C97FFE-E5FB-46AE-BD41-DCC725BC38EE.txt",
+    "path": "ui-r5/attachments/21284F3E-F485-4F97-A1CA-1B85406F7973.txt",
+    "sha256": "a333246d9b2056f0300a1a34b3721cfae17b8420e53f99be7d832b04fe0b78ab"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume_0_5BD64BE2-6D96-4F15-91E7-AB0C3FA0799F.png",
+    "path": "ui-r5/attachments/8A81FA17-C8D1-4C61-BD9F-E784A1D8242A.png",
+    "sha256": "890964f910261d0d00bdb96266743e3ca5424d51eed0277592adf7bfaca16a70"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu reveal geometry_0_1E1C2D75-7398-41F0-8DFB-7AAF37A78834.txt",
+    "path": "ui-r5/attachments/CC017E33-ADE4-4653-81CA-D25B2DFFB765.txt",
+    "sha256": "e686833c4822a7e45715401a47f6d4ad9418ce0d4d0cbf19d9069f640ff77720"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation native AX_0_5B43D12F-E35F-4E6B-B77F-3844DBDC7FD0.txt",
+    "path": "ui-r5/attachments/E37930C7-B35E-4784-9146-DA73991AC378.txt",
+    "sha256": "f0592f31493888556b8b560fbc5370ae92cc81a35a07808b92f9279e89b93d99"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Native menu before validation_0_F548F7DE-8665-4DB9-8295-6A580D21AFE9.png",
+    "path": "ui-r5/attachments/235F3993-909F-4601-9E56-3966F90C9A1F.png",
+    "sha256": "890964f910261d0d00bdb96266743e3ca5424d51eed0277592adf7bfaca16a70"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper native AX_0_876B02E6-540A-4562-8676-C40CADB6B9A6.txt",
+    "path": "ui-r5/attachments/90043AE5-8927-4713-B23A-02D8EBF6FC49.txt",
+    "sha256": "3ec8be4203262cec0f1d35c5b14ef268f7609aefaec78ed134f01fd471356ac1"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper_0_CCA0EC39-ED8C-47B1-B56C-1822A94A7F8C.png",
+    "path": "ui-r5/attachments/5E322D9A-E5E8-47DA-AA63-F753E1810B37.png",
+    "sha256": "39cfbe52eb663c1d35e744a8aa654d2112f27703bbe197d134feed2bb0271a0e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+    "name": "Home row before single long-press_0_B8CDCEBE-B1A6-4597-BEF4-DECA6B1D6F1E.txt",
+    "path": "ui-r5/attachments/C4B8DC1F-6E6F-45A4-ADEF-253B61F26F0D.txt",
+    "sha256": "c5e551a2f30777f8c90d31c40d1f9c6e1a3cf32616ead0c1b94898e5a312193e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_9DB0F7F7-39CF-4820-A813-CA7308D3BE25.txt",
+    "path": "ui-r5/attachments/63135216-50D6-4FA9-BC14-ED245A5A9C6B.txt",
+    "sha256": "9d79d68afc9988c894af37253b878e39403f0c70669ebc48198387ca6ce01239"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_43B65CC3-1CB4-43D1-98E4-7E53D3F8C027.png",
+    "path": "ui-r5/attachments/99A6F1E4-8749-4402-AB49-12F2A7885C3D.png",
+    "sha256": "3122e514a7dba393831d6fcdc649c4419e7312eb1df04f14309a7c0645cee515"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_A6754705-B245-4FB1-A8D6-B21FF9C18E7F.txt",
+    "path": "ui-r5/attachments/BCB46AC8-671F-4FB7-A28F-EA6A66A03473.txt",
+    "sha256": "c646764683b238879e9f3b05e45a32121610213ed40d2b6d6530c3f5e871053d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Running native Home menu dark standard native AX_0_6CE85840-8305-4C0C-B0E3-EE6BB987CCA9.txt",
+    "path": "ui-r5/attachments/4C1A38ED-C7CC-43F7-B44F-6C6CDEE477EE.txt",
+    "sha256": "885799120351ad5223b3439b01f65e068e6f6798e6c51bdcabd54d8f7b70c8cc"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Running native Home menu dark standard_0_D93F4523-EA29-4012-94D8-22F0C80AB8ED.png",
+    "path": "ui-r5/attachments/8422D813-1385-4D09-93FC-32718637C254.png",
+    "sha256": "3122e514a7dba393831d6fcdc649c4419e7312eb1df04f14309a7c0645cee515"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_1D4C0D78-A4E2-4607-AB69-03F961B9EF8F.txt",
+    "path": "ui-r5/attachments/9161265C-C5AD-4126-B0EE-35F78DC512B5.txt",
+    "sha256": "b18bb6c1c5505c6a761f66d8cfdd119faf98cb8d77e02f3875a070e91d980b48"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_3DC071FA-B545-480E-801D-8B1E90F6BEF2.png",
+    "path": "ui-r5/attachments/8FD5D3EF-3459-40B9-8553-5C7AA40F9651.png",
+    "sha256": "3122e514a7dba393831d6fcdc649c4419e7312eb1df04f14309a7c0645cee515"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_AA659DA7-329E-4D68-92C8-A6BCE2F62532.txt",
+    "path": "ui-r5/attachments/E40D7E34-BC55-49DB-BB24-598B9E526B45.txt",
+    "sha256": "12e967783b8f84f3437b5b81cfa0e4517d98b44f0bd0c6fb9646dc357a08948f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_90C69266-D0CB-44AC-9140-F3BA674D7189.txt",
+    "path": "ui-r5/attachments/BA3F975B-C299-413E-B7A3-14D217552DA6.txt",
+    "sha256": "badfeba9673a001b6b6d3fcaf683e88ce0bfecbc4c833882d11126111cc5f92b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_71436DE1-4CB4-47FC-8C7E-9A420193437D.png",
+    "path": "ui-r5/attachments/000BBD8D-68FB-4FDD-98B6-77148387EDA4.png",
+    "sha256": "3122e514a7dba393831d6fcdc649c4419e7312eb1df04f14309a7c0645cee515"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_315B0E85-D213-4913-ADF3-373BE00A972B.txt",
+    "path": "ui-r5/attachments/1CC05FC2-BEF5-4830-A6AA-BC7A541BBA6F.txt",
+    "sha256": "c928c238054914102fc2bfd0ac38f9e773330a5931770267c6a79fd6834d32c9"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_D86F62E6-4A3C-4D40-BE28-48BB92679B54.txt",
+    "path": "ui-r5/attachments/7D9F06DA-2018-482D-918F-8D6ED02AF4E0.txt",
+    "sha256": "d2c57ea22a3a7a65e017834ef502d44c2d6d113ab7270d69855b0b8c55a5704f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_09B35369-6C8B-4D08-907A-3DF07123A5A0.png",
+    "path": "ui-r5/attachments/2BBA9AF5-79C0-46B4-A455-1D4442D60F78.png",
+    "sha256": "3122e514a7dba393831d6fcdc649c4419e7312eb1df04f14309a7c0645cee515"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_88830E0C-CDCA-4526-A814-868DF653D33F.txt",
+    "path": "ui-r5/attachments/59E09AEC-FC37-4ED8-9C96-466AFCB5F9B3.txt",
+    "sha256": "c646764683b238879e9f3b05e45a32121610213ed40d2b6d6530c3f5e871053d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation native AX_0_61D0AF84-B0F7-469B-8386-C41E7E760069.txt",
+    "path": "ui-r5/attachments/C4054A6B-D319-4D95-A9D9-B454E708CCBC.txt",
+    "sha256": "761b6c97ea80f5465c20dfdf02c3bb7e9a2edb78ddc4a2db7c86260a21650883"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation_0_30BB0FF9-E704-4D36-BBC3-50BEE4186792.png",
+    "path": "ui-r5/attachments/24C228A1-F416-419E-94DB-546EFA40A000.png",
+    "sha256": "3122e514a7dba393831d6fcdc649c4419e7312eb1df04f14309a7c0645cee515"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar native AX_0_59659AE6-2A9D-47E8-95D2-4BB3B5E85952.txt",
+    "path": "ui-r5/attachments/E6CC22E3-00D3-4B64-901C-E6C21989C919.txt",
+    "sha256": "a61035dd91211fa24759ca3a97fe488922c96b39d02aaa076687a89d4793d7f7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar_0_59637095-ED77-44E1-91AB-8FE0D8796EFF.png",
+    "path": "ui-r5/attachments/6FB57890-BF6E-4D8A-9DA1-6BD09C00D592.png",
+    "sha256": "56fff962730135ffeb52d800163b2ce712596c334cbffeee0f91b54f2ddd60ee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row before single long-press_0_D29DC750-EF69-4046-970D-33AD8D753A05.txt",
+    "path": "ui-r5/attachments/682DB652-A5B6-43A3-95C1-91C8A01C4B4B.txt",
+    "sha256": "34e14a3436cccd36d195d938ffff11d2aff81263c65b5111e995c819654fde73"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_229134D0-15C5-45CB-B59F-A484C000E34D.txt",
+    "path": "ui-r5/attachments/FE310DFA-B6D5-4146-AAB5-814BDD8AEF75.txt",
+    "sha256": "9000b89a3df80407990ee96ad2427f9c5424669276d97cd4a77bb09d2db11e8b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_6BFDA28E-60A4-4D71-A231-C7EFD83665C8.png",
+    "path": "ui-r5/attachments/96809C85-416E-4FEA-9243-CE0052F83FC8.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_685B06F6-112B-4290-934C-792CDD4113EA.txt",
+    "path": "ui-r5/attachments/E249DBE6-D068-4D9A-85A9-9E81D5CEF1FC.txt",
+    "sha256": "6176ca89139a94b8f18ea92c78ef774e538121043488faa095d9021ae77f1f6b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Sleeping native Home menu dark standard native AX_0_44FD601B-7DDF-4EC8-B0B4-241B89ACCDA7.txt",
+    "path": "ui-r5/attachments/E37C2791-6431-4817-9680-27B361368CFA.txt",
+    "sha256": "ee29037687a2b03626f8362ce94792ef2b228b920a06bb0003b47eb0c2d0089e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Sleeping native Home menu dark standard_0_963692F2-29D9-41F8-8BE2-EEEEF7BD29B4.png",
+    "path": "ui-r5/attachments/0C10A91F-1034-4E17-AA5C-A6C2C02AA2BD.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_977535CE-260D-4855-B1D4-903F1E8449C1.txt",
+    "path": "ui-r5/attachments/B5F44909-AEB4-4BF5-8BF0-9F025B18EF3C.txt",
+    "sha256": "193b20ec183274a902ed678d7fedbe4011cb096529d05b1d8d22c1dedebe31da"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_34C06644-93DB-4DD1-A23A-F5F8D32341A3.png",
+    "path": "ui-r5/attachments/471D7A9E-1F0E-4482-851D-5ACDBDB17E43.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_D8297093-633A-45E7-9E1A-9BB449181298.txt",
+    "path": "ui-r5/attachments/F7AA7141-C41A-40F6-9381-C2FFC2F074B2.txt",
+    "sha256": "f04ab2239786e6e36d4dc058da357451aea6e23c71e6a46101c75a9ea4c1d819"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_DF729D86-8D43-4ED3-B6B1-7D36D30CA2F2.txt",
+    "path": "ui-r5/attachments/3A4F4AA2-F093-4284-A78C-9F4EDFE9AC3A.txt",
+    "sha256": "df7691680ad3263f69a7c1c496e152d5b8a8005ed0ce298703b37dc4730b43b2"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_04D19813-6E05-4D71-8437-63463D4BE3DE.png",
+    "path": "ui-r5/attachments/4F05774F-4D94-4177-8C28-D69F93A4F919.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_5B282211-A087-46ED-BD05-AEA7C6FD6101.txt",
+    "path": "ui-r5/attachments/86D3D60E-4896-4E36-B3B7-13C2D04EC2B7.txt",
+    "sha256": "88ce52b76a6689fe9cde4ceeb4d774b67e0a3a4ecfcaea1dfd635ca29f32c34e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_35D1B38C-7ACF-4591-9014-5D6704F9709F.txt",
+    "path": "ui-r5/attachments/54D53532-4D1D-4654-B747-5FF1AD2A3B48.txt",
+    "sha256": "39f65021775f6f227ab192e89f60394bc221808cc230f224fe5de480994f9fe7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_8B32442A-DFC8-4EBF-B415-FCF012E51C99.png",
+    "path": "ui-r5/attachments/C7BA4158-2BBA-4383-9BB0-0EEE828D7C8E.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_24787C66-5467-437E-8EA8-DD6959FA49B6.txt",
+    "path": "ui-r5/attachments/55DA7424-CC9B-4C49-B1BA-83C178CBBEE0.txt",
+    "sha256": "6176ca89139a94b8f18ea92c78ef774e538121043488faa095d9021ae77f1f6b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session native AX_0_016CF922-6419-4646-8347-F8E7E63AD240.txt",
+    "path": "ui-r5/attachments/B1923161-E3E0-4192-AF75-7832220CCA77.txt",
+    "sha256": "3f3b514c12f4c71097c160bb16655a3061747a0b0e3bc889b0bf766f29da98dd"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session_0_AB700724-6DE3-4486-AD25-9E3D9A368A2A.png",
+    "path": "ui-r5/attachments/10A4405D-3F10-4036-B4A2-53506571D1C0.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_25B8BA9B-EA74-415D-91ED-B31BAA631184.txt",
+    "path": "ui-r5/attachments/052608A5-E548-4C83-B9B0-F7FBC2C65AED.txt",
+    "sha256": "7d8048ed8fe62a9e27bba9a3aaf0e615ddc6d8842c2f2459fb6ef22bde5324ee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume native AX_0_953934DC-D33E-4D7B-8FC5-ABE647854D96.txt",
+    "path": "ui-r5/attachments/347BAC4C-4506-4BDB-BA7C-B2600B01BF21.txt",
+    "sha256": "e8063b6ec4391dee60710353bf21f3ae162d2f365c4a73d8613349b81fa7694f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume_0_9649039B-84E4-4FA7-9E31-CCD4E9D5ED23.png",
+    "path": "ui-r5/attachments/BF98EAD0-9609-4576-AC60-733988FD279A.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_434E5248-29E4-4A3C-BF77-82A6DFFD2194.txt",
+    "path": "ui-r5/attachments/E4E4A9C4-CBB3-4E0C-AFEC-85798B4D7CCF.txt",
+    "sha256": "c926d0a912f4fcb2182b6214de4cde03393711679ee76260f53f4599336cdb15"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation native AX_0_46999ED2-B678-427B-BDB2-1924F5605ED4.txt",
+    "path": "ui-r5/attachments/F9CFA2E2-F286-487C-8EDC-D798B287609E.txt",
+    "sha256": "0b89918f8e9896beaf6e5e77f4162e132cc18e766996f27057ce4f395e35ecaf"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation_0_805D6367-9CC0-4BEA-9D96-8AB24847A0EC.png",
+    "path": "ui-r5/attachments/B97BE423-1EAD-4AB3-88FA-A75DEB7F4EC2.png",
+    "sha256": "7b364b6f6e94a1c3098f25db0d1e0b7db118bcab89343c45575ac505139395a0"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper native AX_0_4D11FD7D-A6A5-48AA-A850-3A06367FF28F.txt",
+    "path": "ui-r5/attachments/D1AAD880-9A84-4892-B7C6-9F583E20DF49.txt",
+    "sha256": "b93369bb3eb0adddb9574d7cf6ad648af1a269ae2abf27325795457e30cd09d3"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper_0_77E419ED-3F56-49D4-A4FB-3554322A1CBA.png",
+    "path": "ui-r5/attachments/F0048937-38C0-4271-89BA-4840C811371E.png",
+    "sha256": "1f7167cf5b88dcf8a0263bd804d8efa0f33bcb51d53bc17859bfb1264a4acaad"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row before single long-press_0_CBF5A977-0C88-49DA-AA25-2EE3ED8CDADD.txt",
+    "path": "ui-r5/attachments/0FF8A842-0F94-4C19-A219-5D192613DFF4.txt",
+    "sha256": "fa4406bd2d6bef3b10cd982bed0e8831c934c9062fdf08127e51aff98a236a26"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_D07FE972-BCC2-4EC8-8383-F19EBDA30280.txt",
+    "path": "ui-r5/attachments/DB84B6D5-F452-41A7-B6EE-1C534ED7048F.txt",
+    "sha256": "36591e84177e5e09a1bd05f4a38056731bad9a3241cfbe99aee83ce646215281"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_C9BD01C7-39FC-4E05-9FD6-4533770D5860.png",
+    "path": "ui-r5/attachments/771A2BA7-5A38-4694-854A-C528C7B25213.png",
+    "sha256": "cc9d3be8b0df3cd5f2aafad9a0b1843ad12c6a750e560892b79f78461132f4ea"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_E2043C19-DE3F-4887-BD87-1E4E5D6912FD.txt",
+    "path": "ui-r5/attachments/6C6D0BD9-9C6C-4B0A-AA47-4836CFD27AEC.txt",
+    "sha256": "c646764683b238879e9f3b05e45a32121610213ed40d2b6d6530c3f5e871053d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Running native Home menu light standard native AX_0_600953FA-5FAF-4544-AA86-E6CF24D5BD29.txt",
+    "path": "ui-r5/attachments/18A58481-FDA9-47B6-A180-CDBD4F0B1327.txt",
+    "sha256": "8805d3a38c2872ffb62ef1ec69cdbe08bb9218842f1aa375c7d3f580c7026490"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Running native Home menu light standard_0_27B305EC-1141-4306-92C0-304A73C42AEE.png",
+    "path": "ui-r5/attachments/452CDD6D-8712-4652-8216-49BB25174278.png",
+    "sha256": "cc9d3be8b0df3cd5f2aafad9a0b1843ad12c6a750e560892b79f78461132f4ea"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_814143FE-F249-42A6-9702-0EFA08CA8C5A.txt",
+    "path": "ui-r5/attachments/CDBE9950-08E1-456B-8F0C-DDF0E742C637.txt",
+    "sha256": "ead4f0ccf61bf9100df3447dfe3baff85eca5a0be620ad2e38ac10538683b51d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_D4D45C93-B018-45AC-8DE6-885626E0D22D.png",
+    "path": "ui-r5/attachments/3216CE23-2E2E-4A54-B3B0-F442418120DF.png",
+    "sha256": "cc9d3be8b0df3cd5f2aafad9a0b1843ad12c6a750e560892b79f78461132f4ea"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_B0C9966C-3675-4758-9553-C209AF25CCE3.txt",
+    "path": "ui-r5/attachments/5C6EAAD0-31C8-4C9D-9DDF-D2DAC5B0FDBC.txt",
+    "sha256": "12e967783b8f84f3437b5b81cfa0e4517d98b44f0bd0c6fb9646dc357a08948f"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_1B77591D-4B45-4301-9819-ECE852C90166.txt",
+    "path": "ui-r5/attachments/520A521E-05E0-4BA5-A1D7-3CF26AE8D67D.txt",
+    "sha256": "8c3d1c16aa1763513aa2e43e2d331e6d40c69e2a1bd205879752c29a9cc074d6"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_7ED0BE16-0814-454B-952D-23652D2121E7.png",
+    "path": "ui-r5/attachments/5E4F59BD-C8ED-4109-B7CB-C77AA9D73841.png",
+    "sha256": "cc9d3be8b0df3cd5f2aafad9a0b1843ad12c6a750e560892b79f78461132f4ea"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_94016A73-2418-4975-ADC0-390421A4CC3A.txt",
+    "path": "ui-r5/attachments/7281E0A0-3CC8-4DF9-8460-0D33FCFD2386.txt",
+    "sha256": "c928c238054914102fc2bfd0ac38f9e773330a5931770267c6a79fd6834d32c9"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_CD6E067C-9494-4DDB-BB3C-00AE25BE8637.txt",
+    "path": "ui-r5/attachments/EC82E794-6801-41D9-8061-C796EF94F471.txt",
+    "sha256": "f4cb4f089e25bc2b091b3fa78d3896c296aaa4630d823d8f9b8c995ce6edb51b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_0696B783-7DF4-40BC-9E36-8EF6A01CC20F.png",
+    "path": "ui-r5/attachments/DEF2A4AD-56F0-4035-9F55-EC6E97A4621B.png",
+    "sha256": "cc9d3be8b0df3cd5f2aafad9a0b1843ad12c6a750e560892b79f78461132f4ea"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_69095C09-75DA-4877-B73A-E50F58EF6BD4.txt",
+    "path": "ui-r5/attachments/AE1D7C2C-4BBB-4B18-A185-51DE46D48C2F.txt",
+    "sha256": "c646764683b238879e9f3b05e45a32121610213ed40d2b6d6530c3f5e871053d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation native AX_0_2552B882-F592-4997-A7F2-676918F87767.txt",
+    "path": "ui-r5/attachments/7889BB22-4F7D-4F69-A3D3-5F2F6AD921C7.txt",
+    "sha256": "3a6450d842ea349e275b389c8b69f2b887f7d728c85d59cddb80527945fea058"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation_0_4E8CDC32-0BF0-44E5-AFBC-AE0C8A03DA80.png",
+    "path": "ui-r5/attachments/F7B5F54A-A7E5-4B96-AF6D-3E234A27283F.png",
+    "sha256": "cc9d3be8b0df3cd5f2aafad9a0b1843ad12c6a750e560892b79f78461132f4ea"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar native AX_0_A11701A6-51C9-4D8C-B7E5-D0834DD7FF66.txt",
+    "path": "ui-r5/attachments/0D1A154F-C730-4765-BAEB-5BB930AE3743.txt",
+    "sha256": "96ca478a0d8f8a96de31c4b46e43e6bb50cd6fe0385da9f129bcc4a978a15389"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-cedar_0_510DFEB0-4F50-471D-A07B-B447E76F6133.png",
+    "path": "ui-r5/attachments/A7232672-7127-4C6A-AC24-CC6E31472440.png",
+    "sha256": "8cf8f2c6faca130138f7b4f0d8ae8e1ccc641d09761bcaa2d9b1946d17730f69"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row before single long-press_0_B0C9E931-FD06-4FBD-9D77-D61AE58F7881.txt",
+    "path": "ui-r5/attachments/8D76D6A0-57C6-44C5-B104-C99B85DF6A87.txt",
+    "sha256": "83936d95a9e9441dd76c0e68132eaced36cb3c43bd1dcc99cc22039cd1063661"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_8885C70F-D33B-42E6-9DE2-88A0401F7949.txt",
+    "path": "ui-r5/attachments/13981FE2-2E79-49EF-9B45-E2BE22C90B14.txt",
+    "sha256": "39a470e53f617ea93d158e4e68c445c3a6b4e52e32ce197000babcac671ac879"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_CDF5D02E-EDB3-4A9E-9C11-78EE2A808281.png",
+    "path": "ui-r5/attachments/445EB23D-E086-43BD-B5C4-A435E6696DEB.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_D51633A6-C9F2-4D3E-A7CF-B56199B32911.txt",
+    "path": "ui-r5/attachments/FBD73964-735E-4D6D-B763-8BEB19E65F82.txt",
+    "sha256": "6176ca89139a94b8f18ea92c78ef774e538121043488faa095d9021ae77f1f6b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Sleeping native Home menu light standard native AX_0_86DEF051-7E0D-4389-8EDD-351849E0AD17.txt",
+    "path": "ui-r5/attachments/BE99BFF9-28A2-43E3-9297-E03161A31BF7.txt",
+    "sha256": "b2f9c3a170b9830a6fa1dae5a7dffa3914a8f9a792ffa0505b2db2e754969414"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Sleeping native Home menu light standard_0_323B5559-19AD-42BD-9830-F235B89C8608.png",
+    "path": "ui-r5/attachments/CF93759F-5D7A-4A61-BB6A-8FD441A442B1.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal native AX_0_822AF025-9D19-444C-A38A-3AB62CF9092A.txt",
+    "path": "ui-r5/attachments/8B3E0E76-9213-4B27-B3B9-9091C17C4EF8.txt",
+    "sha256": "83361f8b9d7a4526e305b80bb422f2c0aac9b3dd98273524ddaf7db4b59db93d"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Terminal_0_94D5D2C6-80E3-44E2-B9C2-06846BF85BEA.png",
+    "path": "ui-r5/attachments/5ECC4B26-CD44-46C0-889E-9CDEF983F2BA.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_72F9618A-200F-4A51-834F-450C2D109597.txt",
+    "path": "ui-r5/attachments/65DE1597-C3B3-4D95-9CDF-FAD6AD016FD4.txt",
+    "sha256": "f04ab2239786e6e36d4dc058da357451aea6e23c71e6a46101c75a9ea4c1d819"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings native AX_0_C63CF534-ABC4-4313-BA69-74FE86F06E04.txt",
+    "path": "ui-r5/attachments/E9605427-864C-4ED6-B7B6-076C212408D1.txt",
+    "sha256": "2bc7010c7f629541109320a64aff4100f38865a430fb315beb961efdd477d049"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent settings_0_CF2E48D4-1A75-49AF-86CC-FD3C8BC130E3.png",
+    "path": "ui-r5/attachments/6852023A-910A-4D96-B674-292AE878A6F4.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_2E512C20-241A-4CD3-ADD9-E5BB3728DBBE.txt",
+    "path": "ui-r5/attachments/9EF44A8F-36FF-44F9-8431-4DF2CF1167CB.txt",
+    "sha256": "88ce52b76a6689fe9cde4ceeb4d774b67e0a3a4ecfcaea1dfd635ca29f32c34e"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details native AX_0_834CC376-87AC-4535-8722-CA9AA4EBA14A.txt",
+    "path": "ui-r5/attachments/13C1EE2F-EB7E-4D38-9B11-7DBCD8989B50.txt",
+    "sha256": "b6c3fea19272f454229c8324a38bdc2b0999e7bda5e93330cc8eb835a48a83df"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Agent details_0_84833B06-64BD-45A2-852F-219842BB5B4C.png",
+    "path": "ui-r5/attachments/F387C1D5-A1D5-4F98-8B24-AD9FC7BE5B32.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_7C92D163-74F0-4B42-91B8-BDDD8B78FDC9.txt",
+    "path": "ui-r5/attachments/DCE59869-BDD0-4C1F-A3F1-D08C9D0B9CC6.txt",
+    "sha256": "6176ca89139a94b8f18ea92c78ef774e538121043488faa095d9021ae77f1f6b"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session native AX_0_AFA0A1DB-ED78-480A-8AB9-DB9172541CAC.txt",
+    "path": "ui-r5/attachments/4EB92350-57CE-419B-A701-22967899C64F.txt",
+    "sha256": "78d1db1f41ab3aa63f97418677931f671c0dbac92e14aac5bcda27904e495589"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Start New Session_0_D54919E4-9A78-48DB-99B5-8BA21DEC0A0E.png",
+    "path": "ui-r5/attachments/378ACA87-FF11-4E38-A5D6-93DFCCC52E43.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_9D750CAE-7AE4-473C-8890-449F1C3313EA.txt",
+    "path": "ui-r5/attachments/27795BA7-91D8-4E08-9E98-922BBD8BFB93.txt",
+    "sha256": "7d8048ed8fe62a9e27bba9a3aaf0e615ddc6d8842c2f2459fb6ef22bde5324ee"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume native AX_0_94BB45E9-47C6-4937-A2B3-B69ACA40E568.txt",
+    "path": "ui-r5/attachments/480A3242-25E8-4027-9A77-0F90A0228C9E.txt",
+    "sha256": "4e77c96b1c0d706ab8bc085b90d5a3d6973c69f472cb798a8761a381297b4fb7"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal 0 \u2014 Wake & Resume_0_961BBC53-3CB9-4922-92FB-E17373EF6771.png",
+    "path": "ui-r5/attachments/E5A61686-5DF3-4B90-823C-B90EFAC01264.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu reveal geometry_0_69782F2D-D594-41FF-883C-A66E425BB412.txt",
+    "path": "ui-r5/attachments/88EBB530-FECF-4AC2-98A6-8D1D514E3E60.txt",
+    "sha256": "c926d0a912f4fcb2182b6214de4cde03393711679ee76260f53f4599336cdb15"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation native AX_0_091B70FD-D3EE-4CDB-B4B8-C3033F33958B.txt",
+    "path": "ui-r5/attachments/232EA0DB-A510-4418-9A8F-402F28B16997.txt",
+    "sha256": "8f186803ed61b879b48dfcf000a886fc5231a82fd7ec50e314d3122c9c948792"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Native menu before validation_0_DD2F36A0-325D-4BC2-B677-B7F414C5544C.png",
+    "path": "ui-r5/attachments/29C2105B-8CC5-41B5-B1B9-B3D675129F92.png",
+    "sha256": "943123125df828e6ab6029bdad139985249af87d1f83e622b9572a34f6976979"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper native AX_0_2A9E5421-C919-4ADB-A3D9-A6985D581BD6.txt",
+    "path": "ui-r5/attachments/5C2BF064-D767-41AF-A33B-0747713DD47D.txt",
+    "sha256": "5d38367f125dc37be550f71f5e70ed225515905d7e72c7f9c2c9948ea42eabec"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row position 0 \u2014 agent-preview-studio-juniper_0_B89774AD-F963-4AC6-AC37-ABFC0B6D6F06.png",
+    "path": "ui-r5/attachments/AF7CBFC5-1E95-4326-B617-0D2C92F07651.png",
+    "sha256": "6b8b9aef005fc35bbebe4a8b126a82c53c8a0ea4b44170dd317912f7d24e55d9"
+  },
+  {
+    "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+    "name": "Home row before single long-press_0_14334379-F5DE-47F6-9CF6-E499A4BDFD92.txt",
+    "path": "ui-r5/attachments/16994DC4-1F5E-4851-AE35-25051B0F4580.txt",
+    "sha256": "45b272cfc9ff84df687fc105b5d87d91133c0a4da3713f45cfd47642004f6b01"
+  },
+  {
+    "test": "CompanionAgentSheetsTests/testSleepingAgentSettingsOpenFromLongPressAndAreEditable()",
+    "name": "Saved Access confirmation_0_FC933FF7-1AC8-496C-B7E0-6102B0EBFD03.png",
+    "path": "ui-r5/attachments/459CFE98-0D46-4A24-8537-3759B2455457.png",
+    "sha256": "b799fd7175e17e4ceaee25bab4641d5cb3bcfde77b07bd80f6c5944298b66592"
+  },
+  {
+    "test": "CompanionAgentSheetsTests/testSleepingAgentSettingsOpenFromLongPressAndAreEditable()",
+    "name": "Sleeping agent settings_0_9AB45D9B-FE76-4ADD-B3B4-A4133D837A8A.png",
+    "path": "ui-r5/attachments/4F81491E-F057-44CC-A51F-9962C6AD2770.png",
+    "sha256": "9b8013f10194cace0569643e27d55b4490bd403c518b785cca96b8171e4083fb"
+  }
+]

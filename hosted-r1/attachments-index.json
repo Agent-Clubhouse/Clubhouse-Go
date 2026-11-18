@@ -1,0 +1,68 @@
+[
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuDetailsReachesRootAndRecordsHomeScreen()",
+    "name": "Mounted agent menu final pixels and public AX_0_F48A7F02-1005-4C9C-A736-411D5F16ED90.png",
+    "path": "hosted-r1/attachments/EBBF779E-2573-4FF9-855D-E7693800510E.png",
+    "sha256": "948ef1d1e6564ec9cc6437e37dad687e37f96504c9bdb8ecbfcb7dd0747c7679"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuDetailsReachesRootAndRecordsHomeScreen()",
+    "name": "Mounted agent menu final pixels and public AX AX_1_F48A7F02-1005-4C9C-A736-411D5F16ED90.txt",
+    "path": "hosted-r1/attachments/72956FDC-0D73-4F10-8D37-F0B828322D17.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuKeepsSnapshotAndRefusesChangedLiveAuthority()",
+    "name": "Mounted agent menu final pixels and public AX_0_59EA6324-4362-4B05-8673-43ED7F7425AB.png",
+    "path": "hosted-r1/attachments/4D3AAEDA-6D8C-46F3-B780-549DB2BADC00.png",
+    "sha256": "948ef1d1e6564ec9cc6437e37dad687e37f96504c9bdb8ecbfcb7dd0747c7679"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuKeepsSnapshotAndRefusesChangedLiveAuthority()",
+    "name": "Mounted agent menu final pixels and public AX AX_1_59EA6324-4362-4B05-8673-43ED7F7425AB.txt",
+    "path": "hosted-r1/attachments/4C8AF913-8210-4931-B2F7-EF076B26627F.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuKeepsSnapshotAndRefusesChangedLiveAuthority()",
+    "name": "Captured Home agent menu before live authority changes_0_96CBBAB3-3F1F-4481-9C36-0A2D9495F142.png",
+    "path": "hosted-r1/attachments/A8BC777E-E1CE-4D08-BAFB-E4CE574EAC64.png",
+    "sha256": "948ef1d1e6564ec9cc6437e37dad687e37f96504c9bdb8ecbfcb7dd0747c7679"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuKeepsSnapshotAndRefusesChangedLiveAuthority()",
+    "name": "Captured Home agent menu before live authority changes AX_1_96CBBAB3-3F1F-4481-9C36-0A2D9495F142.txt",
+    "path": "hosted-r1/attachments/2337D6B4-664C-4D8D-8F23-D87FCBA5CA19.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuFollowsAvailabilityAndMissingEnvironmentControls()",
+    "name": "Mounted agent menu final pixels and public AX_0_9C2B368A-B221-4CF6-B42D-55DCE9181325.png",
+    "path": "hosted-r1/attachments/2DF94FFE-2392-4BF5-AA33-34CE229FEFE9.png",
+    "sha256": "948ef1d1e6564ec9cc6437e37dad687e37f96504c9bdb8ecbfcb7dd0747c7679"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuFollowsAvailabilityAndMissingEnvironmentControls()",
+    "name": "Mounted agent menu final pixels and public AX AX_1_9C2B368A-B221-4CF6-B42D-55DCE9181325.txt",
+    "path": "hosted-r1/attachments/5546569F-377D-4468-BFE8-B11FF0376DD1.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuFollowsAvailabilityAndMissingEnvironmentControls()",
+    "name": "Live menu reflects unavailable settings and Terminal_0_F44A8D08-B96B-4CD9-8F3A-F6BA2E971EA4.png",
+    "path": "hosted-r1/attachments/972D8682-FF42-49B5-A374-321198836886.png",
+    "sha256": "d374693ea5e2ce3af160ae86c1912772cba62dadc0127b4705c1e5216b51a9cc"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuFollowsAvailabilityAndMissingEnvironmentControls()",
+    "name": "Live menu reflects unavailable settings and Terminal AX_1_F44A8D08-B96B-4CD9-8F3A-F6BA2E971EA4.txt",
+    "path": "hosted-r1/attachments/0C1B891A-5DE5-4039-B1D2-C80053109938.txt",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "test": "CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale()",
+    "name": "Generated large catalog Home \u2014 8 desktops, 384 projects, 7680 agents_0_6FF111B1-9521-4B48-9DE5-0762EB40E8C1.png",
+    "path": "hosted-r1/attachments/982DA37C-9532-407C-AC35-D80C972817A2.png",
+    "sha256": "aff76572ffbffa523e3f05d6734a9c82d493d55e6499785a7bfc569b2855b56d"
+  }
+]

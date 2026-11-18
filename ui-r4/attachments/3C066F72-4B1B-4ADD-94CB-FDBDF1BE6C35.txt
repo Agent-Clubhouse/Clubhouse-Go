@@ -1,0 +1,5 @@
+Query chain:
+ →Find: Target Application 'com.Agent-Clubhouse.Go'
+  ↪︎Find: Descendants matching type Any
+    ↪︎Find: Elements matching predicate '"fold-quiet-preview-studio-clubhouse" IN identifiers'
+      ↪︎Find: First Match

@@ -1,0 +1,124 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-564-proof/tickets/build-r2/DD -destination "platform=iOS Simulator,id=EB0FD52F-378E-454D-BF69-A39926B1D4B1" -resultBundlePath /tmp/ux-564-proof/tickets/hosted-r2/tests.xcresult "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testInactiveKeepsRecentHoldAndBackgroundStartsFresh" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testRecentOrderStaysWhileVisibleThenRefreshesOnReturn" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges" "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsHiddenWhenItMatchesKnownDefault" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenItDiffersFromKnownDefault" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenDefaultIsUnknown" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testAgentSpecificDefaultWinsOverProjectDefault" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testHostTagRequiresMultipleHostsAndNoImpliedHost" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testPermissionStatusDoesNotRepeatAttentionLabel" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testExistingReadsRetainDefaultsAndDisconnectClearsThem" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups" "-only-testing:ClubhouseGoTests/CompanionAgentRowTests/testRowVisualMatrixAndAccessibleGrowth" "-only-testing:ClubhouseGoTests/CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  ClubhouseTransport: /tmp/ux-564-proof/tickets/build-r2/source @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  Framebriar: /tmp/ux-564-proof/tickets/build-r2/source/Vendor/Framebriar @ local
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+
+Writing result bundle at path:
+	/tmp/ux-564-proof/tickets/hosted-r2/tests.xcresult
+
+2026-11-17 21:28:55.105177-0800 ClubhouseGo[61185:454554060] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-17 21:28:55.150893-0800 ClubhouseGo[61185:454554060] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+Test Suite 'Selected tests' started at 2026-11-17 21:28:55.561.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-17 21:28:55.562.
+Test Suite 'CompanionAgentRowTests' started at 2026-11-17 21:28:55.562.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAccessBadgeIsHiddenWhenItMatchesKnownDefault]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAccessBadgeIsHiddenWhenItMatchesKnownDefault]' passed (0.003 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAccessBadgeIsShownWhenDefaultIsUnknown]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAccessBadgeIsShownWhenDefaultIsUnknown]' passed (0.000 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAccessBadgeIsShownWhenItDiffersFromKnownDefault]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAccessBadgeIsShownWhenItDiffersFromKnownDefault]' passed (0.000 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAgentSpecificDefaultWinsOverProjectDefault]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testAgentSpecificDefaultWinsOverProjectDefault]' passed (0.000 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testExistingReadsRetainDefaultsAndDisconnectClearsThem]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testExistingReadsRetainDefaultsAndDisconnectClearsThem]' passed (0.010 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testHostTagRequiresMultipleHostsAndNoImpliedHost]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testHostTagRequiresMultipleHostsAndNoImpliedHost]' passed (0.000 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testPermissionStatusDoesNotRepeatAttentionLabel]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testPermissionStatusDoesNotRepeatAttentionLabel]' passed (0.001 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression]' passed (0.000 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail]' passed (0.000 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups]' passed (0.003 seconds).
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testRowVisualMatrixAndAccessibleGrowth]' started.
+Test Case '-[ClubhouseGoTests.CompanionAgentRowTests testRowVisualMatrixAndAccessibleGrowth]' passed (0.374 seconds).
+Test Suite 'CompanionAgentRowTests' passed at 2026-11-17 21:28:55.957.
+	 Executed 11 tests, with 0 failures (0 unexpected) in 0.393 (0.395) seconds
+Test Suite 'CompanionHomeVisibilityTests' started at 2026-11-17 21:28:55.957.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability]' started.
+2026-11-17 21:28:56.602130-0800 ClubhouseGo[61185:454553972] Unbalanced calls to begin/end appearance transitions for <_TtGC7SwiftUI19UIHostingControllerGVS_15ModifiedContentGS1_GS1_GS1_GS1_GVS_10ScrollViewGS1_GVS_6VStackGVS_19_ConditionalContentGVS_9TupleViewTVS_4TextV11ClubhouseGo21CompanionAgentListRow__GS5_TS6_S6_S8_VS_7DividerS8_S9_S8_____VS_14_PaddingLayout__GVS_30_EnvironmentKeyWritingModifierVS7_24CompanionAgentRowContext__GS11_OS_15DynamicTypeSize__VS7_P10$1107ec3b019CompanionBackground_VS7_15CompanionThemed_GS11_OS_11ColorScheme___: 0x10781ee00>.
+2026-11-17 21:28:56.603197-0800 ClubhouseGo[61185:454553972] Unbalanced calls to begin/end appearance transitions for <_TtGC7SwiftUI19UIHostingControllerGVS_15ModifiedContentGS1_GS1_GS1_GS1_GVS_10ScrollViewGS1_GVS_6VStackGVS_19_ConditionalContentGVS_9TupleViewTVS_4TextV11ClubhouseGo21CompanionAgentListRow__GS5_TS6_S6_S8_VS_7DividerS8_S9_S8_____VS_14_PaddingLayout__GVS_30_EnvironmentKeyWritingModifierVS7_24CompanionAgentRowContext__GS11_OS_15DynamicTypeSize__VS7_P10$1107ec3b019CompanionBackground_VS7_15CompanionThemed_GS11_OS_11ColorScheme___: 0x10904f400>.
+2026-11-17 21:28:56.604001-0800 ClubhouseGo[61185:454553972] Unbalanced calls to begin/end appearance transitions for <_TtGC7SwiftUI19UIHostingControllerGVS_15ModifiedContentGS1_GS1_GS1_GS1_GVS_10ScrollViewGS1_GVS_6VStackGVS_19_ConditionalContentGVS_9TupleViewTVS_4TextV11ClubhouseGo21CompanionAgentListRow__GS5_TS6_S6_S8_VS_7DividerS8_S9_S8_____VS_14_PaddingLayout__GVS_30_EnvironmentKeyWritingModifierVS7_24CompanionAgentRowContext__GS11_OS_15DynamicTypeSize__VS7_P10$1107ec3b019CompanionBackground_VS7_15CompanionThemed_GS11_OS_11ColorScheme___: 0x10b80ac00>.
+2026-11-17 21:28:56.604770-0800 ClubhouseGo[61185:454553972] Unbalanced calls to begin/end appearance transitions for <_TtGC7SwiftUI19UIHostingControllerGVS_15ModifiedContentGS1_GS1_GS1_GS1_GVS_10ScrollViewGS1_GVS_6VStackGVS_19_ConditionalContentGVS_9TupleViewTVS_4TextV11ClubhouseGo21CompanionAgentListRow__GS5_TS6_S6_S8_VS_7DividerS8_S9_S8_____VS_14_PaddingLayout__GVS_30_EnvironmentKeyWritingModifierVS7_24CompanionAgentRowContext__GS11_OS_15DynamicTypeSize__VS7_P10$1107ec3b019CompanionBackground_VS7_15CompanionThemed_GS11_OS_11ColorScheme___: 0x10e008200>.
+2026-11-17 21:28:56.605421-0800 ClubhouseGo[61185:454553972] Unbalanced calls to begin/end appearance transitions for <_TtGC7SwiftUI19UIHostingControllerGVS_15ModifiedContentGS1_GS1_GS1_GS1_GVS_10ScrollViewGS1_GVS_6VStackGVS_19_ConditionalContentGVS_9TupleViewTVS_4TextV11ClubhouseGo21CompanionAgentListRow__GS5_TS6_S6_S8_VS_7DividerS8_S9_S8_____VS_14_PaddingLayout__GVS_30_EnvironmentKeyWritingModifierVS7_24CompanionAgentRowContext__GS11_OS_15DynamicTypeSize__VS7_P10$1107ec3b019CompanionBackground_VS7_15CompanionThemed_GS11_OS_11ColorScheme___: 0x10e00b000>.
+2026-11-17 21:28:56.912550-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:28:56.956805-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability]' passed (2.305 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh]' started.
+2026-11-17 21:28:58.865782-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:28:58.866184-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationAuthority bound path tried to update multiple times per frame.
+2026-11-17 21:28:58.867666-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:28:58.868023-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationAuthority bound path tried to update multiple times per frame.
+2026-11-17 21:28:58.899712-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] onChange(of: Array<CGFloat>) action tried to update multiple times per frame.
+2026-11-17 21:28:58.900419-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+2026-11-17 21:29:00.201825-0800 ClubhouseGo[61185:454554208] fopen failed for data file: errno = 2 (No such file or directory)
+2026-11-17 21:29:00.201890-0800 ClubhouseGo[61185:454554208] Errors found! Invalidating cache...
+2026-11-17 21:29:00.416290-0800 ClubhouseGo[61185:454554208] fopen failed for data file: errno = 2 (No such file or directory)
+2026-11-17 21:29:00.416372-0800 ClubhouseGo[61185:454554208] Errors found! Invalidating cache...
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh]' passed (4.294 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testInactiveKeepsRecentHoldAndBackgroundStartsFresh]' started.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testInactiveKeepsRecentHoldAndBackgroundStartsFresh]' passed (2.426 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl]' started.
+/tmp/ux-564-proof/tickets/build-r2/source/Annex/AnnexTests/CompanionHomeVisibilityTests.swift:515: error: -[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl] : XCTAssertTrue failed - Mounted rendering condition did not arrive
+/tmp/ux-564-proof/tickets/build-r2/source/Annex/AnnexTests/CompanionHomeVisibilityTests.swift:516: error: -[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl] : XCTUnwrap failed: expected non-nil value of type "CompanionHomeFrozenActions"
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl]' failed (15.193 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges]' started.
+2026-11-17 21:29:20.360326-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:29:20.392541-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges]' passed (5.603 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedLiveAgentMenuRendersAvailabilityChanges]' started.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testMountedLiveAgentMenuRendersAvailabilityChanges]' passed (5.305 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh]' started.
+2026-11-17 21:29:31.812004-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:29:31.844800-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+2026-11-17 21:29:34.281376-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh]' passed (6.561 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession]' started.
+2026-11-17 21:29:38.356505-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:29:38.393581-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+2026-11-17 21:29:41.463352-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession]' passed (6.873 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testRecentOrderStaysWhileVisibleThenRefreshesOnReturn]' started.
+2026-11-17 21:29:46.254619-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:29:46.255082-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationAuthority bound path tried to update multiple times per frame.
+2026-11-17 21:29:46.256643-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationRequestObserver tried to update multiple times per frame.
+2026-11-17 21:29:46.257011-0800 ClubhouseGo[61185:454553972] [Invalid Configuration] Update NavigationAuthority bound path tried to update multiple times per frame.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testRecentOrderStaysWhileVisibleThenRefreshesOnReturn]' passed (2.871 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections]' started.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections]' passed (2.895 seconds).
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks]' started.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks]' passed (7.855 seconds).
+Test Suite 'CompanionHomeVisibilityTests' failed at 2026-11-17 21:29:58.141.
+	 Executed 11 tests, with 2 failures (0 unexpected) in 62.181 (62.184) seconds
+Test Suite 'CompanionLargeCatalogTests' started at 2026-11-17 21:29:58.142.
+Test Case '-[ClubhouseGoTests.CompanionLargeCatalogTests testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale]' started.
+Test Case '-[ClubhouseGoTests.CompanionLargeCatalogTests testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale]' passed (2.799 seconds).
+Test Suite 'CompanionLargeCatalogTests' passed at 2026-11-17 21:30:00.941.
+	 Executed 1 test, with 0 failures (0 unexpected) in 2.799 (2.799) seconds
+Test Suite 'ClubhouseGoTests.xctest' failed at 2026-11-17 21:30:00.941.
+	 Executed 23 tests, with 2 failures (0 unexpected) in 65.373 (65.379) seconds
+Test Suite 'Selected tests' failed at 2026-11-17 21:30:00.941.
+	 Executed 23 tests, with 2 failures (0 unexpected) in 65.373 (65.380) seconds
+2026-11-17 21:30:10.354 xcodebuild[61002:454552318] [MT] IDETestOperationsObserverDebug: 79.744 elapsed -- Testing started completed.
+2026-11-17 21:30:10.354 xcodebuild[61002:454552318] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-17 21:30:10.354 xcodebuild[61002:454552318] [MT] IDETestOperationsObserverDebug: 79.744 sec, +79.744 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-564-proof/tickets/hosted-r2/tests.xcresult
+
+** TEST EXECUTE FAILED **
+
+Testing started

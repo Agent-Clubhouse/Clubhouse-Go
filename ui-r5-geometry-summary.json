@@ -1,0 +1,422 @@
+{
+  "summary": [
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "samples": 6,
+      "max_step": 2
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "samples": 26,
+      "max_step": 1
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "Home row",
+      "samples": 4,
+      "max_step": 0
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "samples": 20,
+      "max_step": 0
+    }
+  ],
+  "records": [
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Agent details item=(20.0, 543.0000000000001, 400.0, 118.33333333333337) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "CE931899-697A-414D-AF3F-EE91E2738232.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Terminal item=(20.0, 779.6666666666666, 400.0, 118.33333333333348) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "1605729B-772F-4A66-9C64-765303E116F8.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Agent settings item=(20.0, 661.3333333333335, 400.0, 118.33333333333337) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "1E80F589-E182-4242-8E68-F80E88FB3629.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Agent details item=(20.0, 543.0000000000001, 400.0, 118.33333333333337) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "E8340C84-53C6-4A67-B69C-BB371B14EF71.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 219.33333333333348, 400.0, 439.33333333333326) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "D442CE13-ACFB-4A4F-BA21-672B306F31D6.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333331 step=0 label=Agent details item=(20.0, 537.0, 400.0, 118.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "8C778CED-E6F7-4624-9261-00FECA61412B.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 1,
+      "geometry": "tallestItem=180.33333333333331 step=1 label=Terminal item=(20.0, 773.6666666666666, 400.0, 118.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "24AF13EB-B019-4B65-9A1C-27583495B534.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Terminal item=(20.0, 878.3333333333334, 400.0, 118.33333333333326) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "0BAB9242-634C-4DF8-B66A-992AB3F2F96B.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 1,
+      "geometry": "tallestItem=180.33333333333337 step=1 label=Agent settings item=(20.0, 759.9999999999999, 400.0, 118.33333333333348) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "B8EFEB76-8F76-45E6-BFE8-5CCB9A9A4C3C.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Agent settings item=(20.0, 878.3333333333334, 400.0, 118.33333333333326) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "BAFB8D18-588E-4292-8A9B-360DF8F0B35C.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 1,
+      "geometry": "tallestItem=180.33333333333337 step=1 label=Agent details item=(20.0, 760.0, 400.0, 118.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "220090E8-37B4-43F5-9F0E-BB4F881D08E6.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Agent details item=(20.0, 854.0, 400.0, 118.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "0D1FC823-E877-4DB3-96A5-E18F8DA495BE.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Start New Session item=(20.0, 673.6666666666665, 400.0, 180.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "CA51F228-5DDE-434D-A537-D9B76F400A71.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Wake & Resume item=(20.0, 493.33333333333326, 400.0, 180.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true",
+      "attachment": "56B83C26-184A-4187-A58A-1E1983194FFE.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 212.0, 400.0, 381.33333333333326) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "9A8BF5C0-08F9-4EC6-A9E4-A0F82EDEA111.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Agent details item=(20.0, 543.0000000000001, 400.0, 118.33333333333337) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "3DF656A8-C654-40CF-A946-C6CE3E7786E0.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Terminal item=(20.0, 779.6666666666666, 400.0, 118.33333333333348) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "F178EB67-7823-4AC0-9575-7A21AF7B4100.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Agent settings item=(20.0, 661.3333333333335, 400.0, 118.33333333333337) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "371F0237-7567-4AE9-90F8-6BC27528336D.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=118.33333333333348 step=0 label=Agent details item=(20.0, 543.0000000000001, 400.0, 118.33333333333337) viewport=(20.0, 533.0000000000001, 400.0, 368.9999999999999) hittable=true enabled=true",
+      "attachment": "08E168B7-76FB-4C19-BAA4-D0683CFF44C7.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "step": 2,
+      "geometry": "step=2 row=(20.0, 166.33333333333326, 400.0, 439.33333333333326) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "8D8D39B3-5BFD-4466-9BC6-ECF2C6C1BC4D.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "step": 1,
+      "geometry": "step=1 row=(20.0, -35.333333333333485, 400.0, 439.3333333333333) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "F2AE532E-DE3F-4F67-98C6-500F2F528F71.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, -328.0, 400.0, 439.3333333333333) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "8D56719F-73DA-4678-B5EA-B61DD081E1CC.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333334 step=0 label=Agent details item=(20.0, 135.66666666666674, 400.0, 118.33333333333334) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "03B19D42-8914-407B-B148-3862A680E227.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 1,
+      "geometry": "tallestItem=180.33333333333334 step=1 label=Terminal item=(20.0, 372.3333333333334, 400.0, 118.33333333333331) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "EEA62D99-5EBD-4AD7-AC86-910D566A7DCD.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333334 step=0 label=Terminal item=(20.0, 477.00000000000006, 400.0, 118.33333333333331) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "0DFC090D-5441-4F1F-8235-4B8ACF92913A.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 1,
+      "geometry": "tallestItem=180.33333333333334 step=1 label=Agent settings item=(20.0, 358.6666666666667, 400.0, 118.33333333333331) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "07182083-352C-4979-BCC6-A94A8F6B6A1F.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Agent settings item=(20.0, 477.0, 400.0, 118.33333333333337) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "8255C831-854D-4677-AB82-7A51D42BD226.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 1,
+      "geometry": "tallestItem=180.33333333333337 step=1 label=Agent details item=(20.0, 358.66666666666674, 400.0, 118.33333333333331) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "BDFFF0BB-C61B-4C40-9C5B-A4E16AC3D61E.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Agent details item=(20.0, 452.66666666666674, 400.0, 118.33333333333337) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "C99D5C05-20D7-4AE1-8BF1-5F8C831C4800.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Start New Session item=(20.0, 272.33333333333337, 400.0, 180.33333333333337) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "D621250F-C92D-4B71-9931-86D84DEFC499.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=180.33333333333337 step=0 label=Wake & Resume item=(20.0, 92.00000000000006, 400.0, 180.33333333333331) viewport=(20.0, 82.00000000000006, 400.0, 418.6666666666667) hittable=true enabled=true",
+      "attachment": "CC017E33-ADE4-4653-81CA-D25B2DFFB765.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 316.0, 400.0, 381.33333333333337) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "C4B8DC1F-6E6F-45A4-ADEF-253B61F26F0D.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Agent details item=(95.0, 456.66666666666674, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "BCB46AC8-671F-4FB7-A28F-EA6A66A03473.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Terminal item=(95.0, 540.6666666666667, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "E40D7E34-BC55-49DB-BB24-598B9E526B45.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Agent settings item=(95.0, 498.66666666666674, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "1CC05FC2-BEF5-4830-A6AA-BC7A541BBA6F.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Agent details item=(95.0, 456.66666666666674, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "59E09AEC-FC37-4ED8-9C96-466AFCB5F9B3.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 612.6666666666666, 400.0, 91.66666666666674) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "682DB652-A5B6-43A3-95C1-91C8A01C4B4B.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Agent details item=(95.0, 600.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "E249DBE6-D068-4D9A-85A9-9E81D5CEF1FC.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Terminal item=(95.0, 684.3333333333334, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "F7AA7141-C41A-40F6-9381-C2FFC2F074B2.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Agent settings item=(95.0, 642.3333333333333, 250.0, 42.000000000000114) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "86D3D60E-4896-4E36-B3B7-13C2D04EC2B7.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Agent details item=(95.0, 600.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "55DA7424-CC9B-4C49-B1BA-83C178CBBEE0.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Start New Session item=(95.0, 558.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "052608A5-E548-4C83-B9B0-F7FBC2C65AED.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Wake & Resume item=(95.0, 516.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "E4E4A9C4-CBB3-4E0C-AFEC-85798B4D7CCF.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 756.3333333333334, 400.0, 91.66666666666652) content=(0.0, 116.0, 440.0, 757.0) hittable=true",
+      "attachment": "0FF8A842-0F94-4C19-A219-5D192613DFF4.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Agent details item=(95.0, 456.66666666666674, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "6C6D0BD9-9C6C-4B0A-AA47-4836CFD27AEC.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Terminal item=(95.0, 540.6666666666667, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "5C6EAAD0-31C8-4C9D-9DDF-D2DAC5B0FDBC.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Agent settings item=(95.0, 498.66666666666674, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "7281E0A0-3CC8-4DF9-8460-0D33FCFD2386.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.0 step=0 label=Agent details item=(95.0, 456.66666666666674, 250.0, 42.0) viewport=(95.0, 446.66666666666674, 250.0, 146.0) hittable=true enabled=true",
+      "attachment": "AE1D7C2C-4BBB-4B18-A185-51DE46D48C2F.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 612.6666666666666, 400.0, 91.66666666666674) content=(0.0, 116.00000000000004, 440.0, 757.0) hittable=true",
+      "attachment": "8D76D6A0-57C6-44C5-B104-C99B85DF6A87.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Agent details item=(95.0, 600.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "FBD73964-735E-4D6D-B763-8BEB19E65F82.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Terminal item=(95.0, 684.3333333333334, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "65DE1597-C3B3-4D95-9CDF-FAD6AD016FD4.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Agent settings item=(95.0, 642.3333333333333, 250.0, 42.000000000000114) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "9EF44A8F-36FF-44F9-8431-4DF2CF1167CB.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Agent details item=(95.0, 600.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "DCE59869-BDD0-4C1F-A3F1-D08C9D0B9CC6.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Start New Session item=(95.0, 558.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "27795BA7-91D8-4E08-9E98-922BBD8BFB93.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "menu",
+      "step": 0,
+      "geometry": "tallestItem=42.000000000000114 step=0 label=Wake & Resume item=(95.0, 516.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true",
+      "attachment": "88EBB530-FECF-4AC2-98A6-8D1D514E3E60.txt"
+    },
+    {
+      "test": "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+      "kind": "Home row",
+      "step": 0,
+      "geometry": "step=0 row=(20.0, 756.3333333333334, 400.0, 91.66666666666652) content=(0.0, 116.00000000000004, 440.0, 757.0) hittable=true",
+      "attachment": "16994DC4-1F5E-4851-AE35-25051B0F4580.txt"
+    }
+  ]
+}

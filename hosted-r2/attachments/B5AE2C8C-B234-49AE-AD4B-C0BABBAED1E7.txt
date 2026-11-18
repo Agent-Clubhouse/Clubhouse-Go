@@ -1,0 +1,6 @@
+Mounted agent menu
+-O- Wake & Resume
++ Start New Session
+i Agent details
+=à Agent settings
+= Terminal

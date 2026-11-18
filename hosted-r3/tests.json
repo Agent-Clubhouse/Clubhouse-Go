@@ -1,0 +1,267 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "EB0FD52F-378E-454D-BF69-A39926B1D4B1",
+      "deviceName" : "ux-564-menu-private",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "0.0029s",
+                  "durationInSeconds" : 0.0028738975524902344,
+                  "name" : "testAccessBadgeIsHiddenWhenItMatchesKnownDefault()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testAccessBadgeIsHiddenWhenItMatchesKnownDefault()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsHiddenWhenItMatchesKnownDefault",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00039s",
+                  "durationInSeconds" : 0.00039005279541015625,
+                  "name" : "testAccessBadgeIsShownWhenDefaultIsUnknown()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testAccessBadgeIsShownWhenDefaultIsUnknown()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenDefaultIsUnknown",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00033s",
+                  "durationInSeconds" : 0.0003319978713989258,
+                  "name" : "testAccessBadgeIsShownWhenItDiffersFromKnownDefault()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testAccessBadgeIsShownWhenItDiffersFromKnownDefault()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenItDiffersFromKnownDefault",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00041s",
+                  "durationInSeconds" : 0.0004099607467651367,
+                  "name" : "testAgentSpecificDefaultWinsOverProjectDefault()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testAgentSpecificDefaultWinsOverProjectDefault()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testAgentSpecificDefaultWinsOverProjectDefault",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0097s",
+                  "durationInSeconds" : 0.009727954864501953,
+                  "name" : "testExistingReadsRetainDefaultsAndDisconnectClearsThem()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testExistingReadsRetainDefaultsAndDisconnectClearsThem()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testExistingReadsRetainDefaultsAndDisconnectClearsThem",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00033s",
+                  "durationInSeconds" : 0.00032901763916015625,
+                  "name" : "testHostTagRequiresMultipleHostsAndNoImpliedHost()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testHostTagRequiresMultipleHostsAndNoImpliedHost()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testHostTagRequiresMultipleHostsAndNoImpliedHost",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00056s",
+                  "durationInSeconds" : 0.00055694580078125,
+                  "name" : "testPermissionStatusDoesNotRepeatAttentionLabel()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testPermissionStatusDoesNotRepeatAttentionLabel()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testPermissionStatusDoesNotRepeatAttentionLabel",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00032s",
+                  "durationInSeconds" : 0.0003230571746826172,
+                  "name" : "testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.00029s",
+                  "durationInSeconds" : 0.0002930164337158203,
+                  "name" : "testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0025s",
+                  "durationInSeconds" : 0.0024869441986083984,
+                  "name" : "testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.37s",
+                  "durationInSeconds" : 0.3722800016403198,
+                  "name" : "testRowVisualMatrixAndAccessibleGrowth()",
+                  "nodeIdentifier" : "CompanionAgentRowTests/testRowVisualMatrixAndAccessibleGrowth()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests/testRowVisualMatrixAndAccessibleGrowth",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionAgentRowTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionAgentRowTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "2s",
+                  "durationInSeconds" : 2.2532540559768677,
+                  "name" : "testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "4s",
+                  "durationInSeconds" : 4.244827032089233,
+                  "name" : "testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "2s",
+                  "durationInSeconds" : 2.386649966239929,
+                  "name" : "testInactiveKeepsRecentHoldAndBackgroundStartsFresh()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testInactiveKeepsRecentHoldAndBackgroundStartsFresh()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testInactiveKeepsRecentHoldAndBackgroundStartsFresh",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "3s",
+                  "durationInSeconds" : 3.793096899986267,
+                  "name" : "testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "5s",
+                  "durationInSeconds" : 5.6425371170043945,
+                  "name" : "testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "5s",
+                  "durationInSeconds" : 5.2052470445632935,
+                  "name" : "testMountedLiveAgentMenuRendersAvailabilityChanges()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "6s",
+                  "durationInSeconds" : 6.429443955421448,
+                  "name" : "testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "6s",
+                  "durationInSeconds" : 6.910182952880859,
+                  "name" : "testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "2s",
+                  "durationInSeconds" : 2.897281050682068,
+                  "name" : "testRecentOrderStaysWhileVisibleThenRefreshesOnReturn()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testRecentOrderStaysWhileVisibleThenRefreshesOnReturn()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testRecentOrderStaysWhileVisibleThenRefreshesOnReturn",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "2s",
+                  "durationInSeconds" : 2.8907750844955444,
+                  "name" : "testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "7s",
+                  "durationInSeconds" : 7.8010170459747314,
+                  "name" : "testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionHomeVisibilityTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "2s",
+                  "durationInSeconds" : 2.820296049118042,
+                  "name" : "testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale()",
+                  "nodeIdentifier" : "CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionLargeCatalogTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionLargeCatalogTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoTests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests",
+          "nodeType" : "Unit test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

@@ -1,0 +1,123 @@
+Application, 0x11f161e00, pid: 75454, label: 'Clubhouse Go' <App element pid: 75454>
+  Window (Main), 0x11f161f20, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4524647952.4>
+    Other, 0x11f162860, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4524666944.5>
+      Other, 0x11f162980, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4464357952.6>
+        Other, 0x11f1625c0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4524637632.7>
+          Other, 0x11f1626e0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4404093584.8>
+            Other, 0x11f1633f0, {{0.0, 62.0}, {440.0, 860.0}} <AX element pid: 75454, elementOrHash.elementID: 4468066896.9>
+            Other, 0x11f163510, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4524756816.10>
+              Other, 0x11f163630, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4468059536.11>
+                Other, 0x11f163750, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4465919408.13>
+                  Other, 0x11f163870, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4468277520.16>
+                    Other, 0x11f163990, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4404127488.19>
+                      Other, 0x11f163ab0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4404126704.23>
+                        Other, 0x11f163bd0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4522592512.30>
+                          NavigationBar, 0x11f163cf0, {{0.0, 62.0}, {440.0, 127.0}}, identifier: 'Clubhouse' <AX element pid: 75454, elementOrHash.elementID: 4462767504.37>
+                            Button, 0x11f163e10, {{24.0, 66.0}, {37.3, 36.0}}, label: 'Settings' <AX element pid: 75454, elementOrHash.elementID: 4524903536.46>
+                            Button, 0x11f163f30, {{380.0, 66.0}, {36.0, 36.0}}, identifier: 'plus', label: 'New agent' <AX element pid: 75454, elementOrHash.elementID: 4524936864.47>
+                            StaticText, 0x11f164050, {{20.0, 116.0}, {298.3, 71.7}}, label: 'Clubhouse' <AX element pid: 75454, elementOrHash.elementID: 4462795936.48>
+                          Other, 0x11f164170, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4522626672.38>
+                            Other, 0x11f164290, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4462911136.49>
+                              Other, 0x11f1643b0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4464355424.55>
+                                Other, 0x11f1644d0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4404192800.58>
+                                  CollectionView, 0x11f1645f0, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4639289344.60>
+                                    Other, 0x11f164710, {{-20.0, -1723.0}, {480.0, 2575.3}} <AX element pid: 75454, elementOrHash.elementID: 4468367408.61>
+                                    Other, 0x11f164830, {{0.0, 0.0}, {440.0, 170.8}} <AX element pid: 75454, elementOrHash.elementID: 4462815984.62>
+                                    Cell, 0x11f164950, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4647950336.63>
+                                      Other, 0x11f164a70, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4525072848.73>
+                                        Other, 0x11f164b90, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4525083232.87>
+                                          Other, 0x11f164cb0, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4404227248.99>
+                                      Other, 0x11f164dd0, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4525071920.74>
+                                        Other, 0x11f164ef0, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4648030208.88>
+                                          Other, 0x11f165010, {{20.0, 189.0}, {400.0, 262.7}} <AX element pid: 75454, elementOrHash.elementID: 4404233696.100>
+                                            StaticText, 0x11f165130, {{20.0, 189.0}, {400.0, 262.7}}, identifier: 'home-summary', label: '1 working, 1 needs you, 1 of 2 desktops connected' <AX element pid: 75454, elementOrHash.elementID: 4404215200.108>
+                                    Cell, 0x11f165250, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4647584768.64>
+                                      Other, 0x11f165370, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4525075904.75>
+                                        Other, 0x11f165490, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4525127472.89>
+                                          Other, 0x11f1655b0, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4404234720.101>
+                                      Other, 0x11f1656d0, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4525087584.76>
+                                        Other, 0x11f1657f0, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4647326720.90>
+                                          Other, 0x11f165910, {{20.0, 451.7}, {400.0, 115.7}} <AX element pid: 75454, elementOrHash.elementID: 4404241712.102>
+                                            ScrollView, 0x11f165a30, {{20.0, 455.7}, {400.0, 107.7}}, identifier: 'desktop-chips' <AX element pid: 75454, elementOrHash.elementID: 4649119744.109>
+                                              Other, 0x11f165b50, {{20.0, 455.7}, {740.0, 107.7}} <AX element pid: 75454, elementOrHash.elementID: 4525002112.114>
+                                                Button, 0x11f165c70, {{20.0, 457.7}, {82.7, 74.7}}, identifier: 'desktop-chip-all', label: 'All desktops', Selected <AX element pid: 75454, elementOrHash.elementID: 4404235888.119>
+                                                Button, 0x11f165d90, {{110.7, 457.7}, {270.3, 74.7}}, identifier: 'desktop-chip-host-preview-studio', label: 'Studio Mac, Connected' <AX element pid: 75454, elementOrHash.elementID: 4404236784.120>
+                                                Button, 0x11f165eb0, {{389.0, 459.7}, {371.0, 101.7}}, identifier: 'desktop-chip-host-preview-laptop', label: 'Travel MacBook, Offline' <AX element pid: 75454, elementOrHash.elementID: 4404239392.121>
+                                                  Image, 0x11f165fd0, {{406.7, 471.3}, {49.7, 45.3}}, identifier: 'wifi.slash', label: 'Wi-Fi Off' <AX element pid: 75454, elementOrHash.elementID: 4404237680.122>
+                                                  StaticText, 0x11f1660f0, {{389.0, 459.7}, {371.0, 101.7}}, label: 'Travel MacBook' <AX element pid: 75454, elementOrHash.elementID: 4404238112.123>
+                                    Cell, 0x11f166210, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4639444480.65>
+                                      Other, 0x11f166330, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4522853584.77>
+                                        Other, 0x11f166450, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4522866576.91>
+                                          Other, 0x11f166570, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4404243664.103>
+                                      Other, 0x11f166690, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4522851312.78>
+                                        Other, 0x11f1667b0, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4640076800.92>
+                                          Other, 0x11f1668d0, {{20.0, 567.3}, {400.0, 78.0}} <AX element pid: 75454, elementOrHash.elementID: 4404245552.104>
+                                            StaticText, 0x11f1669f0, {{20.0, 567.3}, {400.0, 78.0}}, label: 'UI preview. No desktop connected. Actions are disabled.' <AX element pid: 75454, elementOrHash.elementID: 4404244096.110>
+                                    Cell, 0x11f166b10, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4647992832.66>
+                                      Other, 0x11f166c30, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4525131824.79>
+                                        Other, 0x11f166d50, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4525199264.93>
+                                          Other, 0x11f166e70, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4404245984.105>
+                                      Other, 0x11f166f90, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4525074768.80>
+                                        Other, 0x11f1670b0, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4647970816.94>
+                                          Other, 0x11f1671d0, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4404252224.106>
+                                            Other, 0x11f1672f0, {{20.0, 645.3}, {400.0, 189.3}} <AX element pid: 75454, elementOrHash.elementID: 4404251120.111>
+                                              StaticText, 0x11f167410, {{32.0, 645.3}, {340.0, 116.7}}, identifier: 'home-connection-title', label: 'Travel MacBook is offline' <AX element pid: 75454, elementOrHash.elementID: 4404247456.115>
+                                              Image, 0x11f167530, {{36.7, 773.0}, {55.3, 50.7}}, identifier: 'wifi.slash', label: 'Wi-Fi Off' <AX element pid: 75454, elementOrHash.elementID: 4404248912.116>
+                                              Button, 0x11f167650, {{253.3, 762.0}, {154.7, 72.7}}, identifier: 'home-retry-preview-laptop', label: 'Retry Travel MacBook' <AX element pid: 75454, elementOrHash.elementID: 4404250016.117>
+                                    Other, 0x11f167770, {{40.0, 644.3}, {360.0, 1.0}} <AX element pid: 75454, elementOrHash.elementID: 4468353104.67>
+                                    Other, 0x11f167890, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468346816.68>
+                                    Other, 0x11f1679b0, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468354672.69>
+                                      Image, 0x11f167ad0, {{-120.0, 813.0}, {680.0, 286.0}}, identifier: 'AdditionalDimmingOverlay' <AX element pid: 75454, elementOrHash.elementID: 4468461120.81>
+                                      Other, 0x11f167bf0, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468393408.82>
+                                        Other, 0x11f167d10, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468120176.95>
+                                      Other, 0x11f167e30, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468394064.83>
+                                        Other, 0x11f167f50, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468394720.96>
+                                        Other, 0x11f168070, {{0.0, 808.2}, {440.0, 147.8}} <AX element pid: 75454, elementOrHash.elementID: 4468554160.97>
+                                    Other, 0x11f168190, {{-20.0, 852.3}, {480.0, 665.3}} <AX element pid: 75454, elementOrHash.elementID: 4524636496.70>
+                                    Cell, 0x11f1682b0, {{20.0, 852.3}, {400.0, 150.7}} <AX element pid: 75454, elementOrHash.elementID: 4648931840.71>
+                                      Other, 0x11f1683d0, {{20.0, 852.3}, {400.0, 150.7}} <AX element pid: 75454, elementOrHash.elementID: 4525456688.84>
+                                      Other, 0x11f1684f0, {{20.0, 852.3}, {400.0, 150.7}} <AX element pid: 75454, elementOrHash.elementID: 4525455760.85>
+                                        Other, 0x11f168610, {{20.0, 852.3}, {400.0, 150.7}} <AX element pid: 75454, elementOrHash.elementID: 4648571904.98>
+                                          Other, 0x11f168730, {{20.0, 852.3}, {400.0, 150.7}} <AX element pid: 75454, elementOrHash.elementID: 4404255152.107>
+                                            StaticText, 0x11f168850, {{40.0, 862.3}, {170.3, 130.7}}, label: 'Needs you' <AX element pid: 75454, elementOrHash.elementID: 4404254048.112>
+                                            Button, 0x11f168970, {{242.0, 898.3}, {158.0, 58.7}}, identifier: 'companion-open-review', label: 'Review' <AX element pid: 75454, elementOrHash.elementID: 4404174560.113>
+                                              StaticText, 0x11f168a90, {{242.0, 898.3}, {158.0, 58.7}}, label: 'Review' <AX element pid: 75454, elementOrHash.elementID: 4404208912.118>
+                                    Other, 0x11f168bb0, {{407.0, 116.0}, {30.0, 757.0}}, label: 'Vertical scroll bar, 3 pages', value: 0% <AX element pid: 75454, elementOrHash.elementID: 4524684704.72>
+                                      Other, 0x11f168cd0, {{434.0, 863.0}, {3.0, 7.0}} <AX element pid: 75454, elementOrHash.elementID: 4524651808.86>
+                                    Other, 0x11f168df0, {{407.0, 116.0}, {30.0, 757.0}}, label: 'Vertical scroll bar, 3 pages', value: 0% <AX element pid: 75454, elementOrHash.elementID: 4524684704.72>
+                                      Other, 0x11f168f10, {{434.0, 863.0}, {3.0, 7.0}} <AX element pid: 75454, elementOrHash.elementID: 4524651808.86>
+                          Other, 0x11f169030, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4522633728.39>
+                            Other, 0x11f169150, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4522636336.50>
+              Other, 0x11f169270, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4524757776.12>
+                Other, 0x11f169390, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 75454, elementOrHash.elementID: 4468101792.14>
+                  TabBar, 0x11f1694b0, {{0.0, 873.0}, {440.0, 83.0}}, label: 'Tab Bar' <AX element pid: 75454, elementOrHash.elementID: 4524761984.17>
+                    Other, 0x11f1695d0, {{21.0, 873.0}, {188.0, 62.0}} <AX element pid: 75454, elementOrHash.elementID: 4524763808.20>
+                      Other, 0x11f1696f0, {{21.0, 873.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4522574976.24>
+                      Other, 0x11f169810, {{21.0, 873.0}, {188.0, 62.0}} <AX element pid: 75454, elementOrHash.elementID: 4524764224.25>
+                        Button, 0x11f169930, {{25.0, 877.0}, {94.0, 54.0}}, identifier: 'house', label: 'Home', Selected <AX element pid: 75454, elementOrHash.elementID: 4647446528.31>
+                          Image, 0x11f169a50, {{55.0, 883.0}, {33.3, 28.0}}, identifier: 'house.fill', label: 'home' <AX element pid: 75454, elementOrHash.elementID: 4524756240.40>
+                        Button, 0x11f169b70, {{111.0, 877.0}, {94.0, 54.0}}, identifier: 'tray', label: 'Needs you' <AX element pid: 75454, elementOrHash.elementID: 4647961600.32>
+                          Image, 0x11f169c90, {{142.0, 885.0}, {33.0, 23.7}}, identifier: 'tray.fill', label: 'inbox' <AX element pid: 75454, elementOrHash.elementID: 4524809920.41>
+                      Other, 0x11f169db0, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524777008.26>
+                        Other, 0x11f169ed0, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524779984.33>
+                          Other, 0x11f169ff0, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524765968.42>
+                            Other, 0x11f16a110, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4522721648.51>
+                          Other, 0x11f16a230, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524780400.43>
+                            Other, 0x11f16a350, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524784144.52>
+                              Other, 0x11f16a470, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524785072.56>
+                                Other, 0x11f16a590, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524786512.59>
+                              Other, 0x11f16a6b0, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524780864.57>
+                            Other, 0x11f16a7d0, {{25.0, 877.0}, {94.0, 54.0}} <AX element pid: 75454, elementOrHash.elementID: 4524783728.53>
+                    Other, 0x11f16a8f0, {{357.0, 873.0}, {62.0, 62.0}} <AX element pid: 75454, elementOrHash.elementID: 4524759168.21>
+                      Other, 0x11f16aa10, {{357.0, 873.0}, {62.0, 62.0}} <AX element pid: 75454, elementOrHash.elementID: 4524758192.27>
+                        Other, 0x11f16ab30, {{357.0, 873.0}, {62.0, 62.0}} <AX element pid: 75454, elementOrHash.elementID: 4524762624.34>
+                          Button, 0x11f16ac50, {{357.0, 873.0}, {62.0, 62.0}}, identifier: 'magnifyingglass', label: 'Search' <AX element pid: 75454, elementOrHash.elementID: 4622505472.44>
+                            Image, 0x11f16ad70, {{374.0, 890.7}, {28.0, 26.7}}, identifier: 'magnifyingglass', label: 'Search' <AX element pid: 75454, elementOrHash.elementID: 4468117136.54>
+                Other, 0x11f16ae90, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4524758704.15>
+                  Other, 0x11f16afb0, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4465987824.18>
+                    Other, 0x11f16b0d0, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4465989808.22>
+                      Other, 0x11f16b1f0, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4465990224.28>
+                        Other, 0x11f16b310, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4522530016.35>
+                          Other, 0x11f16b430, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4522553392.45>
+                      Other, 0x11f16b550, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4522546288.29>
+                        Other, 0x11f16b670, {{0.0, 873.0}, {440.0, 83.0}} <AX element pid: 75454, elementOrHash.elementID: 4522558736.36>

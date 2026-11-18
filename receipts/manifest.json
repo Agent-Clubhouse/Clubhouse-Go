@@ -1,0 +1,105 @@
+{
+  "head": "ba80d0a21eec463abc54879fad7f3520892c13e7",
+  "base": "2381d4243706ffedb94bf39fa76161181a9ee442",
+  "source": "/tmp/ux-564-native-menu",
+  "private_simulator": {
+    "name": "ux-564-menu-private",
+    "device": "iPhone 17 Pro Max",
+    "runtime": "iOS26.0",
+    "uuid": null
+  },
+  "guard": {
+    "free_plus_inactive_GiB": 8,
+    "idle_percent": 40,
+    "swap_growth_MiB_per_10s": 64,
+    "runtime_swap_watch": "record only; flag256MiB"
+  },
+  "phases": {
+    "A": {
+      "kind": "build-only",
+      "bound": 900,
+      "fresh_DD": false,
+      "jobs": 2,
+      "gates": [
+        "compiled deinit",
+        "policy unit tests"
+      ],
+      "incremental_from_receipt": "/tmp/ux-564-proof/build-r4-receipt.json",
+      "provenance": "QA approved UI-only incremental: all app/hosted bytes identical retains23 on253; otherwise rehost23"
+    },
+    "B": {
+      "kind": "hosted",
+      "bound": 600,
+      "count": 23,
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testInactiveKeepsRecentHoldAndBackgroundStartsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testRecentOrderStaysWhileVisibleThenRefreshesOnReturn",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsHiddenWhenItMatchesKnownDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenItDiffersFromKnownDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenDefaultIsUnknown",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAgentSpecificDefaultWinsOverProjectDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testHostTagRequiresMultipleHostsAndNoImpliedHost",
+        "ClubhouseGoTests/CompanionAgentRowTests/testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression",
+        "ClubhouseGoTests/CompanionAgentRowTests/testPermissionStatusDoesNotRepeatAttentionLabel",
+        "ClubhouseGoTests/CompanionAgentRowTests/testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail",
+        "ClubhouseGoTests/CompanionAgentRowTests/testExistingReadsRetainDefaultsAndDisconnectClearsThem",
+        "ClubhouseGoTests/CompanionAgentRowTests/testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups",
+        "ClubhouseGoTests/CompanionAgentRowTests/testRowVisualMatrixAndAccessibleGrowth",
+        "ClubhouseGoTests/CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale"
+      ],
+      "stop_if_failed": true,
+      "hosted_claim": "Actual-child OCR through captured Home modifier; existing frozen callback guards. No hosted native activation or telemetry; offline disabled AX not checked."
+    },
+    "C": {
+      "kind": "UI",
+      "bound": 1200,
+      "count": 3,
+      "selectors": [
+        "ClubhouseGoUITests/CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes",
+        "ClubhouseGoUITests/CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes",
+        "ClubhouseGoUITests/CompanionAgentSheetsTests/testSleepingAgentSettingsOpenFromLongPressAndAreEditable"
+      ],
+      "matrix": "new2methodseachlight+dark; standard+AX5=4variants plus existingSleepingSettingsonce",
+      "native_presentation_claim": "LIVE Home only"
+    },
+    "D": {
+      "kind": "package-current-main-coverage",
+      "bound": 1200,
+      "jobs": 2,
+      "command": "scripts/coverage.sh --check",
+      "merge_conflict": "STOP/report before resolution"
+    }
+  },
+  "rules": [
+    "normalFIFO separate build/test tickets",
+    "private boot\u2192test\u2192shutdown EXIT",
+    "no assertion retries",
+    "fresh result bundles",
+    "exact counts/no skips",
+    "allsource/artifact hashes before testing",
+    "no phone/livewrites",
+    "no producttest route"
+  ],
+  "existing_method_identity": "existing-method-identity-rebased.json",
+  "no_runs_yet": false,
+  "runs": {
+    "fresh_build": "build-r3-receipt.json",
+    "hosted23": "hosted-r3-receipt.json",
+    "UI_only_identity_chain": [
+      "build-r4-receipt.json",
+      "build-r5-receipt.json"
+    ],
+    "UI3": "ui-r5-receipt.json",
+    "coverage": "coverage-r5-receipt.json"
+  },
+  "prior_run_head": "815106677b529d683f9811620ce2b79b83291b8e"
+}

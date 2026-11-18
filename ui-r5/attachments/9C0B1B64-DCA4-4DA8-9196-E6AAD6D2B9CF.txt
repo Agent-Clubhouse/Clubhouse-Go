@@ -1,0 +1,138 @@
+Attributes: Application, 0x11a9d35a0, pid: 80636, label: 'Clubhouse Go'
+Element subtree:
+ →Application, 0x11a9d35a0, pid: 80636, label: 'Clubhouse Go'
+    Window (Main), 0x11a9d7040, {{0.0, 0.0}, {440.0, 956.0}}
+      Other, 0x11a9d8840, {{0.0, 0.0}, {440.0, 956.0}}
+        Other, 0x11a9d8960, {{0.0, 0.0}, {440.0, 956.0}}
+          Other, 0x11a9d86f0, {{0.0, 0.0}, {440.0, 956.0}}
+            Other, 0x11a9d7e90, {{0.0, 0.0}, {440.0, 956.0}}
+              Other, 0x11a9d8a80, {{0.0, 62.0}, {440.0, 860.0}}
+              Other, 0x11a9d8ba0, {{0.0, 0.0}, {440.0, 956.0}}
+                Other, 0x11a9d8cc0, {{0.0, 0.0}, {440.0, 956.0}}
+                  Other, 0x11a9d8de0, {{0.0, 0.0}, {440.0, 956.0}}
+                    Other, 0x11a9d8f00, {{0.0, 0.0}, {440.0, 956.0}}
+                      Other, 0x11a9d9020, {{0.0, 0.0}, {440.0, 956.0}}
+                        Other, 0x11a9d9140, {{0.0, 0.0}, {440.0, 956.0}}
+                          Other, 0x11a9d9260, {{0.0, 0.0}, {440.0, 956.0}}
+                            NavigationBar, 0x11a9d9380, {{0.0, 62.0}, {440.0, 54.0}}, identifier: 'Clubhouse'
+                              Button, 0x11a9d94a0, {{24.0, 66.0}, {37.3, 36.0}}, label: 'Settings'
+                              StaticText, 0x11a9d95c0, {{168.3, 71.3}, {103.3, 25.3}}, label: 'Clubhouse'
+                              Button, 0x11a9d96e0, {{380.0, 66.0}, {36.0, 36.0}}, identifier: 'plus', label: 'New agent'
+                            Other, 0x11a9d9800, {{0.0, 0.0}, {440.0, 956.0}}
+                              Other, 0x11a9d9920, {{0.0, 0.0}, {440.0, 956.0}}
+                                Other, 0x11a9d9a40, {{0.0, 0.0}, {440.0, 956.0}}
+                                  Other, 0x11a9d9b60, {{0.0, 0.0}, {440.0, 956.0}}
+                                    CollectionView, 0x11a9d9c80, {{0.0, 0.0}, {440.0, 956.0}}
+                                      Other, 0x11a9d9da0, {{-20.0, -493.3}, {480.0, 2682.3}}
+                                      Cell, 0x11a9d9ec0, {{20.0, -331.0}, {400.0, 497.3}}
+                                        Other, 0x11a9d9fe0, {{20.0, -331.0}, {400.0, 497.3}}
+                                          Other, 0x11a9da100, {{20.0, -331.0}, {400.0, 497.3}}
+                                            Other, 0x11a9da220, {{20.0, -331.0}, {400.0, 497.3}}
+                                        Other, 0x11a9da340, {{20.0, -331.0}, {400.0, 497.3}}
+                                          Other, 0x11a9da460, {{20.0, -331.0}, {400.0, 497.3}}
+                                            Other, 0x11a9da580, {{20.0, -331.0}, {400.0, 497.3}}
+                                              Button, 0x11a9da6a0, {{20.0, -331.0}, {400.0, 497.3}}, identifier: 'agent-preview-studio-river', label: 'River, Needs permission · Build the mobile companion, Permissions: Ask first, Studio Mac'
+                                                StaticText, 0x11a9da7c0, {{40.0, -314.0}, {303.3, 463.3}}, identifier: 'companion-header-level', label: 'River, Needs permission · Build the mobile companion, Permissions: Ask first, Studio Mac'
+                                                  StaticText, 0x11a9da8e0, {{40.0, -98.3}, {35.0, 35.0}}, label: 'R'
+                                                  StaticText, 0x11a9daa00, {{84.0, -314.0}, {112.3, 63.3}}, label: 'River'
+                                                  StaticText, 0x11a9dab20, {{84.0, -248.7}, {259.3, 290.7}}, label: 'Needs permission · Build the mobile companion'
+                                                  StaticText, 0x11a9dac40, {{84.0, 44.0}, {148.7, 51.3}}, identifier: 'companion-header-level', label: 'Permissions: Ask first'
+                                                  StaticText, 0x11a9dad60, {{90.0, 100.3}, {202.7, 48.0}}, label: 'Studio Mac'
+                                                Image, 0x11a9dae80, {{369.7, -101.0}, {21.7, 37.3}}, identifier: 'chevron.forward'
+                                      Other, 0x11a9dafa0, {{0.0, 0.0}, {440.0, 170.8}}
+                                      Other, 0x11a9db0c0, {{0.0, 0.0}, {440.0, 170.8}}
+                                        Image, 0x11a9db1e0, {{-120.0, -166.0}, {680.0, 332.0}}, identifier: 'AdditionalDimmingOverlay'
+                                        Other, 0x11a9db300, {{0.0, 0.0}, {440.0, 106.0}}
+                                        Other, 0x11a9db420, {{0.0, 0.0}, {440.0, 170.8}}
+                                          Other, 0x11a9db540, {{0.0, 0.0}, {440.0, 170.8}}
+                                        Other, 0x11a9db660, {{0.0, 0.0}, {440.0, 170.8}}
+                                          Other, 0x11a9db780, {{0.0, 0.0}, {440.0, 170.8}}
+                                        Other, 0x11a9db8a0, {{0.0, 0.0}, {440.0, 170.8}}
+                                          Other, 0x11a9db9c0, {{0.0, 0.0}, {440.0, 170.8}}
+                                          Other, 0x11a9dbae0, {{0.0, 0.0}, {440.0, 170.8}}
+                                      Cell, 0x11a9dbc00, {{20.0, 166.3}, {400.0, 439.3}}
+                                        Other, 0x11a9dbd20, {{20.0, 166.3}, {400.0, 439.3}}
+                                          Other, 0x11a9dbe40, {{20.0, 166.3}, {400.0, 439.3}}
+                                            Other, 0x11a9dbf60, {{20.0, 166.3}, {400.0, 439.3}}
+                                        Other, 0x11a9dc080, {{20.0, 166.3}, {400.0, 439.3}}
+                                          Other, 0x11a9dc1a0, {{20.0, 166.3}, {400.0, 439.3}}
+                                            Other, 0x11a9dc2c0, {{20.0, 166.3}, {400.0, 439.3}}
+                                              Button, 0x11a9dc3e0, {{20.0, 166.3}, {400.0, 439.3}}, identifier: 'agent-preview-studio-cedar', label: 'Cedar, Working · Investigate reconnect behavior, Permissions: Auto, Studio Mac'
+                                                StaticText, 0x11a9dc500, {{40.0, 183.3}, {281.0, 405.3}}, identifier: 'companion-header-level', label: 'Cedar, Working · Investigate reconnect behavior, Permissions: Auto, Studio Mac'
+                                                  StaticText, 0x11a9dc620, {{40.0, 370.0}, {35.0, 35.0}}, label: 'C'
+                                                  StaticText, 0x11a9dc740, {{84.0, 183.3}, {137.7, 63.3}}, label: 'Cedar'
+                                                  StaticText, 0x11a9dc860, {{84.0, 248.7}, {237.0, 232.7}}, label: 'Working · Investigate reconnect behavior'
+                                                  StaticText, 0x11a9dc980, {{84.0, 483.3}, {86.0, 51.3}}, identifier: 'companion-header-level', label: 'Permissions: Auto'
+                                                  StaticText, 0x11a9dcaa0, {{90.0, 539.7}, {202.7, 48.0}}, label: 'Studio Mac'
+                                                Image, 0x11a9dcbc0, {{369.7, 367.3}, {21.7, 37.3}}, identifier: 'chevron.forward'
+                                      Other, 0x11a9dcce0, {{51.5, 165.3}, {348.5, 1.0}}
+                                      Cell, 0x11a9dce00, {{20.0, 605.7}, {400.0, 204.7}}
+                                        Other, 0x11a9dcf20, {{20.0, 605.7}, {400.0, 204.7}}
+                                          Other, 0x11a9dd040, {{20.0, 605.7}, {400.0, 204.7}}
+                                            Other, 0x11a9dd160, {{20.0, 605.7}, {400.0, 204.7}}
+                                        Other, 0x11a9dd280, {{20.0, 605.7}, {400.0, 204.7}}
+                                          Other, 0x11a9dd3a0, {{20.0, 605.7}, {400.0, 204.7}}
+                                            Other, 0x11a9dd4c0, {{20.0, 605.7}, {400.0, 204.7}}
+                                              Button, 0x11a9dd5e0, {{20.0, 605.7}, {400.0, 204.7}}, identifier: 'fold-quiet-preview-studio-clubhouse', label: '1 sleeping · 3 finished quick agents', value: Expanded
+                                                Image, 0x11a9dd700, {{37.5, 699.8}, {38.0, 22.0}}, identifier: 'chevron.right', label: 'Forward'
+                                                StaticText, 0x11a9dd820, {{81.0, 620.7}, {298.7, 174.7}}, label: '1 sleeping · 3 finished quick agents'
+                                      Other, 0x11a9dd940, {{51.2, 604.7}, {348.8, 1.0}}
+                                      Other, 0x11a9dda60, {{0.0, 815.2}, {440.0, 140.8}}
+                                      Other, 0x11a9ddb80, {{0.0, 815.2}, {440.0, 140.8}}
+                                        Image, 0x11a9ddca0, {{-120.0, 820.0}, {680.0, 272.0}}, identifier: 'AdditionalDimmingOverlay'
+                                        Other, 0x11a9dddc0, {{0.0, 815.2}, {440.0, 140.8}}
+                                          Other, 0x11a9ddee0, {{0.0, 815.2}, {440.0, 140.8}}
+                                        Other, 0x11a9de000, {{0.0, 815.2}, {440.0, 140.8}}
+                                          Other, 0x11a9de120, {{0.0, 815.2}, {440.0, 140.8}}
+                                          Other, 0x11a9de240, {{0.0, 815.2}, {440.0, 140.8}}
+                                      Cell, 0x11a9de360, {{20.0, 810.3}, {400.0, 326.0}}
+                                        Other, 0x11a9de480, {{20.0, 810.3}, {400.0, 326.0}}
+                                          Other, 0x11a9de5a0, {{20.0, 810.3}, {400.0, 326.0}}
+                                            Other, 0x11a9de6c0, {{20.0, 810.3}, {400.0, 326.0}}
+                                        Other, 0x11a9de7e0, {{20.0, 810.3}, {400.0, 326.0}}
+                                          Other, 0x11a9de900, {{20.0, 810.3}, {400.0, 326.0}}
+                                            Other, 0x11a9dea20, {{20.0, 810.3}, {400.0, 326.0}}
+                                              Button, 0x11a9deb40, {{20.0, 810.3}, {400.0, 326.0}}, identifier: 'agent-preview-studio-juniper', label: 'Juniper, Sleeping · Release notes, Studio Mac'
+                                                StaticText, 0x11a9dec60, {{40.0, 827.3}, {258.7, 292.0}}, label: 'Juniper, Sleeping · Release notes, Studio Mac'
+                                                  StaticText, 0x11a9ded80, {{40.0, 957.3}, {35.0, 35.0}}, label: 'J'
+                                                  StaticText, 0x11a9deea0, {{84.0, 827.3}, {168.0, 63.3}}, label: 'Juniper'
+                                                  StaticText, 0x11a9defc0, {{84.0, 892.7}, {213.3, 174.7}}, label: 'Sleeping · Release notes'
+                                                  StaticText, 0x11a9df0e0, {{90.0, 1070.3}, {202.7, 48.0}}, label: 'Studio Mac'
+                                                Image, 0x11a9df200, {{369.7, 954.7}, {21.7, 37.3}}, identifier: 'chevron.forward'
+                                      Other, 0x11a9df320, {{81.0, 809.3}, {319.0, 1.0}}
+                                      Other, 0x11a9df440, {{407.0, 116.0}, {30.0, 757.0}}, label: 'Vertical scroll bar, 7 pages', value: 52%
+                                        Other, 0x11a9df560, {{434.0, 433.3}, {3.0, 142.7}}
+                                      Other, 0x11a9df680, {{407.0, 116.0}, {30.0, 757.0}}, label: 'Vertical scroll bar, 7 pages', value: 52%
+                                        Other, 0x11a9df7a0, {{434.0, 433.3}, {3.0, 142.7}}
+                            Other, 0x11a9df8c0, {{0.0, 0.0}, {440.0, 956.0}}
+                              Other, 0x11a9df9e0, {{0.0, 0.0}, {440.0, 956.0}}
+                Other, 0x11a9dfb00, {{0.0, 873.0}, {440.0, 83.0}}
+                  Other, 0x11a9dfc20, {{0.0, 0.0}, {440.0, 956.0}}
+                    TabBar, 0x11a9dfd40, {{0.0, 873.0}, {440.0, 83.0}}, label: 'Tab Bar'
+                      Other, 0x11a9dfe60, {{28.0, 880.0}, {48.0, 48.0}}
+                        Other, 0x11a9dff80, {{28.0, 880.0}, {48.0, 48.0}}
+                          Button, 0x11a9e00a0, {{28.0, 880.0}, {48.0, 48.0}}, label: 'Home', value: Collapsed, Selected
+                            Image, 0x11a9e01c0, {{35.3, 890.0}, {33.3, 28.0}}, identifier: 'house.fill', label: 'home'
+                      Other, 0x11a9e02e0, {{357.0, 873.0}, {62.0, 62.0}}
+                        Other, 0x11a9e0400, {{364.0, 880.0}, {48.0, 48.0}}
+                          Other, 0x11a9e0520, {{364.0, 880.0}, {48.0, 48.0}}
+                            Button, 0x11a9e0640, {{364.0, 880.0}, {48.0, 48.0}}, label: 'Search'
+                              Image, 0x11a9e0760, {{374.3, 890.7}, {27.7, 26.7}}, identifier: 'magnifyingglass', label: 'Search'
+                  Other, 0x11a9e0880, {{0.0, 873.0}, {440.0, 83.0}}
+                    Other, 0x11a9e09a0, {{0.0, 873.0}, {440.0, 83.0}}
+                      Other, 0x11a9e0ac0, {{0.0, 873.0}, {440.0, 83.0}}
+                        Other, 0x11a9e0be0, {{0.0, 873.0}, {440.0, 83.0}}
+                          Other, 0x11a9e0d00, {{0.0, 873.0}, {440.0, 83.0}}
+                            Other, 0x11a9e0e20, {{0.0, 873.0}, {440.0, 83.0}}
+                        Other, 0x11a9e0f40, {{0.0, 873.0}, {440.0, 83.0}}
+                          Other, 0x11a9e1060, {{0.0, 873.0}, {440.0, 83.0}}
+    Window, 0x11a9e1180, {{0.0, 0.0}, {440.0, 956.0}}
+      Other, 0x11a9e12a0, {{0.0, 0.0}, {440.0, 956.0}}
+        Other, 0x11a9e13c0, {{0.0, 0.0}, {440.0, 956.0}}
+Path to element:
+ →Application, 0x11a9d35a0, pid: 80636, label: 'Clubhouse Go'
+Query chain:
+ →Find: Target Application 'com.Agent-Clubhouse.Go'
+  Output: {
+    Application, 0x1077f96f0, pid: 80636, label: 'Clubhouse Go'
+  }

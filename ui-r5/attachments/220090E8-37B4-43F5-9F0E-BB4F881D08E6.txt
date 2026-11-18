@@ -1,0 +1,1 @@
+tallestItem=180.33333333333337 step=1 label=Agent details item=(20.0, 760.0, 400.0, 118.33333333333337) viewport=(20.0, 483.33333333333326, 400.0, 418.66666666666674) hittable=true enabled=true

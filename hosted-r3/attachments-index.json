@@ -1,0 +1,140 @@
+[
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+    "name": "Actual menu without inherited actions_0_DD93D7B3-10BF-466F-838B-F9EB01B88C67.png",
+    "path": "hosted-r3/attachments/AED51CC4-19A0-416D-BE87-772EBACB8321.png",
+    "sha256": "183e84afe94d1bc2abdbd5b77dd6603088c7037d886aa22c3f61f3438dd4a489"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+    "name": "Actual menu without inherited actions OCR_1_DD93D7B3-10BF-466F-838B-F9EB01B88C67.txt",
+    "path": "hosted-r3/attachments/0F64884F-ACF7-4D12-A319-45ED982CF082.txt",
+    "sha256": "0e9da42228d847e5018362dc7d7939f802fbe74f150ed0fc3da93a73b6abf12f"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+    "name": "Actual menu OCR \u2014 no inherited actions_0_5B35006E-5B8F-4EC0-9E8D-85A501B4251D.png",
+    "path": "hosted-r3/attachments/473281D6-BDFB-45F7-99EE-69A18A21AA26.png",
+    "sha256": "183e84afe94d1bc2abdbd5b77dd6603088c7037d886aa22c3f61f3438dd4a489"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+    "name": "Actual menu OCR \u2014 no inherited actions OCR_1_5B35006E-5B8F-4EC0-9E8D-85A501B4251D.txt",
+    "path": "hosted-r3/attachments/690F4B54-FBFA-4A7B-89A7-FFB62BBC07C3.txt",
+    "sha256": "0e9da42228d847e5018362dc7d7939f802fbe74f150ed0fc3da93a73b6abf12f"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal_0_AF110DEB-40F5-492D-9BBC-4B5E8E44E0CC.png",
+    "path": "hosted-r3/attachments/592676BE-1B36-406D-BE03-1E7CB68AD71B.png",
+    "sha256": "bf3c02241a9c92843c7bbd3f2e0b61aa702b282e17f08be2c815ea6ab7b3b1a3"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedAgentMenuMissingEnvironmentHidesItemsAfterPositiveControl()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal OCR_1_AF110DEB-40F5-492D-9BBC-4B5E8E44E0CC.txt",
+    "path": "hosted-r3/attachments/5ABC7A9E-CB82-4083-94C8-BA2967EDCCD5.txt",
+    "sha256": "eadabb5c09fde68c6ceaf768a4aa2a3204d511c51d4de8486f7fa47fcf27f233"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual captured menu final pixels_0_C20CAC8E-D15A-4EA6-98FE-146053C0F5DB.png",
+    "path": "hosted-r3/attachments/97FCE032-35A6-4D25-9E27-DBE488F6E40E.png",
+    "sha256": "bf3c02241a9c92843c7bbd3f2e0b61aa702b282e17f08be2c815ea6ab7b3b1a3"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual captured menu final pixels OCR_1_C20CAC8E-D15A-4EA6-98FE-146053C0F5DB.txt",
+    "path": "hosted-r3/attachments/1149F773-CF11-4FF3-9D1D-EA3AA24C631B.txt",
+    "sha256": "eadabb5c09fde68c6ceaf768a4aa2a3204d511c51d4de8486f7fa47fcf27f233"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal_0_46557159-E54F-4B8A-9C7F-8FA3570F01B2.png",
+    "path": "hosted-r3/attachments/3353C18E-47F4-4FF8-BDD0-3FB69559862C.png",
+    "sha256": "bf3c02241a9c92843c7bbd3f2e0b61aa702b282e17f08be2c815ea6ab7b3b1a3"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal OCR_1_46557159-E54F-4B8A-9C7F-8FA3570F01B2.txt",
+    "path": "hosted-r3/attachments/3BD0AB84-0A64-408F-A281-CD18B40D2648.txt",
+    "sha256": "eadabb5c09fde68c6ceaf768a4aa2a3204d511c51d4de8486f7fa47fcf27f233"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal_0_EF71528F-72F8-4A41-9A4E-9263BFC1C5F1.png",
+    "path": "hosted-r3/attachments/BB848CF3-0482-44B4-A77E-819874748701.png",
+    "sha256": "bf3c02241a9c92843c7bbd3f2e0b61aa702b282e17f08be2c815ea6ab7b3b1a3"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal OCR_1_EF71528F-72F8-4A41-9A4E-9263BFC1C5F1.txt",
+    "path": "hosted-r3/attachments/9E06B21E-F179-47FD-A167-68303A80AC7D.txt",
+    "sha256": "eadabb5c09fde68c6ceaf768a4aa2a3204d511c51d4de8486f7fa47fcf27f233"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal_0_B94A6B6F-E1E9-47CF-9D6A-BA054877CDD5.png",
+    "path": "hosted-r3/attachments/6F4DD2F0-3001-4F8F-96E4-FF2098DC47B1.png",
+    "sha256": "bf3c02241a9c92843c7bbd3f2e0b61aa702b282e17f08be2c815ea6ab7b3b1a3"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedFrozenAgentMenuRendersCapturedItemsAfterLiveAuthorityChanges()",
+    "name": "Actual menu OCR \u2014 Wake & Resume, Start New Session, Agent details, Agent settings, Terminal OCR_1_B94A6B6F-E1E9-47CF-9D6A-BA054877CDD5.txt",
+    "path": "hosted-r3/attachments/A0064A28-6B71-45A7-A87A-9B195B856536.txt",
+    "sha256": "eadabb5c09fde68c6ceaf768a4aa2a3204d511c51d4de8486f7fa47fcf27f233"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual live menu final pixels_0_135A56DD-31F2-47F6-8A45-89C9648A3E81.png",
+    "path": "hosted-r3/attachments/443C00B9-6A12-4265-8667-7E8A5B2FEFF2.png",
+    "sha256": "e8e3ed119c908aa27129e08b70a26a321d1c12e6060b11f3f9d52fe9bba52dc9"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual live menu final pixels OCR_1_135A56DD-31F2-47F6-8A45-89C9648A3E81.txt",
+    "path": "hosted-r3/attachments/113D38B6-E038-4960-A85F-23471C9AC8E6.txt",
+    "sha256": "ca4821fef67dad86a0d9e81013cd546d8c0dfd747f36690071e551ffb2d3ed31"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual menu OCR \u2014 Agent details_0_4E9373F1-A729-4DB5-A3E4-BBAD110561B8.png",
+    "path": "hosted-r3/attachments/3B2728B4-BB72-465E-842A-4554C6465A2A.png",
+    "sha256": "e8e3ed119c908aa27129e08b70a26a321d1c12e6060b11f3f9d52fe9bba52dc9"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual menu OCR \u2014 Agent details OCR_1_4E9373F1-A729-4DB5-A3E4-BBAD110561B8.txt",
+    "path": "hosted-r3/attachments/C7D9E992-FBFB-4F9A-B188-F6BFCD09BFFD.txt",
+    "sha256": "ca4821fef67dad86a0d9e81013cd546d8c0dfd747f36690071e551ffb2d3ed31"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual menu OCR \u2014 Agent details, Agent settings, Terminal_0_29A42AF4-9088-41C2-B03E-D409ABF20D39.png",
+    "path": "hosted-r3/attachments/30701901-78A7-4C0B-8EED-94ED6BECAD1B.png",
+    "sha256": "724435c0bb9cf7e915b5a94e6e37c4169c5e7edd1a0d6a4045b2e3eeae7ecc11"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual menu OCR \u2014 Agent details, Agent settings, Terminal OCR_1_29A42AF4-9088-41C2-B03E-D409ABF20D39.txt",
+    "path": "hosted-r3/attachments/9714ED8D-9CDD-487B-A09B-141175908A1D.txt",
+    "sha256": "2077f240c6a45fb05ada8e26d8888efd028be61e38c257f3065f1a4a1730053d"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual menu OCR \u2014 Agent details, Agent settings, Terminal_0_7DFA8508-D171-4EC0-846B-58D0109B86B8.png",
+    "path": "hosted-r3/attachments/2027494A-13D2-42E6-B756-F4DC76CC00ED.png",
+    "sha256": "74ae5c27fe2065b1c5d674d41f5ded7edc7e8d9b3e6b3cf8b1e98f1a99fe0fd4"
+  },
+  {
+    "test": "CompanionHomeVisibilityTests/testMountedLiveAgentMenuRendersAvailabilityChanges()",
+    "name": "Actual menu OCR \u2014 Agent details, Agent settings, Terminal OCR_1_7DFA8508-D171-4EC0-846B-58D0109B86B8.txt",
+    "path": "hosted-r3/attachments/CD8F1D11-1B9B-4C6C-A96C-48A9201351B6.txt",
+    "sha256": "2077f240c6a45fb05ada8e26d8888efd028be61e38c257f3065f1a4a1730053d"
+  },
+  {
+    "test": "CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale()",
+    "name": "Generated large catalog Home \u2014 8 desktops, 384 projects, 7680 agents_0_4A9F8BEE-9820-4015-8B1B-A68A5E95D976.png",
+    "path": "hosted-r3/attachments/5F4F5E56-6B83-4C34-AB09-CB7E87D30AD3.png",
+    "sha256": "aff76572ffbffa523e3f05d6734a9c82d493d55e6499785a7bfc569b2855b56d"
+  }
+]

@@ -1,0 +1,23 @@
+Attributes: Button, 0x14391d2e0, {{20.0, 135.7}, {400.0, 118.3}}, identifier: 'info.circle', label: 'Agent details'
+Element subtree:
+ →Button, 0x14391d2e0, {{20.0, 135.7}, {400.0, 118.3}}, identifier: 'info.circle', label: 'Agent details'
+Path to element:
+ →Button, 0x14391d2e0, {{20.0, 135.7}, {400.0, 118.3}}, identifier: 'info.circle', label: 'Agent details'
+Query chain:
+ →Find: Target Application 'com.Agent-Clubhouse.Go'
+  Output: {
+    Application, 0x143854640, pid: 75454, label: 'Clubhouse Go'
+  }
+  ↪︎Find: Descendants matching type Button
+    Output: {
+      Button, 0x142e69c30, {{28.0, 880.0}, {48.0, 48.0}}, label: 'Home', value: Collapsed, Selected
+      Button, 0x142e6a1d0, {{364.0, 880.0}, {48.0, 48.0}}, label: 'Search'
+      Button, 0x142e61cf0, {{24.0, 66.0}, {37.3, 36.0}}, label: 'Settings'
+      Button, 0x142e61f30, {{380.0, 66.0}, {36.0, 36.0}}, identifier: 'plus', label: 'New agent'
+      Button, 0x142e62ef0, {{20.0, -328.0}, {400.0, 439.3}}, identifier: 'agent-preview-studio-cedar', label: 'Cedar, Working · Investigate reconnect behavior, Permissions: Auto, Studio Mac'
+      Button, 0x142e64c30, {{20.0, 111.3}, {400.0, 204.7}}, identifier: 'fold-quiet-preview-studio-clubhouse', label: '1 sleeping · 3 finished quick agents', value: Expanded
+      Button, 0x142e65890, {{20.0, 316.0}, {400.0, 326.0}}, identifier: 'agent-preview-studio-juniper', label: 'Juniper, Sleeping · Release notes, Studio Mac'
+      Button, 0x142e66970, {{20.0, 642.0}, {400.0, 274.0}}, identifier: 'finished-preview-studio-clubhouse-quick-willow', label: 'Studio Mac, Tidy the onboarding copy, 13m ago, Finished'
+      Button, 0x142e68470, {{20.0, 916.0}, {400.0, 274.0}}, identifier: 'finished-preview-studio-clubhouse-lint', label: 'Studio Mac, Fix lint warnings, 46m ago, Finished'
+    }
+    ↪︎Find: Elements matching predicate '"Agent details" IN identifiers'

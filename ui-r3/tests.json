@@ -1,0 +1,85 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "EB0FD52F-378E-454D-BF69-A39926B1D4B1",
+      "deviceName" : "ux-564-menu-private",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "children" : [
+                    {
+                      "name" : "CompanionAgentRowMenuUITests.swift:29: XCTAssertTrue failed - Agent settings",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "31s",
+                  "durationInSeconds" : 31.239166021347046,
+                  "name" : "testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+                  "nodeIdentifier" : "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes",
+                  "nodeType" : "Test Case",
+                  "result" : "Failed"
+                },
+                {
+                  "duration" : "59s",
+                  "durationInSeconds" : 59.144688963890076,
+                  "name" : "testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+                  "nodeIdentifier" : "CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionAgentRowMenuUITests/testNativeHomeAgentMenuAtDefaultTypeAcrossThemes",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionAgentRowMenuUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionAgentRowMenuUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Failed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "30s",
+                  "durationInSeconds" : 30.07369601726532,
+                  "name" : "testSleepingAgentSettingsOpenFromLongPressAndAreEditable()",
+                  "nodeIdentifier" : "CompanionAgentSheetsTests/testSleepingAgentSettingsOpenFromLongPressAndAreEditable()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionAgentSheetsTests/testSleepingAgentSettingsOpenFromLongPressAndAreEditable",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionAgentSheetsTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionAgentSheetsTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Failed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Failed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

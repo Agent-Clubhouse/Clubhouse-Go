@@ -1,0 +1,1 @@
+tallestItem=42.000000000000114 step=0 label=Start New Session item=(95.0, 558.3333333333333, 250.0, 42.0) viewport=(95.0, 506.33333333333326, 250.0, 230.0000000000001) hittable=true enabled=true
