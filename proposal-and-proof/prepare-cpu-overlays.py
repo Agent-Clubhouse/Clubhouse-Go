@@ -31,6 +31,8 @@ for side,head in [('main',M['base']),('head',M['head'])]:
  (root/'manifest.json').write_text(json.dumps(m,indent=2)+'\n');(root/'overlay.diff').write_bytes(all_patch)
  runner=(R/'run-ticket.py').read_text().replace("R=Path('/tmp/ux-582-proof')",'R=Path('+repr(str(root))+')')
  (root/'run-ticket.py').write_text(runner);(root/'audit-native.py').write_bytes((R/'audit-native.py').read_bytes())
+ m['runner_sha256']=sha((root/'run-ticket.py').read_bytes());m['native_auditor_sha256']=sha((root/'audit-native.py').read_bytes())
+ (root/'manifest.json').write_text(json.dumps(m,indent=2)+'\n')
  reports[side]={'base':head,'head':overlay_head,'source':str(source),'manifest':str(root/'manifest.json'),'overlay_sha256':sha(all_patch),'scroll_sha256':sha(scroll),'paused_sha256':sha(paused),'added_test_files':m['source_sha256']}
 assert reports['main']['overlay_sha256']==reports['head']['overlay_sha256'], 'Both additive test patches must be byte-identical'
 (R/'cpu-overlay-provenance.json').write_text(json.dumps(reports,indent=2)+'\n')

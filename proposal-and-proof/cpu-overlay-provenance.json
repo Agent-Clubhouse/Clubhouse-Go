@@ -1,0 +1,28 @@
+{
+  "main": {
+    "base": "77b24899170c6da76067f205a93f2b06bf9aede8",
+    "head": "858398b80762bd1ea8559124469538850f8c2761",
+    "source": "/tmp/ux-582-proof/cpu-main/overlay-source",
+    "manifest": "/tmp/ux-582-proof/cpu-main/manifest.json",
+    "overlay_sha256": "810d8ce4e1269efed07ff6479a670167dfe396f7ae8fa71dc71568c3b3147c41",
+    "scroll_sha256": "ef57d69a7a7b80d591341bdb0770d607f645b1252ce7fdac8cff68a37fd1192f",
+    "paused_sha256": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb",
+    "added_test_files": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb"
+    }
+  },
+  "head": {
+    "base": "fbb7a7ee66bf83635fbe9a600d85b651e0cc07b4",
+    "head": "251e5bbb861db746f05e10a854669fe8cc63279c",
+    "source": "/tmp/ux-582-proof/cpu-head/overlay-source",
+    "manifest": "/tmp/ux-582-proof/cpu-head/manifest.json",
+    "overlay_sha256": "810d8ce4e1269efed07ff6479a670167dfe396f7ae8fa71dc71568c3b3147c41",
+    "scroll_sha256": "ef57d69a7a7b80d591341bdb0770d607f645b1252ce7fdac8cff68a37fd1192f",
+    "paused_sha256": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb",
+    "added_test_files": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb"
+    }
+  }
+}
