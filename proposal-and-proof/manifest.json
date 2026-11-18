@@ -267,7 +267,8 @@
       "run_bound_each": 480,
       "per_side_methods": 2,
       "additive_proof": "Two product bases, identical full test patch SHA, zero removed lines; source-only preparer before measured build tickets; generated exact overlay manifest sent to QA before admission.",
-      "status": "Prior generated head251e5bbb is STALE after import-only compile fix; regenerate/review after green build. Main858398b8 still valid. No CPU ticket admitted."
+      "status": "r2 generated main34a5747b/head79dec95c on green caaac0337; awaiting QA quick review, no CPU heavy admitted",
+      "generated_provenance": "/tmp/ux-582-proof/cpu-overlay-provenance.json"
     }
   },
   "order": [
@@ -325,6 +326,6 @@
     ]
   },
   "proof_stop": "Unexpected count/order/result -> STOP, no assertion retry. No broad suite before new hosted+recorded first-frame proof accepted. Refusal rc4 is zero execution, not a test failure.",
-  "runner_sha256": "e703e5014803378f612610e4895ea8069729bcf93186a13429acb44e772d1312",
+  "runner_sha256": "d33c198212c4833be8f904582bbb0b283234d5043efa105c4c50835807f6ee73",
   "native_auditor_sha256": "463ec47da1cb03e745e887ccb4f59d6a6da816b6f11d434e63fdfc5e1b1bef14"
 }

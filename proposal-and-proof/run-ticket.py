@@ -131,6 +131,7 @@ def test(state):
     if CFG.get('record_video'):
         video_log=(OUT/'video.log').open('w')
         video_path=OUT/'first-paint-recording.mp4'
+        state['video_command_started_epoch_seconds']=time.time()
         video=subprocess.Popen(P+['xcrun','simctl','io',uuid,'recordVideo','--codec=h264',str(video_path)],stdout=video_log,stderr=subprocess.STDOUT)
         state.update(video_pid=video.pid,video_path=str(video_path));save(state)
         deadline=time.monotonic()+10
@@ -139,7 +140,9 @@ def test(state):
             if 'Recording started' in (OUT/'video.log').read_text():break
             time.sleep(0.1)
         else: raise RuntimeError('Recording did not start before tests; no test execution')
+        state['video_recording_observed_epoch_seconds']=time.time();save(state)
     try:
+        state['test_command_started_epoch_seconds']=time.time();save(state)
         state['test_rc']=run(['xcodebuild','test-without-building','-project','Annex/Annex.xcodeproj','-scheme','ClubhouseGo',
             '-configuration','Debug','-jobs','2','-parallel-testing-enabled','NO','CODE_SIGNING_ALLOWED=NO',
             '-derivedDataPath',str(dd),'-destination','platform=iOS Simulator,id='+uuid,'-resultBundlePath',str(result),
