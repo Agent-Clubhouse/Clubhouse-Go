@@ -1,0 +1,1 @@
+time=1795045250.791925 case=target-switch mounted=0 visible=1 target=cedar start=nil follow=1 entry=nil outcome=none mount=67F3DE16-7764-4AC3-9E89-079F7DA2583F user=0 handoffs=0 anchor=(0.0, 0.0, 0.0, 0.0) viewport=(0.0, 116.0, 440.0, 528.0) distanceFromTop=-116.0 Latest=false keyboard=false

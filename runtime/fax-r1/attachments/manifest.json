@@ -1,0 +1,35 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C862C47C-B6BA-4C14-A19C-241513AE5C29",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "1A8138DD-B76B-4495-9CEB-4EA0B92027DF.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native content-top clearance and unchanged action semantics_0_98AD8374-FC34-47D1-87C5-3B42056E518D.txt",
+        "timestamp" : 1795045562.205
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C862C47C-B6BA-4C14-A19C-241513AE5C29",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "C776D9AB-BE63-40E2-A324-8C8A66888877.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "XXXL portrait paused first-frame recording; later AX sample_0_8023C3CB-4E94-4939-8B04-622C3C49AFC0.png",
+        "timestamp" : 1795045556.233
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "C862C47C-B6BA-4C14-A19C-241513AE5C29",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "CF370B31-5F1C-4809-8C9C-FD3845BB57D2.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "XXXL portrait paused first-frame recording; later AX sample first public UI observation (not first paint)_0_78BE199D-D10A-474F-998A-9F4C2FA2E93E.txt",
+        "timestamp" : 1795045556.068
+      }
+    ],
+    "testIdentifier" : "CompanionReadingOpeningUITests/testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner"
+  }
+]

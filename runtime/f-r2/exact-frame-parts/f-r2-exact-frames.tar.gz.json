@@ -1,0 +1,38 @@
+{
+  "original": "f-r2-exact-frames.tar.gz",
+  "bytes": 226551648,
+  "sha256": "8be6f977c133153495fb223976a2376eacf6b295eaf62680ec066ccee4e9ba61",
+  "parts": [
+    {
+      "file": "f-r2-exact-frames.tar.gz.part-000",
+      "bytes": 41943040,
+      "sha256": "29070600994ea9afc72da1ea52651a9b51df138d1d89ac1bb247e404374ff162"
+    },
+    {
+      "file": "f-r2-exact-frames.tar.gz.part-001",
+      "bytes": 41943040,
+      "sha256": "30ad8bbf0ab4e592afd50fce1b7aaa63e752e68c332c89c276be5d48576e8e33"
+    },
+    {
+      "file": "f-r2-exact-frames.tar.gz.part-002",
+      "bytes": 41943040,
+      "sha256": "a6135cd8935206212c57b85e23fe9a59f8a9ee2700c28daad2c10847272a3a77"
+    },
+    {
+      "file": "f-r2-exact-frames.tar.gz.part-003",
+      "bytes": 41943040,
+      "sha256": "1d8e967cf66a456de143f5f3967f30b41eea2dbc5482e4834a13821cacd32bae"
+    },
+    {
+      "file": "f-r2-exact-frames.tar.gz.part-004",
+      "bytes": 41943040,
+      "sha256": "049cb8275628813f1d05c28b0971b0a070bc7ab20e60667dd80117a7b62be0c5"
+    },
+    {
+      "file": "f-r2-exact-frames.tar.gz.part-005",
+      "bytes": 16836448,
+      "sha256": "48ccee0b1d5188ab15979d046dd367eec5cb631641d4a50c55734aae41c4e98d"
+    }
+  ],
+  "reassemble": "cat f-r2-exact-frames.tar.gz.part-* > f-r2-exact-frames.tar.gz"
+}

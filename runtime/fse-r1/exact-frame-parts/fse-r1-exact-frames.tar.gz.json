@@ -1,0 +1,13 @@
+{
+  "original": "fse-r1-exact-frames.tar.gz",
+  "bytes": 11797065,
+  "sha256": "122eeeed9a9edff0cc9a2e9d084d9f0e31d9378827d788656bba5b92603bd73d",
+  "parts": [
+    {
+      "file": "fse-r1-exact-frames.tar.gz.part-000",
+      "bytes": 11797065,
+      "sha256": "122eeeed9a9edff0cc9a2e9d084d9f0e31d9378827d788656bba5b92603bd73d"
+    }
+  ],
+  "reassemble": "cat fse-r1-exact-frames.tar.gz.part-* > fse-r1-exact-frames.tar.gz"
+}

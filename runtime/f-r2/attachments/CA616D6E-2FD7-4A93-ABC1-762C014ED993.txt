@@ -1,0 +1,1 @@
+time=1795045270.0526118 case=target-switch mounted=1 visible=1 target=cedar start=message:reading-90 follow=0 entry=message:reading-90 outcome=arrived mount=B6A0E8C1-0C13-43B5-AA83-4ABAFFFD74C0 user=1 handoffs=0 anchor=(0.0, 0.0, 0.0, 0.0) viewport=(0.0, 116.0, 440.0, 445.0) distanceFromTop=-116.0 Latest=true keyboard=false

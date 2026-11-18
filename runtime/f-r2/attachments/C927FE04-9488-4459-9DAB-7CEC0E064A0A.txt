@@ -1,0 +1,1 @@
+earlier=(144.0, 204.33333333333334, 152.0, 14.333333333333314) nativeTrack=(407.0, 180.33333333333334, 30.0, 370.66666666666663) bannerAction=(355.0, 132.0, 61.0, 34.333333333333314) label=Show earlier messages identifier=companion-show-earlier

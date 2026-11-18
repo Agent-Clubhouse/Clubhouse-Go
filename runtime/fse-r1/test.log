@@ -1,0 +1,118 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r6/DD -destination "platform=iOS Simulator,id=0AE52E68-1F16-4CAD-BBC7-DD53E8A49FAD" -resultBundlePath /tmp/ux-582-proof/tickets/fse-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r6/source @ local
+  Framebriar: /tmp/ux-582-proof/tickets/a-r6/source/Vendor/Framebriar @ local
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/fse-r1/tests.xcresult
+
+2026-11-18 15:44:16.246452-0800 ClubhouseGoUITests-Runner[69000:457998255] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 15:44:19.518.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 15:44:19.518.
+Test Suite 'CompanionReadingOpeningUITests' started at 2026-11-18 15:44:19.518.
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner]' started.
+    t =     0.00s Start Test at 2026-11-18 15:44:19.519
+    t =     0.09s Set Up
+    t =     0.09s Getting device orientation
+    t =     0.09s Setting device orientation to Portrait
+    t =     0.10s     Device orientation changed to Portrait
+    t =     0.10s     Wait for com.apple.springboard to idle
+    t =     0.14s Open com.Agent-Clubhouse.Go
+    t =     0.14s     Launch com.Agent-Clubhouse.Go
+    t =     0.97s         Setting up automation session
+    t =     1.53s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     2.79s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     2.79s Waiting 10.0s for "reading-opening-state" StaticText to exist
+    t =     3.87s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-state" StaticText`
+    t =     3.87s         Checking existence of `"reading-opening-state" StaticText`
+    t =     4.98s Checking `Expect predicate `label CONTAINS "case=ready"` for object "reading-opening-state" StaticText`
+    t =     4.98s     Find the "reading-opening-state" StaticText
+    t =     4.99s Find the "reading-opening-state" StaticText
+    t =     5.01s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =     6.08s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =     6.08s         Checking existence of `"reading-opening-paused" Button`
+    t =     6.09s Find the "reading-opening-paused" Button
+    t =     6.11s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     6.12s Find the "reading-opening-paused" Button
+    t =     6.14s Tap "reading-opening-paused" Button
+    t =     6.14s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.14s     Find the "reading-opening-paused" Button
+    t =     6.15s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =     6.17s     Synthesize event
+    t =     6.56s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     7.71s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =     7.71s     Find the "reading-opening-state" StaticText
+    t =     7.81s Checking existence of `"Reading marker 90." StaticText`
+    t =     7.90s Find the "Reading marker 90." StaticText
+    t =     7.99s Find the NavigationBar (First Match)
+    t =     8.01s Find the "companion-composer-region" Any
+    t =     8.27s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.34s Find the "reading-opening-state" StaticText
+    t =     8.43s Checking existence of `Button (First Match)`
+    t =     8.48s Checking existence of `Keyboard (First Match)`
+    t =     8.73s Added attachment named 'SE portrait paused first-frame recording; later AX sample first public UI observation (not first paint)'
+    t =     8.73s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.84s Added attachment named 'SE portrait paused first-frame recording; later AX sample'
+    t =     8.84s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.91s Find the NavigationBar (First Match)
+    t =     8.93s Tap chat status bar at (37.5, 10.0), status band (0.0, 0.0, 375.0, 20.0), navigation (0.0, 20.0, 375.0, 54.0)
+    t =     8.93s     Tap Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (37.5, 10.0)
+    t =     8.93s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     8.93s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.00s         Check for interrupting elements affecting "Clubhouse Go" Application
+    t =     9.07s         Synthesize event
+    t =     9.08s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.14s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.21s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.56s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     9.56s Waiting 5.0s for "View River" Button to exist
+    t =    10.63s     Checking `Expect predicate `existsNoRetry == 1` for object "View River" Button`
+    t =    10.63s         Checking existence of `"View River" Button`
+    t =    10.71s Waiting 5.0s for Other (First Match) to exist
+    t =    11.78s     Checking `Expect predicate `existsNoRetry == 1` for object Other (First Match)`
+    t =    11.78s         Checking existence of `Other (First Match)`
+    t =    12.88s Checking `Expect predicate `BLOCKPREDICATE(0x600000d36af0)` for object "companion-show-earlier" Button`
+    t =    12.88s     Find the "companion-show-earlier" Button
+    t =    12.97s     Find the Other (First Match)
+    t =    13.01s     Checking existence of `"companion-show-earlier" Button`
+    t =    13.09s     Find the "companion-show-earlier" Button
+    t =    13.19s     Find the "View River" Button
+    t =    13.27s Find the "companion-show-earlier" Button
+    t =    13.35s Find the "companion-show-earlier" Button
+    t =    13.43s Find the "companion-show-earlier" Button
+    t =    13.51s Find the "Vertical scroll bar, 52 pages" Other
+    t =    13.55s Find the "View River" Button
+    t =    13.64s Find the "companion-show-earlier" Button
+    t =    13.72s Find the "companion-show-earlier" Button
+    t =    13.80s Added attachment named 'Native content-top clearance and unchanged action semantics'
+    t =    13.80s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner]' passed (14.021 seconds).
+Test Suite 'CompanionReadingOpeningUITests' passed at 2026-11-18 15:44:33.540.
+	 Executed 1 test, with 0 failures (0 unexpected) in 14.021 (14.021) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 15:44:33.540.
+	 Executed 1 test, with 0 failures (0 unexpected) in 14.021 (14.021) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 15:44:33.540.
+	 Executed 1 test, with 0 failures (0 unexpected) in 14.021 (14.022) seconds
+2026-11-18 15:44:33.840 xcodebuild[68841:457996716] [MT] IDETestOperationsObserverDebug: 20.845 elapsed -- Testing started completed.
+2026-11-18 15:44:33.840 xcodebuild[68841:457996716] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 15:44:33.840 xcodebuild[68841:457996716] [MT] IDETestOperationsObserverDebug: 20.845 sec, +20.845 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/fse-r1/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

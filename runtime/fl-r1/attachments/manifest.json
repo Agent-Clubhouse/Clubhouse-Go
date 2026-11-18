@@ -1,0 +1,26 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "084847C5-EDC5-449B-BDAC-1BF5030D6DF7",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "29F5855C-FFAD-408C-BA7D-3423783C3AA5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Landscape diagnostic only; #483 visibility exclusion_0_0CA3EE37-FDE0-468C-BF45-5F952F5CECEC.png",
+        "timestamp" : 1795045666.582
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "084847C5-EDC5-449B-BDAC-1BF5030D6DF7",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "B95E35CF-EEFC-4E1E-945B-F571A7DD419F.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Landscape diagnostic only; #483 visibility exclusion first public UI observation (not first paint)_0_D868106E-69C0-4F6F-9173-D43FF2DB464F.txt",
+        "timestamp" : 1795045666.423
+      }
+    ],
+    "testIdentifier" : "CompanionReadingOpeningUITests/testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit"
+  }
+]

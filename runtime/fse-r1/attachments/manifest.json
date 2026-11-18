@@ -1,0 +1,35 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "0AE52E68-1F16-4CAD-BBC7-DD53E8A49FAD",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "3F42D496-9870-45C9-AEE3-BED708F5522A.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native content-top clearance and unchanged action semantics_0_3047A1C3-04FE-41EE-AF02-DA405FC6C73E.txt",
+        "timestamp" : 1795045473.317
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "0AE52E68-1F16-4CAD-BBC7-DD53E8A49FAD",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "0F63897E-3179-4ABB-BF2A-735F09F5ADDD.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "SE portrait paused first-frame recording; later AX sample_0_3500837F-BD59-44C6-9759-A5FDFC897219.png",
+        "timestamp" : 1795045468.358
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "0AE52E68-1F16-4CAD-BBC7-DD53E8A49FAD",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "C41EFDE0-FA01-41C2-AF8E-81B7C4993E40.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "SE portrait paused first-frame recording; later AX sample first public UI observation (not first paint)_0_A72EFD01-4671-4883-9494-23F54080C236.txt",
+        "timestamp" : 1795045468.246
+      }
+    ],
+    "testIdentifier" : "CompanionReadingOpeningUITests/testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner"
+  }
+]

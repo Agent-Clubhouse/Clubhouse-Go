@@ -1,0 +1,927 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r6/DD -destination "platform=iOS Simulator,id=31A1EAF7-9F56-456E-AC2F-3F83475862CB" -resultBundlePath /tmp/ux-582-proof/tickets/f-r2/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats" "-only-testing:ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival" "-only-testing:ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  Framebriar: /tmp/ux-582-proof/tickets/a-r6/source/Vendor/Framebriar @ local
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r6/source @ local
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/f-r2/tests.xcresult
+
+2026-11-18 15:40:09.410797-0800 ClubhouseGoUITests-Runner[48233:457962032] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 15:40:12.690.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 15:40:12.691.
+Test Suite 'CompanionReadingOpeningUITests' started at 2026-11-18 15:40:12.691.
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats]' started.
+    t =     0.00s Start Test at 2026-11-18 15:40:12.691
+    t =     0.10s Set Up
+    t =     0.10s Getting device orientation
+    t =     0.10s Setting device orientation to Portrait
+    t =     0.11s     Device orientation changed to Portrait
+    t =     0.12s     Wait for com.apple.springboard to idle
+    t =     0.15s Open com.Agent-Clubhouse.Go
+    t =     0.15s     Launch com.Agent-Clubhouse.Go
+    t =     0.98s         Setting up automation session
+    t =     1.61s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     2.91s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     2.91s Waiting 10.0s for "reading-opening-state" StaticText to exist
+    t =     3.98s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-state" StaticText`
+    t =     3.98s         Checking existence of `"reading-opening-state" StaticText`
+    t =     5.11s Checking `Expect predicate `label CONTAINS "case=ready"` for object "reading-opening-state" StaticText`
+    t =     5.11s     Find the "reading-opening-state" StaticText
+    t =     5.12s Find the "reading-opening-state" StaticText
+    t =     5.13s Waiting 5.0s for "reading-opening-latest" Button to exist
+    t =     6.21s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-latest" Button`
+    t =     6.21s         Checking existence of `"reading-opening-latest" Button`
+    t =     6.22s Find the "reading-opening-latest" Button
+    t =     6.23s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     6.24s Find the "reading-opening-latest" Button
+    t =     6.26s Tap "reading-opening-latest" Button
+    t =     6.26s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.26s     Find the "reading-opening-latest" Button
+    t =     6.28s     Check for interrupting elements affecting "reading-opening-latest" Button
+    t =     6.29s     Synthesize event
+    t =     6.70s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     8.03s Checking `Expect predicate `label CONTAINS "case=latest"` for object "reading-opening-state" StaticText`
+    t =     8.03s     Find the "reading-opening-state" StaticText
+    t =     8.08s Waiting 5.0s for "companion-transcript" ScrollView to exist
+    t =     9.16s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-transcript" ScrollView`
+    t =     9.16s         Checking existence of `"companion-transcript" ScrollView`
+    t =    10.27s Checking `Expect predicate `label CONTAINS "follow=1"` for object "reading-opening-state" StaticText`
+    t =    10.27s     Find the "reading-opening-state" StaticText
+    t =    10.31s Checking existence of `Button (First Match)`
+    t =    10.41s Find the NavigationBar (First Match)
+    t =    10.43s Find the "companion-composer-region" Any
+    t =    10.53s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    10.56s Find the "reading-opening-state" StaticText
+    t =    10.60s Checking existence of `Button (First Match)`
+    t =    10.69s Checking existence of `Keyboard (First Match)`
+    t =    10.77s Added attachment named 'Fresh latest first public UI observation (not first paint)'
+    t =    10.77s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    10.90s Added attachment named 'Fresh latest'
+    t =    10.90s Find the "reading-opening-state" StaticText
+    t =    10.94s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =    12.00s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =    12.00s         Checking existence of `"reading-opening-paused" Button`
+    t =    12.04s Find the "reading-opening-paused" Button
+    t =    12.08s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.11s Find the "reading-opening-paused" Button
+    t =    12.15s Tap "reading-opening-paused" Button
+    t =    12.15s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    12.16s     Find the "reading-opening-paused" Button
+    t =    12.20s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =    12.23s     Synthesize event
+    t =    12.53s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    13.58s Checking `Expect predicate `label CONTAINS "case=paused-expanded"` for object "reading-opening-state" StaticText`
+    t =    13.58s     Find the "reading-opening-state" StaticText
+    t =    13.68s Checking existence of `"Reading marker 90." StaticText`
+    t =    13.76s Find the "Reading marker 90." StaticText
+    t =    13.86s Find the NavigationBar (First Match)
+    t =    13.88s Find the "companion-composer-region" Any
+    t =    14.04s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    14.10s Find the "reading-opening-state" StaticText
+    t =    14.18s Checking existence of `Button (First Match)`
+    t =    14.22s Checking existence of `Keyboard (First Match)`
+    t =    14.38s Added attachment named 'Paused bookmark-first opening first public UI observation (not first paint)'
+    t =    14.38s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    14.54s Added attachment named 'Paused bookmark-first opening'
+    t =    15.60s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    15.60s     Find the "reading-opening-state" StaticText
+    t =    15.69s Checking existence of `"Reading marker 90." StaticText`
+    t =    15.77s Find the "Reading marker 90." StaticText
+    t =    15.96s Checking existence of `"Reading marker 90." StaticText`
+    t =    16.04s Find the "Reading marker 90." StaticText
+    t =    16.24s Checking existence of `"Reading marker 90." StaticText`
+    t =    16.33s Find the "Reading marker 90." StaticText
+    t =    16.42s Find the "Reading marker 90." StaticText
+    t =    16.53s Find the NavigationBar (First Match)
+    t =    16.55s Find the "companion-composer-region" Any
+    t =    16.71s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    16.78s Find the "Reading marker 90." StaticText
+    t =    16.87s Checking existence of `Button (First Match)`
+    t =    16.90s Find the "reading-opening-state" StaticText
+    t =    16.98s Waiting 5.0s for "reading-opening-hide" Button to exist
+    t =    18.05s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-hide" Button`
+    t =    18.05s         Checking existence of `"reading-opening-hide" Button`
+    t =    18.13s Find the "reading-opening-hide" Button
+    t =    18.21s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    18.28s Find the "reading-opening-hide" Button
+    t =    18.36s Tap "reading-opening-hide" Button
+    t =    18.36s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    18.36s     Find the "reading-opening-hide" Button
+    t =    18.45s     Check for interrupting elements affecting "reading-opening-hide" Button
+    t =    18.52s     Synthesize event
+    t =    18.81s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    19.88s Checking `Expect predicate `label CONTAINS "visible=0"` for object "reading-opening-state" StaticText`
+    t =    19.88s     Find the "reading-opening-state" StaticText
+    t =    19.90s Find the "reading-opening-state" StaticText
+    t =    19.91s Waiting 5.0s for "reading-opening-show" Button to exist
+    t =    20.98s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-show" Button`
+    t =    20.98s         Checking existence of `"reading-opening-show" Button`
+    t =    20.99s Find the "reading-opening-show" Button
+    t =    21.00s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    21.01s Find the "reading-opening-show" Button
+    t =    21.04s Tap "reading-opening-show" Button
+    t =    21.04s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    21.04s     Find the "reading-opening-show" Button
+    t =    21.05s     Check for interrupting elements affecting "reading-opening-show" Button
+    t =    21.07s     Synthesize event
+    t =    21.36s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    22.43s Checking `Expect predicate `label CONTAINS "case=tab-return"` for object "reading-opening-state" StaticText`
+    t =    22.43s     Find the "reading-opening-state" StaticText
+    t =    22.52s Checking existence of `"Reading marker 90." StaticText`
+    t =    22.61s Find the "Reading marker 90." StaticText
+    t =    22.70s Find the NavigationBar (First Match)
+    t =    22.72s Find the "companion-composer-region" Any
+    t =    22.88s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    22.95s Find the "reading-opening-state" StaticText
+    t =    23.03s Checking existence of `Button (First Match)`
+    t =    23.07s Checking existence of `Keyboard (First Match)`
+    t =    23.24s Added attachment named 'Retained tab return first public UI observation (not first paint)'
+    t =    23.24s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    23.40s Added attachment named 'Retained tab return'
+    t =    24.47s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    24.47s     Find the "reading-opening-state" StaticText
+    t =    24.57s Checking existence of `"Reading marker 90." StaticText`
+    t =    24.65s Find the "Reading marker 90." StaticText
+    t =    24.85s Checking existence of `"Reading marker 90." StaticText`
+    t =    24.94s Find the "Reading marker 90." StaticText
+    t =    25.14s Checking existence of `"Reading marker 90." StaticText`
+    t =    25.23s Find the "Reading marker 90." StaticText
+    t =    25.32s Find the "reading-opening-state" StaticText
+    t =    25.40s Waiting 5.0s for "reading-opening-close" Button to exist
+    t =    26.47s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-close" Button`
+    t =    26.47s         Checking existence of `"reading-opening-close" Button`
+    t =    26.55s Find the "reading-opening-close" Button
+    t =    26.63s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    26.69s Find the "reading-opening-close" Button
+    t =    26.78s Tap "reading-opening-close" Button
+    t =    26.78s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    26.78s     Find the "reading-opening-close" Button
+    t =    26.85s     Check for interrupting elements affecting "reading-opening-close" Button
+    t =    26.93s     Synthesize event
+    t =    27.22s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    28.29s Checking `Expect predicate `label CONTAINS "case=closed"` for object "reading-opening-state" StaticText`
+    t =    28.29s     Find the "reading-opening-state" StaticText
+    t =    28.32s Find the "reading-opening-state" StaticText
+    t =    28.33s Waiting 5.0s for "reading-opening-reopen" Button to exist
+    t =    29.40s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-reopen" Button`
+    t =    29.40s         Checking existence of `"reading-opening-reopen" Button`
+    t =    29.42s Find the "reading-opening-reopen" Button
+    t =    29.43s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    29.44s Find the "reading-opening-reopen" Button
+    t =    29.46s Tap "reading-opening-reopen" Button
+    t =    29.46s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    29.46s     Find the "reading-opening-reopen" Button
+    t =    29.47s     Check for interrupting elements affecting "reading-opening-reopen" Button
+    t =    29.49s     Synthesize event
+    t =    29.78s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    30.83s Checking `Expect predicate `label CONTAINS "case=reopen"` for object "reading-opening-state" StaticText`
+    t =    30.83s     Find the "reading-opening-state" StaticText
+    t =    30.96s Checking existence of `"Reading marker 90." StaticText`
+    t =    31.04s Find the "Reading marker 90." StaticText
+    t =    31.13s Find the NavigationBar (First Match)
+    t =    31.15s Find the "companion-composer-region" Any
+    t =    31.30s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    31.37s Find the "reading-opening-state" StaticText
+    t =    31.45s Checking existence of `Button (First Match)`
+    t =    31.49s Checking existence of `Keyboard (First Match)`
+    t =    31.62s Added attachment named 'Native destination reopen first public UI observation (not first paint)'
+    t =    31.62s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    31.79s Added attachment named 'Native destination reopen'
+    t =    32.86s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    32.86s     Find the "reading-opening-state" StaticText
+    t =    32.96s Checking existence of `"Reading marker 90." StaticText`
+    t =    33.04s Find the "Reading marker 90." StaticText
+    t =    33.25s Checking existence of `"Reading marker 90." StaticText`
+    t =    33.33s Find the "Reading marker 90." StaticText
+    t =    33.54s Checking existence of `"Reading marker 90." StaticText`
+    t =    33.64s Find the "Reading marker 90." StaticText
+    t =    33.73s Find the "reading-opening-state" StaticText
+    t =    33.83s Waiting 5.0s for "reading-opening-other" Button to exist
+    t =    34.89s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-other" Button`
+    t =    34.89s         Checking existence of `"reading-opening-other" Button`
+    t =    34.99s Find the "reading-opening-other" Button
+    t =    35.07s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    35.15s Find the "reading-opening-other" Button
+    t =    35.24s Tap "reading-opening-other" Button
+    t =    35.24s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    35.24s     Find the "reading-opening-other" Button
+    t =    35.32s     Check for interrupting elements affecting "reading-opening-other" Button
+    t =    35.40s     Synthesize event
+    t =    35.69s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    36.74s Checking `Expect predicate `BLOCKPREDICATE(0x600000d7bf60)` for object "reading-opening-state" StaticText`
+    t =    36.74s     Find the "reading-opening-state" StaticText
+    t =    37.86s Checking `Expect predicate `label CONTAINS "follow=1"` for object "reading-opening-state" StaticText`
+    t =    37.86s     Find the "reading-opening-state" StaticText
+    t =    37.92s Find the NavigationBar (First Match)
+    t =    37.93s Find the "companion-composer-region" Any
+    t =    38.06s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    38.10s Find the "reading-opening-state" StaticText
+    t =    38.14s Checking existence of `Button (First Match)`
+    t =    38.26s Checking existence of `Keyboard (First Match)`
+    t =    38.34s Added attachment named 'Other chat starts latest first public UI observation (not first paint)'
+    t =    38.34s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    38.47s Added attachment named 'Other chat starts latest'
+    t =    38.47s Checking existence of `Button (First Match)`
+    t =    38.56s Find the "reading-opening-state" StaticText
+    t =    38.60s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =    39.66s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =    39.66s         Checking existence of `"reading-opening-paused" Button`
+    t =    39.70s Find the "reading-opening-paused" Button
+    t =    39.75s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    39.78s Find the "reading-opening-paused" Button
+    t =    39.83s Tap "reading-opening-paused" Button
+    t =    39.83s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    39.83s     Find the "reading-opening-paused" Button
+    t =    39.88s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =    39.92s     Synthesize event
+    t =    40.20s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    41.24s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    41.24s     Find the "reading-opening-state" StaticText
+    t =    41.35s Checking existence of `Button (First Match)`
+    t =    41.38s Find the "reading-opening-state" StaticText
+    t =    41.50s Waiting 5.0s for "reading-opening-other" Button to exist
+    t =    42.56s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-other" Button`
+    t =    42.56s         Checking existence of `"reading-opening-other" Button`
+    t =    42.66s Find the "reading-opening-other" Button
+    t =    42.74s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    42.81s Find the "reading-opening-other" Button
+    t =    42.89s Tap "reading-opening-other" Button
+    t =    42.89s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    42.90s     Find the "reading-opening-other" Button
+    t =    42.97s     Check for interrupting elements affecting "reading-opening-other" Button
+    t =    43.05s     Synthesize event
+    t =    43.34s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    44.38s Checking `Expect predicate `BLOCKPREDICATE(0x600000db0ff0)` for object "reading-opening-state" StaticText`
+    t =    44.38s     Find the "reading-opening-state" StaticText
+    t =    45.55s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    45.55s     Find the "reading-opening-state" StaticText
+    t =    45.66s Checking existence of `"Reading marker 90." StaticText`
+    t =    45.74s Find the "Reading marker 90." StaticText
+    t =    45.83s Find the NavigationBar (First Match)
+    t =    45.85s Find the "companion-composer-region" Any
+    t =    46.01s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    46.08s Find the "reading-opening-state" StaticText
+    t =    46.16s Checking existence of `Button (First Match)`
+    t =    46.19s Checking existence of `Keyboard (First Match)`
+    t =    46.37s Added attachment named 'Original chat keeps its pause first public UI observation (not first paint)'
+    t =    46.37s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    46.54s Added attachment named 'Original chat keeps its pause'
+    t =    46.54s Checking existence of `"Reading marker 90." StaticText`
+    t =    46.63s Find the "Reading marker 90." StaticText
+    t =    46.81s Checking existence of `"Reading marker 90." StaticText`
+    t =    46.90s Find the "Reading marker 90." StaticText
+    t =    47.08s Checking existence of `"Reading marker 90." StaticText`
+    t =    47.18s Find the "Reading marker 90." StaticText
+    t =    47.26s Tap Button (First Match)
+    t =    47.26s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    47.26s     Find the Button (First Match)
+    t =    47.30s     Check for interrupting elements affecting "companion-latest" Button
+    t =    47.38s     Synthesize event
+    t =    47.67s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    48.72s Checking `Expect predicate `label CONTAINS "follow=1"` for object "reading-opening-state" StaticText`
+    t =    48.72s     Find the "reading-opening-state" StaticText
+    t =    48.90s Checking existence of `Button (First Match)`
+    t =    49.20s Find the "reading-opening-state" StaticText
+    t =    49.36s Waiting 5.0s for "reading-opening-other" Button to exist
+    t =    50.43s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-other" Button`
+    t =    50.43s         Checking existence of `"reading-opening-other" Button`
+    t =    50.60s Find the "reading-opening-other" Button
+    t =    50.76s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    50.89s Find the "reading-opening-other" Button
+    t =    51.05s Tap "reading-opening-other" Button
+    t =    51.05s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    51.05s     Find the "reading-opening-other" Button
+    t =    51.20s     Check for interrupting elements affecting "reading-opening-other" Button
+    t =    51.35s     Synthesize event
+    t =    51.64s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    52.71s Checking `Expect predicate `BLOCKPREDICATE(0x600000dbe550)` for object "reading-opening-state" StaticText`
+    t =    52.71s     Find the "reading-opening-state" StaticText
+    t =    53.84s Checking `Expect predicate `label CONTAINS "follow=0"` for object "reading-opening-state" StaticText`
+    t =    53.84s     Find the "reading-opening-state" StaticText
+    t =    53.94s Checking existence of `"Reading marker 90." StaticText`
+    t =    54.02s Find the "Reading marker 90." StaticText
+    t =    54.11s Find the NavigationBar (First Match)
+    t =    54.13s Find the "companion-composer-region" Any
+    t =    54.29s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    54.35s Find the "reading-opening-state" StaticText
+    t =    54.43s Checking existence of `Button (First Match)`
+    t =    54.47s Checking existence of `Keyboard (First Match)`
+    t =    54.64s Added attachment named 'Latest on one chat leaves the other paused first public UI observation (not first paint)'
+    t =    54.64s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    54.81s Added attachment named 'Latest on one chat leaves the other paused'
+    t =    54.81s Checking existence of `Button (First Match)`
+    t =    54.84s Find the "reading-opening-state" StaticText
+    t =    54.93s Swipe down "companion-transcript" ScrollView
+    t =    54.93s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    54.93s     Find the "companion-transcript" ScrollView
+    t =    55.00s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    55.08s     Synthesize event
+    t =    55.52s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    57.04s Checking `Expect predicate `label CONTAINS "user=1"` for object "reading-opening-state" StaticText`
+    t =    57.04s     Find the "reading-opening-state" StaticText
+    t =    57.12s Find the NavigationBar (First Match)
+    t =    57.14s Find the "companion-composer-region" Any
+    t =    57.30s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    57.36s Find the "reading-opening-state" StaticText
+    t =    57.44s Checking existence of `Button (First Match)`
+    t =    57.49s Checking existence of `Keyboard (First Match)`
+    t =    57.66s Added attachment named 'Real drag reports native user ownership first public UI observation (not first paint)'
+    t =    57.66s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    57.83s Added attachment named 'Real drag reports native user ownership'
+    t =    57.83s Find the "reading-opening-state" StaticText
+    t =    57.91s Waiting 5.0s for "reading-opening-stream" Button to exist
+    t =    58.97s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-stream" Button`
+    t =    58.97s         Checking existence of `"reading-opening-stream" Button`
+    t =    59.07s Find the "reading-opening-stream" Button
+    t =    59.15s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    59.21s Find the "reading-opening-stream" Button
+    t =    59.29s Tap "reading-opening-stream" Button
+    t =    59.29s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    59.30s     Find the "reading-opening-stream" Button
+    t =    59.38s     Check for interrupting elements affecting "reading-opening-stream" Button
+    t =    59.45s     Synthesize event
+    t =    59.74s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    60.78s Checking `Expect predicate `label CONTAINS "case=streamed"` for object "reading-opening-state" StaticText`
+    t =    60.78s     Find the "reading-opening-state" StaticText
+    t =    61.39s Find the "reading-opening-state" StaticText
+    t =    61.50s Find the "reading-opening-state" StaticText
+    t =    61.58s Waiting 5.0s for "reading-opening-short" Button to exist
+    t =    62.62s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-short" Button`
+    t =    62.62s         Checking existence of `"reading-opening-short" Button`
+    t =    62.71s Find the "reading-opening-short" Button
+    t =    62.79s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    62.85s Find the "reading-opening-short" Button
+    t =    62.93s Tap "reading-opening-short" Button
+    t =    62.93s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    62.94s     Find the "reading-opening-short" Button
+    t =    63.02s     Check for interrupting elements affecting "reading-opening-short" Button
+    t =    63.09s     Synthesize event
+    t =    63.38s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    64.39s Checking `Expect predicate `label CONTAINS "case=short-paused"` for object "reading-opening-state" StaticText`
+    t =    64.39s     Find the "reading-opening-state" StaticText
+    t =    64.44s Waiting 5.0s for "Short bookmark." StaticText to exist
+    t =    65.49s     Checking `Expect predicate `existsNoRetry == 1` for object "Short bookmark." StaticText`
+    t =    65.49s         Checking existence of `"Short bookmark." StaticText`
+    t =    65.53s Checking existence of `"Short bookmark." StaticText`
+    t =    65.56s Find the "Short bookmark." StaticText
+    t =    65.59s Find the NavigationBar (First Match)
+    t =    65.61s Find the "companion-composer-region" Any
+    t =    65.69s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    65.71s Find the "reading-opening-state" StaticText
+    t =    65.74s Checking existence of `Button (First Match)`
+    t =    65.79s Checking existence of `Keyboard (First Match)`
+    t =    65.84s Added attachment named 'Short-tail paused opening first public UI observation (not first paint)'
+    t =    65.84s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    65.96s Added attachment named 'Short-tail paused opening'
+    t =    65.96s Find the "Short bookmark." StaticText
+    t =    65.99s Find the NavigationBar (First Match)
+    t =    66.01s Find the "companion-composer-region" Any
+    t =    66.09s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    66.11s Find the "Short bookmark." StaticText
+    t =    66.14s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats]' passed (66.394 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival]' started.
+    t =     0.00s Start Test at 2026-11-18 15:41:19.085
+    t =     0.01s Set Up
+    t =     0.01s Getting device orientation
+    t =     0.02s Terminate com.Agent-Clubhouse.Go:48269
+    t =     1.08s Wait for com.Agent-Clubhouse.Go to become Not Running
+    t =     1.08s Open com.Agent-Clubhouse.Go
+    t =     1.08s     Launch com.Agent-Clubhouse.Go
+    t =     1.29s         Setting up automation session
+    t =     1.89s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.10s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.10s Waiting 10.0s for "reading-opening-state" StaticText to exist
+    t =     4.13s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-state" StaticText`
+    t =     4.13s         Checking existence of `"reading-opening-state" StaticText`
+    t =     5.25s Checking `Expect predicate `label CONTAINS "case=ready"` for object "reading-opening-state" StaticText`
+    t =     5.25s     Find the "reading-opening-state" StaticText
+    t =     5.27s Find the "reading-opening-state" StaticText
+    t =     5.28s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =     6.33s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =     6.33s         Checking existence of `"reading-opening-paused" Button`
+    t =     6.35s Find the "reading-opening-paused" Button
+    t =     6.36s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     6.37s Find the "reading-opening-paused" Button
+    t =     6.39s Tap "reading-opening-paused" Button
+    t =     6.39s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.39s     Find the "reading-opening-paused" Button
+    t =     6.40s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =     6.42s     Synthesize event
+    t =     6.70s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     7.77s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =     7.77s     Find the "reading-opening-state" StaticText
+    t =     7.88s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     7.95s Find the NavigationBar (First Match)
+    t =     7.97s Tap chat status bar at (44.0, 31.0), status band (0.0, 0.0, 440.0, 62.0), navigation (0.0, 62.0, 440.0, 54.0)
+    t =     7.97s     Tap Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (44.0, 31.0)
+    t =     7.97s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     7.97s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.04s         Check for interrupting elements affecting "Clubhouse Go" Application
+    t =     8.11s         Synthesize event
+    t =     8.11s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.18s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.24s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.59s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     8.59s Waiting 5.0s for "View River" Button to exist
+    t =     9.64s     Checking `Expect predicate `existsNoRetry == 1` for object "View River" Button`
+    t =     9.64s         Checking existence of `"View River" Button`
+    t =     9.72s Waiting 5.0s for Other (First Match) to exist
+    t =    10.73s     Checking `Expect predicate `existsNoRetry == 1` for object Other (First Match)`
+    t =    10.73s         Checking existence of `Other (First Match)`
+    t =    11.82s Checking `Expect predicate `BLOCKPREDICATE(0x600000dd4420)` for object "companion-show-earlier" Button`
+    t =    11.82s     Find the "companion-show-earlier" Button
+    t =    11.92s     Find the Other (First Match)
+    t =    11.95s     Checking existence of `"companion-show-earlier" Button`
+    t =    12.03s     Find the "companion-show-earlier" Button
+    t =    12.13s     Find the "View River" Button
+    t =    12.21s Find the "companion-show-earlier" Button
+    t =    12.29s Find the "companion-show-earlier" Button
+    t =    12.37s Find the "companion-show-earlier" Button
+    t =    12.45s Find the "Vertical scroll bar, 25 pages" Other
+    t =    12.49s Find the "View River" Button
+    t =    12.58s Find the "companion-show-earlier" Button
+    t =    12.65s Find the "companion-show-earlier" Button
+    t =    12.73s Added attachment named 'Native content-top clearance and unchanged action semantics'
+    t =    12.73s Checking existence of `"Reading marker 90." StaticText`
+    t =    12.81s Find the "Reading marker 90." StaticText
+    t =    13.01s Checking existence of `"Reading marker 90." StaticText`
+    t =    13.09s Find the "Reading marker 90." StaticText
+    t =    13.28s Checking existence of `"Reading marker 90." StaticText`
+    t =    13.37s Find the "Reading marker 90." StaticText
+    t =    13.46s Checking existence of `"companion-show-earlier" Button`
+    t =    13.53s Find the "reading-opening-state" StaticText
+    t =    13.61s Checking existence of `"Reading marker 90." StaticText`
+    t =    13.69s Find the "Reading marker 90." StaticText
+    t =    13.78s Find the NavigationBar (First Match)
+    t =    13.80s Find the "companion-composer-region" Any
+    t =    13.98s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    14.05s Find the "reading-opening-state" StaticText
+    t =    14.13s Checking existence of `Button (First Match)`
+    t =    14.16s Checking existence of `Keyboard (First Match)`
+    t =    14.33s Added attachment named 'Before earlier expansion 0 first public UI observation (not first paint)'
+    t =    14.33s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    14.50s Added attachment named 'Before earlier expansion 0'
+    t =    14.51s Waiting 5.0s for "View River" Button to exist
+    t =    15.52s     Checking `Expect predicate `existsNoRetry == 1` for object "View River" Button`
+    t =    15.53s         Checking existence of `"View River" Button`
+    t =    15.63s Waiting 5.0s for Other (First Match) to exist
+    t =    16.68s     Checking `Expect predicate `existsNoRetry == 1` for object Other (First Match)`
+    t =    16.68s         Checking existence of `Other (First Match)`
+    t =    17.77s Checking `Expect predicate `BLOCKPREDICATE(0x600000dcfc00)` for object "companion-show-earlier" Button`
+    t =    17.78s     Find the "companion-show-earlier" Button
+    t =    17.88s     Find the Other (First Match)
+    t =    17.92s     Checking existence of `"companion-show-earlier" Button`
+    t =    18.00s     Find the "companion-show-earlier" Button
+    t =    18.09s     Find the "View River" Button
+    t =    18.17s Find the "companion-show-earlier" Button
+    t =    18.25s Find the "companion-show-earlier" Button
+    t =    18.33s Find the "companion-show-earlier" Button
+    t =    18.41s Find the "Vertical scroll bar, 25 pages" Other
+    t =    18.46s Find the "View River" Button
+    t =    18.54s Find the "companion-show-earlier" Button
+    t =    18.62s Find the "companion-show-earlier" Button
+    t =    18.70s Added attachment named 'Native content-top clearance and unchanged action semantics'
+    t =    18.70s Tap "companion-show-earlier" Button
+    t =    18.70s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    18.70s     Find the "companion-show-earlier" Button
+    t =    18.79s     Check for interrupting elements affecting "companion-show-earlier" Button
+    t =    18.86s     Synthesize event
+    t =    19.18s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    20.22s Checking `Expect predicate `BLOCKPREDICATE(0x600000da8ae0)` for object "reading-opening-state" StaticText`
+    t =    20.22s     Find the "reading-opening-state" StaticText
+    t =    20.44s Checking existence of `"Reading marker 90." StaticText`
+    t =    20.60s Find the "Reading marker 90." StaticText
+    t =    20.88s Checking existence of `"Reading marker 90." StaticText`
+    t =    21.05s Find the "Reading marker 90." StaticText
+    t =    21.32s Checking existence of `"Reading marker 90." StaticText`
+    t =    21.50s Find the "Reading marker 90." StaticText
+    t =    21.67s Checking existence of `"Reading marker 90." StaticText`
+    t =    21.83s Find the "Reading marker 90." StaticText
+    t =    21.99s Find the NavigationBar (First Match)
+    t =    22.02s Find the "companion-composer-region" Any
+    t =    22.26s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    22.40s Find the "reading-opening-state" StaticText
+    t =    22.56s Checking existence of `Button (First Match)`
+    t =    22.60s Checking existence of `Keyboard (First Match)`
+    t =    22.91s Added attachment named 'After earlier expansion 0 first public UI observation (not first paint)'
+    t =    22.91s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    23.15s Added attachment named 'After earlier expansion 0'
+    t =    23.15s Checking existence of `"companion-show-earlier" Button`
+    t =    23.30s Checking existence of `"companion-show-earlier" Button`
+    t =    23.46s Checking existence of `"Reading marker 1." StaticText`
+    t =    23.62s Find the "reading-opening-state" StaticText
+    t =    23.78s Waiting 5.0s for "reading-opening-append" Button to exist
+    t =    24.85s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-append" Button`
+    t =    24.85s         Checking existence of `"reading-opening-append" Button`
+    t =    25.03s Find the "reading-opening-append" Button
+    t =    25.19s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    25.33s Find the "reading-opening-append" Button
+    t =    25.49s Tap "reading-opening-append" Button
+    t =    25.49s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    25.49s     Find the "reading-opening-append" Button
+    t =    25.64s     Check for interrupting elements affecting "reading-opening-append" Button
+    t =    25.78s     Synthesize event
+    t =    26.08s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    27.10s Checking `Expect predicate `label CONTAINS "case=tail-arrived"` for object "reading-opening-state" StaticText`
+    t =    27.10s     Find the "reading-opening-state" StaticText
+    t =    27.29s Checking existence of `"Reading marker 90." StaticText`
+    t =    27.45s Find the "Reading marker 90." StaticText
+    t =    27.73s Checking existence of `"Reading marker 90." StaticText`
+    t =    27.90s Find the "Reading marker 90." StaticText
+    t =    28.17s Checking existence of `"Reading marker 90." StaticText`
+    t =    28.34s Find the "Reading marker 90." StaticText
+    t =    28.51s Checking existence of `"Reading marker 90." StaticText`
+    t =    28.67s Find the "Reading marker 90." StaticText
+    t =    28.83s Find the NavigationBar (First Match)
+    t =    28.85s Find the "companion-composer-region" Any
+    t =    29.13s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    29.26s Find the "reading-opening-state" StaticText
+    t =    29.42s Checking existence of `Button (First Match)`
+    t =    29.47s Checking existence of `Keyboard (First Match)`
+    t =    29.77s Added attachment named 'Tail arrives after earlier expansion first public UI observation (not first paint)'
+    t =    29.77s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    30.02s Added attachment named 'Tail arrives after earlier expansion'
+    t =    30.02s Find the "Reading marker 1." StaticText
+    t =    30.18s Find the NavigationBar (First Match)
+    t =    30.20s Find the "companion-composer-region" Any
+    t =    30.46s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    30.59s Swipe down "companion-transcript" ScrollView
+    t =    30.59s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    30.60s     Find the "companion-transcript" ScrollView
+    t =    30.75s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    30.90s     Synthesize event
+    t =    31.34s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    33.44s Find the "Reading marker 1." StaticText
+    t =    33.62s Find the NavigationBar (First Match)
+    t =    33.64s Find the "companion-composer-region" Any
+    t =    33.90s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    34.04s Swipe down "companion-transcript" ScrollView
+    t =    34.04s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    34.04s     Find the "companion-transcript" ScrollView
+    t =    34.19s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    34.35s     Synthesize event
+    t =    34.79s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    36.89s Find the "Reading marker 1." StaticText
+    t =    37.06s Find the NavigationBar (First Match)
+    t =    37.09s Find the "companion-composer-region" Any
+    t =    37.36s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    37.50s Swipe down "companion-transcript" ScrollView
+    t =    37.50s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    37.50s     Find the "companion-transcript" ScrollView
+    t =    37.65s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    37.80s     Synthesize event
+    t =    38.23s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    40.36s Find the "Reading marker 1." StaticText
+    t =    40.53s Find the NavigationBar (First Match)
+    t =    40.55s Find the "companion-composer-region" Any
+    t =    40.82s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    40.96s Swipe down "companion-transcript" ScrollView
+    t =    40.96s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    40.96s     Find the "companion-transcript" ScrollView
+    t =    41.11s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    41.26s     Synthesize event
+    t =    41.70s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    43.84s Find the "Reading marker 1." StaticText
+    t =    44.01s Find the NavigationBar (First Match)
+    t =    44.02s Find the "companion-composer-region" Any
+    t =    44.28s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    44.42s Swipe down "companion-transcript" ScrollView
+    t =    44.42s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    44.42s     Find the "companion-transcript" ScrollView
+    t =    44.57s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    44.72s     Synthesize event
+    t =    45.16s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    47.29s Find the "Reading marker 1." StaticText
+    t =    47.46s Find the NavigationBar (First Match)
+    t =    47.48s Find the "companion-composer-region" Any
+    t =    47.73s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    47.86s Swipe down "companion-transcript" ScrollView
+    t =    47.86s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    47.87s     Find the "companion-transcript" ScrollView
+    t =    48.03s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    48.17s     Synthesize event
+    t =    48.63s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    50.74s Find the "Reading marker 1." StaticText
+    t =    50.91s Find the NavigationBar (First Match)
+    t =    50.93s Find the "companion-composer-region" Any
+    t =    51.20s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    51.33s Swipe down "companion-transcript" ScrollView
+    t =    51.33s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    51.33s     Find the "companion-transcript" ScrollView
+    t =    51.49s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    51.64s     Synthesize event
+    t =    52.08s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    54.24s Find the "Reading marker 1." StaticText
+    t =    54.42s Find the NavigationBar (First Match)
+    t =    54.44s Find the "companion-composer-region" Any
+    t =    54.70s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    54.84s Swipe down "companion-transcript" ScrollView
+    t =    54.84s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    54.84s     Find the "companion-transcript" ScrollView
+    t =    54.99s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    55.14s     Synthesize event
+    t =    55.58s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    57.69s Find the "Reading marker 1." StaticText
+    t =    57.86s Find the NavigationBar (First Match)
+    t =    57.88s Find the "companion-composer-region" Any
+    t =    58.15s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    58.28s Swipe down "companion-transcript" ScrollView
+    t =    58.28s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    58.28s     Find the "companion-transcript" ScrollView
+    t =    58.44s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    58.59s     Synthesize event
+    t =    59.03s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    61.14s Find the "Reading marker 1." StaticText
+    t =    61.32s Find the NavigationBar (First Match)
+    t =    61.34s Find the "companion-composer-region" Any
+    t =    61.61s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    61.74s Swipe down "companion-transcript" ScrollView
+    t =    61.74s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    61.75s     Find the "companion-transcript" ScrollView
+    t =    61.91s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    62.06s     Synthesize event
+    t =    62.51s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    64.65s Find the "Reading marker 1." StaticText
+    t =    64.83s Find the NavigationBar (First Match)
+    t =    64.85s Find the "companion-composer-region" Any
+    t =    65.11s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    65.25s Swipe down "companion-transcript" ScrollView
+    t =    65.25s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    65.25s     Find the "companion-transcript" ScrollView
+    t =    65.41s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    65.56s     Synthesize event
+    t =    66.01s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    68.11s Find the "Reading marker 1." StaticText
+    t =    68.29s Find the NavigationBar (First Match)
+    t =    68.31s Find the "companion-composer-region" Any
+    t =    68.57s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    68.70s Swipe down "companion-transcript" ScrollView
+    t =    68.70s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    68.70s     Find the "companion-transcript" ScrollView
+    t =    68.86s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    69.01s     Synthesize event
+    t =    69.45s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    71.56s Find the "Reading marker 1." StaticText
+    t =    71.75s Find the NavigationBar (First Match)
+    t =    71.77s Find the "companion-composer-region" Any
+    t =    72.03s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    72.16s Swipe down "companion-transcript" ScrollView
+    t =    72.16s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    72.16s     Find the "companion-transcript" ScrollView
+    t =    72.32s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =    72.47s     Synthesize event
+    t =    72.91s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    73.58s Find the "Reading marker 1." StaticText
+    t =    73.75s Find the NavigationBar (First Match)
+    t =    73.77s Find the "companion-composer-region" Any
+    t =    74.02s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    74.15s Find the "Reading marker 1." StaticText
+    t =    74.38s Find the "Reading marker 1." StaticText
+    t =    74.61s Find the NavigationBar (First Match)
+    t =    74.63s Find the "companion-composer-region" Any
+    t =    74.89s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    75.02s Find the "Reading marker 1." StaticText
+    t =    75.19s Checking existence of `"Reading marker 1." StaticText`
+    t =    75.35s Find the "Reading marker 1." StaticText
+    t =    75.52s Find the NavigationBar (First Match)
+    t =    75.54s Find the "companion-composer-region" Any
+    t =    75.79s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    75.92s Find the "reading-opening-state" StaticText
+    t =    76.08s Checking existence of `Button (First Match)`
+    t =    76.13s Checking existence of `Keyboard (First Match)`
+    t =    76.43s Added attachment named 'Recovered beginning of history first public UI observation (not first paint)'
+    t =    76.43s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    76.67s Added attachment named 'Recovered beginning of history'
+    t =    76.67s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival]' passed (77.216 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls]' started.
+    t =     0.00s Start Test at 2026-11-18 15:42:36.302
+    t =     0.02s Set Up
+    t =     0.02s Getting device orientation
+    t =     0.02s Terminate com.Agent-Clubhouse.Go:52246
+    t =     1.08s Wait for com.Agent-Clubhouse.Go to become Not Running
+    t =     1.08s Open com.Agent-Clubhouse.Go
+    t =     1.08s     Launch com.Agent-Clubhouse.Go
+    t =     1.28s         Setting up automation session
+    t =     1.92s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.16s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.16s Waiting 10.0s for "reading-opening-state" StaticText to exist
+    t =     4.22s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-state" StaticText`
+    t =     4.22s         Checking existence of `"reading-opening-state" StaticText`
+    t =     5.30s Checking `Expect predicate `label CONTAINS "case=ready"` for object "reading-opening-state" StaticText`
+    t =     5.30s     Find the "reading-opening-state" StaticText
+    t =     5.32s Find the "reading-opening-state" StaticText
+    t =     5.33s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =     6.38s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =     6.38s         Checking existence of `"reading-opening-paused" Button`
+    t =     6.40s Find the "reading-opening-paused" Button
+    t =     6.42s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     6.43s Find the "reading-opening-paused" Button
+    t =     6.45s Tap "reading-opening-paused" Button
+    t =     6.45s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.45s     Find the "reading-opening-paused" Button
+    t =     6.46s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =     6.48s     Synthesize event
+    t =     6.77s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     7.83s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =     7.83s     Find the "reading-opening-state" StaticText
+    t =     7.97s Waiting 5.0s for "companion-composer" Any to exist
+    t =     8.99s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-composer" Any`
+    t =     8.99s         Checking existence of `"companion-composer" Any`
+    t =     9.42s Tap "companion-composer" Any
+    t =     9.42s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     9.42s     Find the "companion-composer" Any
+    t =     9.96s     Check for interrupting elements affecting "companion-composer" TextField
+    t =    10.05s     Synthesize event
+    t =    10.34s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    10.81s Waiting 2.0s for Keyboard (First Match) to exist
+    t =    11.82s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    11.82s         Checking existence of `Keyboard (First Match)`
+    t =    11.84s Waiting 5.0s for Keyboard (First Match) to exist
+    t =    12.89s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    12.89s         Checking existence of `Keyboard (First Match)`
+    t =    12.91s Type 'First paint draft' into "companion-composer" TextField
+    t =    12.91s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    12.91s     Find the "companion-composer" TextField
+    t =    13.30s     Check for interrupting elements affecting "companion-composer" TextField
+    t =    13.40s     Synthesize event
+    t =    13.88s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    13.88s Waiting 5.0s for Keyboard (First Match) to exist
+    t =    14.92s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    14.92s         Checking existence of `Keyboard (First Match)`
+    t =    14.93s Checking existence of `"Reading marker 90." StaticText`
+    t =    15.03s Find the "Reading marker 90." StaticText
+    t =    15.23s Checking existence of `"Reading marker 90." StaticText`
+    t =    15.32s Find the "Reading marker 90." StaticText
+    t =    15.55s Checking existence of `"Reading marker 90." StaticText`
+    t =    15.64s Find the "Reading marker 90." StaticText
+    t =    15.74s Find the "reading-opening-state" StaticText
+    t =    15.84s Waiting 5.0s for "reading-opening-reload" Button to exist
+    t =    16.89s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-reload" Button`
+    t =    16.89s         Checking existence of `"reading-opening-reload" Button`
+    t =    17.00s Find the "reading-opening-reload" Button
+    t =    17.09s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.16s Find the "reading-opening-reload" Button
+    t =    17.27s Tap "reading-opening-reload" Button
+    t =    17.27s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    17.27s     Find the "reading-opening-reload" Button
+    t =    17.36s     Check for interrupting elements affecting "reading-opening-reload" Button
+    t =    17.44s     Synthesize event
+    t =    17.73s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    18.75s Checking `Expect predicate `label CONTAINS "case=open-reload"` for object "reading-opening-state" StaticText`
+    t =    18.75s     Find the "reading-opening-state" StaticText
+    t =    18.87s Checking existence of `"Reading marker 90." StaticText`
+    t =    18.99s Find the "Reading marker 90." StaticText
+    t =    19.10s Find the NavigationBar (First Match)
+    t =    19.14s Find the "companion-composer-region" Any
+    t =    19.38s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    19.46s Find the "reading-opening-state" StaticText
+    t =    19.55s Checking existence of `Button (First Match)`
+    t =    19.63s Checking existence of `Keyboard (First Match)`
+    t =    19.64s Added attachment named 'Reload while open first public UI observation (not first paint)'
+    t =    19.64s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    19.81s Added attachment named 'Reload while open'
+    t =    20.87s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    20.87s     Find the "reading-opening-state" StaticText
+    t =    20.98s Checking existence of `"Reading marker 90." StaticText`
+    t =    21.07s Find the "Reading marker 90." StaticText
+    t =    21.28s Checking existence of `"Reading marker 90." StaticText`
+    t =    21.38s Find the "Reading marker 90." StaticText
+    t =    21.59s Checking existence of `"Reading marker 90." StaticText`
+    t =    21.68s Find the "Reading marker 90." StaticText
+    t =    21.78s Find the "companion-composer" TextField
+    t =    22.17s Checking existence of `Keyboard (First Match)`
+    t =    22.18s Checking existence of `Button (First Match)`
+    t =    22.25s Find the "reading-opening-state" StaticText
+    t =    22.35s Waiting 5.0s for "reading-opening-hide" Button to exist
+    t =    23.42s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-hide" Button`
+    t =    23.42s         Checking existence of `"reading-opening-hide" Button`
+    t =    23.52s Find the "reading-opening-hide" Button
+    t =    23.61s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    23.69s Find the "reading-opening-hide" Button
+    t =    23.78s Tap "reading-opening-hide" Button
+    t =    23.78s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    23.78s     Find the "reading-opening-hide" Button
+    t =    23.87s     Check for interrupting elements affecting "reading-opening-hide" Button
+    t =    23.99s     Synthesize event
+    t =    24.28s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    25.32s Checking `Expect predicate `label CONTAINS "visible=0"` for object "reading-opening-state" StaticText`
+    t =    25.32s     Find the "reading-opening-state" StaticText
+    t =    25.34s Find the "reading-opening-state" StaticText
+    t =    25.35s Waiting 5.0s for "reading-opening-reload" Button to exist
+    t =    26.38s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-reload" Button`
+    t =    26.38s         Checking existence of `"reading-opening-reload" Button`
+    t =    26.40s Find the "reading-opening-reload" Button
+    t =    26.43s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    26.45s Find the "reading-opening-reload" Button
+    t =    26.47s Tap "reading-opening-reload" Button
+    t =    26.47s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    26.47s     Find the "reading-opening-reload" Button
+    t =    26.48s     Check for interrupting elements affecting "reading-opening-reload" Button
+    t =    26.49s     Synthesize event
+    t =    26.78s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    27.81s Checking `Expect predicate `label CONTAINS "case=hidden-reload"` for object "reading-opening-state" StaticText`
+    t =    27.81s     Find the "reading-opening-state" StaticText
+    t =    27.83s Find the "reading-opening-state" StaticText
+    t =    27.84s Waiting 5.0s for "reading-opening-show" Button to exist
+    t =    28.87s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-show" Button`
+    t =    28.88s         Checking existence of `"reading-opening-show" Button`
+    t =    28.90s Find the "reading-opening-show" Button
+    t =    28.91s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    28.92s Find the "reading-opening-show" Button
+    t =    28.94s Tap "reading-opening-show" Button
+    t =    28.94s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    28.94s     Find the "reading-opening-show" Button
+    t =    28.95s     Check for interrupting elements affecting "reading-opening-show" Button
+    t =    28.96s     Synthesize event
+    t =    29.25s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    30.29s Checking `Expect predicate `label CONTAINS "case=tab-return"` for object "reading-opening-state" StaticText`
+    t =    30.29s     Find the "reading-opening-state" StaticText
+    t =    30.39s Checking existence of `"Reading marker 90." StaticText`
+    t =    30.48s Find the "Reading marker 90." StaticText
+    t =    30.56s Find the NavigationBar (First Match)
+    t =    30.58s Find the "companion-composer-region" Any
+    t =    30.74s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    30.80s Find the "reading-opening-state" StaticText
+    t =    30.88s Checking existence of `Button (First Match)`
+    t =    30.92s Checking existence of `Keyboard (First Match)`
+    t =    31.07s Added attachment named 'Reload while hidden then re-show first public UI observation (not first paint)'
+    t =    31.07s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    31.24s Added attachment named 'Reload while hidden then re-show'
+    t =    32.29s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =    32.29s     Find the "reading-opening-state" StaticText
+    t =    32.39s Find the "companion-composer" TextField
+    t =    32.73s Checking existence of `Button (First Match)`
+    t =    32.78s Checking existence of `"Reading marker 90." StaticText`
+    t =    32.86s Find the "Reading marker 90." StaticText
+    t =    32.95s Find the NavigationBar (First Match)
+    t =    32.97s Find the "companion-composer-region" Any
+    t =    33.15s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    33.22s Find the "reading-opening-state" StaticText
+    t =    33.30s Checking existence of `Button (First Match)`
+    t =    33.34s Checking existence of `Keyboard (First Match)`
+    t =    33.52s Added attachment named 'Returned draft and keyboard state first public UI observation (not first paint)'
+    t =    33.52s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    33.69s Added attachment named 'Returned draft and keyboard state'
+    t =    33.69s Find the "reading-opening-state" StaticText
+    t =    33.77s Waiting 5.0s for "reading-opening-session" Button to exist
+    t =    34.82s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-session" Button`
+    t =    34.82s         Checking existence of `"reading-opening-session" Button`
+    t =    34.90s Find the "reading-opening-session" Button
+    t =    34.99s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    35.06s Find the "reading-opening-session" Button
+    t =    35.15s Tap "reading-opening-session" Button
+    t =    35.15s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    35.15s     Find the "reading-opening-session" Button
+    t =    35.23s     Check for interrupting elements affecting "reading-opening-session" Button
+    t =    35.31s     Synthesize event
+    t =    35.59s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    36.63s Checking `Expect predicate `label CONTAINS "case=session-replacement"` for object "reading-opening-state" StaticText`
+    t =    36.63s     Find the "reading-opening-state" StaticText
+    t =    36.80s Checking existence of `"New session marker 90." StaticText`
+    t =    36.92s Find the "New session marker 90." StaticText
+    t =    37.05s Find the NavigationBar (First Match)
+    t =    37.08s Find the "companion-composer-region" Any
+    t =    37.33s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    37.44s Find the "reading-opening-state" StaticText
+    t =    37.57s Checking existence of `Button (First Match)`
+    t =    37.61s Checking existence of `Keyboard (First Match)`
+    t =    37.84s Added attachment named 'Session replacement uses existing generation handling first public UI observation (not first paint)'
+    t =    37.84s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    38.05s Added attachment named 'Session replacement uses existing generation handling'
+    t =    38.05s Waiting 5.0s for "New session marker 90." StaticText to exist
+    t =    39.09s     Checking `Expect predicate `existsNoRetry == 1` for object "New session marker 90." StaticText`
+    t =    39.09s         Checking existence of `"New session marker 90." StaticText`
+    t =    39.22s Find the "companion-composer" TextField
+    t =    39.65s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls]' passed (39.900 seconds).
+Test Suite 'CompanionReadingOpeningUITests' passed at 2026-11-18 15:43:16.203.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 183.510 (183.512) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 15:43:16.204.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 183.510 (183.513) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 15:43:16.204.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 183.510 (183.514) seconds
+2026-11-18 15:43:16.566 xcodebuild[48118:457960857] [MT] IDETestOperationsObserverDebug: 191.410 elapsed -- Testing started completed.
+2026-11-18 15:43:16.566 xcodebuild[48118:457960857] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 15:43:16.566 xcodebuild[48118:457960857] [MT] IDETestOperationsObserverDebug: 191.410 sec, +191.410 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/f-r2/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -1,0 +1,43 @@
+Exported 18 attachments for: CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats():
+File: 3AF07521-BB4C-447D-B574-03A13245F10E.png, suggested name: "Short-tail paused opening_0_220FF112-3F1A-47C7-B1C1-1A70E799C657.png"
+File: 65091FC0-B1B0-435A-BF2D-88C7ECCBAF5B.txt, suggested name: "Short-tail paused opening first public UI observation (not first paint)_0_0C411085-65F0-418F-BD07-15245F8D04D1.txt"
+File: A22BF889-6D24-4727-9242-55A3D31664A7.png, suggested name: "Real drag reports native user ownership_0_D4AEFA32-80C9-4A4C-AA63-08D577A752B4.png"
+File: CA616D6E-2FD7-4A93-ABC1-762C014ED993.txt, suggested name: "Real drag reports native user ownership first public UI observation (not first paint)_0_F6D7E224-7821-4E58-9BB2-CD33803A250E.txt"
+File: 7220A459-8638-46F4-90C5-9F5FCDE3CF2E.png, suggested name: "Latest on one chat leaves the other paused_0_51D0DE53-8347-4BA5-8066-3B840B5C28CF.png"
+File: 9D7D78DB-4297-4208-ACE0-57094388F46D.txt, suggested name: "Latest on one chat leaves the other paused first public UI observation (not first paint)_0_FA7698B5-8CE3-4437-A87D-9193C42D71DD.txt"
+File: 5D30E504-F604-4DF7-9DF4-5CD95B9E3C2A.png, suggested name: "Original chat keeps its pause_0_DB4B503B-4975-4F02-9C93-A8787EC0FEC0.png"
+File: 6AF39242-C547-4B3B-8C89-B24AA8818B5C.txt, suggested name: "Original chat keeps its pause first public UI observation (not first paint)_0_5C13CB72-96FC-4961-9421-456C391AAA5B.txt"
+File: A54C1203-C8BA-41AE-A22A-31A112C0805B.png, suggested name: "Other chat starts latest_0_6344DC1C-98A0-4BC3-8F30-2D1EC2B15DE7.png"
+File: 2B063DB5-1A86-4675-B284-7B69CCF430F2.txt, suggested name: "Other chat starts latest first public UI observation (not first paint)_0_CF954479-7710-465B-BFCA-F9D7328AA19C.txt"
+File: 31C24A66-7E7D-4201-9BF2-70BF25B0E2CC.png, suggested name: "Native destination reopen_0_47D8043B-8CA3-42ED-9B03-53FC3B553388.png"
+File: AD009659-048F-47A8-8BE8-31318F1BC2D3.txt, suggested name: "Native destination reopen first public UI observation (not first paint)_0_546F357C-C710-4BE3-B8C8-1CEB22CE6430.txt"
+File: D2D33485-D7F6-45BE-A0BF-134A9D5BB526.png, suggested name: "Retained tab return_0_90D5C461-700B-492B-9CA2-B9AA75674D09.png"
+File: 531DE65F-79FF-45EC-A134-21DDB9522F65.txt, suggested name: "Retained tab return first public UI observation (not first paint)_0_4087BA02-B626-4994-939D-06EE3F413171.txt"
+File: CDA1565B-F44A-41A8-970A-730EFCBD09BF.png, suggested name: "Paused bookmark-first opening_0_B1E269E3-787E-49B0-994D-F9F6F114E142.png"
+File: DA67F031-3760-4CAA-A139-106745E268BA.txt, suggested name: "Paused bookmark-first opening first public UI observation (not first paint)_0_DE05AF12-9681-43CA-9CFA-9DED94EDCABD.txt"
+File: 01E1284C-1C41-417D-B38D-70F32F603A0E.png, suggested name: "Fresh latest_0_2C24CF2E-6631-4705-867A-2888A285BC2F.png"
+File: 15B802E4-0C06-409A-B3C5-CE9BDDA7D7EF.txt, suggested name: "Fresh latest first public UI observation (not first paint)_0_5FF739CC-D2A2-4CAC-AF3F-4660CF5AFA7F.txt"
+
+Exported 10 attachments for: CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival():
+File: BAC70F42-4B69-440F-B2A2-6E8F5542F8C0.png, suggested name: "Recovered beginning of history_0_8863D093-D148-42FB-BC2C-3E4C744E6DD1.png"
+File: 3C15973F-FF4E-461F-A175-F53BAC9BDFFD.txt, suggested name: "Recovered beginning of history first public UI observation (not first paint)_0_E75E0E43-009F-47DD-A28F-72E814C4A77D.txt"
+File: BCAD8A5D-6D40-473F-9C16-DAAF6170A5F6.png, suggested name: "Tail arrives after earlier expansion_0_1DB25972-617F-4EF9-BED9-62836C9DDC56.png"
+File: 7EA505E8-2D1A-42CF-AF1C-2C617C6F2EB9.txt, suggested name: "Tail arrives after earlier expansion first public UI observation (not first paint)_0_5CA3B4DE-D28C-4AF6-A047-93BBB660AC31.txt"
+File: FD09EE2B-3A65-4B6B-A6B3-5B8B5BDEE356.png, suggested name: "After earlier expansion 0_0_9BC13A6A-D0EF-4A6D-975D-5DB013D0977A.png"
+File: 59CB0C0E-06CC-4C16-9D7A-2DF8BE80BE4B.txt, suggested name: "After earlier expansion 0 first public UI observation (not first paint)_0_87B80FF1-BBDB-4ED3-8951-0A5E4301AF7C.txt"
+File: C927FE04-9488-4459-9DAB-7CEC0E064A0A.txt, suggested name: "Native content-top clearance and unchanged action semantics_0_321E874D-DE0E-45F8-8ADC-A8141BCF9425.txt"
+File: FF5FD295-09EC-4ED6-A273-DFF743352CE9.png, suggested name: "Before earlier expansion 0_0_15B96434-2B67-4F3E-91DA-81EC70F68600.png"
+File: 45DC3CA4-A5AC-41C2-9711-969CF0F9B094.txt, suggested name: "Before earlier expansion 0 first public UI observation (not first paint)_0_6FB8E3B2-5FC4-44B9-AB6A-012A0F106B71.txt"
+File: 55EB8F4D-142E-4435-8B61-8D5DF72E9930.txt, suggested name: "Native content-top clearance and unchanged action semantics_0_8F866400-3F57-46B6-86B2-958D45AE4264.txt"
+
+Exported 8 attachments for: CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls():
+File: 458E60A0-1CA0-4A5A-86BD-39BB2DC5C710.png, suggested name: "Session replacement uses existing generation handling_0_0857155B-AD4D-4B02-B644-D31CF6F1BC6D.png"
+File: 72B01BDA-21C4-46DC-83DC-36E55EED4676.txt, suggested name: "Session replacement uses existing generation handling first public UI observation (not first paint)_0_D8C85CEC-DF04-4237-A3F1-873691068382.txt"
+File: EF05188C-A95A-4F16-976D-73A0E25CAA8B.png, suggested name: "Returned draft and keyboard state_0_E82C2EC8-D8AC-4D57-AB1D-1545B4CD3475.png"
+File: 5BF7B329-B03D-4A04-954E-F48D84A8EBD8.txt, suggested name: "Returned draft and keyboard state first public UI observation (not first paint)_0_759E1154-670A-4377-88F5-E33A03DFA8A1.txt"
+File: F18A939C-BF4C-4C34-B0D8-818E91C7E0F4.png, suggested name: "Reload while hidden then re-show_0_932143C0-7CA1-47CF-A57F-F84BC848154F.png"
+File: 37AE6CBC-28F2-4276-BF5E-FAB4FAD56D9D.txt, suggested name: "Reload while hidden then re-show first public UI observation (not first paint)_0_F5990E37-A8F1-4FBE-9DAF-35E20317980E.txt"
+File: ABA77F5E-F741-44D7-BF97-119521589AE7.png, suggested name: "Reload while open_0_04A16CC1-3D24-4922-958C-2284A41A015E.png"
+File: A6B64F3A-EF90-4356-B292-FB5D776AC789.txt, suggested name: "Reload while open first public UI observation (not first paint)_0_FDEBC156-3A65-4D9A-B162-F612A530F5C6.txt"
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/f-r2/attachments/manifest.json

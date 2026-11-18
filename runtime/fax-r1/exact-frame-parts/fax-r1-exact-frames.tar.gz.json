@@ -1,0 +1,13 @@
+{
+  "original": "fax-r1-exact-frames.tar.gz",
+  "bytes": 40373724,
+  "sha256": "b20991b7bb8da07c1ec40e6b5e0f60c443dae0c0312468b8f014e6cc66641e1f",
+  "parts": [
+    {
+      "file": "fax-r1-exact-frames.tar.gz.part-000",
+      "bytes": 40373724,
+      "sha256": "b20991b7bb8da07c1ec40e6b5e0f60c443dae0c0312468b8f014e6cc66641e1f"
+    }
+  ],
+  "reassemble": "cat fax-r1-exact-frames.tar.gz.part-* > fax-r1-exact-frames.tar.gz"
+}

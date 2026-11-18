@@ -1,0 +1,99 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r6/DD -destination "platform=iOS Simulator,id=084847C5-EDC5-449B-BDAC-1BF5030D6DF7" -resultBundlePath /tmp/ux-582-proof/tickets/fl-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  Framebriar: /tmp/ux-582-proof/tickets/a-r6/source/Vendor/Framebriar @ local
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r6/source @ local
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/fl-r1/tests.xcresult
+
+2026-11-18 15:47:31.756947-0800 ClubhouseGoUITests-Runner[71300:458018529] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 15:47:35.385.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 15:47:35.385.
+Test Suite 'CompanionReadingOpeningUITests' started at 2026-11-18 15:47:35.385.
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit]' started.
+    t =     0.00s Start Test at 2026-11-18 15:47:35.386
+    t =     0.09s Set Up
+    t =     0.09s Getting device orientation
+    t =     0.09s Setting device orientation to Portrait
+    t =     0.09s     Device orientation changed to Portrait
+    t =     0.10s     Wait for com.apple.springboard to idle
+    t =     0.13s Open com.Agent-Clubhouse.Go
+    t =     0.13s     Launch com.Agent-Clubhouse.Go
+    t =     1.18s         Setting up automation session
+    t =     1.80s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.07s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.07s Waiting 10.0s for "reading-opening-state" StaticText to exist
+    t =     4.15s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-state" StaticText`
+    t =     4.15s         Checking existence of `"reading-opening-state" StaticText`
+    t =     5.28s Checking `Expect predicate `label CONTAINS "case=ready"` for object "reading-opening-state" StaticText`
+    t =     5.28s     Find the "reading-opening-state" StaticText
+    t =     5.30s Setting device orientation to Landscape Left
+    t =     5.30s     Device orientation changed to Landscape Left
+    t =     5.35s     Interface orientation changed to Landscape Right
+    t =     5.35s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     5.36s     Wait for com.apple.springboard to idle
+    t =     7.07s Checking `Expect predicate `BLOCKPREDICATE(0x600000d05080)` for object Target Application 'com.Agent-Clubhouse.Go'`
+    t =     7.07s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     7.08s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     7.10s Find the "reading-opening-state" StaticText
+    t =     7.13s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =     8.20s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =     8.20s         Checking existence of `"reading-opening-paused" Button`
+    t =     8.22s Find the "reading-opening-paused" Button
+    t =     8.23s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.24s Find the "reading-opening-paused" Button
+    t =     8.27s Tap "reading-opening-paused" Button
+    t =     8.28s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     8.28s     Find the "reading-opening-paused" Button
+    t =     8.29s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =     8.31s         Wait for com.apple.springboard to idle
+    t =     8.35s     Synthesize event
+    t =     8.75s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    10.01s Checking `Expect predicate `label CONTAINS "case=paused-expanded"` for object "reading-opening-state" StaticText`
+    t =    10.01s     Find the "reading-opening-state" StaticText
+    t =    10.16s Checking existence of `"Reading marker 90." StaticText`
+    t =    10.27s Find the "Reading marker 90." StaticText
+    t =    10.36s Find the NavigationBar (First Match)
+    t =    10.40s Find the "companion-composer-region" Any
+    t =    10.63s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    10.70s Find the "reading-opening-state" StaticText
+    t =    10.79s Checking existence of `Button (First Match)`
+    t =    10.83s Checking existence of `Keyboard (First Match)`
+    t =    11.04s Added attachment named 'Landscape diagnostic only; #483 visibility exclusion first public UI observation (not first paint)'
+    t =    11.04s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    11.20s Added attachment named 'Landscape diagnostic only; #483 visibility exclusion'
+    t =    11.20s Tear Down
+    t =    11.20s     Setting device orientation to Portrait
+    t =    11.20s         Device orientation changed to Portrait
+    t =    11.22s         Interface orientation changed to Portrait
+    t =    11.23s         Wait for com.Agent-Clubhouse.Go to idle
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit]' passed (11.565 seconds).
+Test Suite 'CompanionReadingOpeningUITests' passed at 2026-11-18 15:47:46.951.
+	 Executed 1 test, with 0 failures (0 unexpected) in 11.565 (11.566) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 15:47:46.951.
+	 Executed 1 test, with 0 failures (0 unexpected) in 11.565 (11.566) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 15:47:46.951.
+	 Executed 1 test, with 0 failures (0 unexpected) in 11.565 (11.566) seconds
+2026-11-18 15:47:47.286 xcodebuild[71203:458017530] [MT] IDETestOperationsObserverDebug: 18.194 elapsed -- Testing started completed.
+2026-11-18 15:47:47.286 xcodebuild[71203:458017530] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 15:47:47.286 xcodebuild[71203:458017530] [MT] IDETestOperationsObserverDebug: 18.194 sec, +18.194 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/fl-r1/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started
