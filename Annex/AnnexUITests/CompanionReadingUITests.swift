@@ -22,13 +22,55 @@ import UIKit
         // moves its content. Measure the unobscured window between the real bars.
         let top = app.navigationBars.firstMatch.frame.maxY
         let bottom = element(app, "companion-composer-region").frame.minY
-        return CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
+        let window = app.frame
+        return CGRect(x: window.minX, y: top, width: window.width, height: max(0, bottom - top))
     }
 
-    private struct ReadingRestoreFrames: Equatable {
+    private struct ReadingRestoreFrames {
         let anchor: CGRect
         let viewport: CGRect
         let keyboard: CGRect?
+
+        func isClose(to other: Self) -> Bool {
+            func close(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+                abs(lhs.minX - rhs.minX) <= 0.5 && abs(lhs.minY - rhs.minY) <= 0.5
+                    && abs(lhs.width - rhs.width) <= 0.5 && abs(lhs.height - rhs.height) <= 0.5
+            }
+            guard close(anchor, other.anchor), close(viewport, other.viewport) else { return false }
+            switch (keyboard, other.keyboard) {
+            case (nil, nil): return true
+            case let (lhs?, rhs?): return close(lhs, rhs)
+            default: return false
+            }
+        }
+    }
+
+    func testReadingRestorationFramesIgnoreNoiseButDetectMovement() {
+        let anchor = CGRect(x: 20, y: 209.6666666666582, width: 200, height: 22)
+        let viewport = CGRect(x: 0, y: 120, width: 393, height: 400)
+        let keyboard = CGRect(x: 0, y: 520, width: 393, height: 280)
+        let reference = ReadingRestoreFrames(anchor: anchor, viewport: viewport, keyboard: keyboard)
+        var noisyAnchor = anchor
+        noisyAnchor.origin.y = 209.66666666666183
+        XCTAssertTrue(reference.isClose(to: .init(anchor: noisyAnchor, viewport: viewport, keyboard: keyboard)))
+        XCTAssertTrue(reference.isClose(to: .init(anchor: anchor.offsetBy(dx: 0.5, dy: -0.5),
+                                                  viewport: viewport, keyboard: keyboard)))
+        for delta in [
+            CGRect(x: 0.51, y: 0, width: 0, height: 0),
+            CGRect(x: 0, y: 0.51, width: 0, height: 0),
+            CGRect(x: 0, y: 0, width: 0.51, height: 0),
+            CGRect(x: 0, y: 0, width: 0, height: 0.51),
+        ] {
+            let moved = CGRect(x: anchor.minX + delta.minX, y: anchor.minY + delta.minY,
+                               width: anchor.width + delta.width, height: anchor.height + delta.height)
+            XCTAssertFalse(reference.isClose(to: .init(anchor: moved, viewport: viewport, keyboard: keyboard)))
+        }
+        XCTAssertFalse(reference.isClose(to: .init(anchor: anchor, viewport: viewport.offsetBy(dx: 0, dy: 1), keyboard: keyboard)))
+        XCTAssertFalse(reference.isClose(to: .init(anchor: anchor, viewport: viewport, keyboard: keyboard.offsetBy(dx: 0, dy: 1))))
+        XCTAssertFalse(reference.isClose(to: .init(anchor: anchor, viewport: viewport, keyboard: nil)))
+        let hiddenKeyboard = ReadingRestoreFrames(anchor: anchor, viewport: viewport, keyboard: nil)
+        XCTAssertTrue(hiddenKeyboard.isClose(to: hiddenKeyboard))
+        XCTAssertFalse(hiddenKeyboard.isClose(to: reference))
     }
 
     /// Existence precedes the asynchronous bookmark restore. Observe public frames for
@@ -40,7 +82,7 @@ import UIKit
         let timeout: TimeInterval = 8
         let stableInterval: TimeInterval = 2.25
         var stableSince: TimeInterval?
-        var previous: ReadingRestoreFrames?
+        var stableFrames: ReadingRestoreFrames?
         var samples: [String] = []
         defer {
             let trace = XCTAttachment(string: samples.joined(separator: "\n"))
@@ -59,9 +101,13 @@ import UIKit
             let now = ProcessInfo.processInfo.systemUptime
             let current = ReadingRestoreFrames(anchor: frame, viewport: viewport, keyboard: keyboardFrame)
             let ready = exists && !frame.isEmpty && !viewport.isEmpty
-            if !ready || current != previous { stableSince = ready ? now : nil }
+            // Compare against the window's reference so small real steps cannot accumulate as stable.
+            let matches = stableFrames.map { current.isClose(to: $0) } ?? false
+            if !ready || !matches {
+                stableSince = ready ? now : nil
+                stableFrames = ready ? current : nil
+            }
             samples.append("t=\(now - start) exists=\(exists) anchor=\(frame) viewport=\(viewport) keyboard=\(String(describing: keyboardFrame)) stableFor=\(stableSince.map { now - $0 } ?? 0)")
-            previous = ready ? current : nil
             if now - start < timeout, let stableSince, now - stableSince >= stableInterval {
                 samples.append("settled t=\(now - start)")
                 return true
