@@ -129,7 +129,7 @@ struct CompanionHomeAnchorRow<Row: View>: View {
         frames.removeAll()
     }
 
-    func resume(_ proxy: ScrollViewProxy, position: Binding<ScrollPosition>, available: (CompanionHomeAnchor) -> Bool) {
+    func resume(_ proxy: ScrollViewProxy, available: (CompanionHomeAnchor) -> Bool) {
         guard presented, !resumeApplied, viewport.height > 0 else { return }
         resumeApplied = true
         suspended = false
@@ -138,14 +138,14 @@ struct CompanionHomeAnchorRow<Row: View>: View {
         guard bookmark != nil else { return }
         restoring = true
         restoreRequested = false
-        settle(proxy, position: position, generation: resumeGeneration, previous: nil,
+        settle(proxy, requestedAnchor: bookmark?.alignment ?? .top, generation: resumeGeneration, previous: nil,
                stableSamples: 0, corrections: 0, remaining: 60)
     }
 
     /// A bounded layout handshake, not a timer retained by the owner. Native List first
-    /// realises the DATA id, then pixel corrections use the row's actual measured delta.
+    /// realises the DATA id, then one identity correction uses the row's measured delta.
     /// Bars, lazy height estimates and row insets can change after the identity scroll.
-    private func settle(_ proxy: ScrollViewProxy, position: Binding<ScrollPosition>, generation: UInt64,
+    private func settle(_ proxy: ScrollViewProxy, requestedAnchor: UnitPoint, generation: UInt64,
                         previous: ScrollGeometry?, stableSamples: Int, corrections: Int, remaining: Int) {
         DispatchQueue.main.asyncAfter(deadline: .now() + .milliseconds(25)) { [weak self] in
             guard let self, self.presented, self.restoring, self.resumeGeneration == generation else { return }
@@ -153,36 +153,40 @@ struct CompanionHomeAnchorRow<Row: View>: View {
             let current = self.geometry
             let stable = current == previous ? stableSamples + 1 : 0
             var nextCorrections = corrections
-            if stable >= 8, let current, self.viewport.height > 0 {
+            if stable >= 8, current != nil, self.viewport.height > 0 {
                 if !self.restoreRequested {
                     self.restoreRequested = true
                     let id = self.bookmark?.id ?? .summary
                     #if DEBUG
                     CompanionHomeBuildProbe.scrollToIssued?(id)
                     #endif
-                    proxy.scrollTo(id, anchor: self.bookmark?.alignment ?? .top)
+                    proxy.scrollTo(id, anchor: requestedAnchor)
                     if self.bookmark == nil { self.cancelRestoration(); return }
-                    self.settle(proxy, position: position, generation: generation, previous: nil,
+                    self.settle(proxy, requestedAnchor: requestedAnchor, generation: generation, previous: nil,
                                 stableSamples: 0, corrections: 0, remaining: remaining - 1)
                     return
                 }
                 if let saved = self.bookmark, let frame = self.frames[saved.id] {
                     let desired = self.viewport.minY + saved.alignment.y * (self.viewport.height - frame.height)
                     let delta = frame.minY - desired
-                    if abs(delta) <= 1 || corrections >= 2 { self.cancelRestoration(); return }
-                    // ScrollPosition's y is normalized to the inset content origin, as in
-                    // the transcript's existing public-API pixel-position restoration.
-                    position.wrappedValue.scrollTo(y: max(0, current.contentOffset.y + current.contentInsets.top + delta))
+                    if abs(delta) <= 1 || corrections >= 1 { self.cancelRestoration(); return }
+                    let span = self.viewport.height - frame.height
+                    guard span > 0, span.isFinite else { self.cancelRestoration(); return }
+                    // Aligning the same unit point in the row and viewport gives this
+                    // correction. UnitPoint permits values outside the unit rectangle.
+                    let adjusted = UnitPoint(x: requestedAnchor.x, y: requestedAnchor.y - delta / span)
+                    guard adjusted.y.isFinite else { self.cancelRestoration(); return }
+                    proxy.scrollTo(saved.id, anchor: adjusted)
                     nextCorrections += 1
-                    self.settle(proxy, position: position, generation: generation, previous: nil,
+                    self.settle(proxy, requestedAnchor: adjusted, generation: generation, previous: nil,
                                 stableSamples: 0, corrections: nextCorrections, remaining: remaining - 1)
                     return
                 } else if let saved = self.bookmark, corrections == 0 {
                     proxy.scrollTo(saved.id, anchor: saved.alignment)
-                    nextCorrections += 1 // One identity retry shares the two-correction budget.
+                    nextCorrections += 1 // One identity retry consumes the correction budget.
                 }
             }
-            self.settle(proxy, position: position, generation: generation, previous: current,
+            self.settle(proxy, requestedAnchor: requestedAnchor, generation: generation, previous: current,
                         stableSamples: stable, corrections: nextCorrections, remaining: remaining - 1)
         }
     }

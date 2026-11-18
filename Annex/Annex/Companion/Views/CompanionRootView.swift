@@ -457,7 +457,6 @@ struct CompanionHomeView: View {
     @State private var heldScope: CompanionDesktopSelection = .all
     @State private var heldSort: CompanionProjectSort = .recent
     @State private var holdGeneration: UInt64 = 0
-    @State private var homeScrollPosition = ScrollPosition()
     @StateObject private var localScrollAnchor = CompanionHomeScrollAnchorState()
     private var scrollAnchor: CompanionHomeScrollAnchorState { navigationAnchor ?? localScrollAnchor }
     @StateObject private var renderSession = CompanionHomeRenderSession()
@@ -690,13 +689,12 @@ struct CompanionHomeView: View {
         .onChange(of: !isPushed && scenePhase == .active && hold == nil, initial: true) { _, needsSnapshot in
             if needsSnapshot && preferences.projectSort == .recent { setHold(layout.hold, scope: renderedScope, sort: renderedSort, generation: renderedGeneration) }
         }
-        .scrollPosition($homeScrollPosition)
         .onScrollGeometryChange(for: ScrollGeometry.self, of: { $0 }) { _, geometry in
             scrollAnchor.setGeometry(geometry)
-            if !isPushed { scrollAnchor.resume(proxy, position: $homeScrollPosition) { anchorAvailable($0, layout: layout) } }
+            if !isPushed { scrollAnchor.resume(proxy) { anchorAvailable($0, layout: layout) } }
         }
         .onChange(of: isPushed) { _, pushed in
-            if !pushed { scrollAnchor.resume(proxy, position: $homeScrollPosition) { anchorAvailable($0, layout: layout) } }
+            if !pushed { scrollAnchor.resume(proxy) { anchorAvailable($0, layout: layout) } }
         }
         .onAppear {
             observeConnectedHosts(renderHosts)
