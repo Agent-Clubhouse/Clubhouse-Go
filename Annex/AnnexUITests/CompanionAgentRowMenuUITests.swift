@@ -89,11 +89,14 @@ import XCTest
         for step in 0...8 {
             let viewport = menuViewport(in: app)
             let frame = item.frame
-            let geometry = "step=\(step) label=\(item.label) item=\(frame) viewport=\(viewport) hittable=\(item.isHittable) enabled=\(item.isEnabled)"
+            let menu = app.collectionViews.containing(.button, identifier: "Agent details").firstMatch
+            let tallestItem = menu.buttons.allElementsBoundByIndex.map { $0.frame.height }.max() ?? 0
+            let geometry = "tallestItem=\(tallestItem) step=\(step) label=\(item.label) item=\(frame) viewport=\(viewport) hittable=\(item.isHittable) enabled=\(item.isEnabled)"
             let record = XCTAttachment(string: geometry); record.name = "Native menu reveal geometry"; record.lifetime = .keepAlways
             add(record)
             capture(app, "Native menu reveal \(step) — \(item.label)")
             XCTAssertFalse(viewport.isNull, "A public native menu clip is required", file: file, line: line)
+            XCTAssertGreaterThan(viewport.height, tallestItem, "The clip must be the menu panel, not a single item's wrapper: " + geometry, file: file, line: line)
             XCTAssertLessThanOrEqual(frame.height, viewport.height, "This item must fit without truncating its full label", file: file, line: line)
             if viewport.contains(frame) { return }
             XCTAssertTrue(allowScroll, "Standard-size native menus must need zero drags: " + geometry, file: file, line: line)
