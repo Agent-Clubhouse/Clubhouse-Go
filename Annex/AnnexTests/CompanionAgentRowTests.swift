@@ -1,5 +1,6 @@
 import XCTest
 import SwiftUI
+import Vision
 @testable import ClubhouseGo
 
 @MainActor final class CompanionAgentRowTests: XCTestCase {
@@ -62,6 +63,76 @@ import SwiftUI
         XCTAssertEqual(CompanionAgentStatusLine(agent: value).task, value.subtitle)
         value.subtitle = ""
         XCTAssertEqual(CompanionAgentStatusLine(agent: value).task, "Bash")
+    }
+
+    func testLivePermissionToolWinsOverDifferentCatalogTool() {
+        var value = agent
+        value.detail = .init(state: "needs_permission", message: "Run stale command", toolName: "Bash")
+        let line = CompanionAgentStatusLine(agent: value, detail: "Needs permission to use Edit")
+        XCTAssertEqual(line.status, "Needs permission")
+        XCTAssertEqual(line.task, "Edit", "Use the live approval's tool, not the stale catalog task")
+    }
+
+    func testLivePermissionToolSurvivesMissingCatalogTool() {
+        let line = CompanionAgentStatusLine(agent: agent, detail: "Needs permission to use Edit")
+        XCTAssertEqual(line.status, "Needs permission")
+        XCTAssertEqual(line.task, "Edit")
+    }
+
+    func testMissingSuppliedPermissionToolKeepsUsefulTask() {
+        var value = agent
+        value.detail = .init(state: "needs_permission", message: "Review requested action", toolName: "Bash")
+        for detail in ["Needs permission", "Needs permission to use", "Needs permission to use   "] {
+            XCTAssertEqual(CompanionAgentStatusLine(agent: value, detail: detail).task, "Review requested action")
+        }
+    }
+
+    func testPermissionNormalizationLeavesOtherStatesAndTaskLabelsAlone() {
+        var value = agent
+        let states: [CompanionAgentStatus] = [.working, .waiting, .failed]
+        for status in states {
+            value.status = status
+            let detail = "Needs permission to use Edit"
+            XCTAssertEqual(CompanionAgentStatusLine(agent: value, detail: detail).task, detail)
+        }
+        value.status = .approval
+        XCTAssertEqual(CompanionAgentStatusLine(agent: value, detail: "Review the generated patch").task,
+                       "Review the generated patch")
+    }
+
+    func testLivePermissionRowAtNarrowWidthAndAccessibilityText() throws {
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let previous = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = CGRect(x: 0, y: 0, width: 320, height: 568)
+        defer { window.isHidden = true; window.rootViewController = nil; previous?.makeKey() }
+        var value = agent
+        value.detail = .init(state: "needs_permission", message: "Stale command", toolName: "Bash")
+        for (name, type, scheme) in [("narrow light", DynamicTypeSize.large, ColorScheme.light),
+                                     ("narrow dark", .large, .dark), ("AX3", .accessibility3, .light)] {
+            let content = VStack {
+                CompanionAgentListRow(agent: value, detail: "Needs permission to use Edit")
+                Spacer()
+            }.padding(16).dynamicTypeSize(type).environment(\.colorScheme, scheme).companionBackground()
+            let hosting = UIHostingController(rootView: content)
+            window.rootViewController = hosting
+            window.makeKeyAndVisible()
+            window.layoutIfNeeded(); hosting.view.layoutIfNeeded()
+            let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+                window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
+            }
+            let request = VNRecognizeTextRequest()
+            request.recognitionLevel = .accurate
+            try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
+            let text = (request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []).joined(separator: " ")
+            let pixels = XCTAttachment(image: image); pixels.name = "573 permission row \(name)"; pixels.lifetime = .keepAlways
+            add(pixels)
+            let words = XCTAttachment(string: text); words.name = "573 permission row OCR \(name)"; words.lifetime = .keepAlways
+            add(words)
+            XCTAssertTrue(text.contains("Needs permission") && text.contains("Edit"), text)
+            XCTAssertEqual(text.components(separatedBy: "Needs permission").count - 1, 1, text)
+            XCTAssertFalse(text.contains("Bash") || text.contains("Stale command"), text)
+        }
     }
 
     func testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail() {

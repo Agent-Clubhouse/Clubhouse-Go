@@ -21,7 +21,22 @@ struct CompanionAgentStatusLine: Equatable {
         if agent.status == .approval, let tool = agent.detail?.toolName {
             fallback = CompanionAttentionItem.shortToolName(tool)
         } else { fallback = nil }
-        let candidates = [supplied, message, agent.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)]
+        // Home supplies the live request's permission sentence. Its tool can differ from
+        // the catalog's stale tool: keep that requested tool, without a second state.
+        // Matching catalog sentences still defer to the existing descriptive task.
+        let suppliedTask: String?
+        let permissionPrefix = "Needs permission to use "
+        if agent.status == .approval, let supplied, supplied != permissionLine,
+           supplied.hasPrefix(permissionPrefix) {
+            let tool = String(supplied.dropFirst(permissionPrefix.count))
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+            suppliedTask = tool.isEmpty ? nil : tool
+        } else if agent.status == .approval, supplied == "Needs permission to use" {
+            suppliedTask = nil
+        } else {
+            suppliedTask = supplied
+        }
+        let candidates = [suppliedTask, message, agent.subtitle.trimmingCharacters(in: .whitespacesAndNewlines)]
         status = state
         task = candidates.compactMap { $0 }.first { value in
             !value.isEmpty && value != state && value != agent.status.label
