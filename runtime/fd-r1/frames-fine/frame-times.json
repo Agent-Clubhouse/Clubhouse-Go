@@ -1,0 +1,261 @@
+[
+  {
+    "actualSeconds" : 20.953333333333333,
+    "file" : "frame-0000-21.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 21,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.003333333333334,
+    "file" : "frame-0001-21.017.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.016667000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.003333333333334,
+    "file" : "frame-0002-21.033.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.033332999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.003333333333334,
+    "file" : "frame-0003-21.050.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.050000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.053333333333335,
+    "file" : "frame-0004-21.067.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.066666999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.053333333333335,
+    "file" : "frame-0005-21.083.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.083333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.053333333333335,
+    "file" : "frame-0006-21.100.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.100000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.111666666666668,
+    "file" : "frame-0007-21.117.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.116667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.111666666666668,
+    "file" : "frame-0008-21.133.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.133333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.111666666666668,
+    "file" : "frame-0009-21.150.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.149999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.151666666666667,
+    "file" : "frame-0010-21.167.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.166667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.173333333333332,
+    "file" : "frame-0011-21.183.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.183333000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.173333333333332,
+    "file" : "frame-0012-21.200.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.199999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.215,
+    "file" : "frame-0013-21.217.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.216667000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.23,
+    "file" : "frame-0014-21.233.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.233332999999998,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.246666666666666,
+    "file" : "frame-0015-21.250.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.25,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.265000000000001,
+    "file" : "frame-0016-21.267.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.266667000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.281666666666666,
+    "file" : "frame-0017-21.283.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.283332999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.298333333333332,
+    "file" : "frame-0018-21.300.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.300000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.316666666666666,
+    "file" : "frame-0019-21.317.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.316666999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.331666666666667,
+    "file" : "frame-0020-21.333.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.350000000000001,
+    "file" : "frame-0021-21.350.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.350000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.366666666666667,
+    "file" : "frame-0022-21.367.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.366667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.379999999999999,
+    "file" : "frame-0023-21.383.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.383333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.396666666666668,
+    "file" : "frame-0024-21.400.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.399999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.414999999999999,
+    "file" : "frame-0025-21.417.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.416667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.43,
+    "file" : "frame-0026-21.433.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.433333000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.449999999999999,
+    "file" : "frame-0027-21.450.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.449999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.465,
+    "file" : "frame-0028-21.467.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.466667000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.481666666666666,
+    "file" : "frame-0029-21.483.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.483332999999998,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.481666666666666,
+    "file" : "frame-0030-21.500.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.5,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.516666666666666,
+    "file" : "frame-0031-21.517.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.516667000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.530000000000001,
+    "file" : "frame-0032-21.533.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.533332999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.548333333333332,
+    "file" : "frame-0033-21.550.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.550000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.566666666666666,
+    "file" : "frame-0034-21.567.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.566666999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.566666666666666,
+    "file" : "frame-0035-21.583.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.583333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 21.598333333333333,
+    "file" : "frame-0036-21.600.png",
+    "height" : 2868,
+    "requestedSeconds" : 21.600000000000001,
+    "width" : 1320
+  }
+]

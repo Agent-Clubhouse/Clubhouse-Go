@@ -1,0 +1,240 @@
+[
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0000-16.550.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.550000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0001-16.567.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.566666999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0002-16.583.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.583333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0003-16.600.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.600000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0004-16.617.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.616667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0005-16.633.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.633333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0006-16.650.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.649999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0007-16.667.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 14.916666666666666,
+    "file" : "frame-0008-16.683.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.683333000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.699999999999999,
+    "file" : "frame-0009-16.700.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.699999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.711666666666666,
+    "file" : "frame-0010-16.717.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.716667000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.73,
+    "file" : "frame-0011-16.733.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.733332999999998,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.73,
+    "file" : "frame-0012-16.750.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.75,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.761666666666667,
+    "file" : "frame-0013-16.767.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.766667000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.778333333333332,
+    "file" : "frame-0014-16.783.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.783332999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.795000000000002,
+    "file" : "frame-0015-16.800.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.800000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.811666666666667,
+    "file" : "frame-0016-16.817.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.816666999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.829999999999998,
+    "file" : "frame-0017-16.833.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.833333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.846666666666668,
+    "file" : "frame-0018-16.850.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.850000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.863333333333333,
+    "file" : "frame-0019-16.867.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.866667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.879999999999999,
+    "file" : "frame-0020-16.883.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.883333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.896666666666668,
+    "file" : "frame-0021-16.900.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.899999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.913333333333334,
+    "file" : "frame-0022-16.917.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.916667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.93,
+    "file" : "frame-0023-16.933.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.933333000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.946666666666665,
+    "file" : "frame-0024-16.950.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.949999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.961666666666666,
+    "file" : "frame-0025-16.967.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.966667000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.978333333333332,
+    "file" : "frame-0026-16.983.png",
+    "height" : 2868,
+    "requestedSeconds" : 16.983332999999998,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 16.995000000000001,
+    "file" : "frame-0027-17.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 17,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.015000000000001,
+    "file" : "frame-0028-17.017.png",
+    "height" : 2868,
+    "requestedSeconds" : 17.016667000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.030000000000001,
+    "file" : "frame-0029-17.033.png",
+    "height" : 2868,
+    "requestedSeconds" : 17.033332999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.048333333333332,
+    "file" : "frame-0030-17.050.png",
+    "height" : 2868,
+    "requestedSeconds" : 17.050000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.063333333333333,
+    "file" : "frame-0031-17.067.png",
+    "height" : 2868,
+    "requestedSeconds" : 17.066666999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.081666666666667,
+    "file" : "frame-0032-17.083.png",
+    "height" : 2868,
+    "requestedSeconds" : 17.083333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.094999999999999,
+    "file" : "frame-0033-17.100.png",
+    "height" : 2868,
+    "requestedSeconds" : 17.100000000000001,
+    "width" : 1320
+  }
+]

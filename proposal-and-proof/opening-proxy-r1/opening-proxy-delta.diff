@@ -1,0 +1,102 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index d3c56d725..52b9f540c 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -617,6 +617,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
+     @State private var pendingIdentityRelease = false
+     @State private var transcriptIsMounted = true
++    @State private var didRequestOpeningIdentity = false
+     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
+     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+@@ -919,7 +920,19 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+                 readingViewport.restoration = restoration
+                 await restoreReadingPosition(saved, id: restoration.id)
+             }
+-            .onAppear { transcriptIsMounted = true }
++            .onAppear {
++                transcriptIsMounted = true
++                // Consume once for this transcript identity, including Latest/missing-ID openings.
++                // A retained appearance or history reload must not replay a stale bookmark request.
++                guard !didRequestOpeningIdentity else { return }
++                didRequestOpeningIdentity = true
++                guard !followLatest, !identityPositionIsUserOwned,
++                      let id = readingScrollPosition.viewID(type: String.self) else { return }
++                #if DEBUG
++                traceOpening(.openingRequest, firstEntryID: entries.first?.id)
++                #endif
++                proxy.scrollTo(id, anchor: .top)
++            }
+             .onDisappear {
+                 transcriptIsMounted = false
+                 pendingIdentityRelease = false
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
+index 33fe6f4f5..1ad32ff22 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
+@@ -17,6 +17,13 @@ struct CompanionReadingOpeningFixture: View {
+     @State private var status = "loading"
+     private var store: CompanionStore { lifetime.value }
+     private var target: CompanionTarget? { agents.indices.contains(selected) ? agents[selected].id : nil }
++    private var theme: CompanionDesktopTheme { CompanionPreviewService.appearanceTheme ?? .clubhouse }
++    private var colorScheme: ColorScheme {
++        let arguments = ProcessInfo.processInfo.arguments
++        if arguments.contains("--companion-preview-light") { return .light }
++        if arguments.contains("--companion-preview-dark") { return .dark }
++        return theme.mode == .light ? .light : .dark
++    }
+ 
+     var body: some View {
+         VStack(spacing: 0) {
+@@ -77,6 +84,8 @@ struct CompanionReadingOpeningFixture: View {
+                 }.buttonStyle(.bordered).font(.caption)
+             }.accessibilityIdentifier("reading-opening-actions")
+         }
++        .companionTheme(theme)
++        .preferredColorScheme(colorScheme)
+         .task {
+             let preview = CompanionPreviewService(showsReadingScenario: true)
+             var events = preview.events().makeAsyncIterator()
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift b/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift
+index e0494138f..8d19f9619 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift
+@@ -3,7 +3,7 @@ import SwiftUI
+ 
+ /// Opt-in test observation only. No transcript text, State writes, timers or production callback.
+ @MainActor enum CompanionReadingOpeningProbe {
+-    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump }
++    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump, openingRequest }
+     struct Sample {
+         let phase: Phase
+         let mountID: UUID
+diff --git a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+index 052b63f56..0dbe09c8f 100644
+--- a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+@@ -17,13 +17,22 @@ import UIKit
+         }
+         let button = app.buttons["reading-opening-" + id]
+         let strip = app.scrollViews["reading-opening-actions"]
++        func canTap() -> Bool {
++            guard button.exists else { return false }
++            let frame = button.frame
++            guard !frame.isEmpty, !frame.isNull, !frame.isInfinite,
++                  frame.minX.isFinite, frame.minY.isFinite,
++                  frame.maxX.isFinite, frame.maxY.isFinite,
++                  strip.frame.intersects(frame) else { return false }
++            return button.isHittable
++        }
+         for _ in 0..<8 {
+             checkTimeLeft("revealing recording-fixture control")
+-            if button.isHittable { tap(button); return }
++            if canTap() { tap(button); return }
+             strip.swipeLeft()
+         }
+         for _ in 0..<8 {
+-            if button.isHittable { tap(button); return }
++            if canTap() { tap(button); return }
+             strip.swipeRight()
+         }
+         XCTFail("The recording-fixture control must be reachable: \(id)")
