@@ -878,16 +878,19 @@ struct CompanionHomeView: View {
         if !shown.isEmpty {
             Section {
                 ForEach(shown) { host in
-                    let hostTag: String? = multipleHosts ? host.name : nil
-                    let activity: CompanionCapturedActivity? = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
-                    let openAgent: (@MainActor (CompanionTarget) -> Void)? = display == nil ? nil : frozenActions?.openAgent
-                    CompanionDispatcherRow(store: store, host: host, hostTag: hostTag,
-                                           capturedActivity: activity, capturedOpenAgent: openAgent)
-
-                        .listRowBackground(CompanionCardBackground())
+                    dispatcherRow(for: host)
                 }
             }
         }
+    }
+
+    @ViewBuilder private func dispatcherRow(for host: CompanionHost) -> some View {
+        let hostTag: String? = multipleHosts ? host.name : nil
+        let activity: CompanionCapturedActivity? = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
+        let openAgent: (@MainActor (CompanionTarget) -> Void)? = display == nil ? nil : frozenActions?.openAgent
+        CompanionDispatcherRow(store: store, host: host, hostTag: hostTag,
+                               capturedActivity: activity, capturedOpenAgent: openAgent)
+            .listRowBackground(CompanionCardBackground())
     }
 
     private var orderedProjects: [CompanionProjectEntry] {
