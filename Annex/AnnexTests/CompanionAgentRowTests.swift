@@ -112,8 +112,10 @@ import Vision
                                      ("narrow dark", .large, .dark), ("AX3", .accessibility3, .light)] {
             let content = VStack {
                 CompanionAgentListRow(agent: value, detail: "Needs permission to use Edit")
+                    .background(CompanionCardBackground())
                 Spacer()
-            }.padding(16).dynamicTypeSize(type).environment(\.colorScheme, scheme).companionBackground()
+            }.padding(16).dynamicTypeSize(type).companionBackground()
+                .companionTheme(.clubhouse).environment(\.colorScheme, scheme)
             let hosting = UIHostingController(rootView: content)
             window.rootViewController = hosting
             window.makeKeyAndVisible()
@@ -121,9 +123,18 @@ import Vision
             let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
                 window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
             }
+            // Fixture: 16pt padding + 32pt avatar + 12pt gap puts labels at x60.
+            // Exclude only the avatar (including its status dot), leaving 4pt before labels.
+            let full = try XCTUnwrap(image.cgImage)
+            let left = 56 * image.scale
+            let crop = try XCTUnwrap(full.cropping(to: CGRect(x: left, y: 0,
+                width: CGFloat(full.width) - left, height: CGFloat(full.height))))
+            let croppedPixels = XCTAttachment(image: UIImage(cgImage: crop, scale: image.scale, orientation: .up))
+            croppedPixels.name = "573 permission row label crop \(name)"; croppedPixels.lifetime = .keepAlways
+            add(croppedPixels)
             let request = VNRecognizeTextRequest()
             request.recognitionLevel = .accurate
-            try VNImageRequestHandler(cgImage: XCTUnwrap(image.cgImage)).perform([request])
+            try VNImageRequestHandler(cgImage: crop).perform([request])
             let text = (request.results?.compactMap { $0.topCandidates(1).first?.string } ?? []).joined(separator: " ")
             let pixels = XCTAttachment(image: image); pixels.name = "573 permission row \(name)"; pixels.lifetime = .keepAlways
             add(pixels)
