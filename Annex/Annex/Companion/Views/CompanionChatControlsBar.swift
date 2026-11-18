@@ -80,11 +80,10 @@ struct CompanionChatControlsBar: View, Equatable {
             }
         } label: {
             if usesSingleLinePermissionRows {
-                // Native nested menus ignore custom AX names. Give the title its
-                // context directly, and retain the current level as the subtitle.
-                // The short native back title also avoids wrapping at XL.
+                // Native nested menus ignore custom AX names, so name the context
+                // directly. A subtitle also consumes the back-header budget at XL.
+                // The circle's AX label and selected choice retain the current level.
                 Text("Permissions")
-                Text(current.label)
             } else if compact { Label(current.label, systemImage: "shield") }
             else {
                 chip(current.label, systemImage: "shield", menu: controls.canChangeLevel)

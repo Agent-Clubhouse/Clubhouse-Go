@@ -49,18 +49,23 @@ import XCTest
         // independently of the app's title, available-height budget or AX value.
         // Both landscape keyboards and SE's portrait keyboard leave short windows,
         // including SE at accessibility sizes; native scrolling is still allowed there.
-        let expectsTightMenu = landscape || app.frame.height < 800
-        expectedBackTitle = expectsTightMenu ? "Permissions" : "Auto-accept edits"
+        let shortWindow = landscape || app.frame.height < 800
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
+        // The native outer menu can dismiss the keyboard at AX sizes/landscape.
+        // Its actual visible frame is independent of the app's title or fit budget.
+        let menuKeyboard = visibleKeyboardFrame(app)
+        let expectsTightMenu = shortWindow && menuKeyboard != nil
+        expectedBackTitle = expectsTightMenu ? "Permissions" : "Auto-accept edits"
+        print("PERMISSION_MENU_LAYOUT shortWindow=\(shortWindow) keyboard=\(String(describing: menuKeyboard)) tight=\(expectsTightMenu)")
         let permissions = app.buttons["companion-permissions-menu"]
         let context = ([permissions.label, permissions.value as? String ?? ""]
                        + permissions.staticTexts.allElementsBoundByIndex.map(\.label)).joined(separator: " · ")
         print("PERMISSION_MENU_CONTEXT \(context)")
         capture(app, "native permissions entry \(appearance)")
         if expectsTightMenu {
-            XCTAssertTrue(permissions.label.hasPrefix("Permissions"), "Short editing requires the native Permissions title")
-            XCTAssertTrue(context.contains("Permissions") && context.contains("Auto-accept edits"),
-                          "The native title and subtitle expose both permissions context and the current level: \(context)")
+            XCTAssertEqual(permissions.label, "Permissions", "Short editing requires the native Permissions title")
+            // Native title-only layout trades the entry's current-level subtitle
+            // for room. The circle above names it; the checked row below shows it.
         } else {
             // Roomy native menus keep their original current-level title and shield;
             // their expanded Permissions heading supplies the section context.
@@ -68,6 +73,11 @@ import XCTest
             XCTAssertTrue(permissions.images.matching(identifier: "shield").firstMatch.exists)
         }
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
+        capture(app, "expanded permissions \(appearance)")
+        let initialBack = backHeader(app)
+        XCTAssertTrue(initialBack.exists, "The native back header matches the independently expected layout")
+        XCTAssertLessThanOrEqual(initialBack.frame.maxY, app.buttons["companion-level-plan"].frame.minY + 1,
+                                 "Before scrolling, the matched header is above the first level, not another button")
         XCTAssertEqual(composer.value as? String, "Permission menu draft", "Opening a native menu preserves the draft")
         if visibleKeyboardFrame(app) == nil {
             XCTAssertTrue(app.keyboards.allElementsBoundByIndex.allSatisfy { keyboard in
@@ -120,7 +130,7 @@ import XCTest
         // Native submenu headers can remain above scrolled cells. A row behind one isn't readable.
         // Require the independently expected title, rather than accepting either.
         // Its sticky back button must exclude exactly the same covered area.
-        let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", expectedBackTitle, "")).firstMatch
+        let back = backHeader(app)
         XCTAssertTrue(back.exists, "The native back header must match the independently expected layout")
         let section = app.staticTexts["Permissions"]
         for header in [back, section] where header.exists && header.frame.intersects(visible) {
@@ -128,6 +138,10 @@ import XCTest
             visible = CGRect(x: visible.minX, y: top, width: visible.width, height: visible.maxY - top)
         }
         return visible
+    }
+
+    private func backHeader(_ app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", expectedBackTitle, "")).firstMatch
     }
 
     private func assertFullText(_ row: XCUIElement, expected: String) {
