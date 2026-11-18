@@ -74,16 +74,18 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
         }
         .onChange(of: ActivityFit(available: maximumHeight, composer: activityFloor,
                                 requests: requestFloorHeight, hasRequests: hasGrantRequests || hasPendingDecisions), initial: true) { _, fit in
-            guard fit.measured else { return }
             // The editor minimum includes its image row, actions, inset and one native line.
             // Neither this floor nor the caption metric depends on the current tool text,
             // the line's visibility, the placed editor, or expanded/collapsed tray state.
-            if showsWorkingActivity && fit.needed > fit.available {
+            if fit.measured && showsWorkingActivity && fit.needed > fit.available {
                 showsWorkingActivity = false
-            } else if !showsWorkingActivity && fit.needed + 8 <= fit.available {
+            } else if fit.measured && !showsWorkingActivity && fit.needed + 8 <= fit.available {
                 // Keep an 8pt reappearance band so fractional geometry cannot toggle the line.
                 showsWorkingActivity = true
             }
+            #if DEBUG
+            print("ACTIVITY_FIT available=\(fit.available) editor=\(fit.composer.editor) line=\(fit.composer.line) requests=\(fit.requests) needed=\(fit.needed) measured=\(fit.measured) shown=\(showsWorkingActivity)")
+            #endif
         }
         #if DEBUG
         // Classify capped vs naturally sized footers without adding another AX element.
