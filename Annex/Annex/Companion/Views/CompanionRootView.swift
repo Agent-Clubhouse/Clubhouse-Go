@@ -884,11 +884,16 @@ struct CompanionHomeView: View {
         }
     }
 
-    @ViewBuilder private func dispatcherRow(for host: CompanionHost) -> some View {
+    private func dispatcherRow(for host: CompanionHost) -> some View {
         let hostTag: String? = multipleHosts ? host.name : nil
         let activity: CompanionCapturedActivity? = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
-        let openAgent: (@MainActor (CompanionTarget) -> Void)? = display == nil ? nil : frozenActions?.openAgent
-        CompanionDispatcherRow(store: store, host: host, hostTag: hostTag,
+        let openAgent: (@MainActor (CompanionTarget) -> Void)?
+        if display == nil {
+            openAgent = nil
+        } else {
+            openAgent = frozenActions?.openAgent
+        }
+        return CompanionDispatcherRow(store: store, host: host, hostTag: hostTag,
                                capturedActivity: activity, capturedOpenAgent: openAgent)
             .listRowBackground(CompanionCardBackground())
     }
