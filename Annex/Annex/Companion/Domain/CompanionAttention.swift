@@ -178,9 +178,18 @@ struct CompanionAttentionItem: Identifiable, Sendable, Equatable {
     }
 
     static let questionLine = "Has a question for you"
+    private static let permissionToolPrefix = "Needs permission to use"
     static func permissionLine(toolName: String?) -> String {
         guard let toolName, !toolName.isEmpty else { return "Needs permission" }
-        return "Needs permission to use \(shortToolName(toolName))"
+        return "\(permissionToolPrefix) \(shortToolName(toolName))"
+    }
+
+    /// A permission sentence already has a state word; list rows only need its live tool.
+    /// Keep generation and normalization together so their wording cannot drift.
+    static func taskFromPermissionLine(_ detail: String) -> String? {
+        guard detail == permissionToolPrefix || detail.hasPrefix(permissionToolPrefix + " ") else { return detail }
+        let tool = String(detail.dropFirst(permissionToolPrefix.count)).trimmingCharacters(in: .whitespacesAndNewlines)
+        return tool.isEmpty ? nil : tool
     }
     /// A failed tool is named as a failure, never just the tool, so it isn't read as a permission prompt.
     private var failureLine: String {

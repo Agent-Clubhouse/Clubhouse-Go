@@ -371,8 +371,8 @@ import ClubhouseTransport
         }
         assertSeedRetained()
         try await fixture.mount()
-        let initialText = try await fixture.waitForRenderedText("Needs permission to use Edit")
-        XCTAssertTrue(initialText.contains("Needs permission to use Edit"), "Home must show the actual pending approval")
+        let initialText = try await fixture.waitForRenderedText("Edit", excluding: "Needs permission to use")
+        XCTAssertTrue(initialText.replacingOccurrences(of: "•", with: "·").contains("Needs permission · Edit"), "Home must show the actual pending approval")
         assertSeedRetained()
         try await fixture.waitForVisibleWorkToSettle()
         let kinds: Set<CompanionHomeBuildProbe.Kind> = [.owner, .contentInputs, .content, .layout, .header]
@@ -412,17 +412,17 @@ import ClubhouseTransport
 
         approval.toolName = "Shell"
         fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
-        let changedText = try await fixture.waitForRenderedText("Needs permission to use Shell")
-        XCTAssertTrue(changedText.contains("Needs permission to use Shell"), "Decision metadata must refresh without a host report")
+        let changedText = try await fixture.waitForRenderedText("Shell", excluding: "Needs permission to use")
+        XCTAssertTrue(changedText.replacingOccurrences(of: "•", with: "·").contains("Needs permission · Shell"), "Decision metadata must refresh without a host report")
         approval.resolution = .denied
         fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
         let question = CompanionQuestion(id: "home-question", prompts: [.init(id: "prompt", text: "Generated question",
             options: [], allowsMultiple: false, allowsFreeText: true)])
         fixture.store.apply(.upsert(target, .question(question), sequence: nil))
         XCTAssertEqual(fixture.store.homeAttentionItems().first { $0.agent.id == target }?.kind, .question(question))
-        let retainedRowText = try await fixture.waitForRenderedText("Synthetic agent 1", excluding: "use Shell")
+        let retainedRowText = try await fixture.waitForRenderedText("Synthetic agent 1", excluding: "Shell")
         XCTAssertTrue(retainedRowText.contains("Synthetic agent 1"), "Resolving an approval must keep the pending question's row")
-        XCTAssertFalse(retainedRowText.contains("use Shell"), "The resolved approval must not remain rendered")
+        XCTAssertFalse(retainedRowText.contains("Shell"), "The resolved approval must not remain rendered")
         // Home's status label follows the desktop report, not the question event alone.
         fixture.hosts[0].projects[0].agents[1].status = .waiting
         fixture.hosts[0].projects[0].agents[1].detail = .init(state: "needs_input", message: "Generated question")
@@ -430,7 +430,7 @@ import ClubhouseTransport
         let questionText = try await fixture.waitForRenderedText("Has a question")
         XCTAssertTrue(questionText.contains("Has a question"))
         XCTAssertTrue(questionText.contains("Generated question"))
-        XCTAssertFalse(questionText.contains("use Shell"), "The resolved approval must not reappear after the waiting report")
+        XCTAssertFalse(questionText.contains("Shell"), "The resolved approval must not reappear after the waiting report")
         fixture.hosts[0].projects[0].agents[1].status = .working
         fixture.store.apply(.hosts(fixture.hosts))
         let emptyText = try await fixture.waitForRenderedText("Nothing needs you right now")
