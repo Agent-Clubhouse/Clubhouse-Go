@@ -2,6 +2,7 @@ import SwiftUI
 
 extension EnvironmentValues {
     @Entry var companionComposerFitsGrantFooter = false
+    @Entry var companionWorkingActivityVisible = true
 }
 
 /// Footer measurements stay out of the conversation's observation boundary, just like draft edits.
@@ -13,6 +14,20 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
     @ViewBuilder var composer: Composer
     @State private var idealComposerHeight: CGFloat = 0
     @State private var footerHeight: CGFloat = 0
+    @State private var activityFloor = CompanionActivityFloor.zero
+    @State private var requestFloorHeight: CGFloat = 0
+    @State private var showsWorkingActivity = true
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
+
+    private struct ActivityFit: Equatable {
+        let available: CGFloat
+        let composer: CompanionActivityFloor
+        let requests: CGFloat
+        let hasRequests: Bool
+        var measured: Bool { composer.editor > 0 && composer.line > 0 && (!hasRequests || requests > 0) }
+        var needed: CGFloat { composer.editor + composer.line + requests }
+    }
 
     var body: some View {
         // Keep the composer mounted across fit/keyboard changes. When the keyboard leaves less
@@ -32,6 +47,7 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
                 }
                 VStack(spacing: 0) { composer }
                 .environment(\.companionComposerFitsGrantFooter, true)
+                .environment(\.companionWorkingActivityVisible, showsWorkingActivity)
                 // Measure the ideal proposal through a separate transparent slot, not the placed
                 // editor. A capped editor must never feed its smaller height back into tray fit.
                 Color.clear.frame(width: 0)
@@ -48,12 +64,66 @@ struct CompanionConversationGrantFooter<Composer: View>: View {
         .scrollEdgeEffectHidden(true)
         .frame(height: min(footerHeight, maximumHeight))
         .accessibilityIdentifier("companion-grant-footer-scroll")
+        .background {
+            minimumRequestControls
+                .hidden().accessibilityHidden(true).allowsHitTesting(false)
+                .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { requestFloorHeight = $0 }
+        }
+        .onPreferenceChange(CompanionActivityFloorPreference.self) { value in
+            if activityFloor != value { activityFloor = value }
+        }
+        .onChange(of: ActivityFit(available: maximumHeight, composer: activityFloor,
+                                requests: requestFloorHeight, hasRequests: hasGrantRequests || hasPendingDecisions), initial: true) { _, fit in
+            // The editor minimum includes its image row, actions, inset and one native line.
+            // Neither this floor nor the caption metric depends on the current tool text,
+            // the line's visibility, the placed editor, or expanded/collapsed tray state.
+            if fit.measured && showsWorkingActivity && fit.needed > fit.available {
+                showsWorkingActivity = false
+            } else if fit.measured && !showsWorkingActivity && fit.needed + 8 <= fit.available {
+                // Keep an 8pt reappearance band so fractional geometry cannot toggle the line.
+                showsWorkingActivity = true
+            }
+            #if DEBUG
+            print("ACTIVITY_FIT available=\(fit.available) editor=\(fit.composer.editor) line=\(fit.composer.line) requests=\(fit.requests) needed=\(fit.needed) measured=\(fit.measured) shown=\(showsWorkingActivity)")
+            #endif
+        }
         #if DEBUG
         // Classify capped vs naturally sized footers without adding another AX element.
         .accessibilityValue(String(format: "%.2f", maximumHeight),
                             isEnabled: ProcessInfo.processInfo.arguments.contains("--ui-testing-fast")
                                 && ProcessInfo.processInfo.arguments.contains("--companion-ui-test-fit-metrics"))
         #endif
+    }
+
+    private var hasGrantRequests: Bool { !store.grantRequests(for: target).isEmpty }
+    private var hasPendingDecisions: Bool {
+        !CompanionPendingDecision.pending(in: store.conversation(for: target).items).isEmpty
+    }
+
+    /// Measure only minimum Review controls, never the currently chosen full request rows.
+    /// These use the same native labels, 44pt targets and outer insets as the actual controls.
+    private var minimumRequestControls: some View {
+        VStack(spacing: 0) {
+            if hasGrantRequests {
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(verbatim: "Ag").font(.caption.weight(.semibold))
+                        Text(verbatim: "Ag").font(.caption)
+                    }
+                    .lineLimit(1).fixedSize()
+                    Text("Review").font(.subheadline.weight(.semibold)).fixedSize()
+                        .frame(minHeight: 44)
+                }
+                .padding(.vertical, 10)
+            }
+            if hasPendingDecisions {
+                Image(systemName: "checklist").font(.system(size: 20, weight: .semibold)).fixedSize()
+                    .frame(minHeight: 44)
+                    .padding(.vertical, dynamicTypeSize.isAccessibilitySize && verticalSizeClass == .regular
+                             && maximumHeight - activityFloor.editor - activityFloor.line < 360 ? 1 : 8)
+            }
+        }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private struct FooterLayout: Layout {

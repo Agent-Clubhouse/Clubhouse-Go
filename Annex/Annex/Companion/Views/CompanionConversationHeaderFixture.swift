@@ -13,6 +13,7 @@ struct CompanionConversationHeaderFixture: View {
     @State private var store = CompanionStore(service: CompanionPreviewService(showsContextWindow: true, showsAutoQuota: true))
     @State private var ready = false
     @State private var imageVersion = 0
+    @State private var activityStep = 0
     /// The feedback screenshot path's own render of the window, shown over it for comparison.
     @State private var feedbackCapture: UIImage?
     private let target = CompanionPreviewService.target
@@ -42,7 +43,19 @@ struct CompanionConversationHeaderFixture: View {
         return .clubhouse
     }
 
-    private var conversation: some View {
+    @ViewBuilder private var conversation: some View {
+        if arguments.contains("--companion-header-activity-floor-room") {
+            // Real viewport room puts the new SE activity-floor fixture clearly below
+            // its floor. Non-flag launches keep the original content without an inset.
+            conversationContent.safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: 20).accessibilityHidden(true)
+            }
+        } else {
+            conversationContent
+        }
+    }
+
+    private var conversationContent: some View {
         Group {
             if ready, let agent = store.agent(for: target) {
                 CompanionConversationView(store: store, agent: agent)
@@ -66,7 +79,14 @@ struct CompanionConversationHeaderFixture: View {
                 } else { conversation }
             }
             .toolbar {
-                if !pushed && !arguments.contains("--companion-header-no-leading") {
+                if arguments.contains("--companion-header-activity-transitions") {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button { advanceActivity() } label: { Image(systemName: "forward.end") }
+                            .accessibilityLabel("Next activity fixture state")
+                            .accessibilityValue(String(activityStep))
+                            .accessibilityIdentifier("activity-fixture-next")
+                    }
+                } else if !pushed && !arguments.contains("--companion-header-no-leading") {
                     ToolbarItem(placement: .topBarLeading) {
                         Menu {
                             Button(imageVersion == 0 ? "Use custom profile image" : "Update profile image") {
@@ -116,7 +136,8 @@ struct CompanionConversationHeaderFixture: View {
                 // One unbroken word, like the #554 report.
                 : arguments.contains("--companion-header-orchestrator-name") ? "Clubhouse-Orchestrator" : "Header worker"
             agent.status = arguments.contains("--companion-header-idle") ? .idle : .working
-            agent.turnStartedAt = agent.status == .working ? Date().addingTimeInterval(-65) : nil
+            agent.turnStartedAt = agent.status == .working && !arguments.contains("--companion-header-activity-transitions")
+                ? Date().addingTimeInterval(-65) : nil
             agent.freeAgentMode = true
             if arguments.contains("--companion-header-boolean-access") {
                 // Only the desktop's Auto-or-Full boolean, with no known live level.
@@ -152,6 +173,16 @@ struct CompanionConversationHeaderFixture: View {
                     .message(.init(id: "header-fixture-held-end", role: .user, text: "Held final row."))
                 ]
             }
+            if arguments.contains("--companion-header-activity-transitions") {
+                items += [
+                    .tool(.init(id: "activity-tool-0", name: "Read file", summary: "Synthetic activity", state: .running))
+                ]
+                if !arguments.contains("--companion-header-activity-no-requests") {
+                    items += [.approval(.init(id: "activity-approval", toolName: "Bash", summary: "Synthetic pending request",
+                        title: "Review fixture action", options: [.init(id: "allow", label: "Allow once", kind: .allowOnce),
+                                                                .init(id: "deny", label: "Deny", kind: .rejectOnce)]))]
+                }
+            }
             store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "header-fixture"))
             if arguments.contains("--companion-header-offline") { host.connection = .offline }
             if arguments.contains("--companion-header-reconnecting") { host.connection = .reconnecting }
@@ -168,6 +199,23 @@ struct CompanionConversationHeaderFixture: View {
                 store.apply(.hosts([host]))
             }
         }
+    }
+
+    /// Explicit inputs through real store events, never a layout override or a repeating timer.
+    private func advanceActivity() {
+        guard activityStep < 6, var host = store.host(for: target),
+              let project = host.projects.firstIndex(where: { $0.id == target.projectID }),
+              let index = host.projects[project].agents.firstIndex(where: { $0.id == target }) else { return }
+        activityStep += 1
+        host.projects[project].agents[index].status = activityStep == 6 ? .idle : .working
+        host.projects[project].agents[index].turnStartedAt = nil
+        if activityStep < 6 {
+            let group = activityStep / 2
+            let name = ["Read file", "Edit file", "mcp__clubhouse__message_parent"][group]
+            store.apply(.upsert(target, .tool(.init(id: "activity-tool-\(group)", name: name,
+                summary: "Synthetic activity", state: activityStep.isMultiple(of: 2) ? .running : .completed)), sequence: nil))
+        }
+        store.apply(.hosts([host]))
     }
 
     private func updateImage() async {

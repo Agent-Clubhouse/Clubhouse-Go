@@ -751,3 +751,83 @@ struct CompanionComposerApprovalReviewSheet: View {
         return false
     }
 }
+
+/// Independent minimums for the footer's activity policy. Actual activity text is never an input.
+nonisolated struct CompanionActivityFloor: Equatable, Sendable {
+    var editor: CGFloat
+    var line: CGFloat
+    static let zero = Self(editor: 0, line: 0)
+}
+
+struct CompanionActivityFloorPreference: PreferenceKey {
+    static let defaultValue = CompanionActivityFloor.zero
+    static func reduce(value: inout CompanionActivityFloor, nextValue: () -> CompanionActivityFloor) {
+        let next = nextValue()
+        value.editor = max(value.editor, next.editor)
+        value.line = max(value.line, next.line)
+    }
+}
+
+struct CompanionActivityFloorReporter: View {
+    @State private var floor = CompanionActivityFloor.zero
+    var body: some View {
+        Color.clear
+            .accessibilityHidden(true).allowsHitTesting(false)
+            .onGeometryChange(for: CompanionActivityFloor.self) {
+                CompanionActivityFloor(editor: $0.size.height, line: $0.size.width)
+            } action: { floor = $0 }
+            .preference(key: CompanionActivityFloorPreference.self, value: floor)
+    }
+}
+
+struct CompanionFooterActivityVisibility<Content: View>: View {
+    let status: CompanionAgentStatus
+    @ViewBuilder var content: Content
+    @Environment(\.companionWorkingActivityVisible) private var showsWorkingActivity
+    var body: some View {
+        VStack(spacing: 0) {
+            if status != .working || showsWorkingActivity { content }
+        }
+    }
+}
+
+/// Place the activity and native composer as before; two hidden measurement slots add no layout/AX area.
+/// The editor's zero-height proposal reports its irreducible image/action/one-line floor. Its natural
+/// height, capped height, current draft length and activity visibility do not feed the activity policy.
+struct CompanionActivityComposerLayout: Layout {
+    private struct Sizes {
+        let activity: CGSize
+        let editor: CGSize
+        let floor: CompanionActivityFloor
+    }
+
+    private func sizes(_ proposal: ProposedViewSize, _ subviews: Subviews) -> Sizes? {
+        guard subviews.count == 4 else { assertionFailure("Activity composer requires four slots"); return nil }
+        let width = proposal.width
+        let activity = subviews[0].sizeThatFits(ProposedViewSize(width: width, height: nil))
+        let ideal = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: nil))
+        let budget = proposal.height.map { max(0, $0 - activity.height) } ?? .infinity
+        let editor = ideal.height <= budget ? ideal
+            : subviews[1].sizeThatFits(ProposedViewSize(width: width, height: budget))
+        let minimum = subviews[1].sizeThatFits(ProposedViewSize(width: width, height: 0))
+        let line = subviews[2].sizeThatFits(.unspecified)
+        return Sizes(activity: activity, editor: editor,
+                     floor: CompanionActivityFloor(editor: minimum.height, line: line.height))
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        guard let s = sizes(proposal, subviews) else { return .zero }
+        return CGSize(width: proposal.width ?? max(s.activity.width, s.editor.width),
+                      height: s.activity.height + s.editor.height)
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        guard let s = sizes(ProposedViewSize(bounds.size), subviews) else { return }
+        subviews[0].place(at: bounds.origin, anchor: .topLeading, proposal: ProposedViewSize(s.activity))
+        subviews[1].place(at: CGPoint(x: bounds.minX, y: bounds.minY + s.activity.height),
+                          anchor: .topLeading, proposal: ProposedViewSize(s.editor))
+        subviews[2].place(at: bounds.origin, anchor: .topLeading, proposal: .unspecified)
+        subviews[3].place(at: bounds.origin, anchor: .topLeading,
+                          proposal: ProposedViewSize(width: s.floor.line, height: s.floor.editor))
+    }
+}

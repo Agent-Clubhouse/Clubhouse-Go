@@ -335,10 +335,10 @@ struct CompanionConversationView: View {
         }
     }
 
-    @ViewBuilder private func composerBar(maximumHeight: CGFloat = .infinity, compactHeight: Bool) -> some View {
+    @ViewBuilder private func composerBar(compactHeight: Bool) -> some View {
         if agent.runsInTerminal { if !showsAgentTerminal { terminalNotice } } else {
-            CompanionComposerLayout(spacing: 0, maximumHeight: maximumHeight) {
-                VStack(spacing: 0) {
+            CompanionActivityComposerLayout {
+                CompanionFooterActivityVisibility(status: agent.status) {
                     if agent.status != .approval || CompanionPendingDecision.pending(in: conversation.items).isEmpty {
                         activityLine
                     }
@@ -347,6 +347,10 @@ struct CompanionConversationView: View {
                     .padding(.horizontal, 20)
                 CompanionConversationComposer(store: store, agent: agent, memory: composerMemory.value,
                     focusRequests: composerFocusRequests, confirmCancel: $confirmCancel, dismissals: composerDismissals)
+                // Fixed text measures one caption line independently of the activity/tool string.
+                Text(verbatim: "Ag").font(.caption.monospacedDigit()).lineLimit(1).fixedSize()
+                    .hidden().accessibilityHidden(true).allowsHitTesting(false)
+                CompanionActivityFloorReporter()
             }
             .environment(\.companionComposerCompactHeight, compactHeight)
             .modifier(CompanionOfferedWidth())
@@ -359,10 +363,17 @@ struct CompanionConversationView: View {
     private var compactAccessibilityHeader: Bool { dynamicTypeSize.isAccessibilitySize && keyboardVisible }
 
     private var headerAccessibilityLabel: String {
-        [agent.displayName, contextName, agent.status.label,
+        [agent.displayName, contextName, agent.status.label, headerActivityDetails,
          (agent.displayedChatAccess?.label
           ?? (agent.freeAgentMode ? CompanionFreeAgentMode.title : nil)).map { "Access: \($0)" }]
             .compactMap { $0 }.joined(separator: ", ")
+    }
+
+    private var headerActivityDetails: String? {
+        guard agent.status == .working,
+              let line = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt,
+                                                    items: conversation.items), line != agent.status.label else { return nil }
+        return line
     }
 
     private var contextButton: some View {
@@ -391,7 +402,7 @@ struct CompanionConversationView: View {
                     Text(agent.displayName).lineLimit(1).truncationMode(.tail).layoutPriority(-1)
                     Text("·")
                     Text(activity)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                        .lineLimit(1).truncationMode(.tail)
                 }
                 .font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
                 // One element for VoiceOver: who is working and on what, without the separator.
