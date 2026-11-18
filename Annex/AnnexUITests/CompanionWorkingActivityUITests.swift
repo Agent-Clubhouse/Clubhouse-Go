@@ -67,7 +67,9 @@ import XCTest
             let app = launchApp(arguments, attempts: 1)
             let editor = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
             XCTAssertTrue(editor.waitForExistence(timeout: 10))
-            focus(editor, in: app)
+            editor.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            XCTAssertTrue(editor.debugDescription.contains("Keyboard Focused"), "One tap focuses the draft")
             editor.typeText("Keep this draft")
             let next = app.buttons["activity-fixture-next"]
             XCTAssertEqual(next.value as? String, "0")
