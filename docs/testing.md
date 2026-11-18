@@ -57,6 +57,11 @@ The pinned UI regression samples the open native item for more than two former t
 
 `CompanionLatestUITests` checks the single centered Latest capsule in light, dark, Catppuccin Latte/Mocha and accessibility XXXL, using the socket-free conversation fixture. It requires a 44pt target inside the transcript above the composer, no former arrow controls, absence at the true bottom and one-tap arrival at the complete stationary final row. The Reading suite retains rotation, restoration, streaming and viewport tolerances; real transcript gestures replace setup through the Previous control removed by #447. Follow-state assertions use the existing DEBUG transcript trace when the pill is hidden. KeyboardDismissal and ChatChrome require no overlay while following, preserving the newest text/card/disclosure clearance; the pill's actual geometry is checked away from the bottom. Simulator visuals do not cover a physical device or spoken VoiceOver.
 
+Reading restoration readiness compares anchor, viewport and optional keyboard frame components within 0.5pt
+of the stability window's reference sample, ignoring floating-point noise without admitting cumulative drift.
+Keyboard appearance/disappearance still resets readiness. The gate retains its 8s budget and 2.25s stable
+interval, followed by the unchanged 6pt bookmark assertions. Each viewport sample reads the app frame once.
+
 `CompanionDispatcherUITests` replaces the Start screen setting check with every-tab process-relaunch
 restoration and unavailable-Dispatch fallback/foreground checks. Search is checked through its expanded
 native field because its collapsed tab button leaves the accessibility tree. Fresh preferences open Home; existing
