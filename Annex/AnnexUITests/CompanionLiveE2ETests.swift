@@ -235,15 +235,14 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
     private func replaceText(_ app: XCUIApplication, in field: XCUIElement, with text: String,
                              file: StaticString = #filePath, line: UInt = #line) {
         field.tap()
-        guard let old = field.value as? String else {
-            XCTFail("Text replacement requires the field's current value", file: file, line: line)
-            return
-        }
+        let placeholder = field.placeholderValue
+        let raw = field.value as? String
+        let old = raw == placeholder ? "" : (raw ?? "")
         field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
         if !old.isEmpty {
             field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count))
         }
-        guard waitFor(field, NSPredicate(format: "value == '' OR value == nil"), timeout: 5) else {
+        guard waitFor(field, NSPredicate(format: "value == '' OR value == nil OR value == %@", placeholder ?? ""), timeout: 5) else {
             XCTFail("The field must be empty before typing a replacement; found \(String(describing: field.value))",
                     file: file, line: line)
             return

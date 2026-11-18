@@ -25,7 +25,8 @@ class XCUIElement: NSObject {
     var cursor = 0
     var ignoresDeletion = false
     var typed: [String] = []
-    @objc dynamic var value: Any? { text }
+    @objc dynamic var placeholderValue: String? = "Name"
+    @objc dynamic var value: Any? { text.isEmpty ? placeholderValue : text }
     func tap() {}
     func coordinate(withNormalizedOffset offset: CGVector) -> Coordinate {
         precondition(offset.dx > 0.9)
@@ -94,6 +95,27 @@ precondition(failures[0].contains("must be empty"))
 precondition(field.text == "phone-12345")
 precondition(field.typed.count == 1)
 precondition(!field.typed.contains("must-not-be-typed"))
+''')
+
+    def test_empty_field_reporting_placeholder_types_only_replacement(self):
+        self.run_helper(r'''
+let field = XCUIElement()
+field.text = ""
+precondition(field.value as? String == "Name")
+Harness().replaceText(XCUIApplication(), in: field, with: "new-agent")
+precondition(failures.isEmpty, "\(failures)")
+precondition(field.text == "new-agent")
+precondition(field.typed == ["new-agent"])
+''')
+
+    def test_placeholder_after_deletion_is_accepted_before_replacement(self):
+        self.run_helper(r'''
+let field = XCUIElement()
+field.placeholderValue = "Agent name"
+Harness().replaceText(XCUIApplication(), in: field, with: "renamed")
+precondition(failures.isEmpty, "\(failures)")
+precondition(field.text == "renamed")
+precondition(field.typed == [String(repeating: "\u{7f}", count: "phone-12345".count), "renamed"])
 ''')
 
 
