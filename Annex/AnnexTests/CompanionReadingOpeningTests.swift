@@ -31,7 +31,7 @@ import UIKit
             }
         }
     }
-    private struct Fixture {
+    @MainActor private struct Fixture {
         let store: CompanionStore
         let agents: [CompanionAgent]
         let navigation: Navigation
