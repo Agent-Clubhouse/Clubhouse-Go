@@ -224,6 +224,11 @@ struct CompanionReadingRestoration {
     private(set) var attempts = 0
     var outcome: Outcome?
 
+    init(revision: UUID, startedAt: TimeInterval) {
+        self.revision = revision
+        self.startedAt = startedAt
+    }
+
     mutating func next(now: TimeInterval, revision: UUID, followsLatest: Bool,
                        metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?,
                        entryLowerBound: Double? = nil) -> Step {
