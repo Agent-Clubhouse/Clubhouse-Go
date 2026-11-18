@@ -83,9 +83,15 @@ struct CompanionChatControlsBar: View, Equatable {
                 // Keep the current level's native back title on one line at XL.
                 // Every choice below retains its own icon and complete AX meaning.
                 Text(current.label)
-            } else if compact { Label(current.label, systemImage: "shield") }
-            else {
+                    // A nested native menu bridges its label content, not the
+                    // accessibility label applied to the enclosing SwiftUI Menu.
+                    .accessibilityLabel("Permissions: \(current.label)")
+            } else if compact {
+                Label(current.label, systemImage: "shield")
+                    .accessibilityLabel("Permissions: \(current.label)")
+            } else {
                 chip(current.label, systemImage: "shield", menu: controls.canChangeLevel)
+                    .accessibilityLabel("Permissions: \(current.label)")
             }
         }
         .disabled(!enabled || !controls.canChangeLevel)
