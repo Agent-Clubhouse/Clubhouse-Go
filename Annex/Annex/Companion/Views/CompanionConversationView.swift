@@ -940,6 +940,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
     }
     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
+        releaseInitialReadingIdentity()
+        #if DEBUG
+        traceOpening(.cancelled, firstEntryID: nil)
+        #endif
         guard readingViewport.preserveBookmarkUntilUserAction || readingViewport.isRestoring
                 || (readingViewport.restoration != nil && readingViewport.restoration?.outcome == nil) else { return }
         readingViewport.finishRestoration(outcome)
@@ -965,6 +969,11 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
             case .finish(let outcome):
                 readingViewport.finishRestoration(outcome)
                 if outcome == .arrived, let metrics = readingViewport.metrics {
+                    // An exact ID landing can arrive without a numeric scroll. Do not keep an implicit ID anchor.
+                    releaseInitialReadingIdentity(at: metrics.normalizedOffset)
+                    #if DEBUG
+                    traceOpening(.arrived, firstEntryID: nil)
+                    #endif
                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
                     saveReadingPosition(metrics)
                 }
@@ -993,6 +1002,16 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 return
             }
         }
+    }
+
+    /// The ID is an opening request only, not a second owner of later content-size anchoring.
+    private func releaseInitialReadingIdentity(at offset: Double? = nil) {
+        guard readingScrollPosition.viewID(type: String.self) != nil else { return }
+        if let offset { readingScrollPosition = ScrollPosition(y: offset) }
+        else { readingScrollPosition = ScrollPosition(idType: String.self) }
+        #if DEBUG
+        traceOpening(.handoff, firstEntryID: nil)
+        #endif
     }
 
     private func updateNextAssistantMessage(in stops: [String]) {
@@ -1057,7 +1076,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, followsLatest: followLatest,
             shownEntries: shownEntries, requestedEntryID: readingScrollPosition.viewID(type: String.self),
             requestedBottom: readingScrollPosition.edge == .bottom,
-            pointY: readingScrollPosition.point.map { Double($0.y) }, windowFirstID: firstEntryID,
+            pointY: readingScrollPosition.y.map(Double.init), windowFirstID: firstEntryID,
             historyRevision: conversation.historyRevision, offset: readingViewport.metrics?.normalizedOffset,
             entryLowerBound: readingBookmark.position.entryID.flatMap { readingViewport.frames[$0]?.lowerBound },
             latestVisible: showsLatestControl))

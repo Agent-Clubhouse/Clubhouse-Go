@@ -59,9 +59,9 @@ import UIKit
             window.isHidden = true
             window.rootViewController = nil
         }
-        func pause(_ index: Int = 0) {
+        func pause(_ index: Int = 0, distance: Double = 0) {
             let bookmark = store.readingBookmark(for: agents[index].id)
-            bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: 0,
+            bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: distance,
                                       offset: 0, shownEntries: 300)
             bookmark.hasMounted = true
         }
@@ -83,7 +83,7 @@ import UIKit
     @Test func pausedFirstBodyUsesItsEntryInsideAnExpandedWindowAndReleasesTheIDAfterScrolling() async throws {
         let f = try await Fixture()
         defer { f.close() }
-        f.pause()
+        f.pause(distance: 40)
         var samples: [CompanionReadingOpeningProbe.Sample] = []
         CompanionReadingOpeningProbe.record = { samples.append($0) }
         f.mount()
@@ -222,6 +222,59 @@ import UIKit
         f.navigation.visible = true
         try await f.wait { samples.filter { $0.phase == .jump }.count == 3 }
         #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id, second.id])
+    }
+
+
+    @Test func exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause(distance: 0)
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        f.mount()
+        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
+        try await f.wait { viewport.restoration?.outcome == .arrived }
+        #expect(viewport.restoration?.attempts == 0, "This fixture must exercise an exact initial ID landing")
+        let arrival = try #require(samples.first { $0.phase == .arrived })
+        #expect(arrival.requestedEntryID == nil)
+        if let handoff = samples.first(where: { $0.phase == .handoff }) { #expect(handoff.pointY != nil) }
+        #expect(samples.filter { $0.phase == .scroll }.isEmpty)
+    }
+
+    @Test func realOpeningTouchDropsTheInitialIdentityWithoutIssuingAnotherTarget() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause(distance: 40)
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        var deliveryCount = 0
+        var priorPoint: Double?
+        var priorOffset: Double?
+        func touchAnchor(_ view: UIView) -> CompanionReadingTouchObserver.Anchor? {
+            if let anchor = view as? CompanionReadingTouchObserver.Anchor { return anchor }
+            return view.subviews.lazy.compactMap { touchAnchor($0) }.first
+        }
+        CompanionReadingRestoreProbe.deliver = { _, _, _, _ in
+            deliveryCount += 1
+            priorPoint = samples.last?.pointY
+            priorOffset = f.store.readingBookmark(for: f.agents[0].id).viewport.metrics?.normalizedOffset
+            let anchor = touchAnchor(f.window)
+            #expect(anchor != nil)
+            anchor?.touchBegan(at: CGPoint(x: 10, y: 10))
+            return false
+        }
+        f.mount()
+        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
+        try await f.wait { viewport.restoration?.outcome == .touch }
+        let cancellation = try #require(samples.first { $0.phase == .cancelled })
+        #expect(cancellation.requestedEntryID == nil)
+        #expect(cancellation.pointY == nil || cancellation.pointY == priorPoint,
+                "User authority clears the ID without requesting any new numeric target")
+        try await f.settle()
+        #expect(deliveryCount == 1 && samples.filter { $0.phase == .scroll }.isEmpty)
+        #expect(viewport.restoration?.outcome == .touch)
+        let before = try #require(priorOffset)
+        #expect(abs((viewport.metrics?.normalizedOffset ?? -.infinity) - before) <= 6)
     }
 
 }
