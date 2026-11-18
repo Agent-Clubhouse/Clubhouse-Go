@@ -231,18 +231,46 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         }
     }
 
-    /// Selects a text field's contents and types over them.
-    private func replaceText(_ app: XCUIApplication, in field: XCUIElement, with text: String) {
+    /// Clears from the end, verifies emptiness, then types the replacement.
+    private func replaceText(_ app: XCUIApplication, in field: XCUIElement, with text: String,
+                             file: StaticString = #filePath, line: UInt = #line) {
         field.tap()
-        field.press(forDuration: 1.0)
-        let selectAll = app.menuItems["Select All"]
-        if selectAll.waitForExistence(timeout: 3) { selectAll.tap() }
-        field.typeText(XCUIKeyboardKey.delete.rawValue + text)
+        let placeholder = field.placeholderValue
+        let raw = field.value as? String
+        let old = raw == placeholder ? "" : (raw ?? "")
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        if !old.isEmpty {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count))
+        }
+        guard waitFor(field, NSPredicate(format: "value == '' OR value == nil OR value == %@", placeholder ?? ""), timeout: 5) else {
+            XCTFail("The field must be empty before typing a replacement; found \(String(describing: field.value))",
+                    file: file, line: line)
+            return
+        }
+        field.typeText(text)
     }
 
     /// Waits until `query` has more than `count` matches.
     private func waitForMore(_ query: XCUIElementQuery, than count: Int, timeout: TimeInterval = 30) -> Bool {
         query.element(boundBy: count).waitForExistence(timeout: timeout)
+    }
+
+    // #522 keeps keyboard-up decisions in Review; opening it does not answer the request.
+    private func approvalReview(_ app: XCUIApplication, file: StaticString = #filePath, line: UInt = #line) -> XCUIElement {
+        let review = app.buttons["companion-review-approval"]
+        XCTAssertTrue(review.waitForExistence(timeout: 30), "The fresh permission request must arrive", file: file, line: line)
+        let sheet = app.scrollViews["companion-approval-review-scroll"]
+        waitAndTap(review, until: sheet, timeout: 10, attempts: 1, file: file, line: line)
+        return sheet
+    }
+
+    private func closeApprovalReview(_ app: XCUIApplication, resolution: String,
+                                     file: StaticString = #filePath, line: UInt = #line) {
+        let title = app.scrollViews["companion-approval-review-scroll"].staticTexts["companion-approval-title"]
+        XCTAssertTrue(waitFor(title, NSPredicate(format: "label == %@", resolution), timeout: 30),
+                      "The review must acknowledge the decision before closing", file: file, line: line)
+        let close = app.buttons["companion-approval-review-close"]
+        waitAndTap(close, untilGone: close, attempts: 1, file: file, line: line)
     }
 
     private func answerSQLiteQuestion(_ app: XCUIApplication) {
@@ -399,9 +427,10 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let denials = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'denied:'"))
         let before = denials.count
         send(app, "tool")
-        let deny = app.buttons["Deny"]
+        let deny = approvalReview(app).buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 30), "Coming back to the foreground must reconnect and stream a new request")
         deny.tap()
+        closeApprovalReview(app, resolution: "Denied")
         XCTAssertTrue(waitForMore(denials, than: before), "The answer must reach the desktop after the reconnect")
         screenshot(app, "Chat after a foreground reconnect")
     }
@@ -416,20 +445,22 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let denials = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'denied:'"))
         let allowed = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'allowed:'"))
         let rules = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH 'allowed:' AND label CONTAINS 'addRules'"))
-        let deny = app.buttons["Deny"], allow = app.buttons["Allow"]
-
         var before = denials.count
         send(app, "tool")
+        let deny = approvalReview(app).buttons["Deny"]
         XCTAssertTrue(deny.waitForExistence(timeout: 30), "The desktop's permission request must show")
         screenshot(app, "Live approval")
         deny.tap()
+        closeApprovalReview(app, resolution: "Denied")
         XCTAssertTrue(waitForMore(denials, than: before), "Deny must reach the CLI")
 
         before = allowed.count
         let rulesBefore = rules.count
         send(app, "tool")
+        let allow = approvalReview(app).buttons["Allow"]
         XCTAssertTrue(allow.waitForExistence(timeout: 30), "Allow is offered")
         allow.tap()
+        closeApprovalReview(app, resolution: "Allowed")
         XCTAssertTrue(waitForMore(allowed, than: before), "Allow must reach the CLI")
         XCTAssertEqual(rules.count, rulesBefore, "Allow once adds no rule")
 
@@ -489,7 +520,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let haiku = app.buttons.matching(NSPredicate(format: "label BEGINSWITH 'Haiku'")).firstMatch
         waitAndTap(model, until: haiku, timeout: 10, "The session's models are offered")
         haiku.tap()
-        XCTAssertTrue(waitFor(controls, NSPredicate(format: "value CONTAINS 'Haiku'"), timeout: 30), "Chat controls show the new model: \(controls.value ?? "")")
+        XCTAssertTrue(waitFor(controls, NSPredicate(format: "label CONTAINS 'Model: Haiku'"), timeout: 30), "Chat controls show the new model: \(controls.label)")
+        XCTAssertEqual(controls.value as? String, "Default effort", "The model's default effort remains in the accessibility value")
 
         let level = element(app, "companion-permissions-menu")
         waitAndTap(controls, until: level, timeout: 10, "The desktop offers level switching")
@@ -516,6 +548,16 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let nameField = element(app, "new-agent-name")
         waitAndTap(newAgent, until: nameField, timeout: 15, "The desktop's create options must load")
         replaceText(app, in: nameField, with: name)
+        let keyboard = app.keyboards.firstMatch
+        let submit = keyboard.buttons["Return"]
+        XCTAssertTrue(submit.exists, "The name field offers the keyboard's Return key")
+        submit.tap()
+        XCTAssertTrue(keyboard.waitForNonExistence(timeout: 5), "Finish editing the name before opening form options")
+        XCTAssertTrue(app.navigationBars["New agent"].exists, "Submitting the name keeps the new-agent sheet open")
+        // #466 defaults to templates; this case exercises plain durable/worktree settings.
+        let managed = app.switches["new-agent-managed"]
+        XCTAssertTrue(scrollTo(managed, in: app, maxSwipes: 4), "The desktop offers the managed/plain creation choice")
+        setSwitch(managed, on: false, in: app)
         let workspace = app.buttons["new-agent-workspace-tools"]
         XCTAssertTrue(scrollTo(workspace, in: app, maxSwipes: 4))
         workspace.tap()
@@ -548,7 +590,8 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let settings = app.buttons["Agent settings"]
         longPressUntilMenu(row(name), shows: settings, "The new agent's menu offers its settings")
         let nameSetting = app.textFields["agent-settings-name"]
-        waitAndTap(settings, until: nameSetting, timeout: 15, "The desktop's agent settings must load")
+        waitAndTap(settings, until: element(app, "agent-settings-summary"), timeout: 15, "The desktop's agent settings must load")
+        XCTAssertTrue(scrollUntilExists(nameSetting, in: app, maxSwipes: 8), "The new agent's Name is below the lazy settings sections")
         XCTAssertEqual(nameSetting.value as? String, name)
         XCTAssertTrue(nameSetting.isEnabled, "A sleeping agent's settings can change")
         replaceText(app, in: nameSetting, with: "\(name)-renamed\n")
@@ -736,13 +779,13 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         setSwitch(toggle, on: true, in: app)
         let state = try XCTUnwrap(try dispatcherFixture("state") as? [String: Any])
         XCTAssertEqual(state["enabled"] as? Bool, true, "The phone command must change the desktop")
-        waitAndTap(app.buttons["Done"], untilGone: toggle)
+        waitAndTap(app.buttons["settings-close"], untilGone: toggle)
         XCTAssertTrue(row.waitForExistence(timeout: 30), "The phone toggle's snapshot must add the pinned row")
         XCTAssertLessThan(row.frame.minY, projectHeader(app).frame.minY)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
         setSwitch(toggle, on: false, in: app)
         XCTAssertEqual((try dispatcherFixture("state") as? [String: Any])?["enabled"] as? Bool, false)
-        waitAndTap(app.buttons["Done"], untilGone: toggle)
+        waitAndTap(app.buttons["settings-close"], untilGone: toggle)
         XCTAssertFalse(row.exists)
 
         // A change made on desktop while connected must arrive without reopening or refreshing Home.
@@ -998,7 +1041,7 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         let toggle = dispatcherSwitch(app)
         waitAndTap(app.buttons["Settings"], until: toggle, timeout: 15)
         XCTAssertTrue(toggle.wait(for: \.isEnabled, toEqual: true, timeout: 20), "No experimental flag or MCP setting gates the switch")
-        waitAndTap(app.buttons["Done"], untilGone: toggle)
+        waitAndTap(app.buttons["settings-close"], untilGone: toggle)
     }
 
     func test9dDispatcherSettingsSaveAndLockedFieldsRefuse() throws {
