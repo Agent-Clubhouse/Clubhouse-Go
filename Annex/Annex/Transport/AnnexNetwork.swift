@@ -74,7 +74,13 @@ nonisolated public struct AnnexNetworkMember: Codable, Sendable, Equatable {
     /// Only a pinned member can vouch for another member. Validate its record as
     /// well, before creating any transport or persisting trust for that desktop.
     public func trustedHost() throws -> TrustedAnnexHost {
-        guard kind == "desktop", let publicKey, let certPem, let endpoint = endpoints.first,
+        let pin = try validatedCertificatePin()
+        guard let endpoint = endpoints.first else { throw AnnexTransportError.identityMismatch }
+        return try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: fingerprint, verifiedCertificatePin: pin)
+    }
+    /// Identity and certificate validation is independent of route availability.
+    func validatedCertificatePin() throws -> AnnexCertificatePin {
+        guard kind == "desktop", let publicKey, let certPem,
               try AnnexPairingIdentity.fingerprint(publicKeyBase64: publicKey) == fingerprint.lowercased() else {
             throw AnnexTransportError.identityMismatch
         }
@@ -87,7 +93,35 @@ nonisolated public struct AnnexNetworkMember: Codable, Sendable, Equatable {
         let pin = try AnnexCertificatePin(sha256: certFingerprint)
         let actual = SHA256.hash(data: der).map { String(format: "%02x", $0) }.joined()
         guard pin.sha256 == actual else { throw AnnexTransportError.identityMismatch }
-        return try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: fingerprint, verifiedCertificatePin: pin)
+        return pin
+    }
+}
+
+/// Local ordering evidence, never a route, credential or protocol field.
+nonisolated public struct AnnexNetworkObservation: Codable, Sendable, Equatable {
+    public let certFingerprint: String
+    public let pairing: AnnexNetworkPairing
+
+    init(certFingerprint: String, pairing: AnnexNetworkPairing) {
+        self.certFingerprint = certFingerprint; self.pairing = pairing
+    }
+    private enum CodingKeys: String, CodingKey { case certFingerprint, pairing }
+    public init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        certFingerprint = try values.decode(String.self, forKey: .certFingerprint)
+        pairing = try values.decode(AnnexNetworkPairing.self, forKey: .pairing)
+        guard (try? AnnexCertificatePin(sha256: certFingerprint))?.sha256 == certFingerprint,
+              AnnexNetworkRemoval.date(pairing.joinedAt) != nil else { throw AnnexTransportError.malformedResponse }
+    }
+    static let maximumCount = 512
+    static func winning(_ candidate: Self, over previous: Self?) -> Self {
+        guard let previous else { return candidate }
+        // Match the receiver's existing immutable-stamp comparison exactly.
+        if candidate.pairing.id.isEmpty || candidate.pairing.id == previous.pairing.id ||
+            (!previous.pairing.id.isEmpty &&
+             (AnnexNetworkRemoval.date(candidate.pairing.joinedAt) ?? .distantPast) <=
+             (AnnexNetworkRemoval.date(previous.pairing.joinedAt) ?? .distantFuture)) { return previous }
+        return candidate
     }
 }
 
@@ -133,4 +167,6 @@ nonisolated public struct AnnexNetworkState: Codable, Sendable, Equatable {
     public var removals: [AnnexNetworkRemoval]
     /// New desktop still needs the two membership exchanges; retried after reconnect.
     public var needsIntroduction: Bool
+    /// Optional for archives saved before addressless ordering evidence existed.
+    public var observations: [String: AnnexNetworkObservation]? = nil
 }

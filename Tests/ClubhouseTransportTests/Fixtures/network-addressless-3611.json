@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "joined": true,
+  "members": [{
+    "fingerprint": "<F>",
+    "publicKey": "<F-public-key>",
+    "name": "F",
+    "icon": "computer",
+    "color": "indigo",
+    "kind": "desktop",
+    "hosts": [],
+    "certFingerprint": "<F-certificate-pin>",
+    "certPem": "<F-certificate>",
+    "online": false,
+    "joinedAt": "2026-11-08T10:01:00.000Z",
+    "pairingId": "P2"
+  }],
+  "removals": []
+}

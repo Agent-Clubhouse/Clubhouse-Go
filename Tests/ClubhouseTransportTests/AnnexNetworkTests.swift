@@ -336,3 +336,309 @@ private func pairedNetwork(joined: Bool = true) async throws -> (AnnexTransportR
     #expect(await registry.all().map(\.host.hostID) == [b.fingerprint])
     #expect(await store.loadAll().map(\.host.hostID) == [b.fingerprint])
 }
+
+// Matches Clubhouse#3611: an addressless member has hosts:[] and no port.
+// Only cryptographic placeholders are replaced with ephemeral test identities.
+private func addressless3611(_ identity: AnnexClientIdentity) throws -> AnnexNetworkMember {
+    let url = try #require(Bundle.module.url(forResource: "network-addressless-3611", withExtension: "json", subdirectory: "Fixtures"))
+    let raw = try Data(contentsOf: url)
+    let fixture = try JSONDecoder().decode(AnnexNetworkSnapshot.self, from: raw)
+    let shape = try #require(fixture.members.first)
+    #expect(shape.hosts.isEmpty && shape.port == nil)
+    let trusted = try member(identity)
+    return AnnexNetworkMember(fingerprint: trusted.fingerprint, publicKey: trusted.publicKey, name: shape.name, icon: shape.icon, color: shape.color,
+        kind: shape.kind, hosts: shape.hosts, port: shape.port, certFingerprint: trusted.certFingerprint, certPem: trusted.certPem,
+        online: shape.online, isSelf: shape.isSelf, joinedAt: shape.joinedAt, pairingId: shape.pairingId)
+}
+
+private func altering(_ member: AnnexNetworkMember, _ fields: [String: AnnexJSON]) throws -> AnnexNetworkMember {
+    let encoded = try JSONDecoder().decode(AnnexJSON.self, from: JSONEncoder().encode(member))
+    guard case .object(var object) = encoded else { throw AnnexTransportError.malformedResponse }
+    for (key, value) in fields { object[key] = value }
+    return try AnnexJSON.object(object).decode(AnnexNetworkMember.self)
+}
+
+// Serializes every item through the production archive codec. A new registry and
+// credentials store therefore recover from durable bytes, not shared live state.
+private actor ArchivedNetworkPairingStore: AnnexPairingStore {
+    private var records: [String: Data] = [:]
+    func loadAll() throws -> [AnnexSavedPairing] { try records.values.map(AnnexSavedPairing.decode) }
+    func save(_ pairing: AnnexSavedPairing) throws { records[pairing.host.hostID] = try pairing.encoded() }
+    func remove(hostID: String) { records.removeValue(forKey: hostID) }
+}
+
+@Test func addresslessNewerPairingPreventsOtherDesktopStaleRemovalWithoutChangingTrustOrRoutes() async throws {
+    let (registry, store, io, sourceB) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    let sourceC = try member(AnnexClientIdentity.ephemeral(), name: "Lagging C")
+    try await registry.reconcileNetwork(snapshot([sourceB, sourceC, f]), from: sourceB.fingerprint)
+    let before = try #require(await store.loadAll().first { $0.host.hostID == f.fingerprint })
+    let registration = try #require(await registry.all().first { $0.host.hostID == f.fingerprint })
+    let routes = await registry.routes(for: f.fingerprint)
+    let p2 = try addressless3611(desktopB.get())
+    #expect(p2.endpoints.isEmpty)
+    #expect(throws: AnnexTransportError.identityMismatch) { try p2.trustedHost() }
+    try await registry.reconcileNetwork(snapshot([sourceB, p2]), from: sourceB.fingerprint)
+    try await registry.reconcileNetwork(snapshot([sourceC], removals: [removal(f.fingerprint)]), from: sourceC.fingerprint)
+    let after = try #require(await store.loadAll().first { $0.host.hostID == f.fingerprint })
+    #expect(after.network?.serverPairing?.id == "P2")
+    #expect(after.network?.member?.pairingId == "P2")
+    #expect(after.host == before.host && after.routes == before.routes)
+    #expect(after.credential == before.credential)
+    #expect(after.identity.certificateDER == before.identity.certificateDER)
+    #expect(await registry.routes(for: f.fingerprint) == routes)
+    #expect(await registry.all().first { $0.host.hostID == f.fingerprint }?.transportID == registration.transportID)
+    #expect(await io.requests.filter { $0.url?.path == "/pair" }.count == 1)
+}
+
+@Test(arguments: [false, true]) func durablyKnownAddresslessPairingSurvivesEitherSourceArrivalOrderAndOfflineCatchup(removalFirst: Bool) async throws {
+    let (registry, memory, _, sourceB) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    let sourceC = try member(AnnexClientIdentity.ephemeral(), name: "C")
+    try await registry.reconcileNetwork(snapshot([sourceB, sourceC, f]), from: sourceB.fingerprint)
+    let p2 = try addressless3611(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([sourceB, p2]), from: sourceB.fingerprint)
+    let disk = ArchivedNetworkPairingStore()
+    for saved in await memory.loadAll() { try await disk.save(saved) }
+    let credentials = MemoryAnnexCredentialStore()
+    let restarted = AnnexTransportRegistry(credentials: credentials, pairings: disk)
+    #expect(try await restarted.restoreSaved().count == 3)
+    let newer = snapshot([sourceB, p2])
+    let lagging = snapshot([sourceC, f], removals: [removal(f.fingerprint)])
+    if removalFirst {
+        try await restarted.reconcileNetwork(lagging, from: sourceC.fingerprint)
+        try await restarted.reconcileNetwork(newer, from: sourceB.fingerprint)
+    } else {
+        try await restarted.reconcileNetwork(newer, from: sourceB.fingerprint)
+        try await restarted.reconcileNetwork(lagging, from: sourceC.fingerprint)
+    }
+    // The newer source can be offline indefinitely; repeated stale catch-up cannot
+    // roll back its already observed generation, even through another restart.
+    for _ in 0..<3 { try await restarted.reconcileNetwork(lagging, from: sourceC.fingerprint) }
+    #expect(await credentials.credential(for: f.fingerprint) != nil)
+    let savedF = try #require(try await disk.loadAll().first { $0.host.hostID == f.fingerprint })
+    #expect(savedF.network?.member?.pairingId == "P2")
+    #expect(savedF.network?.observations?[f.fingerprint]?.pairing.id == "P2")
+    let again = AnnexTransportRegistry(pairings: disk)
+    #expect(try await again.restoreSaved().count == 3)
+    try await again.reconcileNetwork(lagging, from: sourceC.fingerprint)
+    #expect(await again.transport(for: f.fingerprint) != nil)
+}
+
+@Test func restartMergesObservationBeforeApplyingJournalWhenTargetItemWasNotYetSaved() async throws {
+    let (registry, memory, _, a) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+    let disk = ArchivedNetworkPairingStore()
+    for saved in await memory.loadAll() { try await disk.save(saved) }
+    // Interrupted multi-item commit: A has atomically received P1's removal and
+    // P2's observation, while F still has its old P1 stamp and an empty journal.
+    var savedA = try #require(try await disk.loadAll().first { $0.host.hostID == a.fingerprint })
+    savedA.network?.removals = [removal(f.fingerprint)]
+    let p2 = try addressless3611(desktopB.get())
+    savedA.network?.observations?[f.fingerprint] = .init(certFingerprint: p2.certFingerprint, pairing: .init(id: "P2", joinedAt: p2.joinedAt))
+    try await disk.save(savedA)
+    #expect(try await disk.loadAll().first { $0.host.hostID == f.fingerprint }?.network?.member?.pairingId == "desktop-pair")
+    let restored = AnnexTransportRegistry(pairings: disk)
+    #expect(try await restored.restoreSaved().count == 2)
+    let preserved = try #require(try await disk.loadAll().first { $0.host.hostID == f.fingerprint })
+    #expect(preserved.network?.member?.pairingId == "P2")
+    #expect(preserved.network?.removals == [removal(f.fingerprint)])
+    #expect(preserved.network?.observations == savedA.network?.observations)
+    #expect(try await AnnexTransportRegistry(pairings: disk).restoreSaved().count == 2)
+}
+
+@Test func unknownAddresslessMemberRetainsOnlyBoundedOrderingEvidenceUntilItHasRoutes() async throws {
+    let (registry, memory, _, a) = try await pairedNetwork()
+    let p2 = try addressless3611(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, p2]), from: a.fingerprint)
+    #expect(await registry.transport(for: p2.fingerprint) == nil)
+    #expect(await registry.routes(for: p2.fingerprint).isEmpty)
+    #expect(await memory.loadAll().count == 1)
+    #expect(await memory.loadAll().first?.network?.observations?[p2.fingerprint]?.pairing.id == "P2")
+    let disk = ArchivedNetworkPairingStore()
+    for saved in await memory.loadAll() { try await disk.save(saved) }
+    let restored = AnnexTransportRegistry(pairings: disk)
+    _ = try await restored.restoreSaved()
+    let routable = try member(desktopB.get(), pairingID: "P2", joinedAt: p2.joinedAt)
+    try await restored.reconcileNetwork(snapshot([a, routable], removals: [removal(p2.fingerprint)]), from: a.fingerprint)
+    #expect(await restored.transport(for: p2.fingerprint) != nil)
+    let authoritative = removal(p2.fingerprint, pairingID: "P2", joinedAt: p2.joinedAt)
+    try await restored.reconcileNetwork(snapshot([a], removals: [authoritative]), from: a.fingerprint)
+    #expect(await restored.transport(for: p2.fingerprint) == nil)
+    #expect(try await disk.loadAll().allSatisfy { $0.network?.observations?[p2.fingerprint] == nil })
+    #expect(try await AnnexTransportRegistry(pairings: disk).restoreSaved().count == 1)
+}
+
+@Test func explicitForgetAndPhoneRevocationStillEraseNewerAddresslessPairings() async throws {
+    for revokePhone in [false, true] {
+        let (registry, store, _, a) = try await pairedNetwork()
+        let f = try member(desktopB.get())
+        try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+        try await registry.reconcileNetwork(snapshot([a, addressless3611(desktopB.get())]), from: a.fingerprint)
+        if revokePhone {
+            try await registry.reconcileNetwork(snapshot([a], removals: [removal(try phoneIdentity.get().fingerprint, pairingID: phonePairing.id)]), from: a.fingerprint)
+            #expect(await store.loadAll().isEmpty)
+        } else {
+            try await registry.remove(hostID: f.fingerprint)
+            #expect(await store.loadAll().allSatisfy { $0.network?.observations?[f.fingerprint] == nil })
+            #expect(try await AnnexTransportRegistry(pairings: store).restoreSaved().count == 1)
+        }
+        #expect(await registry.transport(for: f.fingerprint) == nil)
+        #expect(await registry.routes(for: f.fingerprint).isEmpty)
+    }
+}
+
+@Test func malformedAddresslessEvidenceCannotProtectAnOldPairingFromRevocation() async throws {
+    let valid = try addressless3611(desktopB.get())
+    let mutations: [[String: AnnexJSON]] = [
+        ["publicKey": .string("invalid")], ["certPem": .string("invalid")],
+        ["certFingerprint": .string(String(repeating: "00", count: 32))],
+        ["joinedAt": .string("invalid")], ["pairingId": .string("")], ["kind": .string("phone")],
+        ["hosts": .array([.string("https://invalid/path")]), "port": .integer(7432)],
+        ["hosts": .array([.string("valid.example")])], ["port": .integer(0)]
+    ]
+    for mutation in mutations {
+        let (registry, store, _, a) = try await pairedNetwork()
+        let f = try member(desktopB.get())
+        try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+        let bad = try altering(valid, mutation)
+        do { try await registry.reconcileNetwork(snapshot([a, bad]), from: a.fingerprint) }
+        catch { #expect(error as? AnnexTransportError == .identityMismatch) }
+        #expect(await store.loadAll().first { $0.host.hostID == f.fingerprint }?.network?.serverPairing?.id == "desktop-pair")
+        try await registry.reconcileNetwork(snapshot([a], removals: [removal(f.fingerprint)]), from: a.fingerprint)
+        #expect(await registry.transport(for: f.fingerprint) == nil)
+    }
+}
+
+@Test func addresslessForgedPinAndUnauthenticatedSourceCannotChangeOrderingEvidence() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+    let p2 = try addressless3611(desktopB.get())
+    let attacker = try member(AnnexClientIdentity.ephemeral())
+    let forged = try altering(p2, ["certFingerprint": .string(attacker.certFingerprint), "certPem": .string(attacker.certPem!)])
+    await #expect(throws: AnnexTransportError.identityMismatch) {
+        try await registry.reconcileNetwork(snapshot([a, forged]), from: a.fingerprint)
+    }
+    try await registry.reconcileNetwork(snapshot([p2]), from: "unpaired-source")
+    #expect(await store.loadAll().first { $0.host.hostID == f.fingerprint }?.network?.serverPairing?.id == "desktop-pair")
+    try await registry.reconcileNetwork(snapshot([a], removals: [removal(f.fingerprint)]), from: a.fingerprint)
+    #expect(await registry.transport(for: f.fingerprint) == nil)
+}
+
+@Test func oldNetworkArchiveWithoutObservationMapStillLoadsAndMigrates() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+    let disk = ArchivedNetworkPairingStore()
+    for saved in await store.loadAll() {
+        var archive = try #require(JSONSerialization.jsonObject(with: saved.encoded()) as? [String: Any])
+        var network = try #require(archive["network"] as? [String: Any])
+        network.removeValue(forKey: "observations")
+        archive["network"] = network
+        let old = try AnnexSavedPairing.decode(JSONSerialization.data(withJSONObject: archive))
+        #expect(old.network?.observations == nil)
+        try await disk.save(old)
+    }
+    let restored = AnnexTransportRegistry(pairings: disk)
+    #expect(try await restored.restoreSaved().count == 2)
+    #expect(try await disk.loadAll().allSatisfy { $0.network?.observations?[f.fingerprint]?.pairing.id == "desktop-pair" })
+    try await restored.reconcileNetwork(snapshot([a, addressless3611(desktopB.get())]), from: a.fingerprint)
+    try await restored.reconcileNetwork(snapshot([a], removals: [removal(f.fingerprint)]), from: a.fingerprint)
+    #expect(await restored.transport(for: f.fingerprint) != nil)
+}
+
+@Test func corruptObservationMapFailsArchiveDecodeWithoutResetOrDeletion() async throws {
+    let (_, store, _, _) = try await pairedNetwork()
+    let saved = try #require(await store.loadAll().first)
+    var archive = try #require(JSONSerialization.jsonObject(with: saved.encoded()) as? [String: Any])
+    var network = try #require(archive["network"] as? [String: Any])
+    network["observations"] = ["invalid": ["pairing": 12]]
+    archive["network"] = network
+    #expect(throws: (any Error).self) { try AnnexSavedPairing.decode(JSONSerialization.data(withJSONObject: archive)) }
+    #expect(await store.loadAll().count == 1)
+}
+
+@Test func fullObservationMapRejectsNewEvidenceWithoutEvictingKnownPairingOrApplyingRemoval() async throws {
+    let (initial, store, _, a) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    try await initial.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+    var saved = await store.loadAll()
+    var observations = try #require(saved.first?.network?.observations)
+    let placeholder = AnnexNetworkObservation(certFingerprint: a.certFingerprint, pairing: .init(id: "old", joinedAt: networkDate))
+    for index in 0..<(AnnexNetworkObservation.maximumCount - observations.count) {
+        observations[String(format: "%064x", index)] = placeholder
+    }
+    #expect(observations.count == AnnexNetworkObservation.maximumCount)
+    for index in saved.indices {
+        saved[index].network?.observations = observations
+        await store.save(saved[index])
+    }
+    let registry = AnnexTransportRegistry(pairings: store)
+    _ = try await registry.restoreSaved()
+    let unknown = try addressless3611(AnnexClientIdentity.ephemeral())
+    await #expect(throws: AnnexTransportError.commandTooLarge) {
+        try await registry.reconcileNetwork(snapshot([a, unknown], removals: [removal(a.fingerprint, pairingID: "unrelated", joinedAt: "2026-11-07T10:00:00Z")]), from: a.fingerprint)
+    }
+    #expect(await store.loadAll().allSatisfy { $0.network?.observations == observations && $0.network?.removals.isEmpty == true })
+    #expect(await registry.transport(for: f.fingerprint) != nil)
+    // An authoritative removal frees its entry, so bounded retention doesn't
+    // prevent legitimate revocation or subsequent new evidence.
+    try await registry.reconcileNetwork(snapshot([a], removals: [removal(f.fingerprint)]), from: a.fingerprint)
+    try await registry.reconcileNetwork(snapshot([a, unknown]), from: a.fingerprint)
+    #expect(await store.loadAll().first?.network?.observations?.count == AnnexNetworkObservation.maximumCount)
+    #expect(await store.loadAll().first?.network?.observations?[unknown.fingerprint] != nil)
+}
+
+@Test func corruptObservationValuesAndOversizedArchivesAreRejected() async throws {
+    let (_, store, _, a) = try await pairedNetwork()
+    let saved = try #require(await store.loadAll().first)
+    let archive = try #require(JSONSerialization.jsonObject(with: saved.encoded()) as? [String: Any])
+    let valid: [String: Any] = ["certFingerprint": a.certFingerprint, "pairing": ["id": "P2", "joinedAt": "2026-11-08T10:01:00Z"]]
+    for (key, observation) in [
+        (a.fingerprint, ["certFingerprint": "bad", "pairing": ["id": "P2", "joinedAt": networkDate]] as [String: Any]),
+        (a.fingerprint, ["certFingerprint": a.certFingerprint, "pairing": ["id": "P2", "joinedAt": "bad"]] as [String: Any]),
+        ("not-a-fingerprint", valid)
+    ] {
+        var corrupt = archive
+        var network = try #require(corrupt["network"] as? [String: Any])
+        network["observations"] = [key: observation]
+        corrupt["network"] = network
+        #expect(throws: (any Error).self) { try AnnexSavedPairing.decode(JSONSerialization.data(withJSONObject: corrupt)) }
+    }
+    var oversized = archive
+    var network = try #require(oversized["network"] as? [String: Any])
+    network["observations"] = Dictionary(uniqueKeysWithValues: (0...AnnexNetworkObservation.maximumCount).map { (String(format: "%064x", $0), valid) })
+    oversized["network"] = network
+    #expect(throws: AnnexTransportError.malformedResponse) { try AnnexSavedPairing.decode(JSONSerialization.data(withJSONObject: oversized)) }
+    #expect(await store.loadAll().count == 1)
+}
+
+@Test func addresslessSameIdAndUnstampedViewsCannotMoveKnownPairingClock() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+    let p2 = try addressless3611(desktopB.get())
+    for record in [p2.keepingPairing(id: "desktop-pair", joinedAt: "2099-01-01T00:00:00Z"),
+                   p2.keepingPairing(id: nil, joinedAt: "2099-01-01T00:00:00Z")] {
+        try await registry.reconcileNetwork(snapshot([a, record]), from: a.fingerprint)
+        #expect(await store.loadAll().first { $0.host.hostID == f.fingerprint }?.network?.serverPairing == .init(id: "desktop-pair", joinedAt: networkDate))
+    }
+    try await registry.reconcileNetwork(snapshot([a], removals: [removal(f.fingerprint)]), from: a.fingerprint)
+    #expect(await registry.transport(for: f.fingerprint) == nil)
+}
+
+@Test func unknownAddresslessObservationCannotLaterHaveItsCertificateReplaced() async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let p2 = try addressless3611(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, p2]), from: a.fingerprint)
+    let attacker = try member(AnnexClientIdentity.ephemeral())
+    let forged = try altering(member(desktopB.get(), pairingID: "P3", joinedAt: "2026-11-08T10:02:00Z"),
+                              ["certFingerprint": .string(attacker.certFingerprint), "certPem": .string(attacker.certPem!)])
+    await #expect(throws: AnnexTransportError.identityMismatch) {
+        try await registry.reconcileNetwork(snapshot([a, forged]), from: a.fingerprint)
+    }
+    #expect(await registry.transport(for: p2.fingerprint) == nil)
+    #expect(await store.loadAll().first?.network?.observations?[p2.fingerprint]?.pairing.id == "P2")
+}
