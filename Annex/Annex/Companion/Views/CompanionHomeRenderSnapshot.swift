@@ -134,6 +134,9 @@ struct CompanionHomeRowInputs: ViewModifier {
     func body(content: Content) -> some View {
         #if DEBUG
         let _ = snapshot.map { _ in CompanionHomeBuildProbe.frozenActions?(actions?.settings, actions?.wake, actions?.terminal) }
+        let _ = {
+            if let snapshot, let actions { CompanionHomeBuildProbe.frozenRowInputs?(snapshot, actions) }
+        }()
         #endif
         return content
             .environment(\.companionAgentRowContext, context)

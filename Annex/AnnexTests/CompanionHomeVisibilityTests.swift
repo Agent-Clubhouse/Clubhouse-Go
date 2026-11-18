@@ -438,6 +438,106 @@ import ClubhouseTransport
         fixture.capture("Visible Home decisions remain fresh after isolated stream updates")
     }
 
+    /// This mounts the actual native menu-content child through the SAME modifier and
+    /// values emitted by the real Root's push. It does not claim native presentation behind a push.
+    func testMountedFrozenAgentMenuKeepsSnapshotAndRefusesChangedLiveAuthority() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        fixture.prepareAgentMenuCatalog()
+        try await fixture.mount()
+        let target = fixture.hosts[0].projects[0].agents[0].id
+        fixture.preferences.toggleFold("quiet:" + (try XCTUnwrap(fixture.group())).entry.orderKey)
+        try await fixture.turn()
+        fixture.push(.agent(fixture.hosts[1].projects[0].agents[1].id))
+        try await fixture.wait { fixture.isFrozen && fixture.frozenMenuInputs != nil }
+        let (snapshot, actions) = try XCTUnwrap(fixture.frozenMenuInputs)
+        XCTAssertEqual(actions.wake?.choices(target), [.resume, .newSession])
+        XCTAssertTrue(try XCTUnwrap(actions.settings).canOpen(target))
+        XCTAssertTrue(try XCTUnwrap(actions.terminal).availability(.agentShell(target)).isAvailable)
+        let menu = try MountedAgentMenu(parent: fixture.window)
+        defer { menu.capture("Mounted agent menu final pixels and public AX"); menu.close() }
+        menu.show(target: target, store: fixture.store, actions: actions, snapshot: snapshot)
+        let labels = ["Wake & Resume", "Start New Session", "Agent details", "Agent settings", "Terminal"]
+        try await fixture.wait { menu.buttonLabels == labels }
+        XCTAssertEqual(menu.buttonLabels, labels, "The actual menu child inherits every captured Root action in order")
+        XCTAssertGreaterThan(fixture.counts[.rowMenuNative, default: 0], 0, "The actual native menu-content child ran")
+        menu.capture("Captured Home agent menu before live authority changes")
+        fixture.hosts[0].canEditSettings = false
+        fixture.hosts[0].terminal = nil
+        fixture.hosts[0].projects[0].agents[0].status = .working
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.turn()
+        XCTAssertEqual(menu.buttonLabels, labels, "Captured display remains unchanged; it cannot authorize activation")
+        let reads = fixture.service.historyReads
+        for (label, control) in [("Agent settings", AnnexUIAction.Control.openAgentSettings),
+                                 ("Wake & Resume", .wakeAndResume), ("Start New Session", .startNewSession),
+                                 ("Terminal", .openAgentTerminal)] {
+            try await fixture.activateMenu(menu, label: label, control: control)
+        }
+        XCTAssertEqual(fixture.counts[.activation, default: 0], 0, "Every captured execution path re-checks its live predicate")
+        XCTAssertNil(fixture.window.rootViewController?.presentedViewController)
+        XCTAssertEqual(fixture.service.historyReads, reads, "Refused Wake cannot begin history or a command")
+        fixture.hosts[0].projects[0].agents.removeAll { $0.id == target }
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.turn()
+        try await fixture.activateMenu(menu, label: "Agent details", control: .openAgentDetails)
+        XCTAssertNil(fixture.window.rootViewController?.presentedViewController, "A removed identity cannot open captured details")
+        XCTAssertEqual(fixture.service.historyReads, reads)
+        menu.capture("Captured menu stays visible but all stale activations are refused")
+    }
+
+    func testMountedFrozenAgentMenuDetailsReachesRootAndRecordsHomeScreen() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        fixture.prepareAgentMenuCatalog()
+        try await fixture.mount()
+        let target = fixture.hosts[0].projects[0].agents[0].id
+        fixture.preferences.toggleFold("quiet:" + (try XCTUnwrap(fixture.group())).entry.orderKey)
+        try await fixture.turn()
+        fixture.push(.agent(fixture.hosts[1].projects[0].agents[1].id))
+        try await fixture.wait { fixture.isFrozen && fixture.frozenMenuInputs != nil }
+        let (snapshot, actions) = try XCTUnwrap(fixture.frozenMenuInputs)
+        let menu = try MountedAgentMenu(parent: fixture.window)
+        defer { menu.capture("Mounted agent menu final pixels and public AX"); menu.close() }
+        menu.show(target: target, store: fixture.store, actions: actions, snapshot: snapshot)
+        try await fixture.wait { menu.button(named: "Agent details") != nil }
+        try await fixture.activateMenu(menu, label: "Agent details", control: .openAgentDetails)
+        try await fixture.wait { fixture.window.rootViewController?.presentedViewController != nil }
+        XCTAssertNotNil(fixture.window.rootViewController?.presentedViewController, "The inherited captured handle writes the real Root sheet state")
+        let detailsPixels = try await fixture.waitForRenderedText("Synthetic agent 0")
+        XCTAssertTrue(detailsPixels.contains("Synthetic agent 0"), "Details must identify this row, not the pushed agent")
+        fixture.capture("Mounted captured menu opens the real Root details sheet")
+    }
+
+    func testMountedLiveAgentMenuFollowsAvailabilityAndMissingEnvironmentControls() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        fixture.prepareAgentMenuCatalog()
+        try await fixture.mount()
+        let target = fixture.hosts[0].projects[0].agents[1].id
+        try await fixture.wait { fixture.rowActions[target] != nil }
+        let actions = try XCTUnwrap(fixture.rowActions[target])
+        let menu = try MountedAgentMenu(parent: fixture.window)
+        defer { menu.capture("Mounted agent menu final pixels and public AX"); menu.close() }
+        menu.show(target: target, store: fixture.store, actions: actions)
+        try await fixture.wait { menu.buttonLabels == ["Agent details", "Agent settings", "Terminal"] }
+        XCTAssertEqual(menu.buttonLabels, ["Agent details", "Agent settings", "Terminal"], "An awake agent has no Wake choices")
+        XCTAssertGreaterThan(fixture.counts[.rowMenuNative, default: 0], 0)
+        fixture.hosts[0].connection = .offline
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.wait { menu.button(named: "Terminal")?.accessibilityTraits.contains(.notEnabled) == true }
+        XCTAssertTrue(try XCTUnwrap(menu.button(named: "Terminal")).accessibilityTraits.contains(.notEnabled), "A known but offline Terminal is shown disabled")
+        fixture.hosts[0].canEditSettings = false
+        fixture.hosts[0].terminal = nil
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.wait { menu.buttonLabels == ["Agent details"] }
+        XCTAssertEqual(menu.buttonLabels, ["Agent details"], "Live conditional items disappear when permission or capability goes away")
+        menu.capture("Live menu reflects unavailable settings and Terminal")
+        menu.show(target: target, store: fixture.store, actions: .init(settings: nil, wake: nil, terminal: nil))
+        try await fixture.turn()
+        XCTAssertTrue(menu.buttonLabels.isEmpty, "Missing environment actions cannot render unconditional menu items")
+    }
+
     @MainActor private final class Fixture {
         let service: HomeVisibilityService
         let store: CompanionStore
@@ -457,6 +557,8 @@ import ClubhouseTransport
         var streamTarget: CompanionTarget?
         var isFrozen = false
         var frames: [(Bool, String)] = []
+        var capturesMenuInputs = false
+        var frozenMenuInputs: (CompanionHomeRenderSnapshot, CompanionHomeFrozenActions)?
         var frozenSettings: CompanionAgentSettingsAction?
         var frozenWake: CompanionAgentWakeAction?
         var frozenTerminal: CompanionTerminalAction?
@@ -488,6 +590,35 @@ import ClubhouseTransport
             store.apply(.hosts(hosts))
         }
 
+        func prepareAgentMenuCatalog() {
+            capturesMenuInputs = true
+            hosts = Array(hosts.prefix(2))
+            for index in hosts.indices {
+                hosts[index].projects = Array(hosts[index].projects.prefix(1))
+                hosts[index].projects[0].agents = Array(hosts[index].projects[0].agents.prefix(3))
+                hosts[index].canEditSettings = true
+                hosts[index].terminal = .init(projectShell: true, agentShell: true, agentAttach: false)
+                hosts[index].projects[0].agents[0].hasSession = true
+            }
+            store.apply(.hosts(hosts))
+        }
+
+        /// Public AX activation must execute the real Button, demonstrated by its Home
+        /// intent record even when the downstream live guard rejects the stale action.
+        func activateMenu(_ menu: MountedAgentMenu, label: String, control: AnnexUIAction.Control,
+                          file: StaticString = #filePath, line: UInt = #line) async throws {
+            let telemetry = AnnexTelemetry.shared
+            let wasEnabled = telemetry.isEnabled
+            telemetry.setEnabled(true)
+            defer { telemetry.setEnabled(wasEnabled) }
+            let before = Set(telemetry.snapshot().records.map(\.id))
+            let button = try XCTUnwrap(menu.button(named: label), "Mounted menu has the actual accessible button", file: file, line: line)
+            XCTAssertTrue(button.accessibilityActivate(), "Public AX must activate this mounted SwiftUI Button", file: file, line: line)
+            try await wait { telemetry.snapshot().records.contains { !before.contains($0.id) && $0.uiAction == .init(screen: .home, control: control) } }
+            let intents = telemetry.snapshot().records.filter { !before.contains($0.id) }.compactMap(\.uiAction)
+            XCTAssertEqual(intents, [.init(screen: .home, control: control)], "Actual menu action inherits Home telemetry exactly once", file: file, line: line)
+        }
+
         func mount() async throws {
             await store.load(dispatcher)
             CompanionHomeBuildProbe.renderedSort = { [weak self] in self?.renderedSort = $0 }
@@ -504,6 +635,11 @@ import ClubhouseTransport
             CompanionHomeBuildProbe.frame = { [weak self] in self?.frames.append(($0, $1)) }
             CompanionHomeBuildProbe.frozenActions = { [weak self] settings, wake, terminal in
                 self?.frozenSettings = settings; self?.frozenWake = wake; self?.frozenTerminal = terminal
+            }
+            if capturesMenuInputs {
+                CompanionHomeBuildProbe.frozenRowInputs = { [weak self] snapshot, actions in
+                    self?.frozenMenuInputs = (snapshot, actions)
+                }
             }
             CompanionHomeBuildProbe.state = { [weak self] in self?.scope = $0 }
             CompanionConversationBuildProbe.record = { [weak self] kind, target in
@@ -690,12 +826,86 @@ import ClubhouseTransport
             CompanionHomeBuildProbe.rowActions = nil; rowActions.removeAll()
             CompanionHomeBuildProbe.frozen = nil; CompanionHomeBuildProbe.frame = nil; CompanionHomeBuildProbe.frozenActions = nil
             frozenSettings = nil; frozenWake = nil; frozenTerminal = nil
+            CompanionHomeBuildProbe.frozenRowInputs = nil; frozenMenuInputs = nil
             CompanionHomeBuildProbe.navigation = nil; CompanionHomeBuildProbe.state = nil
             CompanionConversationBuildProbe.record = nil
             navigation = nil; scope = nil; projection = nil
             window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
             store.shutdown(); defaults.removePersistentDomain(forName: suite)
         }
+    }
+}
+
+/// A real-mounted menu CONTENT view, not native menu presentation. No synthetic Button
+/// actions or private UIKit menu-provider APIs; public accessibility drives its Buttons.
+@MainActor private final class MountedAgentMenu {
+    let window: UIWindow
+    private weak var previous: UIWindow?
+
+    init(parent: UIWindow) throws {
+        previous = parent
+        window = UIWindow(windowScene: try XCTUnwrap(parent.windowScene))
+        window.frame = parent.frame
+        window.windowLevel = .init(rawValue: parent.windowLevel.rawValue + 1)
+    }
+
+    func show(target: CompanionTarget, store: CompanionStore, actions: CompanionHomeFrozenActions,
+              snapshot: CompanionHomeRenderSnapshot? = nil) {
+        let content = VStack(alignment: .leading, spacing: 16) {
+            CompanionAgentContextMenu(target: target)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(Color.white)
+        .buttonStyle(.bordered)
+        // Frozen mode starts with NO inherited actions. Only the real Home modifier
+        // may install the captured handles, so a broken environment chain cannot pass.
+        .environment(\.companionAgentSettings, snapshot == nil ? actions.settings : nil)
+        .environment(\.companionAgentWake, snapshot == nil ? actions.wake : nil)
+        .environment(\.companionTerminal, snapshot == nil ? actions.terminal : nil)
+        .modifier(CompanionHomeRowInputs(store: store, snapshot: snapshot, impliedHostID: nil,
+                                        actions: snapshot == nil ? nil : actions))
+        .companionTelemetryScreen(.home)
+        .companionTheme(.clubhouse)
+        .environment(\.colorScheme, .light)
+        .environment(\.companionHomeBuildCounting, true)
+        window.rootViewController = UIHostingController(rootView: content)
+        window.makeKeyAndVisible()
+        window.layoutIfNeeded()
+        window.rootViewController?.view.layoutIfNeeded()
+    }
+
+    private var buttons: [NSObject] {
+        var seen: Set<ObjectIdentifier> = [], result: [NSObject] = []
+        @MainActor func visit(_ node: NSObject) {
+            guard seen.insert(ObjectIdentifier(node)).inserted else { return }
+            if node.isAccessibilityElement && node.accessibilityTraits.contains(.button) { result.append(node) }
+            if let explicit = node.accessibilityElements as? [NSObject] { for child in explicit { visit(child) } }
+            let count = node.accessibilityElementCount()
+            if count > 0 && count < 2_000 {
+                for index in 0..<count { if let child = node.accessibilityElement(at: index) as? NSObject { visit(child) } }
+            }
+            if let view = node as? UIView { for child in view.subviews { visit(child) } }
+        }
+        visit(window)
+        return result.sorted { $0.accessibilityFrame.minY < $1.accessibilityFrame.minY }
+    }
+
+    var buttonLabels: [String] { buttons.compactMap(\.accessibilityLabel) }
+    func button(named label: String) -> NSObject? { buttons.first { $0.accessibilityLabel == label } }
+
+    func capture(_ name: String) {
+        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in window.drawHierarchy(in: window.bounds, afterScreenUpdates: true) }
+        let pixels = XCTAttachment(image: image); pixels.name = name; pixels.lifetime = .keepAlways
+        let tree = buttons.map { "\($0.accessibilityLabel ?? "nil") traits=\($0.accessibilityTraits.rawValue) frame=\($0.accessibilityFrame)" }.joined(separator: "\n")
+        let ax = XCTAttachment(string: tree); ax.name = name + " AX"; ax.lifetime = .keepAlways
+        XCTContext.runActivity(named: name) { activity in activity.add(pixels); activity.add(ax) }
+    }
+
+    func close() {
+        window.isHidden = true
+        window.rootViewController = nil
+        previous?.makeKey()
     }
 }
 
