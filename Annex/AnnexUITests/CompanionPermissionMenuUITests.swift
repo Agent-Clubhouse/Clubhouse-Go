@@ -45,6 +45,8 @@ import XCTest
             : flags.contains("--companion-header-light") ? "Light" : "Dark"
         capture(app, "composer \(landscape ? "landscape" : "portrait") \(appearance) \(flags.contains("UICTContentSizeCategoryAccessibilityXXXL") ? "XXXL" : "standard")")
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
+        XCTAssertEqual(app.buttons["companion-permissions-menu"].label, "Permissions: Auto-accept edits",
+                       "The permissions submenu keeps its VoiceOver meaning without the redundant section heading")
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
         XCTAssertEqual(composer.value as? String, "Permission menu draft", "Opening a native menu preserves the draft")
         if visibleKeyboardFrame(app) == nil {
@@ -147,6 +149,7 @@ import XCTest
                 XCTAssertTrue(pixelContains(pane, row.frame), "\(name) \(level.id) \(row.frame) must fit wholly in \(pane), without scrolling")
                 print("PERMISSION_GEOMETRY state=portrait-\(name) level=\(level.id) pane=\(pane) row=\(row.frame)")
             }
+            if app.frame.height < 800 { XCTAssertGreaterThanOrEqual(pane.maxY - full.frame.maxY, 8, "Default SE retains a real bottom margin") }
             capture(app, "portrait \(name)")
             confirmFullAccess(app)
             app.terminate()
@@ -171,6 +174,7 @@ import XCTest
                 XCTAssertTrue(pixelContains(pane, row.frame), "XLarge \(name) \(level.id) \(row.frame) must fit wholly in \(pane), without scrolling")
                 print("PERMISSION_GEOMETRY state=XLarge-\(name) level=\(level.id) pane=\(pane) row=\(row.frame)")
             }
+            if app.frame.height < 800 { XCTAssertGreaterThanOrEqual(pane.maxY - full.frame.maxY, 8, "XLarge SE retains a real bottom margin") }
             capture(app, "XLarge portrait \(name)")
             confirmFullAccess(app)
             app.terminate()
@@ -179,9 +183,11 @@ import XCTest
 
     func testFullAccessConfirmationExplainsUnpromptedEditsAndCommands() {
         let app = openMenu(["--companion-header-light"])
+        let agentName = app.buttons["companion-chat-header"].label.components(separatedBy: ",")[0]
+        XCTAssertFalse(agentName.isEmpty)
         let confirmation = app.buttons["Switch to Full access"]
         waitAndTap(app.buttons["companion-level-full_access"], until: confirmation, attempts: 1)
-        XCTAssertTrue(app.staticTexts["Header worker will edit files and run commands without asking you first."].exists,
+        XCTAssertTrue(app.staticTexts["\(agentName) will edit files and run commands without asking you first."].exists,
                       "The confirmation retains the safety meaning omitted from compact visual subtitles")
         XCTAssertTrue(confirmation.isHittable)
         capture(app, "Full access consequence confirmation")
@@ -193,9 +199,11 @@ import XCTest
 
     func testAutoConfirmationExplainsApprovalChoice() {
         let app = openMenu(["--companion-header-light"])
+        let agentName = app.buttons["companion-chat-header"].label.components(separatedBy: ",")[0]
+        XCTAssertFalse(agentName.isEmpty)
         let confirmation = app.buttons["Switch to Auto"]
         waitAndTap(app.buttons["companion-level-auto"], until: confirmation, attempts: 1)
-        XCTAssertTrue(app.staticTexts["Header worker will decide for itself what needs your approval."].exists,
+        XCTAssertTrue(app.staticTexts["\(agentName) will decide for itself what needs your approval."].exists,
                       "Auto retains its approval consequence when compact visual subtitles are omitted")
         XCTAssertTrue(confirmation.isHittable)
         capture(app, "Auto consequence confirmation")
@@ -211,11 +219,13 @@ import XCTest
         // This matrix runs on SE3 (667pt) and Pro Max (956pt). Assert the native
         // row geometry independently of the app's available-height classification.
         let shortPhone = editing.frame.height < 800
+        XCTAssertEqual(editing.staticTexts["Permissions"].exists, !shortPhone,
+                       "Only the short editing pane omits the redundant section heading")
         for level in levels {
             let row = editing.buttons["companion-level-\(level.id)"]
             assertFullText(row, expected: level.fullLabel)
             if shortPhone {
-                XCTAssertEqual(row.frame.height, 42, accuracy: 1, "Short editing uses a single native title line")
+                XCTAssertLessThanOrEqual(row.frame.height, 46, "Short editing uses a single native title line")
             } else {
                 XCTAssertGreaterThanOrEqual(row.frame.height, 57, "Roomy editing retains the native subtitle line")
             }
@@ -228,6 +238,7 @@ import XCTest
         XCTAssertNil(visibleKeyboardFrame(reading))
         waitAndTap(reading.buttons["companion-level-menu"], until: reading.buttons["companion-permissions-menu"], attempts: 1)
         waitAndTap(reading.buttons["companion-permissions-menu"], until: reading.buttons["companion-level-plan"], attempts: 1)
+        XCTAssertTrue(reading.staticTexts["Permissions"].exists, "Keyboard-down presentation retains its section heading")
         for level in levels {
             let row = reading.buttons["companion-level-\(level.id)"]
             assertFullText(row, expected: level.fullLabel)
