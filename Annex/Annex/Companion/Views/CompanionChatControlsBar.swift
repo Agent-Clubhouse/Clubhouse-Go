@@ -21,18 +21,24 @@ struct CompanionChatControlsBar: View, Equatable {
     var savedModelError: String?
     var retrySavedModel: @MainActor () -> Void = {}
     @Environment(\.companionPalette) private var palette
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
-            && lhs.usesSingleLinePermissionRows == rhs.usesSingleLinePermissionRows
+            && lhs.keyboardVisible == rhs.keyboardVisible
+            && lhs.usesCompactPermissionHeader == rhs.usesCompactPermissionHeader
             && lhs.modelDifference == rhs.modelDifference && lhs.savedModelError == rhs.savedModelError
     }
 
     private var usesSingleLinePermissionRows: Bool {
-        // Measured native submenu chrome is 100.5pt and each two-line row is 58pt
-        // at Large. Reserve another 20pt for the next standard text size and menu insets.
-        // The existing keyboard-safe container measurement distinguishes short editing
-        // windows from roomy phones/tablets and from the same phone with its keyboard down.
+        // UIKit caps the anchored pane below the full keyboard-safe container height.
+        // At XL its five two-line rows alone need 316pt, overflowing that pane.
+        usesCompactPermissionHeader || (compact && keyboardVisible && dynamicTypeSize >= .xLarge)
+    }
+
+    private var usesCompactPermissionHeader: Bool {
+        // Short editing windows also need to reclaim the section/back-header space.
+        // Keep the current-level title in roomier windows, independently of row detail.
         compact && keyboardVisible && availableHeight < 100.5 + CGFloat(controls.levels.count) * 58 + 20
     }
 
@@ -72,14 +78,14 @@ struct CompanionChatControlsBar: View, Equatable {
     private var levelMenu: some View {
         let current = controls.currentLevel
         return Menu {
-            if usesSingleLinePermissionRows {
+            if usesCompactPermissionHeader {
                 // Avoid repeating the section heading in the short keyboard-up pane.
                 permissionChoices
             } else {
                 Section("Permissions") { permissionChoices }
             }
         } label: {
-            if usesSingleLinePermissionRows {
+            if usesCompactPermissionHeader {
                 // Native nested menus ignore custom AX names, so name the context
                 // directly. A subtitle also consumes the back-header budget at XL.
                 // The circle's AX label and selected choice retain the current level.
