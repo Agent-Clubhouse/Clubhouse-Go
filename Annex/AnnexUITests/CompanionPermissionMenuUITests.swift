@@ -181,7 +181,7 @@ import XCTest
         let app = openMenu(["--companion-header-light"])
         let confirmation = app.buttons["Switch to Full access"]
         waitAndTap(app.buttons["companion-level-full_access"], until: confirmation, attempts: 1)
-        XCTAssertTrue(app.staticTexts["River will edit files and run commands without asking you first."].exists,
+        XCTAssertTrue(app.staticTexts["Header worker will edit files and run commands without asking you first."].exists,
                       "The confirmation retains the safety meaning omitted from compact visual subtitles")
         XCTAssertTrue(confirmation.isHittable)
         capture(app, "Full access consequence confirmation")
@@ -195,7 +195,7 @@ import XCTest
         let app = openMenu(["--companion-header-light"])
         let confirmation = app.buttons["Switch to Auto"]
         waitAndTap(app.buttons["companion-level-auto"], until: confirmation, attempts: 1)
-        XCTAssertTrue(app.staticTexts["River will decide for itself what needs your approval."].exists,
+        XCTAssertTrue(app.staticTexts["Header worker will decide for itself what needs your approval."].exists,
                       "Auto retains its approval consequence when compact visual subtitles are omitted")
         XCTAssertTrue(confirmation.isHittable)
         capture(app, "Auto consequence confirmation")
@@ -215,7 +215,7 @@ import XCTest
             let row = editing.buttons["companion-level-\(level.id)"]
             assertFullText(row, expected: level.fullLabel)
             if shortPhone {
-                XCTAssertEqual(row.frame.height, 44, accuracy: 1, "Short editing uses a single native title line")
+                XCTAssertEqual(row.frame.height, 42, accuracy: 1, "Short editing uses a single native title line")
             } else {
                 XCTAssertGreaterThanOrEqual(row.frame.height, 57, "Roomy editing retains the native subtitle line")
             }
