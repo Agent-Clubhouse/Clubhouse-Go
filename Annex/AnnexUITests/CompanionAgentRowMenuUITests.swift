@@ -25,7 +25,7 @@ import XCTest
             expandFold(quiet, revealing: sleeping, in: app)
             XCTAssertTrue(scrollTo(sleeping, in: app) && sleeping.isHittable)
             let details = app.buttons["Agent details"]
-            longPressUntilMenu(sleeping, shows: details, attempts: 1, "A single native long-press must present this Home row's menu")
+            openMenuWithOneVisibleRowPress(sleeping, in: app, shows: details)
             assertItems(["Wake & Resume", "Start New Session", "Agent details", "Agent settings", "Terminal"], in: app, allowScroll: accessibility)
             capture(app, "Sleeping native Home menu \(scheme) \(accessibility ? "AX5" : "standard")")
             reveal(details, in: app, allowScroll: accessibility)
@@ -38,7 +38,7 @@ import XCTest
             XCTAssertTrue(home.exists)
             let running = element(app, "agent-preview-studio-cedar")
             XCTAssertTrue(scrollUntilExists(running, in: app, up: false) && scrollTo(running, in: app, up: false))
-            longPressUntilMenu(running, shows: details, attempts: 1, "The active agent retains its native menu")
+            openMenuWithOneVisibleRowPress(running, in: app, shows: details)
             assertItems(["Agent details", "Agent settings", "Terminal"], in: app, allowScroll: accessibility)
             XCTAssertFalse(app.buttons["Wake & Resume"].exists, "A running agent must not offer a stale Wake")
             XCTAssertFalse(app.buttons["Start New Session"].exists)
@@ -51,6 +51,41 @@ import XCTest
             XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
             app.terminate()
         }
+    }
+
+    /// Hittability alone can describe a row clipped behind the navigation bar.
+    /// Position first, then issue exactly ONE long-press at the checked row centre.
+    private func openMenuWithOneVisibleRowPress(_ row: XCUIElement, in app: XCUIApplication, shows item: XCUIElement,
+                                              file: StaticString = #filePath, line: UInt = #line) {
+        for step in 0...8 {
+            let top = app.navigationBars["Clubhouse"].frame.maxY
+            let bottom = app.tabBars.firstMatch.frame.minY
+            let viewport = CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: bottom - top)
+            let frame = row.frame
+            let geometry = "step=\(step) row=\(frame) content=\(viewport) hittable=\(row.isHittable)"
+            let record = XCTAttachment(string: geometry); record.name = "Home row before single long-press"; record.lifetime = .keepAlways
+            add(record)
+            capture(app, "Home row position \(step) — \(row.identifier)")
+            XCTAssertLessThanOrEqual(frame.height, viewport.height, "The full row must fit before a long-press: " + geometry, file: file, line: line)
+            if viewport.contains(frame) {
+                XCTAssertTrue(row.exists && row.isHittable, file: file, line: line)
+                let centre = CGPoint(x: frame.midX, y: frame.midY)
+                XCTAssertTrue(viewport.contains(centre) && frame.contains(centre), file: file, line: line)
+                XCTAssertFalse(app.navigationBars["Clubhouse"].frame.contains(centre), file: file, line: line)
+                row.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).press(forDuration: 1.2)
+                XCTAssertTrue(item.waitForExistence(timeout: 5), "One visible-row long-press must reveal its actual native menu", file: file, line: line)
+                return
+            }
+            guard step < 8 else { break }
+            let upwards = frame.maxY > viewport.maxY
+            let overflow = upwards ? frame.maxY - viewport.maxY : viewport.minY - frame.minY
+            let distance = min(overflow + viewport.height * 0.08, viewport.height * 0.4)
+            let startY = viewport.minY + viewport.height * (upwards ? 0.85 : 0.15)
+            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.midX, dy: startY))
+            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: upwards ? -distance : distance)),
+                        withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
+        XCTFail("Home did not fully reveal the row within eight slow drags; no long-press was sent", file: file, line: line)
     }
 
     private func assertItems(_ labels: [String], in app: XCUIApplication, allowScroll: Bool,
