@@ -43,19 +43,23 @@ struct CompanionConversationHeaderFixture: View {
         return .clubhouse
     }
 
-    private var conversation: some View {
+    @ViewBuilder private var conversation: some View {
+        if arguments.contains("--companion-header-activity-floor-room") {
+            // Real viewport room puts the new SE activity-floor fixture clearly below
+            // its floor. Non-flag launches keep the original content without an inset.
+            conversationContent.safeAreaInset(edge: .top, spacing: 0) {
+                Color.clear.frame(height: 20).accessibilityHidden(true)
+            }
+        } else {
+            conversationContent
+        }
+    }
+
+    private var conversationContent: some View {
         Group {
             if ready, let agent = store.agent(for: target) {
                 CompanionConversationView(store: store, agent: agent)
             } else { ProgressView("Preparing header fixture…") }
-        }
-        // Reserve real viewport room only for the activity-floor UI fixture. Twenty points
-        // puts SE + image + Review clearly below its floor, rather than in the 8pt band;
-        // without Review the same viewport still has room for the activity line.
-        .safeAreaInset(edge: .top, spacing: 0) {
-            if arguments.contains("--companion-header-activity-floor-room") {
-                Color.clear.frame(height: 20).accessibilityHidden(true).allowsHitTesting(false)
-            }
         }
         // `--companion-preview-toolbar-scheme-flip` (#534): a synthetic mismatch. The palette keeps the launch
         // appearance while the conversation and its bar items see the opposite colorScheme. It shows the bar glass
