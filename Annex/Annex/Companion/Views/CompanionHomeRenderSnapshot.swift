@@ -25,14 +25,42 @@ struct CompanionHomeRenderSnapshot {
 }
 
 /// Optional wrapper distinguishes a captured missing value from nil (the ordinary live path).
-struct CompanionCapturedActivity { let date: Date? }
+struct CompanionCapturedActivity: Equatable { let date: Date? }
 
 /// Optional display input for the existing menu bodies. Nil keeps every non-Home caller live.
-struct CompanionProjectMenuDisplay {
+struct CompanionProjectMenuDisplay: Equatable {
     let state: CompanionProjectState?
     var lastActivity: Date? = nil
     var canChange = false
     var connectionHint: String? = nil
+}
+
+/// Owner-computed presentation values for the lazy List, in both live and frozen Home.
+/// No Store, action closures, views or per-agent permission projection crosses this boundary.
+struct CompanionHomeContentValues: Equatable {
+    let hosts: [CompanionHost]
+    let entries: [CompanionProjectEntry]
+    let attention: [CompanionAttentionItem]
+    let finished: [CompanionProjectTarget: [CompanionFinishedRun]]
+    let finishedError: String?
+    let states: [CompanionProjectTarget: CompanionProjectMenuDisplay]
+    let linkedStates: [String: CompanionProjectMenuDisplay]
+    let projectActivity: [CompanionProjectTarget: Date]
+
+    init(snapshot: CompanionHomeRenderSnapshot) {
+        self.init(hosts: snapshot.hosts, entries: snapshot.entries, attention: snapshot.attention,
+                  finished: snapshot.finished, finishedError: snapshot.finishedError, states: snapshot.states,
+                  linkedStates: snapshot.linkedStates, projectActivity: snapshot.projectActivity)
+    }
+
+    init(hosts: [CompanionHost], entries: [CompanionProjectEntry], attention: [CompanionAttentionItem],
+         finished: [CompanionProjectTarget: [CompanionFinishedRun]], finishedError: String?,
+         states: [CompanionProjectTarget: CompanionProjectMenuDisplay], linkedStates: [String: CompanionProjectMenuDisplay],
+         projectActivity: [CompanionProjectTarget: Date]) {
+        self.hosts = hosts; self.entries = entries; self.attention = attention
+        self.finished = finished; self.finishedError = finishedError; self.states = states
+        self.linkedStates = linkedStates; self.projectActivity = projectActivity
+    }
 }
 
 /// Existing execution handles, held only for the pushed route. Kept separate from display values.

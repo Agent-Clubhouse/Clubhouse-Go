@@ -150,7 +150,7 @@ struct CompanionDesktopConnectionBanner: View {
     let identifierPrefix: String
     /// Home can scope or anonymize presentation without changing host IDs or retry authority.
     var presentationHosts: [CompanionHost]? = nil
-    /// Home's pushed-route backdrop only. Nil keeps the live retry/presence path everywhere else.
+    /// Home's owner-computed presence input, live or frozen. Nil keeps the Store path elsewhere.
     var capturedHosts: [CompanionHost]? = nil
     @State private var retryAttempts: [String: UUID] = [:]
 

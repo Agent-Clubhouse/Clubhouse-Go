@@ -42,6 +42,98 @@ import ClubhouseTransport
         fixture.capture("Home fresh after 100 rendered Dispatch updates")
     }
 
+    func testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        fixture.hosts[0].canUpdateApp = true
+        fixture.hosts[0].appUpdate = .init(state: .ready, currentVersion: "1.0.0", availableVersion: "1.1.0")
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.mount()
+        let scope = try XCTUnwrap(fixture.scope)
+        scope.wrappedValue = .host("synthetic-host-0")
+        fixture.preferences.toggleFold("quiet:synthetic-host-0-project-8")
+        try await fixture.wait { fixture.projection?.projects.allSatisfy { $0.entry.members.allSatisfy { $0.host.id == "synthetic-host-0" } } == true }
+        let order = try XCTUnwrap(fixture.group()).agents.map(\.id)
+        let target = fixture.hosts[0].projects[0].agents[1].id
+        fixture.streamTarget = target
+        await fixture.store.load(target)
+        fixture.push(.agent(target))
+        try await fixture.wait { fixture.isFrozen && fixture.chatBodies > 0 && fixture.counts[.row, default: 0] > 0 && fixture.counts[.rowMenu, default: 0] > 0 }
+        // Native context menus are lazy until opened; projectMenu stays in every frozen
+        // counter equality below, and LargeCatalog exercises the mounted menu itself.
+        XCTAssertGreaterThan(fixture.counts[.quietRows, default: 0], 0)
+        XCTAssertGreaterThan(fixture.counts[.appUpdate, default: 0], 0)
+        XCTAssertGreaterThan(fixture.counts[.chips, default: 0], 0)
+        try await fixture.turn()
+        // Baseline after native push/lazy realisation settles, not during its animation.
+        // No chunk is delivered until readiness; every subsequent zero-work check remains strict.
+        let sequenceBeforeReadiness = fixture.store.conversation(for: target).lastSequence
+        try await fixture.waitForPushedRealisation()
+        XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, sequenceBeforeReadiness, "Readiness must not deliver any stream chunks")
+        fixture.assertPushCost()
+        let before = fixture.expensiveCounts
+        let ownerBefore = fixture.counts[.owner, default: 0]
+        for batch in 0..<10 {
+            let rendered = fixture.chatBodies
+            for chunk in 0..<10 {
+                fixture.store.apply(.textDelta(target, messageID: "perf-stream", text: " route", sequence: batch * 10 + chunk + 1))
+            }
+            try await fixture.wait { fixture.chatBodies > rendered }
+            XCTAssertEqual(fixture.expensiveCounts, before, "Every row/menu counter must stay fixed for rendered pushed batch \(batch)")
+        }
+        XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, 100)
+        XCTAssertEqual(fixture.store.conversation(for: target).items.compactMap { item -> String? in
+            if case .message(let message) = item, message.id == "perf-stream" { return message.text }; return nil
+        }.first, "start" + String(repeating: " route", count: 100))
+        fixture.attachStreamingCounters("100 pushed chunks", before: before, ownerBefore: ownerBefore)
+        // Status/connection changes while pushed must not redraw the backdrop, or wait one extra frame on pop.
+        fixture.hosts[1].connection = .reconnecting
+        fixture.hosts[0].projects[0].agents[2].status = .approval
+        fixture.hosts[0].projects[0].agents[2].lastActivity = Date(timeIntervalSince1970: 1_900_000_005)
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.turn()
+        XCTAssertEqual(fixture.expensiveCounts, before)
+        XCTAssertEqual(fixture.navigation?.wrappedValue.paths[.home]?.count, 1)
+        fixture.frames.removeAll()
+        fixture.pop()
+        try await fixture.wait { !fixture.isFrozen && fixture.counts[.content, default: 0] > before[.content, default: 0] }
+        XCTAssertEqual(fixture.scope?.wrappedValue, .host("synthetic-host-0"))
+        XCTAssertTrue(fixture.projection?.projects.allSatisfy { $0.entry.members.allSatisfy { $0.host.id == "synthetic-host-0" } } == true)
+        XCTAssertTrue(fixture.preferences.expandedFolds.contains("quiet:synthetic-host-0-project-8"))
+        XCTAssertEqual(fixture.group()?.agents.map(\.id), order, "Back is the SAME Recent session")
+        XCTAssertEqual(fixture.group()?.liveStatus, .approval, "Status refreshes without sorting")
+        XCTAssertFalse(try fixture.renderedText().isEmpty)
+        // Select All to include the changed machine, then repeat a push/pop with a visible offline banner.
+        let linkedBefore = fixture.counts[.linkedRows, default: 0]
+        scope.wrappedValue = .all
+        try await fixture.wait { fixture.frames.last?.1.contains("Reconnecting") == true && fixture.counts[.linkedRows, default: 0] > linkedBefore }
+        fixture.push(.agent(target))
+        try await fixture.wait { fixture.isFrozen }
+        let linkedSequenceBeforeReadiness = fixture.store.conversation(for: target).lastSequence
+        try await fixture.waitForPushedRealisation()
+        XCTAssertEqual(fixture.store.conversation(for: target).lastSequence, linkedSequenceBeforeReadiness, "Linked readiness must not deliver any stream chunks")
+        fixture.assertPushCost()
+        XCTAssertGreaterThan(fixture.counts[.linkedRows, default: 0], 0)
+        let linked = fixture.expensiveCounts
+        let linkedOwnerBefore = fixture.counts[.owner, default: 0]
+        let rendered = fixture.chatBodies
+        fixture.store.apply(.textDelta(target, messageID: "perf-stream", text: " linked", sequence: 101))
+        try await fixture.wait { fixture.chatBodies > rendered }
+        XCTAssertEqual(fixture.expensiveCounts, linked, "The All-scope linked-row body is frozen too")
+        fixture.attachStreamingCounters("Linked pushed chunk", before: linked, ownerBefore: linkedOwnerBefore)
+        fixture.hosts[1].connection = .offline
+        fixture.store.apply(.hosts(fixture.hosts))
+        try await fixture.turn()
+        fixture.frames.removeAll()
+        fixture.pop()
+        try await fixture.wait { !fixture.frames.isEmpty && !fixture.isFrozen }
+        let first = try XCTUnwrap(fixture.frames.first)
+        XCTAssertFalse(first.0)
+        XCTAssertTrue(first.1.contains("Synthetic Desktop 1 is offline"), "The FIRST pop construction uses current banner inputs")
+        let offlineText = try await fixture.waitForRenderedText("offline")
+        XCTAssertTrue(offlineText.contains("offline"))
+        fixture.capture("Home first returned frame has current connection state")
+    }
 
     func testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh() async throws {
         let fixture = try Fixture()
@@ -261,7 +353,6 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.counts[.layout], fixture.counts[.content])
     }
 
-
     @MainActor private final class Fixture {
         let service: HomeVisibilityService
         let store: CompanionStore
@@ -328,7 +419,7 @@ import ClubhouseTransport
             CompanionHomeBuildProbe.frozenActions = { [weak self] settings, wake, terminal in
                 self?.frozenSettings = settings; self?.frozenWake = wake; self?.frozenTerminal = terminal
             }
-            CompanionHomeBuildProbe.state = { [weak self] scope in self?.scope = scope }
+            CompanionHomeBuildProbe.state = { [weak self] in self?.scope = $0 }
             CompanionConversationBuildProbe.record = { [weak self] kind, target in
                 guard case .body = kind, target == (self?.streamTarget ?? self?.dispatcher) else { return }
                 self?.chatBodies += 1
@@ -351,6 +442,55 @@ import ClubhouseTransport
             navigation.wrappedValue = next
         }
 
+        /// A bounded setup condition, never an action retry or a stream-counter allowance.
+        /// Native navigation completion plus TWO equal row/menu samples >=250ms apart.
+        func waitForPushedRealisation(file: StaticString = #filePath, line: UInt = #line) async throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 5
+            var sampled: [CompanionHomeBuildProbe.Kind: Int]?
+            var sampledAt: TimeInterval = 0
+            var evidence: [String] = []
+            defer {
+                let attachment = XCTAttachment(string: evidence.joined(separator: "\n"))
+                attachment.name = "Home push transition and List realisation readiness"
+                attachment.lifetime = .keepAlways
+                XCTContext.runActivity(named: attachment.name ?? "Home render evidence") { $0.add(attachment) }
+            }
+            func isTransitioning(_ controller: UIViewController) -> Bool {
+                controller.transitionCoordinator != nil || controller.isBeingPresented || controller.isBeingDismissed
+                    || controller.children.contains(where: isTransitioning)
+                    || controller.presentedViewController.map(isTransitioning) == true
+            }
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                try await turn()
+                let now = ProcessInfo.processInfo.systemUptime
+                let transitioning = window.rootViewController.map(isTransitioning) ?? true
+                if !isFrozen || transitioning {
+                    sampled = nil
+                } else if sampled == nil || now - sampledAt >= 0.25 {
+                    let current: [CompanionHomeBuildProbe.Kind: Int] = [.row: counts[.row, default: 0], .rowMenu: counts[.rowMenu, default: 0]]
+                    evidence.append("time=\(now) transitionComplete=\(!transitioning) row=\(current[.row, default: 0]) rowMenu=\(current[.rowMenu, default: 0]) interval=\(sampled == nil ? 0 : now - sampledAt)")
+                    if let sampled, current == sampled { return }
+                    sampled = current; sampledAt = now
+                }
+                try await Task.sleep(for: .milliseconds(20)) // Condition polling only.
+            }
+            XCTFail("Native push and List realisation did not settle within 5s", file: file, line: line)
+            throw NSError(domain: "HomeListReadiness", code: 1)
+        }
+
+        /// Value-only evidence, sampled outside rendering; never observes Store in a body callback.
+        func attachStreamingCounters(_ phase: String, before: [CompanionHomeBuildProbe.Kind: Int], ownerBefore: Int) {
+            let after = expensiveCounts
+            let rows = Set(before.keys).union(after.keys).map { kind in
+                "\(kind): \(before[kind, default: 0]) -> \(after[kind, default: 0])"
+            }.sorted()
+            let text = (["owner: \(ownerBefore) -> \(counts[.owner, default: 0])"] + rows).joined(separator: "\n")
+            let attachment = XCTAttachment(string: text)
+            attachment.name = "Home counters: " + phase
+            attachment.lifetime = .keepAlways
+            XCTContext.runActivity(named: attachment.name ?? "Home render evidence") { $0.add(attachment) }
+        }
+
         func assertPushCost(file: StaticString = #filePath, line: UInt = #line) {
             guard let lastPush else { XCTFail("A real push must precede its budget check", file: file, line: line); return }
             XCTAssertEqual(counts[.snapshot, default: 0] - lastPush.snapshots, 1, "Exactly one display snapshot per push", file: file, line: line)
@@ -368,7 +508,6 @@ import ClubhouseTransport
             next.setPath([], for: .home, hosts: store.hosts)
             navigation.wrappedValue = next
         }
-
 
         func select(_ tab: CompanionTab) {
             guard let navigation else { XCTFail("Root navigation must be mounted"); return }

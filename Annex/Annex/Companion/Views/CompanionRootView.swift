@@ -438,6 +438,8 @@ struct CompanionHomeView: View {
     fileprivate var display: CompanionHomeRenderSnapshot? { renderSession.snapshot }
     private var frozenInputs: CompanionHomeRenderSnapshot? { display }
     private var frozenActions: CompanionHomeFrozenActions? { renderSession.actions }
+    /// Set on the value copy handed to Content. The owner alone may use live fallbacks.
+    var contentValues: CompanionHomeContentValues? = nil
     @State private var arrangingEntries: [CompanionProjectEntry] = []
     @Environment(\.companionPalette) private var palette
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -449,22 +451,26 @@ struct CompanionHomeView: View {
     @Environment(\.companionOpenReview) private var openReview
     @Environment(\.scenePhase) private var scenePhase
 
-    private var renderHosts: [CompanionHost] { display?.hosts ?? store.hosts }
-    private var renderEntries: [CompanionProjectEntry] { display?.entries ?? store.projectEntries }
+    private var renderHosts: [CompanionHost] { display?.hosts ?? contentValues?.hosts ?? store.hosts }
+    private var renderEntries: [CompanionProjectEntry] { display?.entries ?? contentValues?.entries ?? store.projectEntries }
     private func renderFinished(_ target: CompanionProjectTarget) -> [CompanionFinishedRun] {
         if let display { return display.finished[target] ?? [] }
+        if let contentValues { return contentValues.finished[target] ?? [] }
         return store.finished(in: target)
     }
     private func renderState(_ target: CompanionProjectTarget) -> CompanionProjectState? {
         if let display { return display.states[target]?.state }
+        if let contentValues { return contentValues.states[target]?.state }
         return store.sharedProjectState(target)
     }
     private func renderLinked(_ entry: CompanionProjectEntry) -> CompanionProjectState? {
         if let display { return display.linkedStates[entry.orderKey]?.state }
+        if let contentValues { return contentValues.linkedStates[entry.orderKey]?.state }
         return store.linkedProjectState(entry)
     }
     private func renderHasAgent(_ target: CompanionTarget) -> Bool {
         if let display { return display.agents.contains(target) }
+        if let contentValues { return contentValues.hosts.contains { $0.allAgents.contains { $0.id == target } } }
         return store.agent(for: target) != nil
     }
 
@@ -479,7 +485,7 @@ struct CompanionHomeView: View {
         #if DEBUG
         CompanionHomeBuildProbe.record?(.attention)
         #endif
-        return (display?.attention ?? store.attentionItems()).filter { scope.contains($0.agent.id) }
+        return (display?.attention ?? contentValues?.attention ?? store.attentionItems()).filter { scope.contains($0.agent.id) }
     }
     private var multipleHosts: Bool { scope.showsHostTags }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
@@ -501,7 +507,7 @@ struct CompanionHomeView: View {
         // A concrete owner keeps pending Home sheets alive across content removal.
         VStack(spacing: 0) {
             if isVisible {
-                CompanionHomeContent(home: self, layout: layout).equatable()
+                visibleContent
                     // Environment readers belong ABOVE the equality boundary. They cannot leave
                     // live Store dependencies registered on the frozen content or its rows.
                     .modifier(CompanionHomeRowInputs(store: store, snapshot: isPushed ? frozenInputs : nil,
@@ -553,6 +559,13 @@ struct CompanionHomeView: View {
         }
     }
 
+    private var visibleContent: some View {
+        let currentLayout = layout
+        var contentHome = self
+        contentHome.contentValues = makeContentValues(layout: currentLayout)
+        return CompanionHomeContent(home: contentHome, layout: currentLayout).equatable()
+    }
+
     @ToolbarContentBuilder private var homeToolbar: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
             Button("Settings", systemImage: "gearshape", action: onSettings).companionToolbarSecondary()
@@ -587,6 +600,7 @@ struct CompanionHomeView: View {
         return List {
             if !renderHosts.isEmpty {
                 summary
+
                     .fixedSize(horizontal: false, vertical: true)
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .listRowBackground(Color.clear)
@@ -597,6 +611,7 @@ struct CompanionHomeView: View {
             // Keep the scope owner mounted when the visible chip row disappears;
             // removing a selected desktop must restore All before filtering Home.
             CompanionDesktopChips(hosts: renderHosts, selection: $desktopSelection, onSelect: onInteraction)
+
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)
                 .listRowInsets(EdgeInsets(top: 4, leading: 0, bottom: 4, trailing: 0))
@@ -619,14 +634,14 @@ struct CompanionHomeView: View {
                     CompanionAppUpdateLink(store: store, host: presentationHost(host))
                 }
                 if CompanionConnectionNotice(hosts: scopedHosts).isVisible {
-                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home", presentationHosts: presentationHosts, capturedHosts: display?.hosts)
+                    CompanionDesktopConnectionBanner(store: store, identifierPrefix: "home", presentationHosts: presentationHosts, capturedHosts: display?.hosts ?? contentValues?.hosts)
                         .listRowBackground(Color.clear)
                         .listRowInsets(EdgeInsets())
                 }
                 needsYou
                 dispatchers
                 projects(layout)
-                if let error = finishedActionError ?? (display != nil ? display?.finishedError : store.finishedError) {
+                if let error = finishedActionError ?? (display != nil ? display?.finishedError : contentValues?.finishedError) {
                     Text(error).foregroundStyle(Color(palette.warning))
                         .accessibilityIdentifier("home-finished-error")
                 }
@@ -676,37 +691,72 @@ struct CompanionHomeView: View {
         return terminal?.availability(target) ?? .hidden
     }
 
-    /// Capture only on entering a pushed route, never on a streamed chunk. No commands/authority are cached.
-    private func makeFrozenInputs() -> CompanionHomeRenderSnapshot {
+    /// Build once in the owner. Deferred List/ForEach closures never establish live
+    /// catalog/state subscriptions that can survive the transition to a frozen backdrop.
+    /// Conversation-dependent menu/activity inputs stay in their live leaf bodies,
+    /// or are captured once by makeFrozenInputs. Never subscribe this owner to chats.
+    private func makeContentValues(layout: CompanionHomeLayout) -> CompanionHomeContentValues {
+        if let display { return .init(snapshot: display) }
         #if DEBUG
-        CompanionHomeBuildProbe.record?(.snapshot)
+        CompanionHomeBuildProbe.record?(.contentInputs)
         #endif
         let hosts = store.hosts, entries = store.projectEntries
-        let layout = layout, scoped = scope, attention = scopedAttention
+        let attention = store.attentionItems()
         let shown = layout.projects + (preferences.idleExpanded ? layout.idle : [])
         let full = Dictionary(entries.map { ($0.orderKey, $0) }, uniquingKeysWith: { first, _ in first })
         var finished: [CompanionProjectTarget: [CompanionFinishedRun]] = [:]
         var states: [CompanionProjectTarget: CompanionProjectMenuDisplay] = [:]
         var linked: [String: CompanionProjectMenuDisplay] = [:]
         var activity: [CompanionProjectTarget: Date] = [:]
-        var terminals: [CompanionTerminalScope: CompanionTerminalAvailability] = [:]
-        var wakeProjects: Set<CompanionProjectTarget> = []
         // The closed idle footer still needs the shared-state presence, but not agent predicates or menus.
         for group in layout.projects + layout.idle {
             for member in group.entry.members { states[member.id] = .init(state: store.sharedProjectState(member.id)) }
         }
-        var rowAgents: [CompanionTarget: CompanionAgent] = [:]
         for group in shown {
             let entry = group.entry, catalog = full[group.entry.orderKey] ?? group.entry
             linked[entry.orderKey] = .init(state: store.linkedProjectState(catalog),
                 canChange: store.canChangeLinkedProjectState(catalog), connectionHint: store.linkedProjectStateConnectionHint(catalog))
             for member in entry.members {
                 finished[member.id] = store.finished(in: member.id)
-                states[member.id] = .init(state: states[member.id]?.state, lastActivity: catalog.isLinked ? nil : store.lastActivity(for: member.id))
                 activity[member.id] = projectActivity(member.id)
+            }
+        }
+        return .init(hosts: hosts, entries: entries, attention: attention,
+            finished: finished, finishedError: store.finishedError, states: states, linkedStates: linked,
+            projectActivity: activity)
+    }
+
+    /// Capture only on entering a pushed route, never on a streamed chunk. No commands/authority are cached.
+    private func makeFrozenInputs() -> CompanionHomeRenderSnapshot {
+        #if DEBUG
+        CompanionHomeBuildProbe.record?(.snapshot)
+        #endif
+        let layout = layout, scoped = scope
+        let values = makeContentValues(layout: layout)
+        let hosts = values.hosts, entries = values.entries
+        let attention = values.attention.filter { scoped.contains($0.agent.id) }
+        let shown = layout.projects + (preferences.idleExpanded ? layout.idle : [])
+        var states = values.states
+        var terminals: [CompanionTerminalScope: CompanionTerminalAvailability] = [:]
+        var wakeProjects: Set<CompanionProjectTarget> = []
+        var dispatcherActivity: [CompanionTarget: CompanionCapturedActivity] = [:]
+        let full = Dictionary(entries.map { ($0.orderKey, $0) }, uniquingKeysWith: { first, _ in first })
+        // History and permission predicates are read only at this push-time snapshot,
+        // never by the live owner's display projection. Execution still resolves live.
+        for host in hosts {
+            if let agent = host.dispatcherAgent { dispatcherActivity[agent.id] = .init(date: store.lastActivity(of: agent)) }
+        }
+        for group in shown {
+            let catalog = full[group.entry.orderKey] ?? group.entry
+            for member in group.entry.members {
+                states[member.id] = .init(state: values.states[member.id]?.state,
+                    lastActivity: catalog.isLinked ? nil : store.lastActivity(for: member.id))
                 terminals[.project(member.id)] = terminal?.availability(.project(member.id)) ?? .hidden
                 if renderCanWake(member) { wakeProjects.insert(member.id) }
             }
+        }
+        var rowAgents: [CompanionTarget: CompanionAgent] = [:]
+        for group in shown {
             let key = "quiet:" + quietKey(group)
             let rows = group.tree.active + (preferences.expandedFolds.contains(key) ? group.tree.sleeping + group.tree.finishedQuick : [])
             for row in group.tree.visible(rows, collapsed: preferences.collapsedAgents(in: rows)) { rowAgents[row.id] = row.agent }
@@ -717,13 +767,11 @@ struct CompanionHomeView: View {
         }
         var settings: Set<CompanionTarget> = []
         var wake: [CompanionTarget: [CompanionWakeChoice]] = [:]
-        var dispatcherActivity: [CompanionTarget: CompanionCapturedActivity] = [:]
         // Only rows actually represented in this scope/layout/open folds get per-agent Store predicates.
         for agent in rowAgents.values {
             if agentSettings?.canOpen(agent.id) == true { settings.insert(agent.id) }
             wake[agent.id] = agentWake?.choices(agent.id) ?? []
             terminals[.agentShell(agent.id)] = terminal?.availability(.agentShell(agent.id)) ?? .hidden
-            if agent.isDispatcher { dispatcherActivity[agent.id] = .init(date: store.lastActivity(of: agent)) }
         }
         #if DEBUG
         CompanionHomeBuildProbe.snapshotAgents?(rowAgents.count)
@@ -733,8 +781,8 @@ struct CompanionHomeView: View {
             entries: entries, layout: layout, attention: attention,
             rowContext: .init(hostNames: Dictionary(hosts.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first }),
                 impliedHostID: scoped.impliedHostID, projectAccessDefaults: store.projectAccessDefaults, agentAccessDefaults: store.agentAccessDefaults),
-            finished: finished, finishedError: store.finishedError, states: states, linkedStates: linked,
-            projectActivity: activity, dispatcherActivity: dispatcherActivity, agents: Set(hosts.flatMap(\.allAgents).map(\.id)),
+            finished: values.finished, finishedError: values.finishedError, states: states, linkedStates: values.linkedStates,
+            projectActivity: values.projectActivity, dispatcherActivity: dispatcherActivity, agents: Set(hosts.flatMap(\.allAgents).map(\.id)),
             settings: settings, wake: wake, terminal: terminals, wakeProjects: wakeProjects)
     }
 
@@ -757,6 +805,7 @@ struct CompanionHomeView: View {
         group.entry.isLinked ? group.entry.orderKey : "\(group.entry.host.id)-\(group.entry.project.id)"
     }
 
+    /// If the former row disappeared or moved into a closed fold, restoration explicitly falls back to the top.
     private var presentationHosts: [CompanionHost] { scopedHosts.map(presentationHost) }
 
     private func presentationHost(_ host: CompanionHost) -> CompanionHost {
@@ -799,6 +848,7 @@ struct CompanionHomeView: View {
                     CompanionAgentListRow(agent: item.agent, hostTag: multipleHosts ? item.hostName : nil, detail: item.detail)
                 }
                 .accessibilityIdentifier("agent-\(item.agent.id.hostID)-\(item.agent.id.agentID)")
+
                 .listRowBackground(CompanionCardBackground())
             }
         } header: {
@@ -819,7 +869,9 @@ struct CompanionHomeView: View {
         if !shown.isEmpty {
             Section {
                 ForEach(shown) { host in
-                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: display?.dispatcherActivity[host.dispatcherAgent?.id ?? .init(hostID: host.id, projectID: "", agentID: "")], capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
+                    let activity = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
+                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: activity, capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
+
                         .listRowBackground(CompanionCardBackground())
                 }
             }
@@ -838,6 +890,7 @@ struct CompanionHomeView: View {
     /// otherwise the last time it was marked active here.
     private func projectActivity(_ target: CompanionProjectTarget) -> Date? {
         if let display { return display.projectActivity[target] }
+        if let contentValues { return contentValues.projectActivity[target] }
         let marked = renderState(target).map(\.lastActivity) ?? preferences.projectActivity[CompanionProjectOrdering.key(target)]
         let agents = renderHosts.first { $0.id == target.hostID }?.projects.first { $0.id == target.projectID }?.agents ?? []
         // Recorded catalog/turn times are stable between reports; per-tool chat timestamps churn.
@@ -882,6 +935,7 @@ struct CompanionHomeView: View {
                     CompanionFoldLabel(text: "\(layout.idle.count) idle project\(layout.idle.count == 1 ? "" : "s")", isOpen: preferences.idleExpanded)
                 }
                 .accessibilityIdentifier("idle-projects-fold")
+
                 .listRowBackground(CompanionCardBackground())
             } footer: {
                 if preferences.idleExpanded { EmptyView() } else {
@@ -912,6 +966,7 @@ struct CompanionHomeView: View {
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         return Section {
             projectHeader(group)
+
                 .buttonStyle(.borderless)
                 .navigationLinkIndicatorVisibility(.hidden)
                 .listRowSeparator(.hidden)
@@ -940,10 +995,15 @@ struct CompanionHomeView: View {
         CompanionHomeBuildProbe.record?(.header)
         #endif
         let entry = group.entry
+        #if DEBUG
+        // Hosted coverage observes the same pure production value factory; native Menu
+        // bodies are lazy. No additional work unless this explicit test observer is set.
+        if hostedProjectMenu != nil { _ = sharedLinkedStateMenu(group) }
+        #endif
         let projectID = "\(entry.host.id)-\(entry.project.id)"
         // Bound the Debug builder's generic value storage. Reuse one erased menu for
         // all three gesture targets and both accessibility action surfaces.
-        let menu = CompanionHomeProjectHeaderMenu(content: AnyView(projectContextMenuItems(group)))
+        let menu = CompanionHomeProjectHeaderMenu { AnyView(projectContextMenuItems(group)) }
         let headerLayout = dynamicTypeSize.isAccessibilitySize
                 ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6))
                 : AnyLayout(HStackLayout(spacing: 6))
@@ -1044,6 +1104,7 @@ struct CompanionHomeView: View {
         }
         .buttonStyle(.borderless)
         .accessibilityIdentifier("project-machine-\(member.host.id)-\(member.project.id)")
+
         .listRowBackground(CompanionCardBackground())
         if expanded {
             ForEach(cached) { agent in
@@ -1056,6 +1117,7 @@ struct CompanionHomeView: View {
                     .opacity(0.5)
                     .accessibilityLabel("\(agent.name), cached on \(machineLabel(entry, member)), desktop not connected")
                     .accessibilityIdentifier("cached-agent-\(agent.id.hostID)-\(agent.id.projectID)-\(agent.id.agentID)")
+
                     .listRowBackground(CompanionCardBackground())
             }
         }
@@ -1117,8 +1179,8 @@ struct CompanionHomeView: View {
             canWake: entry.members.contains { renderCanWake($0) },
             capturedDisplay: display?.states[entry.id],
             onWake: { beginProjectAction(.wake, entry: entry) }, onInfo: { infoProject = entry.id })
-        if renderLinked(catalogEntry) != nil {
-            linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
+        if let menu = sharedLinkedStateMenu(group) {
+            menu
         } else if entry.isLinked {
             // Old hosts retain their per-copy state and days-idle rule.
             ForEach(entry.members) { member in
@@ -1141,6 +1203,13 @@ struct CompanionHomeView: View {
             }
             .disabled(!entry.members.contains { renderTerminal(.project($0.id)).isAvailable })
         }
+    }
+
+    private func sharedLinkedStateMenu(_ group: CompanionProjectGroup) -> CompanionLinkedProjectStateMenuItems? {
+        let entry = group.entry
+        let catalogEntry = renderEntries.first { $0.members.contains { $0.id == entry.id } } ?? entry
+        guard renderLinked(catalogEntry) != nil else { return nil }
+        return linkedStateMenu(entry: catalogEntry, isIdle: group.isIdle)
     }
 
     private func linkedStateMenu(entry: CompanionProjectEntry, isIdle: Bool) -> CompanionLinkedProjectStateMenuItems {
@@ -1209,7 +1278,7 @@ struct CompanionHomeView: View {
 }
 
 /// On a push install captured display inputs once; subsequent parent updates do not rebuild the List.
-/// Descendants receive value presentation inputs; residual child/event rebuilds are tracked in #557.
+/// Descendants receive value presentation inputs too, so Observation cannot bypass this boundary.
 private struct CompanionHomeContent: View, Equatable {
     let home: CompanionHomeView
     let layout: CompanionHomeLayout
@@ -1221,8 +1290,10 @@ private struct CompanionHomeContent: View, Equatable {
 
 /// A concrete boundary keeps the Home header's menu out of its inline generic row type.
 private struct CompanionHomeProjectHeaderMenu: View {
-    let content: AnyView
-    var body: AnyView { content }
+    // Defer native menu construction into its own observation scope. Live history
+    // gates must not register a subscription on the header/List builder itself.
+    let content: @MainActor () -> AnyView
+    var body: AnyView { content() }
 }
 
 /// A row that opens and closes a fold, with a turning chevron.
@@ -1321,35 +1392,39 @@ struct CompanionDispatcherRow: View {
         #endif
         if let capturedOpenAgent {
             CompanionDispatcherRowContent(host: host, hostTag: hostTag,
-                detail: detail, openAgent: capturedOpenAgent)
+                detail: companionDispatcherDetail(host: host, activity: capturedActivity?.date), openAgent: capturedOpenAgent).equatable()
         } else {
-            CompanionLiveDispatcherRow(host: host, hostTag: hostTag, detail: detail)
+            CompanionLiveDispatcherRow(store: store, host: host, hostTag: hostTag, capturedActivity: capturedActivity)
         }
-    }
-
-    private var detail: String? {
-        guard let agent = host.dispatcherAgent else { return nil }
-        if let note = host.dispatcher?.statusNote { return note }
-        if let message = agent.detail?.message, !message.isEmpty { return message }
-        let value: Date?
-        if let capturedActivity { value = capturedActivity.date }
-        else { value = store.lastActivity(of: agent) }
-        return value?.formatted(.relative(presentation: .named))
     }
 }
 
 /// Nil/default callers keep the existing live Environment action, including Dispatch.
 private struct CompanionLiveDispatcherRow: View {
+    @Bindable var store: CompanionStore
     let host: CompanionHost
     let hostTag: String?
-    let detail: String?
+    let capturedActivity: CompanionCapturedActivity?
     @Environment(\.companionOpenAgent) private var openAgent
     var body: some View {
-        CompanionDispatcherRowContent(host: host, hostTag: hostTag, detail: detail, openAgent: openAgent)
+        CompanionDispatcherRowContent(host: host, hostTag: hostTag,
+            detail: companionDispatcherDetail(host: host, activity: activity), openAgent: openAgent).equatable()
+    }
+
+    private var activity: Date? {
+        if let capturedActivity { return capturedActivity.date }
+        return host.dispatcherAgent.flatMap { store.lastActivity(of: $0) }
     }
 }
 
-private struct CompanionDispatcherRowContent: View {
+private func companionDispatcherDetail(host: CompanionHost, activity: @autoclosure () -> Date?) -> String? {
+    guard let agent = host.dispatcherAgent else { return nil }
+    if let note = host.dispatcher?.statusNote { return note }
+    if let message = agent.detail?.message, !message.isEmpty { return message }
+    return activity()?.formatted(.relative(presentation: .named))
+}
+
+private struct CompanionDispatcherRowContent: View, Equatable {
     let host: CompanionHost
     let hostTag: String?
     let detail: String?
@@ -1358,6 +1433,11 @@ private struct CompanionDispatcherRowContent: View {
     #if DEBUG
     @Environment(\.companionHomeBuildCounting) private var countsHomeBuilds
     #endif
+
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.host.id == rhs.host.id && lhs.host.dispatcherAgent == rhs.host.dispatcherAgent
+            && lhs.hostTag == rhs.hostTag && lhs.detail == rhs.detail
+    }
 
     var body: some View {
         #if DEBUG
