@@ -1,0 +1,100 @@
+[
+  {
+    "actualSeconds" : 22.268333333333334,
+    "file" : "frame-0000-22.268.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.268333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.32,
+    "file" : "frame-0001-22.320.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.32,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.368333333333332,
+    "file" : "frame-0002-22.368.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.368333333333332,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.423333333333332,
+    "file" : "frame-0003-22.423.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.423333333333332,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.461666666666666,
+    "file" : "frame-0004-22.462.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.461666666666666,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.488333333333333,
+    "file" : "frame-0005-22.488.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.488333333333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.511666666666667,
+    "file" : "frame-0006-22.512.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.511666666666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.518333333333334,
+    "file" : "frame-0007-22.518.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.518333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.523333333333333,
+    "file" : "frame-0008-22.523.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.523333333333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.533333333333335,
+    "file" : "frame-0009-22.533.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.533333333333335,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.561666666666667,
+    "file" : "frame-0010-22.562.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.561666666666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.563333333333333,
+    "file" : "frame-0011-22.563.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.563333333333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.563333333333333,
+    "file" : "frame-0012-22.580.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.579999999999998,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 22.596666666666668,
+    "file" : "frame-0013-22.597.png",
+    "height" : 2868,
+    "requestedSeconds" : 22.596666666666668,
+    "width" : 1320
+  }
+]

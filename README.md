@@ -1,11 +1,11 @@
-# #582 / draft #584 evidence (work in progress)
+# #582 / draft #584 — HARD STOP after the bounded experiment
 
-Current source caaac0337 BUILDS but FAILS first-paint correctness. This is not merge-ready.
+Exact source `7c12e00df` is NOT merge-ready. A-r4 fresh build, compiled deinit gate and20policy tests PASS. FD-r2's ONE F1 UI method PASS reached all scenarios, but its real video FAILS the first-frame gate: native destination reopen paints marker1 before jumping to90. No assertion or test retry follows it.
 
-FD-r1 proves the expanded paused transcript first paints Reading marker 1, then jumps to saved marker 90 (offset 0 to 8605.333pt). The full unaltered recording, selected full PNGs with actual timestamps, full stdout timeline, report and exact cleanup are in runtime/fd-r1. Fresh Latest shows the tail on its first frame. Destination reopening and opposite-state chat switches were not reached because of a later recording-helper hittability error. No retry or acceptance is claimed.
+See [runtime/fd-r2/report.md](runtime/fd-r2/report.md) for the decisive73.333ms transition, full unaltered video/PNGs, actual frame timestamps, app stdout/timeline, controls, limits and exact cleanup. The synchronous cached-ID proxy request did execute once; native offset remained0 until the existing geometry correction.
 
-QA approved one bounded experiment BEFORE code: synchronous cached-ID proxy scroll request on first appearance, once per transcript identity, with no delay, guessed offset, window trimming or assertion relaxation. The proposal is runtime/fd-r1/redesign-proposal-r1.md. The exact implementation and run configuration still require QA static review before building. If it paints wrong first, stop this approach.
+The initial expanded paused opening improved, but the native-destination counterexample triggers QA/Orchestrator's hard stop. All N/H/S/CPU/broad/combined runs remain held. The earlier zero-command assertion is unchanged. Private simulator8876542F was deleted, system-wide0Booted, owned processes empty, swapgrowth0; host released.
 
-A-r3 passed build, compiled deinit gate and 20 policy tests. N-r1 stopped at the new zero-numeric-arrival method (10/11 methods, 11/12 executions passed); its assertions remain unchanged. All four existing Reading/restore/hidden contracts remain byte-identical to main77b24899. FD's simulator was deleted, system0Booted/processes[]/swap0. All acceptance/broad/CPU/coverage phases remain held.
+Two explicit options go to the Orchestrator/user: start the initial window at the bookmark, moving older history behind Show earlier messages (a UX/contract decision requiring new review/proof), or do not ship #582 and retain shipped behavior. No further timing iterations or silent window trimming.
 
-Earlier proposal/manifests and original A/N receipts are preserved as history. CPU r2 overlays are stale after any new product head and must not be run without refreshed provenance and QA review.
+History: runtime/fd-r1 preserves the original expanded-mount top-to-bookmark failure. runtime/a-r4 preserves the fresh build/gate results. Earlier proposals and A/N receipts remain as honest history; old CPU overlays are stale and must not be run.
