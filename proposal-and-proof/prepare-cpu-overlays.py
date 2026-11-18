@@ -23,7 +23,7 @@ for side,head in [('main',M['base']),('head',M['head'])]:
  overlay_head=git('rev-parse','HEAD',cwd=source).decode().strip()
  all_patch=git('diff','--binary',head,overlay_head,cwd=source)
  assert set(git('diff','--name-only',head,overlay_head,cwd=source).decode().splitlines())=={path,new}
- assert git('diff','--numstat',head,overlay_head,cwd=source).decode().splitlines()[0].split('\t')[1]=='0'
+ assert all(row.split('\t')[1]=='0' for row in git('diff','--numstat',head,overlay_head,cwd=source).decode().splitlines()), 'Every overlay file must be additive' 
  m={**M,'base':head,'head':overlay_head,'source':str(source),'full_diff_sha256':sha(all_patch)}
  m['source_sha256']={p:sha((source/p).read_bytes()) for p in [path,new]}
  m['phases']={'A':M['phases']['A'],'P':{'kind':'hosted','bound':480,'device':'iPhone-17-Pro-Max','selectors':['ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork','ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork'],'methods':2,'count':2,'method_names':{'CompanionHomeVisibilityTests':['testDiagnosticHomeScrollStepsReportExpensiveWork'],'CompanionReadingPausedCostTests':['testPausedStreamingReportsPerBatchConversationWork']}}}

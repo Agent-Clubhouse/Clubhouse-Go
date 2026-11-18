@@ -261,7 +261,7 @@
       "paused_stream_method_sha256": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb",
       "paused_stream_rule": "Identical actual paused transcript fixture on main77b/head, 100chunks/10batches; body/timeline counts <=main per batch; head seed counter proof is in N. No new runtime assertion allowance.",
       "overlay_preparer": "/tmp/ux-582-proof/prepare-cpu-overlays.py",
-      "overlay_preparer_sha256": "cb1a81e8a05a61dc3dd8b5c2d6d0c04464e26426df30ea875915c966c319271b",
+      "overlay_preparer_sha256": "34e54d993b90ae5268a3d1426c9b2d7b92bdc7a6e64cefad8c2719c10b30b504",
       "build_bounds_each": 900,
       "run_bound_each": 480,
       "per_side_methods": 2,
