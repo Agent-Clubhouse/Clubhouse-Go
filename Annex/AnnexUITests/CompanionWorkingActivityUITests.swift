@@ -121,12 +121,15 @@ import XCTest
 
     /// Image + one native editor line + fixed actions expose the SE AX floor. Requests add only
     /// their minimum Review target; without requests that height is zero and the line can fit.
+    /// A fixed 20pt fixture inset keeps both expectations clear of the 8pt hysteresis band:
+    /// projected SE needed 329 > available 313 with Review, versus 283 + 8 < 313 without it.
+    /// The complete ACTIVITY_FIT sequence verifies these margins in the run evidence.
     private func checkMinimumFloorBoundaries() throws {
         for hasRequests in [true, false] {
             for appearance in ["light", "dark"] {
                 var arguments = ["--companion-preview", "--companion-preview-header-fixture",
                                  "--companion-header-activity-transitions", "--companion-header-\(appearance)",
-                                 "--companion-sample-images", "-UIPreferredContentSizeCategoryName",
+                                 "--companion-header-activity-floor-room", "--companion-sample-images", "-UIPreferredContentSizeCategoryName",
                                  "UICTContentSizeCategoryAccessibilityXXXL"]
                 if !hasRequests { arguments += ["--companion-header-activity-no-requests"] }
                 let app = launchApp(arguments, attempts: 1)

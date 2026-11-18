@@ -49,6 +49,14 @@ struct CompanionConversationHeaderFixture: View {
                 CompanionConversationView(store: store, agent: agent)
             } else { ProgressView("Preparing header fixture…") }
         }
+        // Reserve real viewport room only for the activity-floor UI fixture. Twenty points
+        // puts SE + image + Review clearly below its floor, rather than in the 8pt band;
+        // without Review the same viewport still has room for the activity line.
+        .safeAreaInset(edge: .top, spacing: 0) {
+            if arguments.contains("--companion-header-activity-floor-room") {
+                Color.clear.frame(height: 20).accessibilityHidden(true).allowsHitTesting(false)
+            }
+        }
         // `--companion-preview-toolbar-scheme-flip` (#534): a synthetic mismatch. The palette keeps the launch
         // appearance while the conversation and its bar items see the opposite colorScheme. It shows the bar glass
         // keeps to the palette over an opposite environment, not that this is how iOS 27 drew it white.
