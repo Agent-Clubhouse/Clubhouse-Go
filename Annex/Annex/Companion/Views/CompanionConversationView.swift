@@ -867,8 +867,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                     let exists = row.map { CompanionTimelineEntry.entries(for: [$0]).contains { $0.id == start } } ?? false
                     if !exists {
                         // A replacement generation removed this boundary. Never resurrect its old cursor later.
+                        // Keep the mounted reader's position. A handles a missing entry using its saved offset.
                         openingWindowStartID = nil
-                        readingScrollPosition = ScrollPosition(edge: .bottom)
                     }
                 }
                 if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
@@ -949,9 +949,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         // Guard geometry saves BEFORE either State value can prepend content.
         readingViewport.isRestoring = true
         readingViewport.restoreOffset = nil
-        if let start = openingWindowStartID,
-           let earlier = CompanionTimelineWindow.precedingStart(in: rows, before: start) {
-            openingWindowStartID = earlier
+        if let start = openingWindowStartID {
+            // A stale/oldest boundary has no predecessor: fall back to the normal widened window.
+            openingWindowStartID = CompanionTimelineWindow.precedingStart(in: rows, before: start)
         }
         shownEntries += CompanionTimelineWindow.pageSize
     }

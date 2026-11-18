@@ -106,4 +106,18 @@ import Testing
         #expect(CompanionTimelineWindow(rows: rows, startingAt: "message:current#999") == nil)
     }
 
+    @Test func noPredecessorMeansTheBoundaryIsOldestOrNoLongerExists() throws {
+        let rows: [CompanionTimelineRow] = [.item(.notice(id: "first", text: "First")),
+                                            .item(.notice(id: "last", text: "Last"))]
+        let oldest = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[0].id))
+        #expect(oldest.hiddenCount == 0, "The oldest boundary cannot display Show earlier")
+        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: rows[0].id) == nil)
+        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: "notice:removed") == nil)
+        #expect(CompanionTimelineWindow(rows: rows, startingAt: "notice:removed") == nil,
+                "A stale boundary must fall back to the normal window, not remain a no-op cursor")
+        let later = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[1].id))
+        #expect(later.hiddenCount > 0)
+        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: rows[1].id) == rows[0].id)
+    }
+
 }

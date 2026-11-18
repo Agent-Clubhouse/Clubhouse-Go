@@ -141,9 +141,55 @@ import UIKit
             && bookmark.viewport.restoration?.outcome == .arrived }
         #expect(Set(samples.map(\.mountID)) == [first.mountID], "A reload is not a mount boundary")
         #expect(seedCounts[target] == 1, "Reload/resync keeps the immutable opening seed")
-        #expect(samples.filter { $0.phase == .body }.allSatisfy { $0.shownEntries >= 300 && !$0.followsLatest })
+        #expect(samples.filter { $0.phase == .body }.allSatisfy {
+            $0.shownEntries >= 300 && !$0.followsLatest && $0.windowStartID == first.windowStartID
+                && $0.windowFirstID == first.windowFirstID
+        }, "An unchanged mounted boundary cannot shrink, reset or silently return its prefix during reload")
         let frame = try #require(saved.entryID.flatMap { bookmark.viewport.frames[$0] })
         #expect(abs((bookmark.viewport.metrics?.normalizedOffset ?? -.infinity) - frame.lowerBound - saved.distanceFromEntry) <= 6)
+    }
+
+    /// A mounted replacement uses A's existing missing-entry offset fallback, never a new bottom-edge seed.
+    @Test func mountedReplacementClearsTheBoundaryWithoutRequestingBottom() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        let target = f.agents[0].id
+        let items: [CompanionTimelineItem] = (0..<240).map {
+            .message(.init(id: "replacement-\($0)", role: .assistant, text: "Replacement marker \($0). A stable paragraph."))
+        }
+        f.store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "mounted-replacement"))
+        let bookmark = f.store.readingBookmark(for: target)
+        bookmark.hasMounted = true
+        bookmark.position = .init(followsLatest: false, entryID: "message:replacement-90", distanceFromEntry: 40,
+                                  shownEntries: 300)
+        f.store.drafts[target] = "Draft survives a mounted replacement"
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        var seeds = 0
+        CompanionReadingOpeningProbe.record = { if $0.target == target { samples.append($0) } }
+        CompanionReadingOpeningProbe.didComputeSeed = { if $0 == target { seeds += 1 } }
+        f.mount()
+        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
+        let first = try #require(samples.first { $0.phase == .body })
+        #expect(first.requestedTop && first.windowStartID == "message:replacement-90")
+        let savedOffset = try #require(bookmark.viewport.metrics?.normalizedOffset)
+        let before = samples.count
+        let revision = f.store.conversation(for: target).historyRevision
+        f.store.apply(.timeline(target, items: items.filter { $0.id != "message:replacement-90" },
+                                sequence: 2, reset: true, sessionID: "mounted-replacement"))
+        let replacementRevision = f.store.conversation(for: target).historyRevision
+        #expect(replacementRevision != revision)
+        try await f.wait { bookmark.viewport.historyRevision == replacementRevision
+            && bookmark.viewport.restoration?.outcome == .arrived
+            && samples.dropFirst(before).contains { $0.phase == .body && $0.windowStartID == nil } }
+        try await f.settle()
+        let later = Array(samples.dropFirst(before))
+        #expect(later.allSatisfy { !$0.requestedBottom }, "Clearing a missing boundary must never install a bottom request")
+        #expect(later.allSatisfy { $0.mountID == first.mountID } && seeds == 1,
+                "A replacement is not a remount and must not recompute its edge seed")
+        let metrics = try #require(bookmark.viewport.metrics)
+        #expect(abs(metrics.normalizedOffset - savedOffset) <= 6, "A retains the saved numeric offset for a removed entry")
+        #expect(!metrics.isAtTrueBottom && !bookmark.position.followsLatest)
+        #expect(f.store.drafts[target] == "Draft survives a mounted replacement")
     }
 
     @Test func followingStreamAndParentRecreationComputeOnlyOneOpeningSeed() async throws {
