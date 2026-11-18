@@ -335,6 +335,7 @@ extension AnnexTransportRegistry {
                 Self.observeSavedState(state, hostID: id, pin: pin, into: &observations)
             }
         }
+        let previousObservations = observations
         // Resolve each desktop's generation from the whole view before deleting
         // anything. A later pairing beats an old tombstone, even for the sender.
         var members: [String: AnnexNetworkMember] = [:]
@@ -357,6 +358,15 @@ extension AnnexTransportRegistry {
             let winning = AnnexNetworkObservation.winning(candidate, over: observations[id])
             observations[id] = winning
             members[id] = member.keepingPairing(id: winning.pairing.id.isEmpty ? nil : winning.pairing.id, joinedAt: winning.pairing.joinedAt)
+        }
+        if let stamp = observations[source]?.pairing,
+           journal.contains(where: { $0.fingerprint.lowercased() == source && $0.ends(pairingID: stamp.id.isEmpty ? nil : stamp.id, joinedAt: stamp.joinedAt) }) {
+            // A removed source can update known desktops, but cannot establish
+            // even addressless ordering trust for a previously unknown desktop.
+            for id in members.keys.sorted() where networkStates[id] == nil {
+                observations[id] = previousObservations[id]
+                members.removeValue(forKey: id)
+            }
         }
         Self.prune(&observations, endedBy: journal)
         // Never evict evidence to make room: refuse the oversized update atomically.

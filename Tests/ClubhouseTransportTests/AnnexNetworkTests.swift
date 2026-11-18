@@ -211,6 +211,7 @@ private func pairedNetwork(joined: Bool = true) async throws -> (AnnexTransportR
     #expect(await registry.all().map(\.host.hostID) == [a.fingerprint])
     #expect(await store.loadAll().map(\.host.hostID) == [a.fingerprint])
     #expect(await store.loadAll().first?.network?.member?.pairingId == "new-a-pair")
+    #expect(await store.loadAll().allSatisfy { $0.network?.observations?[c.fingerprint] == nil })
 }
 
 @Test func removalComparesPairingStampsRatherThanRemovalTimeOrPhoneClock() {
@@ -365,9 +366,11 @@ private actor ArchivedNetworkPairingStore: AnnexPairingStore {
     func loadAll() throws -> [AnnexSavedPairing] { try records.values.map(AnnexSavedPairing.decode) }
     func save(_ pairing: AnnexSavedPairing) throws { records[pairing.host.hostID] = try pairing.encoded() }
     func remove(hostID: String) { records.removeValue(forKey: hostID) }
+    func saveRaw(_ data: Data, hostID: String) { records[hostID] = data }
+    func raw(hostID: String) -> Data? { records[hostID] }
 }
 
-@Test func addresslessNewerPairingPreventsOtherDesktopStaleRemovalWithoutChangingTrustOrRoutes() async throws {
+@Test(arguments: [false, true]) func addresslessNewerPairingPreventsOtherDesktopStaleRemovalWithoutChangingTrustOrRoutes(legacyPort: Bool) async throws {
     let (registry, store, io, sourceB) = try await pairedNetwork()
     let f = try member(desktopB.get())
     let sourceC = try member(AnnexClientIdentity.ephemeral(), name: "Lagging C")
@@ -375,7 +378,8 @@ private actor ArchivedNetworkPairingStore: AnnexPairingStore {
     let before = try #require(await store.loadAll().first { $0.host.hostID == f.fingerprint })
     let registration = try #require(await registry.all().first { $0.host.hostID == f.fingerprint })
     let routes = await registry.routes(for: f.fingerprint)
-    let p2 = try addressless3611(desktopB.get())
+    let addressless = try addressless3611(desktopB.get())
+    let p2 = try legacyPort ? altering(addressless, ["port": .integer(7555)]) : addressless
     #expect(p2.endpoints.isEmpty)
     #expect(throws: AnnexTransportError.identityMismatch) { try p2.trustedHost() }
     try await registry.reconcileNetwork(snapshot([sourceB, p2]), from: sourceB.fingerprint)
@@ -425,7 +429,7 @@ private actor ArchivedNetworkPairingStore: AnnexPairingStore {
     #expect(await again.transport(for: f.fingerprint) != nil)
 }
 
-@Test func restartMergesObservationBeforeApplyingJournalWhenTargetItemWasNotYetSaved() async throws {
+@Test(arguments: [false, true]) func restartMergesObservationBeforeApplyingJournalWhenTargetItemWasNotYetSaved(observationInOtherItem: Bool) async throws {
     let (registry, memory, _, a) = try await pairedNetwork()
     let f = try member(desktopB.get())
     try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
@@ -436,7 +440,12 @@ private actor ArchivedNetworkPairingStore: AnnexPairingStore {
     var savedA = try #require(try await disk.loadAll().first { $0.host.hostID == a.fingerprint })
     savedA.network?.removals = [removal(f.fingerprint)]
     let p2 = try addressless3611(desktopB.get())
-    savedA.network?.observations?[f.fingerprint] = .init(certFingerprint: p2.certFingerprint, pairing: .init(id: "P2", joinedAt: p2.joinedAt))
+    let evidence = AnnexNetworkObservation(certFingerprint: p2.certFingerprint, pairing: .init(id: "P2", joinedAt: p2.joinedAt))
+    if observationInOtherItem {
+        var savedF = try #require(try await disk.loadAll().first { $0.host.hostID == f.fingerprint })
+        savedF.network?.observations?[f.fingerprint] = evidence
+        try await disk.save(savedF)
+    } else { savedA.network?.observations?[f.fingerprint] = evidence }
     try await disk.save(savedA)
     #expect(try await disk.loadAll().first { $0.host.hostID == f.fingerprint }?.network?.member?.pairingId == "desktop-pair")
     let restored = AnnexTransportRegistry(pairings: disk)
@@ -444,7 +453,7 @@ private actor ArchivedNetworkPairingStore: AnnexPairingStore {
     let preserved = try #require(try await disk.loadAll().first { $0.host.hostID == f.fingerprint })
     #expect(preserved.network?.member?.pairingId == "P2")
     #expect(preserved.network?.removals == [removal(f.fingerprint)])
-    #expect(preserved.network?.observations == savedA.network?.observations)
+    #expect(preserved.network?.observations?[f.fingerprint] == evidence)
     #expect(try await AnnexTransportRegistry(pairings: disk).restoreSaved().count == 2)
 }
 
@@ -556,7 +565,15 @@ private actor ArchivedNetworkPairingStore: AnnexPairingStore {
     var network = try #require(archive["network"] as? [String: Any])
     network["observations"] = ["invalid": ["pairing": 12]]
     archive["network"] = network
-    #expect(throws: (any Error).self) { try AnnexSavedPairing.decode(JSONSerialization.data(withJSONObject: archive)) }
+    let corrupt = try JSONSerialization.data(withJSONObject: archive)
+    let disk = ArchivedNetworkPairingStore()
+    await disk.saveRaw(corrupt, hostID: saved.host.hostID)
+    let credentials = MemoryAnnexCredentialStore()
+    let registry = AnnexTransportRegistry(credentials: credentials, pairings: disk)
+    await #expect(throws: (any Error).self) { try await registry.restoreSaved() }
+    #expect(await disk.raw(hostID: saved.host.hostID) == corrupt)
+    #expect(await credentials.credential(for: saved.host.hostID) == nil)
+    #expect(await registry.all().isEmpty)
     #expect(await store.loadAll().count == 1)
 }
 
