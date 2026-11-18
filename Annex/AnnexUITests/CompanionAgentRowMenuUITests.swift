@@ -1,7 +1,8 @@
 import XCTest
 
 /// Native system-menu proof is deliberately live Home only. Frozen Home is behind a
-/// pushed route; its actual menu child and guarded activation have hosted coverage.
+/// pushed route. Hosted OCR proves its actual content; the unchanged callback tests
+/// prove live guards. Hosted native button activation and telemetry are not claimed.
 @MainActor final class CompanionAgentRowMenuUITests: ReliableUITestCase {
     func testNativeHomeAgentMenuAtDefaultTypeAcrossThemes() {
         checkNativeMenu(accessibility: false)
