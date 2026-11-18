@@ -145,8 +145,7 @@ nonisolated public struct TrustedAnnexHost: Hashable, Codable, Sendable {
     public let certificatePin: AnnexCertificatePin
     public init(endpoint: AnnexEndpoint, verifiedHostID: String, verifiedCertificatePin: AnnexCertificatePin) throws {
         let id = verifiedHostID.lowercased()
-        let parts = id.split(separator: ":", omittingEmptySubsequences: false)
-        guard parts.count == 16, parts.allSatisfy({ $0.count == 2 && $0.allSatisfy({ $0.isASCII && $0.isHexDigit }) }) else {
+        guard AnnexPairingIdentity.isValidFingerprint(id) else {
             throw AnnexTransportError.identityMismatch
         }
         self.endpoint = endpoint
