@@ -1,8 +1,8 @@
 import XCTest
 
 @MainActor final class CompanionReadingRestoreUITests: ReliableUITestCase {
-    /// Diagnostic fail-before only: the -shift signature describes unchanged main, not a passing fixed contract.
-    func testPrefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss() {
+    /// A real prefix trim after the restore pin must preserve both semantic and visible reading alignment.
+    func testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry() {
         let app = launchApp(["--reading-prefix-trim-ui-testing", "--companion-preview-reading"])
         let state = app.staticTexts["reading-prefix-trim-state"]
         XCTAssertTrue(state.waitForExistence(timeout: 10))
@@ -57,8 +57,8 @@ import XCTest
         XCTAssertLessThanOrEqual(attempts, 10)
         XCTAssertLessThan(elapsed, 1)
         XCTAssertGreaterThan(abs(shift), 8)
-        XCTAssertEqual(miss, -shift, accuracy: 2, "Main's numeric miss must match the prefix displacement")
-        XCTAssertEqual(beforeY - anchor.frame.minY, -shift, accuracy: 2, "The real pixels must show the same one-block miss")
+        XCTAssertEqual(miss, 0, accuracy: 2, "The numeric target must follow the saved entry across a prefix shift")
+        XCTAssertEqual(beforeY - anchor.frame.minY, 0, accuracy: 2, "The real pixels must preserve the same reading entry")
         XCTAssertTrue(app.pausedChatNavigation.exists)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Deterministic prefix trim after the restore pin"

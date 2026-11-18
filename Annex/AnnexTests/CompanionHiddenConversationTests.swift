@@ -39,9 +39,9 @@ import UIKit
         }
     }
 
-    /// Uncredited fail-before characterization. The signature check is intentionally baseline-specific;
-    /// a later product fix must replace that check with zero miss while retaining the six-point contract.
-    @Test func prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss() async throws {
+    /// A real tail event trims the rendered prefix between the first pin and delivery.
+    /// Public geometry must still match the saved semantic entry after final arrival.
+    @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
         var observed: CompanionReadingPrefixTrimFixture.Sample?
         let navigation = Navigation()
         let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
@@ -87,8 +87,8 @@ import UIKit
         #expect((result.gateElapsed ?? .infinity) < 1)
         #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
         #expect(abs(pin - beforeOffset) <= 2)
-        #expect(abs(miss - -shift) <= 2, "The baseline miss must match the actual entry displacement")
-        print("READING569_CHARACTERIZATION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
+        #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
+        print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
         #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
                 "A prefix trim during restoration must preserve the reading entry within six points")
     }
