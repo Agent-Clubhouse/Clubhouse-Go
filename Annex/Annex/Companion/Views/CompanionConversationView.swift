@@ -615,9 +615,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     @State private var atLatest = true
     @State private var nextAssistantMessageID: String?
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
-    @State private var pendingIdentityRelease = false
-    @State private var transcriptIsMounted = true
-    @State private var didRequestOpeningIdentity = false
+    @State private var openingWindowStartID: String?
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -644,8 +642,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         _followLatest = State(initialValue: opening.followsLatest)
         _atLatest = State(initialValue: opening.followsLatest)
         _shownEntries = State(initialValue: opening.shownEntries)
-        _readingScrollPosition = State(initialValue: opening.entryID.map { ScrollPosition(id: $0, anchor: .top) }
-            ?? ScrollPosition(edge: .bottom))
+        _openingWindowStartID = State(initialValue: opening.entryID)
+        _readingScrollPosition = State(initialValue: ScrollPosition(edge: opening.entryID == nil ? .bottom : .top))
     }
 
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
@@ -667,7 +665,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         #endif
         let rows = store.timelineRows(for: target)
         let viewport = readingViewport
-        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+        let window = openingWindowStartID.flatMap { CompanionTimelineWindow(rows: rows, startingAt: $0) }
+            ?? CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
         #if DEBUG
@@ -685,10 +684,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                         header()
                         if window.hiddenCount > 0 {
                             Button("Show earlier messages", systemImage: "arrow.up.circle") {
-                                setFollowing(false, reason: .earlier)
-                                readingViewport.isRestoring = true
-                                readingViewport.restoreOffset = nil
-                                shownEntries += CompanionTimelineWindow.pageSize
+                                showEarlier(in: rows)
                             }
                                 .font(.caption).frame(maxWidth: .infinity)
                                 .accessibilityIdentifier("companion-show-earlier")
@@ -736,7 +732,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
             }
             .scrollPosition($readingScrollPosition)
             .defaultScrollAnchor(readingScrollPosition.edge == .bottom ? .bottom : .top, for: .initialOffset)
-            .defaultScrollAnchor(.bottom, for: .alignment)
+            .defaultScrollAnchor(openingWindowStartID == nil ? .bottom : .top, for: .alignment)
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
             .defaultScrollAnchor(followLatest ? .bottom : .top, for: .sizeChanges)
@@ -866,6 +862,15 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 readingViewport.hasInitialized = false
                 readingViewport.historyRevision = nil
                 readingViewport.gesture.end()
+                if let start = openingWindowStartID {
+                    let row = rows.first { $0.contains(entryID: start) }
+                    let exists = row.map { CompanionTimelineEntry.entries(for: [$0]).contains { $0.id == start } } ?? false
+                    if !exists {
+                        // A replacement generation removed this boundary. Never resurrect its old cursor later.
+                        openingWindowStartID = nil
+                        readingScrollPosition = ScrollPosition(edge: .bottom)
+                    }
+                }
                 if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
                 else {
                     readingBookmark.hasMounted = true
@@ -909,33 +914,23 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 traceOpening(.jump, firstEntryID: entries.first?.id)
                 #endif
                 setFollowing(false, reason: .messageJump)
-                shownEntries = max(shownEntries, allEntries.count - index)
+                let requestedShownEntries = max(shownEntries, allEntries.count - index)
                 let saved = CompanionReadingPosition(followsLatest: false, entryID: entry.id,
-                    offset: readingBookmark.position.offset, shownEntries: shownEntries)
+                    offset: readingBookmark.position.offset, shownEntries: requestedShownEntries)
                 readingBookmark.position = saved
                 readingViewport.isRestoring = true
                 readingViewport.restoreOffset = nil
+                if let start = openingWindowStartID,
+                   let current = allEntries.firstIndex(where: { $0.id == start }), index < current {
+                    openingWindowStartID = entry.id
+                }
+                shownEntries = requestedShownEntries
                 let restoration = CompanionReadingRestoration(revision: conversation.historyRevision,
                     startedAt: ProcessInfo.processInfo.systemUptime)
                 readingViewport.restoration = restoration
                 await restoreReadingPosition(saved, id: restoration.id)
             }
-            .onAppear {
-                transcriptIsMounted = true
-                // Consume once for this transcript identity, including Latest/missing-ID openings.
-                // A retained appearance or history reload must not replay a stale bookmark request.
-                guard !didRequestOpeningIdentity else { return }
-                didRequestOpeningIdentity = true
-                guard !followLatest, !identityPositionIsUserOwned,
-                      let id = readingScrollPosition.viewID(type: String.self) else { return }
-                #if DEBUG
-                traceOpening(.openingRequest, firstEntryID: entries.first?.id)
-                #endif
-                proxy.scrollTo(id, anchor: .top)
-            }
             .onDisappear {
-                transcriptIsMounted = false
-                pendingIdentityRelease = false
                 #if DEBUG
                 traceOpening(.unmounted, firstEntryID: entries.first?.id)
                 #endif
@@ -945,6 +940,20 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
             }
 
         }
+    }
+
+    /// Only an explicit earlier-page action can move the mounted opening boundary toward older history.
+    private func showEarlier(in rows: [CompanionTimelineRow]) {
+        setFollowing(false, reason: .earlier)
+        if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+        // Guard geometry saves BEFORE either State value can prepend content.
+        readingViewport.isRestoring = true
+        readingViewport.restoreOffset = nil
+        if let start = openingWindowStartID,
+           let earlier = CompanionTimelineWindow.precedingStart(in: rows, before: start) {
+            openingWindowStartID = earlier
+        }
+        shownEntries += CompanionTimelineWindow.pageSize
     }
 
     private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
@@ -974,11 +983,6 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         readingViewport.isInteracting = phase == .interacting || phase == .decelerating
         if phase == .idle {
             defer { readingViewport.gesture.end() }
-            // A touch/drag never writes a scroll target. Only a still-owned ID can hand off at idle.
-            if pendingIdentityRelease, transcriptIsMounted {
-                pendingIdentityRelease = false
-                if canRecordReadingPosition { releaseInitialReadingIdentity(at: metrics.normalizedOffset, gestureEnded: true) }
-            }
             // A system animation or settling to idle is not a user's reading choice.
             guard readingViewport.gesture.hasStarted, canRecordReadingPosition,
                   !readingViewport.preserveBookmarkUntilUserAction, !readingViewport.isRestoring else { return }
@@ -1000,9 +1004,6 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         #endif
     }
     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
-        if outcome == .touch || outcome == .scrollPhase {
-            pendingIdentityRelease = readingScrollPosition.viewID(type: String.self) != nil && !readingScrollPosition.isPositionedByUser
-        }
         #if DEBUG
         traceOpening(.cancelled, firstEntryID: nil)
         #endif
@@ -1031,8 +1032,6 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
             case .finish(let outcome):
                 readingViewport.finishRestoration(outcome)
                 if outcome == .arrived, let metrics = readingViewport.metrics {
-                    // An exact ID landing can arrive without a numeric scroll. Do not keep an implicit ID anchor.
-                    releaseInitialReadingIdentity(at: metrics.normalizedOffset)
                     #if DEBUG
                     traceOpening(.arrived, firstEntryID: nil)
                     #endif
@@ -1066,25 +1065,6 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         }
     }
 
-    private var identityPositionIsUserOwned: Bool {
-        #if DEBUG
-        if let override = CompanionReadingOpeningProbe.positionedByUserOverride { return override }
-        #endif
-        return readingScrollPosition.isPositionedByUser
-    }
-
-    /// The ID is an opening request only, not a second owner of later content-size anchoring.
-    private func releaseInitialReadingIdentity(at offset: Double, gestureEnded: Bool = false) {
-        guard transcriptIsMounted, !identityPositionIsUserOwned,
-              !readingViewport.isInteracting, gestureEnded || !readingViewport.gesture.hasStarted,
-              readingScrollPosition.viewID(type: String.self) != nil else { return }
-        readingScrollPosition = ScrollPosition(y: offset)
-        pendingIdentityRelease = false
-        #if DEBUG
-        traceOpening(.handoff, firstEntryID: nil)
-        #endif
-    }
-
     private func updateNextAssistantMessage(in stops: [String]) {
         guard let metrics = readingViewport.metrics,
               abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 else { return }
@@ -1101,9 +1081,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
 
     private func jump(to id: String?, forward: Bool, proxy: ScrollViewProxy) {
         guard let id else {
-            if !forward { setFollowing(false, reason: .messageJump); shownEntries += CompanionTimelineWindow.pageSize }
+            if !forward { showEarlier(in: store.timelineRows(for: target)) }
             else {
                 setFollowing(true, reason: .latest)
+                openingWindowStartID = nil
                 readingBookmark.position.followsLatest = true
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
             }
@@ -1135,7 +1116,6 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         } else if reason != .restore && reason != .mount {
             cancelNativeScrollToTop()
             cancelReadingRestoration(.navigation)
-            pendingIdentityRelease = readingScrollPosition.viewID(type: String.self) != nil && !readingScrollPosition.isPositionedByUser
         }
         let previous = followLatest
         followLatest = follows
@@ -1147,7 +1127,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         guard let record = CompanionReadingOpeningProbe.record else { return }
         record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, detail: detail, followsLatest: followLatest,
             shownEntries: shownEntries, requestedEntryID: readingScrollPosition.viewID(type: String.self),
-            requestedBottom: readingScrollPosition.edge == .bottom,
+            requestedBottom: readingScrollPosition.edge == .bottom, requestedTop: readingScrollPosition.edge == .top,
+            windowStartID: openingWindowStartID, savedDistanceFromEntry: readingBookmark.position.distanceFromEntry,
             pointY: readingScrollPosition.y.map(Double.init), positionedByUser: readingScrollPosition.isPositionedByUser, windowFirstID: firstEntryID,
             historyRevision: conversation.historyRevision, offset: readingViewport.metrics?.normalizedOffset,
             entryLowerBound: readingBookmark.position.entryID.flatMap { readingViewport.frames[$0]?.lowerBound },

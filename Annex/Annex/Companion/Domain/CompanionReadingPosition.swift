@@ -96,7 +96,7 @@ struct CompanionReadingPosition: Equatable, Sendable {
     }
 }
 
-/// Value-only initial transcript choice. Pixel alignment still belongs to the bounded restore.
+/// Value-only initial transcript window. Pixel alignment still belongs to the bounded restore.
 struct CompanionReadingOpening: Equatable, Sendable {
     let followsLatest: Bool
     let shownEntries: Int
@@ -108,7 +108,7 @@ struct CompanionReadingOpening: Equatable, Sendable {
         shownEntries = hasMounted ? max(initialLimit, position.shownEntries) : initialLimit
         guard !position.followsLatest, let id = position.entryID,
               let row = rows.first(where: { $0.contains(entryID: id) }) else { entryID = nil; return }
-        // A paused window already retains this row. Resolve only its entries; do not prepare hidden Markdown.
+        // The paused opening window begins at this row's canonical entry. Do not prepare hidden Markdown.
         // Reuse the existing grouped-question alias rule, while keeping the original semantic bookmark intact.
         entryID = CompanionTimelineEntry.jumpTarget(for: id, in: CompanionTimelineEntry.entries(for: [row]))?.id
     }
