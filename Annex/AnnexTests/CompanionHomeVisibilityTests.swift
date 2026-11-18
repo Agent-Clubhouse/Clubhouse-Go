@@ -511,9 +511,12 @@ import ClubhouseTransport
         fixture.prepareAgentMenuCatalog()
         try await fixture.mount()
         let target = fixture.hosts[0].projects[0].agents[0].id
-        fixture.preferences.toggleFold("quiet:" + (try XCTUnwrap(fixture.group())).entry.orderKey)
-        try await fixture.wait { fixture.rowActions[target] != nil }
-        let actions = try XCTUnwrap(fixture.rowActions[target])
+        // Root's inherited handles accept a target; obtain them from a realised peer,
+        // since the sleeping row may remain outside the lazy List's realised region.
+        let realised = fixture.hosts[0].projects[0].agents[1].id
+        try await fixture.wait { fixture.rowActions[realised] != nil }
+        let actions = try XCTUnwrap(fixture.rowActions[realised])
+        XCTAssertEqual(actions.wake?.choices(target), [.resume, .newSession])
         let menu = try MountedAgentMenu(parent: fixture.window)
         defer { menu.capture("Actual menu without inherited actions"); menu.close() }
         menu.show(target: target, store: fixture.store, actions: actions)
