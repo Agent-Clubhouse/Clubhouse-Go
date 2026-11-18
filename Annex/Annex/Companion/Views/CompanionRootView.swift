@@ -878,8 +878,11 @@ struct CompanionHomeView: View {
         if !shown.isEmpty {
             Section {
                 ForEach(shown) { host in
-                    let activity = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
-                    CompanionDispatcherRow(store: store, host: host, hostTag: multipleHosts ? host.name : nil, capturedActivity: activity, capturedOpenAgent: display == nil ? nil : frozenActions?.openAgent)
+                    let hostTag: String? = multipleHosts ? host.name : nil
+                    let activity: CompanionCapturedActivity? = host.dispatcherAgent.flatMap { display?.dispatcherActivity[$0.id] }
+                    let openAgent: (@MainActor (CompanionTarget) -> Void)? = display == nil ? nil : frozenActions?.openAgent
+                    CompanionDispatcherRow(store: store, host: host, hostTag: hostTag,
+                                           capturedActivity: activity, capturedOpenAgent: openAgent)
 
                         .listRowBackground(CompanionCardBackground())
                 }
