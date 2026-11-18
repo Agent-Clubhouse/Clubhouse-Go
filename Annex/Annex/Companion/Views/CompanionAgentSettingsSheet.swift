@@ -129,7 +129,7 @@ struct CompanionAgentMenu: ViewModifier {
 
 /// Native context-menu content is mounted when presented, independently of the list row.
 /// Availability and the same action callbacks remain live (or Home's captured display inputs).
-private struct CompanionAgentContextMenu: View {
+struct CompanionAgentContextMenu: View {
     let target: CompanionTarget
     @Environment(\.companionAgentSettings) private var settings
     @Environment(\.companionAgentWake) private var wake

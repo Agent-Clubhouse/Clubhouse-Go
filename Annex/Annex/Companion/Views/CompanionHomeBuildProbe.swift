@@ -14,6 +14,7 @@ import SwiftUI
     static var rowActions: ((CompanionTarget, CompanionAgentSettingsAction?, CompanionAgentWakeAction?, CompanionTerminalAction?) -> Void)?
     static var frame: ((Bool, String) -> Void)?
     static var frozenActions: ((CompanionAgentSettingsAction?, CompanionAgentWakeAction?, CompanionTerminalAction?) -> Void)?
+    static var frozenRowInputs: ((CompanionHomeRenderSnapshot, CompanionHomeFrozenActions) -> Void)?
     static var frozen: ((Bool) -> Void)?
     static var state: ((Binding<CompanionDesktopSelection>) -> Void)?
     static func count(_ kind: Kind, when enabled: Bool) {
