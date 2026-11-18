@@ -11,8 +11,9 @@ All fixtures are generated synthetic catalogs and memory services. Images are or
 | Clean live streaming measurement | 2 main + 2 head invocations PASS; every head batch meets baseline and fixed count ceiling |
 | Hosted regression | 27/27 PASS, no skips, retries or crashes |
 | UI C1 | 14/14 PASS, strict PASS, no skips, retries or crashes |
-| UI C2 | Pending |
-| Package D and combined coverage | Pending |
+| UI C2 | 26/26 PASS, strict PASS, no skips, retries or crashes |
+| Package D | 73 tests / 11 suites PASS |
+| Combined coverage | Pending: initial admission refused before execution by memory guard |
 
 See [the count table](kept-live-report.md) and [raw comparison](kept-live-comparison.json). Counts are the primary performance gate. Supporting app process CPU is not a phone battery or CPU-percentage claim. The cheap Home owner still reevaluates; all expensive pushed child counters remain unchanged.
 

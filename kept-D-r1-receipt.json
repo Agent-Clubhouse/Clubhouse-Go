@@ -1,0 +1,54 @@
+{
+  "head": "48a6f022135c4df68a8b867e330ae16c1fdb5a4b",
+  "phase": "D",
+  "started_at": "2026-11-18T00:28:25.769969+00:00",
+  "guard": {
+    "top": "Processes: 835 total, 5 running, 830 sleeping, 5814 threads \n2026/11/17 16:28:26\nLoad Avg: 2.85, 4.63, 6.60 \nCPU usage: 6.74% user, 10.74% sys, 82.51% idle \nSharedLibs: 1031M resident, 186M data, 134M linkedit.\nMemRegions: 1237221 total, 13G resident, 598M private, 4002M shared.\nPhysMem: 54G used (7124M wired, 5459M compressor), 9694M unused.\nVM: 439T vsize, 6144M framework vsize, 9858195(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1331009121/1550G in, 551012064/412G out.\nDisks: 2130460583/25T read, 2908830082/34T written.\n\n\nProcesses: 838 total, 3 running, 1 stuck, 834 sleeping, 5842 threads \n2026/11/17 16:28:36\nLoad Avg: 3.04, 4.61, 6.57 \nCPU usage: 9.88% user, 5.22% sys, 84.88% idle \nSharedLibs: 1031M resident, 186M data, 134M linkedit.\nMemRegions: 126 total, 9408K resident, 598M private, 4002M shared.\nPhysMem: 54G used (7125M wired, 5459M compressor), 9426M unused.\nVM: 440T vsize, 6144M framework vsize, 9858195(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1331115153/1550G in, 551025771/412G out.\nDisks: 2130461537/25T read, 2908845983/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 84.88,
+    "physmem_unused_bytes": 9883877376.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 4294967296,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "filter": "CompanionHomeRecentSessionTests|CompanionAgentOrderingTests|CompanionAgentTreeTests|CompanionHomeProjectActivityTests|CompanionHomeScopeTests|CompanionHomeLinkedRowsTests|CompanionPinTests|CompanionIdleRuleTests|CompanionSharedLayoutTests|CompanionProjectStateStoreTests|CompanionLinkedProjectStateTests|entryPointsHideWithoutTheDesktopCapability|entryPointsWaitForTheConnection|attachIsOnlyForRunningTerminalAgents",
+  "command": [
+    "env",
+    "-u",
+    "COPILOT_CONNECTION_TOKEN",
+    "GIT_CONFIG_COUNT=1",
+    "GIT_CONFIG_KEY_0=safe.bareRepository",
+    "GIT_CONFIG_VALUE_0=all",
+    "swift",
+    "test",
+    "--jobs",
+    "2",
+    "--scratch-path",
+    "/tmp/ux-557-proof/kept-final/package-build",
+    "--filter",
+    "CompanionHomeRecentSessionTests|CompanionAgentOrderingTests|CompanionAgentTreeTests|CompanionHomeProjectActivityTests|CompanionHomeScopeTests|CompanionHomeLinkedRowsTests|CompanionPinTests|CompanionIdleRuleTests|CompanionSharedLayoutTests|CompanionProjectStateStoreTests|CompanionLinkedProjectStateTests|entryPointsHideWithoutTheDesktopCapability|entryPointsWaitForTheConnection|attachIsOnlyForRunningTerminalAgents"
+  ],
+  "test_rc": 0,
+  "rc": 0,
+  "admitted_at": "2026-11-18T00:28:25.744224+00:00",
+  "closed_at": "2026-11-18T00:30:35.173292+00:00",
+  "duration_seconds": 129.42785675,
+  "hard_bound_seconds": 720,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 9,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "booted_after": [
+    "ACBD285E-9849-46A4-9DC8-F678066C8C4D"
+  ]
+}
