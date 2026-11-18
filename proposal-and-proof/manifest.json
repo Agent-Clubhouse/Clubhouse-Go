@@ -1,0 +1,309 @@
+{
+  "base": "77b24899170c6da76067f205a93f2b06bf9aede8",
+  "source": "/tmp/ux-582-first-paint",
+  "status": "Prepared for independent static review; NO ticket admitted",
+  "guard": "normal FIFO; vm_stat free+inactive>=8GiB, idle>=40%, swap growth<=64MiB/10s, mid-run record-only",
+  "phases": {
+    "A": {
+      "kind": "fresh-build-for-testing",
+      "bound": 900,
+      "jobs": 2,
+      "parallel_testing": false,
+      "code_signing": false,
+      "policy_tests": true,
+      "compiled_deinit_gate": true
+    },
+    "H": {
+      "bound": 600,
+      "kind": "hosted",
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoTests/CompanionReadingRestorationTests",
+        "ClubhouseGoTests/CompanionHiddenConversationTests"
+      ],
+      "methods": 15,
+      "parameter_executions": 19,
+      "method_names": {
+        "CompanionReadingRestorationTests": [
+          "droppedDeliveryRetriesButStreamingCannotChangeItsTarget",
+          "prefixShiftRetargetsBeforeStaleNumericArrival",
+          "prependIncreasesTheTargetByTheMeasuredEntryShift",
+          "halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget",
+          "inconsistentGeometryCannotRepinTheTarget",
+          "severalEntryShiftsConvergeWithinTheOriginalBudget",
+          "continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits",
+          "userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+          "generationAndLatestPreventReissue",
+          "attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry"
+        ],
+        "CompanionHiddenConversationTests": [
+          "prefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+          "hiddenStreamsDoNoTimelineWork(hidden:)",
+          "lostRestoreCommandRecoversWhileStreaming",
+          "touchDuringRetryWindowKeepsTheUsersPosition",
+          "timeoutPreservesBookmarkAndTheNextMountRetriesIt"
+        ]
+      },
+      "parameter_cases": {
+        "userAndNavigationCancellationPreventEveryLateReissue(outcome:)": [
+          "touch",
+          "scrollPhase",
+          "navigation",
+          "unmounted"
+        ],
+        "hiddenStreamsDoNoTimelineWork(hidden:)": [
+          "tab",
+          "desktop"
+        ]
+      },
+      "acceptance": "All 15 methods/19 declared executions pass once. Record native parameter hierarchy for independent review; no unexpected repetition. No broad UI until QA verifies counts."
+    },
+    "S": {
+      "bound": 600,
+      "kind": "UI",
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+        "ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition"
+      ],
+      "count": 2
+    },
+    "C23": {
+      "bound": 1200,
+      "kind": "UI",
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader",
+        "ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+        "ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
+        "ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+        "ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard"
+      ],
+      "count": 23,
+      "order_file": "/tmp/ux-582-proof/c23-order.json",
+      "historical_selector_sha256": "5d145124373e6249cb176cb71980ab695cb97f761fb8a6d5edae2fdafd8d5667",
+      "order_sha256": "95bed9a5dcd1c66387aaa79fdaefe70d0c2c1306240fd39603d3837a0d988525"
+    },
+    "C50": {
+      "bound": 2400,
+      "kind": "UI",
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testCircleMenuLight",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testCircleMenuDark",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testCircleMenuAccessibilityXXXL",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testIdleControlsStayCollapsedBeforeAndAfterTyping",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testLargestTextWorkingAttachmentRowFits",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testDarkModeDraftTextAndKeyboardStayDark",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testLightModeDraftPromptAndTextStayReadable",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLandscapeAndAX5KeepReviewContextAndDecisionsReachable",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testSwipesAndTitleTapsNeverSendADecision",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testIncompleteRequestDisablesAllowButKeepsDenyAvailable",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLightDecisionBar",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testDarkDecisionBar",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLatteDecisionBar",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testMochaDecisionBar",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testAccessibilityDecisionBar",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader",
+        "ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+        "ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
+        "ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+        "ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail"
+      ],
+      "count": 50,
+      "order_file": "/tmp/ux-582-proof/c50-order.json",
+      "historical_selector_sha256": "d3a05ec5412c8a6a7c2712d8e5535305cca24d5bf9d4bd95437521f16d131625",
+      "order_sha256": "ebccdd9e782d7a1c4d0477225488083cda577b82655ff3b48c200106ed13c1ed"
+    },
+    "R0": {
+      "bound": 480,
+      "kind": "UI",
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry"
+      ],
+      "count": 1,
+      "description": "Cold single, own fresh lifecycle"
+    },
+    "RSE": {
+      "bound": 1200,
+      "kind": "UI",
+      "device": "iPhone-SE-3rd-generation",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader",
+        "ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+        "ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
+        "ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+        "ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail"
+      ],
+      "count": 15
+    },
+    "D": {
+      "kind": "pkg-combined-current-main-coverage",
+      "bound": 1200,
+      "jobs": 2,
+      "command": "scripts/coverage.sh --check",
+      "new_value_methods": 6,
+      "new_value_suite": "CompanionReadingOpeningTests",
+      "current_main_recheck_before_compile": true
+    },
+    "N": {
+      "kind": "hosted",
+      "bound": 600,
+      "selectors": [
+        "ClubhouseGoTests/CompanionReadingOpeningTests"
+      ],
+      "methods": 8,
+      "expected": "all eight once/no skip/E/F; no parameterized cases",
+      "device": "iPhone-17-Pro-Max",
+      "count": 8,
+      "method_names": {
+        "CompanionReadingOpeningTests": [
+          "pausedFirstBodyUsesItsEntryInsideAnExpandedWindowAndReleasesTheIDAfterScrolling",
+          "parentRecreationAndOpenReloadDoNotReseedOrShrinkTheReadersWindow",
+          "hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState",
+          "groupedQuestionAliasUsesTheVisibleGroupOnTheFirstBody",
+          "removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget",
+          "aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest",
+          "exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection",
+          "realOpeningTouchDropsTheInitialIdentityWithoutIssuingAnotherTarget"
+        ]
+      }
+    },
+    "F": {
+      "kind": "UI",
+      "bound": 600,
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats",
+        "ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls"
+      ],
+      "count": 2,
+      "expected": "both once/no skip/E/F; first-frame distances reviewed from pre-launch recording, separate public AX observations and final6pt checks",
+      "device": "iPhone-17-Pro-Max",
+      "record_video": true
+    },
+    "CPU": {
+      "kind": "paired-hosted-additive-overlay",
+      "bound": 480,
+      "method_file": "/tmp/ux-567-proof/scroll-step-method.swift",
+      "method_sha256": "ef57d69a7a7b80d591341bdb0770d607f645b1252ce7fdac8cff68a37fd1192f",
+      "baseline": "77b24899",
+      "rule": "same16-step method/fixture on both trees, owner/content-input/content/layout/header <=main eachstep; row/menu lazy realization reported separately. Same additive overlays hashed; no per-gesture claim. If counts differ, add Home live r2 2xper side per QA."
+    }
+  },
+  "order": [
+    "A",
+    "N",
+    "F",
+    "H",
+    "S",
+    "CPU (two overlay builds and paired run)",
+    "C23",
+    "C50",
+    "R0",
+    "RSE",
+    "D"
+  ],
+  "head": "b1b6e141ed6743968ff257cde03b85400b42d627",
+  "full_diff_sha256": "b3d91ec1156bce65ebbf202dbac1f4bd385eed30475ca564bc3c1643a4da802e",
+  "private_simulator": {
+    "name": "ux-582-first-paint"
+  },
+  "source_sha256": {
+    "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "7af29c7ec1e1928d9a4313bf76fa9f9c6a9080b7461dd037ea664423d2a5d345",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "46de95891cfb1066d167c0dce64d62b86d2c084e07f98de997cf83c75cc64c3b",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "ca7ce5faf8e2be982960f0c409828e90f6f268f1cf8c6616b6aef1708c2ea11a",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "a264a6544a763b7ceaa0a5ac4739f6fd92bd8c3fde3015c7cd304c58f8d6204e",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+    "Annex/AnnexTests/CompanionReadingOpeningTests.swift": "a534e273966e2aedbec64f569ca18f4a0f9283d74d9ee122dae1bbff7a063719",
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "d33f4a4949a931ff1f3fb4ed39bde1a96d6e532ed005fab369211ff5b8dad830",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+    "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": "2f023bb9c4a6c47f80df4c95696c00ff169643c1a14b47354263e42b7180e37b",
+    "docs/isolated-deinit.md": "9247e4b081858d37b83829eeeaab2c85a1ffdd39024eaef6c588323ea6a014ca",
+    "docs/reading-first-paint-extraction.json": "2d407fde7001c26e8662cd23fac7d2f7c88937e054204a2b4c402a2fcaf06d07",
+    "docs/reading-first-paint-plan.md": "5d2229cf3216c4f23099f09d9d5b5719d06ca54e1bc57dbb9f68f787e49cb97b",
+    "scripts/isolated-deinit-policy.json": "a3f5234b782bc3ece0fb53da6a631ca25289252f25f59958dd34d89d76c2c6d7"
+  },
+  "unchanged_contract_sha256": {
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4"
+  },
+  "known_native_outcomes": {
+    "CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays()": [
+      "Expected Failure"
+    ],
+    "CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry()": [
+      "Expected Failure",
+      "Skipped"
+    ],
+    "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()": [
+      "Skipped"
+    ]
+  },
+  "proof_stop": "Unexpected count/order/result -> STOP, no assertion retry. No broad suite before new hosted+recorded first-frame proof accepted. Refusal rc4 is zero execution, not a test failure.",
+  "runner_sha256": "4a108b244f14dd470383c19a34b6b4716a46d8632c9ebc020e215966f92aa1e6",
+  "native_auditor_sha256": "463ec47da1cb03e745e887ccb4f59d6a6da816b6f11d434e63fdfc5e1b1bef14"
+}
