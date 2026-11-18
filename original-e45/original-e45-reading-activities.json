@@ -1,0 +1,1707 @@
+{
+  "testIdentifier" : "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+  "testName" : "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "testRuns" : [
+    {
+      "activities" : [
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Screen Recording 2026-11-17 at 05.16.52 PM.mp4",
+              "payloadId" : "0~KqMGpfTFinK16DWYPiTH5cqDNnuzJ7bOvxs5j038x1T2Vn69i1jns8_URyTVkudjGk9ENVAGSQIvkbMItx5oUw==",
+              "timestamp" : 1794964612.6,
+              "uuid" : "0A47338C-9454-4917-8D77-DE2DF4CBEE96"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964612.6,
+              "title" : "kXCTAttachmentScreenRecording"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964612.581,
+          "title" : "Start Test at 2026-11-17 17:16:52.581"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964612.601,
+          "title" : "Set Up"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964612.603,
+          "title" : "Getting device orientation"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964612.604,
+          "title" : "Terminate com.Agent-Clubhouse.Go:39950"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964613.654,
+          "title" : "Wait for com.Agent-Clubhouse.Go to become Not Running"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964613.867,
+                  "title" : "Setting up automation session"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964614.436,
+                  "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964613.656,
+              "title" : "Launch com.Agent-Clubhouse.Go"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964613.656,
+          "title" : "Open com.Agent-Clubhouse.Go"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964615.926,
+          "title" : "Wait for com.Agent-Clubhouse.Go to become Running Foreground"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964615.927,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964615.975,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964617.028,
+                  "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964617.028,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agent-preview-studio-river\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964615.997,
+          "title" : "Waiting 2.0s for \"agent-preview-studio-river\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964617.198,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964617.316,
+          "title" : "Find the \"agent-preview-studio-river\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964617.448,
+          "title" : "Checking existence of `\"companion-composer\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964617.618,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Button`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964617.736,
+          "title" : "Find the \"agent-preview-studio-river\" Button"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.16.58 PM",
+              "payloadId" : "0~4o7KQRFKXAYVT-vDh9zvb4sJC5_NGNQX2kJEJ_ZETRLpvul1xFkzvGyZKkhC1csfU7bXym6JBR_0YIy3vF-L8g==",
+              "timestamp" : 1794964618.337,
+              "uuid" : "AE2120A6-8B34-4161-B214-358B670D9A8C"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964617.861,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964617.863,
+              "title" : "Find the \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964617.985,
+              "title" : "Check for interrupting elements affecting \"agent-preview-studio-river\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.16.58 PM",
+                  "payloadId" : "0~4o7KQRFKXAYVT-vDh9zvb4sJC5_NGNQX2kJEJ_ZETRLpvul1xFkzvGyZKkhC1csfU7bXym6JBR_0YIy3vF-L8g==",
+                  "timestamp" : 1794964618.337,
+                  "uuid" : "AE2120A6-8B34-4161-B214-358B670D9A8C"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964618.337,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964618.048,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964618.337,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964617.861,
+          "title" : "Tap \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964619.503,
+                  "title" : "Checking existence of `\"companion-composer\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964619.502,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-composer\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964618.495,
+          "title" : "Waiting 10.0s for \"companion-composer\" Any to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964620.704,
+              "title" : "Checking existence of `Button (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964620.703,
+          "title" : "Checking `Expect predicate `exists == 0` for object Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964620.795,
+          "title" : "Get number of matches for: Elements matching predicate 'label BEGINSWITH \"Reading marker \"'"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964621.87,
+                  "title" : "Checking existence of `\"companion-show-earlier\" Button`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964621.869,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-show-earlier\" Button`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964620.839,
+          "title" : "Waiting 10.0s for \"companion-show-earlier\" Button to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964621.918,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964621.965,
+          "title" : "Find the \"companion-chat-header\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964622.001,
+          "title" : "Find the \"companion-composer\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964622.116,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.02 PM",
+              "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+              "timestamp" : 1794964622.245,
+              "uuid" : "F7D58239-6998-4921-A759-D4DA65DC5518"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.04 PM",
+              "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+              "timestamp" : 1794964624.482,
+              "uuid" : "C82F0BB9-8E35-45BB-A17B-C5F7079424DB"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964622.147,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964622.149,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964622.2,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.02 PM",
+                  "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+                  "timestamp" : 1794964622.245,
+                  "uuid" : "F7D58239-6998-4921-A759-D4DA65DC5518"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.04 PM",
+                  "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+                  "timestamp" : 1794964624.482,
+                  "uuid" : "C82F0BB9-8E35-45BB-A17B-C5F7079424DB"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964622.245,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964622.245,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964622.275,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964622.307,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964622.336,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964622.368,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.482,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964622.244,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964624.484,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964622.147,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964624.491,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964624.539,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964624.574,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964624.699,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.04 PM",
+              "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+              "timestamp" : 1794964624.824,
+              "uuid" : "AFA7AE4F-03F2-4342-AD3F-921442C34B7D"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.07 PM",
+              "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+              "timestamp" : 1794964627.079,
+              "uuid" : "E928686B-41F2-453A-B766-0607DE35F42D"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964624.742,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964624.752,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964624.786,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.04 PM",
+                  "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+                  "timestamp" : 1794964624.824,
+                  "uuid" : "AFA7AE4F-03F2-4342-AD3F-921442C34B7D"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.07 PM",
+                  "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+                  "timestamp" : 1794964627.079,
+                  "uuid" : "E928686B-41F2-453A-B766-0607DE35F42D"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.824,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.824,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.858,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.891,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.924,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964624.96,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.079,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964624.823,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964627.08,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964624.742,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964627.085,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964627.144,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964627.182,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964627.321,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.07 PM",
+              "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+              "timestamp" : 1794964627.442,
+              "uuid" : "3883D5D7-4492-4842-8D47-3CEEBFD33C14"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.09 PM",
+              "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+              "timestamp" : 1794964629.691,
+              "uuid" : "AC2B9EB2-D83E-42F1-B581-6CE96F522DE4"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964627.367,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964627.368,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964627.404,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.07 PM",
+                  "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+                  "timestamp" : 1794964627.442,
+                  "uuid" : "3883D5D7-4492-4842-8D47-3CEEBFD33C14"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.09 PM",
+                  "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+                  "timestamp" : 1794964629.691,
+                  "uuid" : "AC2B9EB2-D83E-42F1-B581-6CE96F522DE4"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.442,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.442,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.473,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.505,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.536,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964627.573,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964629.691,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964627.441,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964629.693,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964627.367,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964629.699,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964629.759,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964629.813,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964629.959,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.10 PM",
+              "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+              "timestamp" : 1794964630.07,
+              "uuid" : "A6DF737A-097F-44C9-9EDD-879E1CB06756"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.12 PM",
+              "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+              "timestamp" : 1794964632.337,
+              "uuid" : "AC985ECA-C8C9-4AAF-94D3-4FB85FDAC9C7"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964629.995,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964629.996,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964630.03,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.10 PM",
+                  "payloadId" : "0~gMuparu1-BWG-YU9wXdb8QnuRiKzTD0GA1NTnZQ9tTzZger3nNU1rddwiXPWvrr5TLxV1Y87El7yEaniOiYihw==",
+                  "timestamp" : 1794964630.07,
+                  "uuid" : "A6DF737A-097F-44C9-9EDD-879E1CB06756"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.12 PM",
+                  "payloadId" : "0~-GoF-eqYF4s7yWgiA0YLL3jnAJunVAg9XuoAKksBGKFrb4Lguk_4urQWgttJ9PuZL2PGPRYtEzXxhGeXhx-d0w==",
+                  "timestamp" : 1794964632.337,
+                  "uuid" : "AC985ECA-C8C9-4AAF-94D3-4FB85FDAC9C7"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964630.07,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964630.07,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964630.104,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964630.138,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964630.171,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964630.205,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964632.337,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964630.069,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964632.338,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964629.994,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964632.667,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964632.763,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964632.807,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964632.849,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964632.891,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.022,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.078,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.122,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.181,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.231,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.358,
+          "title" : "Get all elements bound by index for: Elements matching predicate 'label BEGINSWITH \"Reading marker \"'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.401,
+          "title" : "Find the StaticText (Element at index 0)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.443,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.486,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.527,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.13 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964633.675,
+              "uuid" : "761A104C-8316-4A7A-9B06-A32B43286740"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.13 PM",
+              "payloadId" : "0~RzLBA_ZuIx247NTANyQAstHdHcPezu2aWXdylL7cVCA8C4woT7Ecqow-Ws6m28mCKdpJHY5JYV_bDyulMPlGTA==",
+              "timestamp" : 1794964633.964,
+              "uuid" : "062CC7E6-78C1-4BCC-8EBD-2FF11A003DD7"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964633.573,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964633.574,
+              "title" : "Find the \"companion-show-earlier\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964633.628,
+              "title" : "Check for interrupting elements affecting \"companion-show-earlier\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.13 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964633.675,
+                  "uuid" : "761A104C-8316-4A7A-9B06-A32B43286740"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.13 PM",
+                  "payloadId" : "0~RzLBA_ZuIx247NTANyQAstHdHcPezu2aWXdylL7cVCA8C4woT7Ecqow-Ws6m28mCKdpJHY5JYV_bDyulMPlGTA==",
+                  "timestamp" : 1794964633.964,
+                  "uuid" : "062CC7E6-78C1-4BCC-8EBD-2FF11A003DD7"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964633.675,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964633.964,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964633.675,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964633.965,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964633.573,
+          "title" : "Tap \"companion-show-earlier\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964635.003,
+              "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964635.003,
+          "title" : "Checking `Expect predicate `exists == 1` for object \"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964637.181,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964640.385,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.21 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964641.247,
+              "uuid" : "AAB43692-ED0A-468B-90A1-4BEC3C4CBA15"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.21 PM",
+              "payloadId" : "0~mewsSitB_TAbM2zSGNT6Ia_DP_OMqb7GsthQBUKoMYMtn2l6VlsKM01jQIBnWparfyfWjJgOrXcSMIotcs1ScQ==",
+              "timestamp" : 1794964641.537,
+              "uuid" : "7BD59E2A-3302-4E80-90EC-97D8FB51BAB8"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964640.553,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964640.555,
+              "title" : "Find the \"companion-composer\" TextField"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964641.049,
+              "title" : "Check for interrupting elements affecting \"companion-composer\" TextField"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.21 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964641.247,
+                  "uuid" : "AAB43692-ED0A-468B-90A1-4BEC3C4CBA15"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.21 PM",
+                  "payloadId" : "0~mewsSitB_TAbM2zSGNT6Ia_DP_OMqb7GsthQBUKoMYMtn2l6VlsKM01jQIBnWparfyfWjJgOrXcSMIotcs1ScQ==",
+                  "timestamp" : 1794964641.537,
+                  "uuid" : "7BD59E2A-3302-4E80-90EC-97D8FB51BAB8"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964641.247,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964641.537,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964641.246,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964641.537,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964640.553,
+          "title" : "Tap \"companion-composer\" TextField"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964642.548,
+                  "title" : "Checking existence of `Keyboard (First Match)`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964642.547,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964641.539,
+          "title" : "Waiting 2.0s for Keyboard (First Match) to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964643.621,
+                  "title" : "Checking existence of `Keyboard (First Match)`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964643.62,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964642.564,
+          "title" : "Waiting 5.0s for Keyboard (First Match) to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964643.654,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964643.834,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.24 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964644.361,
+              "uuid" : "63E8585B-AB92-4A75-AE16-32DAB80CE2C8"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.24 PM",
+              "payloadId" : "0~enIhTLVrys39AXOMv93jlsjKegHaM36AU35uN9S4TR-FFRrkWb0V41DUMX_vLJpaw84Gm8AyeeZbLLy4sNg2Fg==",
+              "timestamp" : 1794964644.653,
+              "uuid" : "397AC4B9-071A-42A5-B992-F04311DFB6FC"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964644.031,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964644.052,
+              "title" : "Find the Button (Element at index 0)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964644.207,
+              "title" : "Check for interrupting elements affecting \"BackButton\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.24 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964644.361,
+                  "uuid" : "63E8585B-AB92-4A75-AE16-32DAB80CE2C8"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.24 PM",
+                  "payloadId" : "0~enIhTLVrys39AXOMv93jlsjKegHaM36AU35uN9S4TR-FFRrkWb0V41DUMX_vLJpaw84Gm8AyeeZbLLy4sNg2Fg==",
+                  "timestamp" : 1794964644.653,
+                  "uuid" : "397AC4B9-071A-42A5-B992-F04311DFB6FC"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964644.361,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964644.653,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964644.36,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964644.654,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964644.031,
+          "title" : "Tap Button (Element at index 0)"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.25 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964645.243,
+              "uuid" : "981BEA39-9F16-4B27-9462-42156BCE4828"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.25 PM",
+              "payloadId" : "0~b63LhhsIKjb4FEcC9wCPaP_yzdTHRC6OnFBWjsf6tSSbSe3UAxyNq6NyxUqjRzsa9iR7ktUDm3WaRscVUGmC7Q==",
+              "timestamp" : 1794964645.533,
+              "uuid" : "24B8E32D-4792-4641-BE4F-99307BF82B6E"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964644.74,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964645.167,
+              "title" : "Find the Button (First Match)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964645.193,
+              "title" : "Check for interrupting elements affecting \"magnifyingglass\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.25 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964645.243,
+                  "uuid" : "981BEA39-9F16-4B27-9462-42156BCE4828"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.25 PM",
+                  "payloadId" : "0~b63LhhsIKjb4FEcC9wCPaP_yzdTHRC6OnFBWjsf6tSSbSe3UAxyNq6NyxUqjRzsa9iR7ktUDm3WaRscVUGmC7Q==",
+                  "timestamp" : 1794964645.533,
+                  "uuid" : "24B8E32D-4792-4641-BE4F-99307BF82B6E"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964645.243,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964645.533,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964645.242,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964645.533,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964644.74,
+          "title" : "Tap Button (First Match)"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.26 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964646.306,
+              "uuid" : "06F6F241-E634-4B22-9860-0E406DAF0B06"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.26 PM",
+              "payloadId" : "0~P9XFsfpk7I01DJgB4bFq44nGLtEU1n5vefeiX1ypPMrKuz_wEK4MMJAKBcXCM29Ca733bknQG6ukWmoy_BIo5Q==",
+              "timestamp" : 1794964646.587,
+              "uuid" : "228E68B9-62D8-4ED5-AEDB-AADFA9D3204E"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964646.224,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964646.229,
+              "title" : "Find the Button (First Match)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964646.258,
+              "title" : "Check for interrupting elements affecting \"Home\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.26 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964646.306,
+                  "uuid" : "06F6F241-E634-4B22-9860-0E406DAF0B06"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.26 PM",
+                  "payloadId" : "0~P9XFsfpk7I01DJgB4bFq44nGLtEU1n5vefeiX1ypPMrKuz_wEK4MMJAKBcXCM29Ca733bknQG6ukWmoy_BIo5Q==",
+                  "timestamp" : 1794964646.587,
+                  "uuid" : "228E68B9-62D8-4ED5-AEDB-AADFA9D3204E"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964646.306,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964646.587,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964646.305,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964646.587,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964646.223,
+          "title" : "Tap Button (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964646.589,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964646.602,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964647.671,
+                  "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964647.67,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agent-preview-studio-river\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964646.615,
+          "title" : "Waiting 2.0s for \"agent-preview-studio-river\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964647.818,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964647.94,
+          "title" : "Find the \"agent-preview-studio-river\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964648.067,
+          "title" : "Checking existence of `\"companion-composer\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964648.234,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Button`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964648.353,
+          "title" : "Find the \"agent-preview-studio-river\" Button"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.28 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964648.676,
+              "uuid" : "F80407CA-2275-4BCF-8171-D135CCF2D980"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.28 PM",
+              "payloadId" : "0~4o7KQRFKXAYVT-vDh9zvb4sJC5_NGNQX2kJEJ_ZETRLpvul1xFkzvGyZKkhC1csfU7bXym6JBR_0YIy3vF-L8g==",
+              "timestamp" : 1794964648.962,
+              "uuid" : "2B9F4C58-15DD-4795-8ADA-ECF10C99BCD4"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964648.485,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964648.487,
+              "title" : "Find the \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964648.613,
+              "title" : "Check for interrupting elements affecting \"agent-preview-studio-river\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.28 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964648.676,
+                  "uuid" : "F80407CA-2275-4BCF-8171-D135CCF2D980"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.28 PM",
+                  "payloadId" : "0~4o7KQRFKXAYVT-vDh9zvb4sJC5_NGNQX2kJEJ_ZETRLpvul1xFkzvGyZKkhC1csfU7bXym6JBR_0YIy3vF-L8g==",
+                  "timestamp" : 1794964648.962,
+                  "uuid" : "2B9F4C58-15DD-4795-8ADA-ECF10C99BCD4"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964648.676,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964648.962,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964648.675,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964648.962,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964648.485,
+          "title" : "Tap \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964650.103,
+                  "title" : "Checking existence of `\"companion-composer\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964650.103,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-composer\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964649.045,
+          "title" : "Waiting 10.0s for \"companion-composer\" Any to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964651.745,
+                  "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964651.744,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Reading marker 165.\" StaticText`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964650.698,
+          "title" : "Waiting 10.0s for \"Reading marker 165.\" StaticText to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964651.924,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.32 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964652.493,
+              "uuid" : "CC8BA0D7-DD91-451A-9F31-E576AF77B7E8"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.32 PM",
+              "payloadId" : "0~enIhTLVrys39AXOMv93jlsjKegHaM36AU35uN9S4TR-FFRrkWb0V41DUMX_vLJpaw84Gm8AyeeZbLLy4sNg2Fg==",
+              "timestamp" : 1794964652.787,
+              "uuid" : "F290D12E-4B92-485E-9F1A-36D385529E08"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964652.129,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964652.136,
+              "title" : "Find the Button (Element at index 0)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964652.281,
+              "title" : "Check for interrupting elements affecting \"BackButton\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.32 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964652.493,
+                  "uuid" : "CC8BA0D7-DD91-451A-9F31-E576AF77B7E8"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.32 PM",
+                  "payloadId" : "0~enIhTLVrys39AXOMv93jlsjKegHaM36AU35uN9S4TR-FFRrkWb0V41DUMX_vLJpaw84Gm8AyeeZbLLy4sNg2Fg==",
+                  "timestamp" : 1794964652.787,
+                  "uuid" : "F290D12E-4B92-485E-9F1A-36D385529E08"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964652.493,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964652.787,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964652.492,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964652.787,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964652.129,
+          "title" : "Tap Button (Element at index 0)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964652.796,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964652.811,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964653.846,
+                  "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964653.845,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agent-preview-studio-river\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964652.823,
+          "title" : "Waiting 2.0s for \"agent-preview-studio-river\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964653.986,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964654.099,
+          "title" : "Find the \"agent-preview-studio-river\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964654.23,
+          "title" : "Checking existence of `\"companion-composer\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964654.398,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Button`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964654.518,
+          "title" : "Find the \"agent-preview-studio-river\" Button"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "UI Snapshot 2026-11-17 at 05.17.34 PM",
+              "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+              "timestamp" : 1794964654.831,
+              "uuid" : "0927894C-D748-4132-B627-DFA717270AC5"
+            },
+            {
+              "lifetime" : "deleteOnSuccess",
+              "name" : "Synthesized Event 2026-11-17 at 05.17.35 PM",
+              "payloadId" : "0~4o7KQRFKXAYVT-vDh9zvb4sJC5_NGNQX2kJEJ_ZETRLpvul1xFkzvGyZKkhC1csfU7bXym6JBR_0YIy3vF-L8g==",
+              "timestamp" : 1794964655.112,
+              "uuid" : "A23936DE-CC79-4753-8269-9687539A95E6"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964654.648,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964654.65,
+              "title" : "Find the \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964654.778,
+              "title" : "Check for interrupting elements affecting \"agent-preview-studio-river\" Button"
+            },
+            {
+              "attachments" : [
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "UI Snapshot 2026-11-17 at 05.17.34 PM",
+                  "payloadId" : "0~4CobsJQc2ue__rSNb-Mf3eWrpueD88BNjxKvROWT6sSnvQIJqPhYcMfZjOdK0ZHISNV1Dq0z9Kol5qDJiE5NIg==",
+                  "timestamp" : 1794964654.831,
+                  "uuid" : "0927894C-D748-4132-B627-DFA717270AC5"
+                },
+                {
+                  "lifetime" : "deleteOnSuccess",
+                  "name" : "Synthesized Event 2026-11-17 at 05.17.35 PM",
+                  "payloadId" : "0~4o7KQRFKXAYVT-vDh9zvb4sJC5_NGNQX2kJEJ_ZETRLpvul1xFkzvGyZKkhC1csfU7bXym6JBR_0YIy3vF-L8g==",
+                  "timestamp" : 1794964655.112,
+                  "uuid" : "A23936DE-CC79-4753-8269-9687539A95E6"
+                }
+              ],
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964654.831,
+                  "title" : "kXCTAttachmentLegacySnapshot"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964655.112,
+                  "title" : "kXCTAttachmentLegacySynthesizedEvent"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964654.827,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964655.112,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964654.648,
+          "title" : "Tap \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964656.311,
+                  "title" : "Checking existence of `\"companion-composer\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964656.311,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-composer\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964655.264,
+          "title" : "Waiting 10.0s for \"companion-composer\" Any to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1794964657.928,
+                  "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1794964657.928,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"Reading marker 165.\" StaticText`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964656.904,
+          "title" : "Waiting 10.0s for \"Reading marker 165.\" StaticText to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964658.096,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "title" : ""
+            }
+          ],
+          "isAssociatedWithFailure" : true,
+          "startTime" : 1794964658.301,
+          "title" : "XCTAssertEqualWithAccuracy failed: (\"112.99999999999392\") is not equal to (\"209.6666666666582\") +/- (\"6.0\") - Leaving and reopening restores the entry bookmark"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1794964658.305,
+          "title" : "Tear Down"
+        }
+      ],
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "4240A56D-71F7-4D99-9B05-386407FE6330",
+        "deviceName" : "footer566-main-1794963553",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ]
+}

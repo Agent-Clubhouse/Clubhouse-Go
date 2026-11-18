@@ -1,0 +1,25 @@
+{
+  "issue": "https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/569",
+  "helper_head": "6e84c4c890974e26175569f277c5504a27c1dc8c",
+  "classification": "Product restore reports arrived before wrong frame read; one diagnostic confirmation pending",
+  "original_e45_times": {
+    "mount": "2026-11-17T17:17:35.081344-08:00",
+    "arrived_duration_ms": 161.83245833963156,
+    "frame_read": "2026-11-17T17:17:38.096-08:00",
+    "failure": "2026-11-17T17:17:38.301-08:00",
+    "expected_y": 209.6666666666582,
+    "actual_y": 112.99999999999392,
+    "accuracy_pt": 6
+  },
+  "decisive_skip": "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming() \u2014 native pointer-only skip, not an iPad annotation",
+  "files": {
+    "original-e45-reading-product-trace.txt": "cf627076cf50dd21479233e7bb2c8a9c9ec60a433f3872c21cc064b4c544d9fd",
+    "original-e45-reading-activities.json": "d3a0bbc5e822ea062df98df8959ef81062c763d9670c6e05e31cf6f65dec6d42",
+    "original-e45-return-frames.png": "68c17e555d46fe4ecf4ad425ac3d7963bb280b4198971cbdcc96935dda1f0899",
+    "reading-readiness.patch": "e4063927e87fdc962350f5f8eed1213a2324652cd583b2e280e103d82369ab82",
+    "decisive23.selectors": "5d145124373e6249cb176cb71980ab695cb97f761fb8a6d5edae2fdafd8d5667",
+    "original-b829-order.json": "95bed9a5dcd1c66387aaa79fdaefe70d0c2c1306240fd39603d3837a0d988525",
+    "run-confirmation.py": "0ae88f8b7fcc7dde456a568a829aa005d083c0cb9302a181513bc4fe116a268b",
+    "manifest.json": "9d9b6a760b7d9f0a93ccd149647171b17851eb707e8f33eb00759e0d71a97529"
+  }
+}
