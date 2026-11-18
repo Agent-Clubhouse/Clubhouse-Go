@@ -289,6 +289,8 @@ struct CompanionConversationView: View {
                 maximumHeight: max(44, available.size.height),
                 showInChat: { decisionChatJump = .init(itemID: $0) }) {
                     composerBar(compactHeight: available.size.height < 360)
+                        .environment(\.companionPermissionMenuAvailableHeight, available.size.height)
+                        .environment(\.companionPermissionMenuKeyboardVisible, keyboardVisible)
             }
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }

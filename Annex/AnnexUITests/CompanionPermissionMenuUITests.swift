@@ -191,6 +191,51 @@ import XCTest
         XCTAssertEqual(composer.value as? String, "Permission menu draft")
     }
 
+    func testAutoConfirmationExplainsApprovalChoice() {
+        let app = openMenu(["--companion-header-light"])
+        let confirmation = app.buttons["Switch to Auto"]
+        waitAndTap(app.buttons["companion-level-auto"], until: confirmation, attempts: 1)
+        XCTAssertTrue(app.staticTexts["River will decide for itself what needs your approval."].exists,
+                      "Auto retains its approval consequence when compact visual subtitles are omitted")
+        XCTAssertTrue(confirmation.isHittable)
+        capture(app, "Auto consequence confirmation")
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertEqual(composer.value as? String, "Permission menu draft")
+    }
+
+    func testPermissionDescriptionsUseEditingRoomAndRemainVisibleWithKeyboardDown() {
+        let editing = openMenu(["--companion-header-light"])
+        XCTAssertGreaterThan(editing.frame.height, editing.frame.width)
+        // This matrix runs on SE3 (667pt) and Pro Max (956pt). Assert the native
+        // row geometry independently of the app's available-height classification.
+        let shortPhone = editing.frame.height < 800
+        for level in levels {
+            let row = editing.buttons["companion-level-\(level.id)"]
+            assertFullText(row, expected: level.fullLabel)
+            if shortPhone {
+                XCTAssertEqual(row.frame.height, 44, accuracy: 1, "Short editing uses a single native title line")
+            } else {
+                XCTAssertGreaterThanOrEqual(row.frame.height, 57, "Roomy editing retains the native subtitle line")
+            }
+        }
+        capture(editing, "editing visual descriptions \(shortPhone ? "short" : "roomy")")
+        editing.terminate()
+
+        let reading = launchApp(["--companion-preview", "--companion-preview-header-fixture", "--companion-header-light"], attempts: 1)
+        XCTAssertTrue(reading.buttons["companion-chat-header"].waitForExistence(timeout: 10))
+        XCTAssertNil(visibleKeyboardFrame(reading))
+        waitAndTap(reading.buttons["companion-level-menu"], until: reading.buttons["companion-permissions-menu"], attempts: 1)
+        waitAndTap(reading.buttons["companion-permissions-menu"], until: reading.buttons["companion-level-plan"], attempts: 1)
+        for level in levels {
+            let row = reading.buttons["companion-level-\(level.id)"]
+            assertFullText(row, expected: level.fullLabel)
+            XCTAssertGreaterThanOrEqual(row.frame.height, 57, "Keyboard-down presentation retains every native subtitle line")
+        }
+        capture(reading, "keyboard down visual descriptions")
+    }
+
     /// Swipes stay inside the clipped native pane; the collection's oversized frame extends over the keyboard.
     private func reveal(_ row: XCUIElement, in app: XCUIApplication, accessibility: Bool) {
         for step in 0...8 {

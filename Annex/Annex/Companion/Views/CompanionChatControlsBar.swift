@@ -14,6 +14,8 @@ struct CompanionChatControlsBar: View, Equatable {
     let setLevel: @MainActor (CompanionPermissionLevel) -> Void
     let setModel: @MainActor (String, CompanionEffortChoice?) -> Void
     var compact = false
+    var availableHeight: CGFloat = .infinity
+    var keyboardVisible = false
     let requestLevel: @MainActor (CompanionPermissionLevel) -> Void
     var modelDifference: CompanionModelDifference?
     var savedModelError: String?
@@ -22,7 +24,16 @@ struct CompanionChatControlsBar: View, Equatable {
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
+            && lhs.usesSingleLinePermissionRows == rhs.usesSingleLinePermissionRows
             && lhs.modelDifference == rhs.modelDifference && lhs.savedModelError == rhs.savedModelError
+    }
+
+    private var usesSingleLinePermissionRows: Bool {
+        // Measured native submenu chrome is 100.5pt and each two-line row is 58pt
+        // at Large. Reserve another 20pt for the next standard text size and menu insets.
+        // The existing keyboard-safe container measurement distinguishes short editing
+        // windows from roomy phones/tablets and from the same phone with its keyboard down.
+        compact && keyboardVisible && availableHeight < 100.5 + CGFloat(controls.levels.count) * 58 + 20
     }
 
     var body: some View {
@@ -71,7 +82,7 @@ struct CompanionChatControlsBar: View, Equatable {
                         Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
                         // Single-line native rows keep all five levels above the editing keyboard.
                         // The full meaning remains in the AX label and the escalation confirmation.
-                        if !compact { Text(permissionSummary(level)) }
+                        if !usesSingleLinePermissionRows { Text(permissionSummary(level)) }
                     }
                     // Menus don't read subtitles aloud; the label carries them.
                     .accessibilityLabel("\(level.label), \(subtitle(level))")
