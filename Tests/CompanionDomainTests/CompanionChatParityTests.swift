@@ -196,7 +196,21 @@ struct CompanionChatActivityTests {
         #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: items) == "swift test")
         // Your latest message ends the search: an older running tool isn't this turn's.
         #expect(CompanionChatActivity.line(status: .working, turnStartedAt: start, items: Array(items.prefix(2)), now: start.addingTimeInterval(5)) == "0:05")
-        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: []) == nil)
+        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: []) == "Working")
+    }
+
+    @Test func unknownTurnTimingRetainsActivityBetweenToolsUntilTurnEnds() {
+        let request = CompanionTimelineItem.message(.init(id: "request", role: .user, text: "Continue"))
+        let finishedStates: [CompanionTool.State] = [.completed, .failed]
+        for state in finishedStates {
+            let items = [request, CompanionTimelineItem.tool(.init(id: "tool", name: "Read file", summary: "", state: state))]
+            #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: items) == "Working")
+            #expect(CompanionChatActivity.line(status: .idle, turnStartedAt: nil, items: items) == nil)
+        }
+        let older = CompanionTimelineItem.tool(.init(id: "older", name: "Older turn", summary: "", state: .running))
+        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: [older, request]) == "Working")
+        let next = CompanionTimelineItem.tool(.init(id: "next", name: "Edit file", summary: "", state: .running))
+        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: [older, request, next]) == "Edit file")
     }
 
     @Test func waitingStatesSayWhatTheyWaitOn() {

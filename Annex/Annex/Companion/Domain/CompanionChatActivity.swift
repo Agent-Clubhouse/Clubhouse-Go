@@ -2,14 +2,14 @@ import Foundation
 
 /// The chat header's activity line, as the desktop's `chatActivity` (`ChatHeader.tsx`) builds it.
 enum CompanionChatActivity {
-    /// "1:05 · Run swift test" while working, what it waits on otherwise, nil when there's nothing to say.
+    /// "1:05 · Run swift test" while working; "Working" bridges tool gaps on desktops without turn timing.
     static func line(status: CompanionAgentStatus, turnStartedAt: Date?, items: [CompanionTimelineItem], now: Date = Date()) -> String? {
         switch status {
         case .working:
             var parts: [String] = []
             if let turnStartedAt { parts.append(elapsed(now.timeIntervalSince(turnStartedAt))) }
             if let tool = currentTool(in: items) { parts.append(tool.name) }
-            return parts.isEmpty ? nil : parts.joined(separator: " · ")
+            return parts.isEmpty ? "Working" : parts.joined(separator: " · ")
         case .approval:
             let approval = pendingApprovals(in: items, at: now).first
             return approval.map { $0.title ?? $0.toolName } ?? "Waiting for approval"
