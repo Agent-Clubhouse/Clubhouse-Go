@@ -1,0 +1,46 @@
+{
+  "baseline": "e45aef3b453087976cf99420904cacfa541d76d2",
+  "candidate": "48a6f022135c4df68a8b867e330ae16c1fdb5a4b",
+  "merge_clean": true,
+  "overlap_files": [],
+  "phase": "D",
+  "started_at": "2026-11-18T00:51:20.664164+00:00",
+  "head": "5988f83347d01716a706f5a565b84078eeea33cc",
+  "test_rc": 0,
+  "build_rc": null,
+  "simulator_uuid": null,
+  "guard": {
+    "top": "Processes: 836 total, 4 running, 832 sleeping, 5850 threads \n2026/11/17 16:51:21\nLoad Avg: 5.52, 4.73, 5.93 \nCPU usage: 16.95% user, 8.91% sys, 74.13% idle \nSharedLibs: 1029M resident, 186M data, 133M linkedit.\nMemRegions: 1238815 total, 14G resident, 576M private, 3946M shared.\nPhysMem: 48G used (7128M wired, 5553M compressor), 15G unused.\nVM: 440T vsize, 6144M framework vsize, 9858195(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1332179713/1552G in, 551378828/413G out.\nDisks: 2135986490/25T read, 2911417755/34T written.\n\n\nProcesses: 836 total, 6 running, 830 sleeping, 5843 threads \n2026/11/17 16:51:31\nLoad Avg: 5.66, 4.79, 5.94 \nCPU usage: 18.62% user, 4.52% sys, 76.85% idle \nSharedLibs: 1029M resident, 186M data, 133M linkedit.\nMemRegions: 133 total, 4448K resident, 576M private, 3946M shared.\nPhysMem: 48G used (7129M wired, 5552M compressor), 15G unused.\nVM: 440T vsize, 6144M framework vsize, 9858195(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1332183768/1552G in, 551384068/413G out.\nDisks: 2135989147/25T read, 2911438711/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 76.85,
+    "physmem_unused_bytes": 16106127360.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 4294967296,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "guard_policy": "2026-11-17 orchestrator: build-only memory floor4GiB; sim tests6GiB; idle40%; swapgrowth<=64MiB/10s",
+  "command": "scripts/coverage.sh --check",
+  "swift_job_cap": 2,
+  "shim_sha256": "100c27b8c6281a8b57898fddc0e80f1a59cbf946cd43c6812efb7f9dc20f0587",
+  "rc": 0,
+  "swap_watch": {
+    "sample_interval_seconds": 15,
+    "limit_bytes": 268435456,
+    "record_only": true,
+    "samples": 9,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "growth_bytes": 0,
+    "exceeded_256MiB": false
+  },
+  "admitted_at": "2026-11-18T00:51:20.640134+00:00",
+  "closed_at": "2026-11-18T00:53:28.035335+00:00",
+  "duration_seconds": 127.395041125,
+  "hard_bound_seconds": 1200
+}

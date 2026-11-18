@@ -1,0 +1,39 @@
+{
+  "baseline": "e45aef3b453087976cf99420904cacfa541d76d2",
+  "candidate": "48a6f022135c4df68a8b867e330ae16c1fdb5a4b",
+  "merge_clean": true,
+  "overlap_files": [],
+  "phase": "D",
+  "started_at": "2026-11-18T00:30:45.763105+00:00",
+  "head": "5988f83347d01716a706f5a565b84078eeea33cc",
+  "test_rc": null,
+  "build_rc": null,
+  "simulator_uuid": null,
+  "guard": {
+    "top": "Processes: 1146 total, 6 running, 1140 sleeping, 6686 threads \n2026/11/17 16:30:46\nLoad Avg: 21.52, 16.34, 11.35 \nCPU usage: 18.9% user, 13.73% sys, 68.16% idle \nSharedLibs: 1016M resident, 184M data, 132M linkedit.\nMemRegions: 1287185 total, 17G resident, 3136M private, 4904M shared.\nPhysMem: 62G used (8698M wired, 5538M compressor), 1014M unused.\nVM: 559T vsize, 6144M framework vsize, 9858195(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1331904981/1551G in, 551098196/412G out.\nDisks: 2130924635/25T read, 2909438277/34T written.\n\n\nProcesses: 1141 total, 4 running, 1 stuck, 1136 sleeping, 6680 threads \n2026/11/17 16:30:56\nLoad Avg: 19.12, 16.00, 11.29 \nCPU usage: 12.11% user, 7.88% sys, 80.0% idle \nSharedLibs: 1016M resident, 184M data, 132M linkedit.\nMemRegions: 1002 total, 73M resident, 3136M private, 4917M shared.\nPhysMem: 62G used (8677M wired, 5538M compressor), 798M unused.\nVM: 557T vsize, 6144M framework vsize, 9858195(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1331907187/1551G in, 551100090/412G out.\nDisks: 2130964685/25T read, 2909453495/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 80.0,
+    "physmem_unused_bytes": 836763648.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 4294967296,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": false
+  },
+  "guard_policy": "2026-11-17 orchestrator: build-only memory floor4GiB; sim tests6GiB; idle40%; swapgrowth<=64MiB/10s",
+  "rc": 4,
+  "swap_watch": {
+    "sample_interval_seconds": 15,
+    "limit_bytes": 268435456,
+    "record_only": true,
+    "samples": 0
+  },
+  "admitted_at": "2026-11-18T00:30:45.737078+00:00",
+  "closed_at": "2026-11-18T00:30:56.876209+00:00",
+  "duration_seconds": 11.139040833000001,
+  "hard_bound_seconds": 1200
+}

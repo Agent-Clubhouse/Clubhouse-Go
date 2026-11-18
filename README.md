@@ -13,7 +13,7 @@ All fixtures are generated synthetic catalogs and memory services. Images are or
 | UI C1 | 14/14 PASS, strict PASS, no skips, retries or crashes |
 | UI C2 | 26/26 PASS, strict PASS, no skips, retries or crashes |
 | Package D | 73 tests / 11 suites PASS |
-| Combined coverage | Pending: initial admission refused before execution by memory guard |
+| Combined coverage | 1,691 tests / 204 suites PASS; Transport 96.84%, Domain 93.01%; ratchet OK |
 
 See [the count table](kept-live-report.md) and [raw comparison](kept-live-comparison.json). Counts are the primary performance gate. Supporting app process CPU is not a phone battery or CPU-percentage claim. The cheap Home owner still reevaluates; all expensive pushed child counters remain unchanged.
 
@@ -56,3 +56,7 @@ Returning Home from another tab still scrolls to the top. Anchor restore is excl
 The AX5 test retained strict row/viewport bounds, full-name and multiline OCR checks. [All OCR boxes and attribution](origin-every-ocr-box.json) and [geometry step 0](origin-geometry-step-0.json) / [step 1](origin-geometry-step-1.json) are retained.
 
 ![Home after real swipe-back](home-after-real-swipe.png)
+
+The visible idle window had the same five late row/menu realisations on both sides; its high-level owner/content/layout/header/scope counts remained zero.
+
+Combined current-main tree: clean merge `5988f83347d01716a706f5a565b84078eeea33cc` = main `e45aef3b453087976cf99420904cacfa541d76d2` + code head above, no file overlaps or manual resolutions. [Coverage report](combined-coverage-report.txt), [passing receipt](combined-coverage-r2-receipt.json), and [earlier zero-execution guard refusal](combined-coverage-r1-refused-receipt.json). The PR code head remains unchanged.
