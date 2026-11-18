@@ -34,7 +34,8 @@ import Testing
         let group = try #require(rows.first)
         #expect(group.id == "question:first" && seed.entryID == group.id)
         #expect(position.entryID == "question:later", "The semantic bookmark still names the authoritative request")
-        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: try #require(seed.entryID)))
+        let canonical = try #require(seed.entryID)
+        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: canonical))
         #expect(window.entries.contains { $0.id == seed.entryID })
     }
 
@@ -51,7 +52,8 @@ import Testing
         let rows = (0..<40).map { CompanionTimelineRow.item(.message(.init(id: "row-\($0)", role: .user, text: "Row \($0)"))) }
         let position = CompanionReadingPosition(followsLatest: false, entryID: rows[24].id, shownEntries: 150)
         let seed = opening(position, rows: rows)
-        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: try #require(seed.entryID)))
+        let canonical = try #require(seed.entryID)
+        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: canonical))
         #expect(window.entries.first?.id == seed.entryID,
                 "User-approved #582 contract: a paused remount starts WITH its canonical bookmark")
         #expect(window.hiddenCount > 0)
