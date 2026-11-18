@@ -134,6 +134,8 @@ struct CompanionHomeAnchorRow<Row: View>: View {
         resumeApplied = true
         suspended = false
         if let saved = bookmark, !available(saved.id) { bookmark = nil }
+        // A fresh List already starts at the top; never schedule a delayed summary scroll.
+        guard bookmark != nil else { return }
         restoring = true
         restoreRequested = false
         settle(proxy, position: position, generation: resumeGeneration, previous: nil,
