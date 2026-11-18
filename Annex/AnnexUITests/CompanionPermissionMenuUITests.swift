@@ -2,6 +2,7 @@ import XCTest
 
 /// Native menu geometry and VoiceOver content, using the socket-free conversation fixture.
 @MainActor final class CompanionPermissionMenuUITests: ReliableUITestCase {
+    private var expectedBackTitle = "Auto-accept edits"
     private let levels: [(id: String, fullLabel: String)] = [
         ("plan", "Plan, Reads and plans, changes nothing · plan"),
         ("ask", "Ask first, Asks before edits and commands · default"),
@@ -44,22 +45,27 @@ import XCTest
             : flags.contains("--companion-header-mocha") ? "Mocha"
             : flags.contains("--companion-header-light") ? "Light" : "Dark"
         capture(app, "composer \(landscape ? "landscape" : "portrait") \(appearance) \(flags.contains("UICTContentSizeCategoryAccessibilityXXXL") ? "XXXL" : "standard")")
+        // This matrix has SE3 and Pro Max. Classify from the device/orientation,
+        // independently of the app's title, available-height budget or AX value.
+        // Both landscape keyboards and SE's portrait keyboard leave short windows,
+        // including SE at accessibility sizes; native scrolling is still allowed there.
+        let expectsTightMenu = landscape || app.frame.height < 800
+        expectedBackTitle = expectsTightMenu ? "Permissions" : "Auto-accept edits"
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
         let permissions = app.buttons["companion-permissions-menu"]
         let context = ([permissions.label, permissions.value as? String ?? ""]
                        + permissions.staticTexts.allElementsBoundByIndex.map(\.label)).joined(separator: " · ")
         print("PERMISSION_MENU_CONTEXT \(context)")
         capture(app, "native permissions entry \(appearance)")
-        let shortStandardPortrait = app.frame.height < 800 && !landscape
-            && !flags.contains("UICTContentSizeCategoryAccessibilityXXXL")
-        if shortStandardPortrait || permissions.label.contains("Permissions") {
+        if expectsTightMenu {
+            XCTAssertTrue(permissions.label.hasPrefix("Permissions"), "Short editing requires the native Permissions title")
             XCTAssertTrue(context.contains("Permissions") && context.contains("Auto-accept edits"),
                           "The native title and subtitle expose both permissions context and the current level: \(context)")
         } else {
             // Roomy native menus keep their original current-level title and shield;
             // their expanded Permissions heading supplies the section context.
             XCTAssertEqual(permissions.label, "Auto-accept edits")
-            XCTAssertTrue(permissions.images["shield"].exists)
+            XCTAssertTrue(permissions.images.matching(identifier: "shield").firstMatch.exists)
         }
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
         XCTAssertEqual(composer.value as? String, "Permission menu draft", "Opening a native menu preserves the draft")
@@ -112,9 +118,10 @@ import XCTest
         var visible = pane.intersection(CGRect(x: app.frame.minX, y: app.frame.minY,
                                               width: app.frame.width, height: (keyboard?.minY ?? app.frame.maxY) - app.frame.minY))
         // Native submenu headers can remain above scrolled cells. A row behind one isn't readable.
-        // The tight native title is Permissions; the roomy title is the current level.
-        // Both are sticky back buttons and must exclude exactly the same covered area.
-        let back = app.buttons.matching(NSPredicate(format: "(label BEGINSWITH %@ OR label == %@) AND identifier == %@", "Permissions", "Auto-accept edits", "")).firstMatch
+        // Require the independently expected title, rather than accepting either.
+        // Its sticky back button must exclude exactly the same covered area.
+        let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", expectedBackTitle, "")).firstMatch
+        XCTAssertTrue(back.exists, "The native back header must match the independently expected layout")
         let section = app.staticTexts["Permissions"]
         for header in [back, section] where header.exists && header.frame.intersects(visible) {
             let top = min(visible.maxY, max(visible.minY, header.frame.maxY))
