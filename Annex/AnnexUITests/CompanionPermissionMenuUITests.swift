@@ -72,7 +72,10 @@ import XCTest
             // Roomy native menus keep their original current-level title and shield;
             // their expanded Permissions heading supplies the section context.
             XCTAssertEqual(permissions.label, "Auto-accept edits")
-            XCTAssertTrue(permissions.images.matching(identifier: "shield").firstMatch.exists)
+            // UIKit omits all decorative native menu images at AX XXXL.
+            if !flags.contains("UICTContentSizeCategoryAccessibilityXXXL") {
+                XCTAssertTrue(permissions.images.matching(identifier: "shield").firstMatch.exists)
+            }
         }
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
         capture(app, "expanded permissions \(appearance)")
