@@ -8,6 +8,7 @@ import XCTest
 
     func testToolBoundariesKeepWorkingFooterAtLargestText() throws {
         try checkToolBoundaries(accessibility: true)
+        try checkMinimumFloorBoundaries()
     }
 
     private struct Geometry {
@@ -98,7 +99,10 @@ import XCTest
                 let currentActivity = try XCTUnwrap(current.frames["companion-chat-activity"], "Working always keeps an activity line")
                 if step == 4 {
                     XCTAssertTrue(current.activityLabel.contains("mcp__clubhouse__message_parent"))
-                    // Measure existing multiline tool wrapping separately; do not claim it has a fixed height.
+                    XCTAssertEqual(currentActivity.height, activity.height, accuracy: 1, "Long tool names truncate to the same one-line height")
+                    XCTAssertEqual(currentFooter.minY, footer.minY, accuracy: 1)
+                    XCTAssertEqual(currentFooter.height, footer.height, accuracy: 1)
+                    // Full tool text remains in accessibility despite visual tail truncation.
                     print("ACTIVITY_LONG_TOOL \(state) extraHeight=\(currentActivity.height-activity.height) send=\(String(describing: current.frames["companion-send"])) keyboardTop=\(keyboard)")
                     continue
                 }
@@ -114,4 +118,75 @@ import XCTest
             app.terminate()
         }
     }
+
+    /// Image + one native editor line + fixed actions expose the SE AX floor. Requests add only
+    /// their minimum Review target; without requests that height is zero and the line can fit.
+    private func checkMinimumFloorBoundaries() throws {
+        for hasRequests in [true, false] {
+            for appearance in ["light", "dark"] {
+                var arguments = ["--companion-preview", "--companion-preview-header-fixture",
+                                 "--companion-header-activity-transitions", "--companion-header-\(appearance)",
+                                 "--companion-sample-images", "-UIPreferredContentSizeCategoryName",
+                                 "UICTContentSizeCategoryAccessibilityXXXL"]
+                if !hasRequests { arguments += ["--companion-header-activity-no-requests"] }
+                let app = launchApp(arguments, attempts: 1)
+                let editor = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+                XCTAssertTrue(editor.waitForExistence(timeout: 10))
+                let image = app.descendants(matching: .any).matching(identifier: "companion-attachment-thumbnail").firstMatch
+                waitAndTap(app.buttons["companion-attach"], until: image, attempts: 1)
+                editor.tap()
+                XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+                editor.typeText("Keep direction")
+                let baseline = try settledGeometry(app)
+                let state = "floor \(appearance) requests=\(hasRequests)"
+                capture(app, geometry: baseline, state: "\(state) step=0")
+                let region = try XCTUnwrap(baseline.frames["companion-composer-region"])
+                let send = try XCTUnwrap(baseline.frames["companion-send"])
+                let keyboard = try XCTUnwrap(baseline.keyboardTop)
+                let review = app.buttons["companion-review-approval"]
+                let reviewFrame = hasRequests ? try XCTUnwrap(baseline.frames["companion-review-approval"]) : nil
+                let omitsLine = app.frame.width <= 375 && app.frame.height <= 667 && hasRequests
+                print("ACTIVITY_FLOOR_BRANCH \(state) omitted=\(omitsLine) window=\(app.frame) composer=\(region) keyboard=\(keyboard)")
+                if omitsLine { XCTAssertNil(baseline.frames["companion-chat-activity"]) }
+                else { XCTAssertTrue(baseline.activityLabel.contains("Read file")) }
+                if hasRequests { XCTAssertTrue(review.exists && review.isHittable) }
+                else { XCTAssertNil(baseline.frames["companion-pinned-decision"]) }
+                XCTAssertLessThan(region.maxY, keyboard)
+                let next = app.buttons["activity-fixture-next"]
+                for step in 1...6 {
+                    next.tap()
+                    XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(
+                        predicate: NSPredicate(format: "value == %@", String(step)), object: next)], timeout: 5), .completed)
+                    let current = try settledGeometry(app)
+                    capture(app, geometry: current, state: "\(state) step=\(step)")
+                    XCTAssertEqual(editor.value as? String, "Keep direction")
+                    XCTAssertEqual(try XCTUnwrap(current.keyboardTop), keyboard, accuracy: 1)
+                    let currentRegion = try XCTUnwrap(current.frames["companion-composer-region"])
+                    let currentSend = try XCTUnwrap(current.frames["companion-send"])
+                    for pair in [(currentRegion, region), (currentSend, send)] {
+                        XCTAssertEqual(pair.0.minY, pair.1.minY, accuracy: 1)
+                        XCTAssertEqual(pair.0.height, pair.1.height, accuracy: 1)
+                    }
+                    XCTAssertLessThan(currentRegion.maxY, keyboard)
+                    if step < 6 {
+                        XCTAssertTrue(app.buttons["companion-chat-header"].label.contains("Working"), "The header retains working status")
+                        if step == 4 {
+                            XCTAssertTrue(app.buttons["companion-chat-header"].label.contains("mcp__clubhouse__message_parent"), "Header accessibility keeps the full tool name")
+                        }
+                    }
+                    if omitsLine || step == 6 { XCTAssertNil(current.frames["companion-chat-activity"]) }
+                    else { XCTAssertNotNil(current.frames["companion-chat-activity"]) }
+                    if hasRequests && (omitsLine || step < 6) {
+                        XCTAssertTrue(review.isEnabled && review.isHittable)
+                        let frame = try XCTUnwrap(current.frames["companion-review-approval"])
+                        XCTAssertEqual(frame.minY, try XCTUnwrap(reviewFrame).minY, accuracy: 1)
+                        XCTAssertEqual(frame.height, try XCTUnwrap(reviewFrame).height, accuracy: 1)
+                        XCTAssertLessThanOrEqual(frame.maxY, currentRegion.minY)
+                    }
+                }
+                app.terminate()
+            }
+        }
+    }
+
 }

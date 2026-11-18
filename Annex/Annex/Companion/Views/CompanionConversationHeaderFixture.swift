@@ -163,11 +163,13 @@ struct CompanionConversationHeaderFixture: View {
             }
             if arguments.contains("--companion-header-activity-transitions") {
                 items += [
-                    .tool(.init(id: "activity-tool-0", name: "Read file", summary: "Synthetic activity", state: .running)),
-                    .approval(.init(id: "activity-approval", toolName: "Bash", summary: "Synthetic pending request",
-                        title: "Review fixture action", options: [.init(id: "allow", label: "Allow once", kind: .allowOnce),
-                                                                .init(id: "deny", label: "Deny", kind: .rejectOnce)]))
+                    .tool(.init(id: "activity-tool-0", name: "Read file", summary: "Synthetic activity", state: .running))
                 ]
+                if !arguments.contains("--companion-header-activity-no-requests") {
+                    items += [.approval(.init(id: "activity-approval", toolName: "Bash", summary: "Synthetic pending request",
+                        title: "Review fixture action", options: [.init(id: "allow", label: "Allow once", kind: .allowOnce),
+                                                                .init(id: "deny", label: "Deny", kind: .rejectOnce)]))]
+                }
             }
             store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "header-fixture"))
             if arguments.contains("--companion-header-offline") { host.connection = .offline }

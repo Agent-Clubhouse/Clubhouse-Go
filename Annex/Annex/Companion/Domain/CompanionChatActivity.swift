@@ -2,6 +2,7 @@ import Foundation
 
 /// Mirrors desktop `chatActivity` (`ChatHeader.tsx`), except the phone keeps "Working"
 /// between tools when no turn timing exists, so its bottom-anchored footer stays stable.
+/// At the minimum footer floor, presentation omits the line and the header retains status.
 enum CompanionChatActivity {
     /// "1:05 · Run swift test" while working; "Working" bridges tool gaps on desktops without turn timing.
     static func line(status: CompanionAgentStatus, turnStartedAt: Date?, items: [CompanionTimelineItem], now: Date = Date()) -> String? {
