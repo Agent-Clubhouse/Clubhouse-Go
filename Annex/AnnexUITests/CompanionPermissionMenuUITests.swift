@@ -45,8 +45,22 @@ import XCTest
             : flags.contains("--companion-header-light") ? "Light" : "Dark"
         capture(app, "composer \(landscape ? "landscape" : "portrait") \(appearance) \(flags.contains("UICTContentSizeCategoryAccessibilityXXXL") ? "XXXL" : "standard")")
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
-        XCTAssertEqual(app.buttons["companion-permissions-menu"].label, "Permissions: Auto-accept edits",
-                       "The permissions submenu keeps its VoiceOver meaning without the redundant section heading")
+        let permissions = app.buttons["companion-permissions-menu"]
+        let context = ([permissions.label, permissions.value as? String ?? ""]
+                       + permissions.staticTexts.allElementsBoundByIndex.map(\.label)).joined(separator: " · ")
+        print("PERMISSION_MENU_CONTEXT \(context)")
+        capture(app, "native permissions entry \(appearance)")
+        let shortStandardPortrait = app.frame.height < 800 && !landscape
+            && !flags.contains("UICTContentSizeCategoryAccessibilityXXXL")
+        if shortStandardPortrait || permissions.label.contains("Permissions") {
+            XCTAssertTrue(context.contains("Permissions") && context.contains("Auto-accept edits"),
+                          "The native title and subtitle expose both permissions context and the current level: \(context)")
+        } else {
+            // Roomy native menus keep their original current-level title and shield;
+            // their expanded Permissions heading supplies the section context.
+            XCTAssertEqual(permissions.label, "Auto-accept edits")
+            XCTAssertTrue(permissions.images["shield"].exists)
+        }
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
         XCTAssertEqual(composer.value as? String, "Permission menu draft", "Opening a native menu preserves the draft")
         if visibleKeyboardFrame(app) == nil {
@@ -98,7 +112,9 @@ import XCTest
         var visible = pane.intersection(CGRect(x: app.frame.minX, y: app.frame.minY,
                                               width: app.frame.width, height: (keyboard?.minY ?? app.frame.maxY) - app.frame.minY))
         // Native submenu headers can remain above scrolled cells. A row behind one isn't readable.
-        let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", "Auto-accept edits", "")).firstMatch
+        // The tight native title is Permissions; the roomy title is the current level.
+        // Both are sticky back buttons and must exclude exactly the same covered area.
+        let back = app.buttons.matching(NSPredicate(format: "(label BEGINSWITH %@ OR label == %@) AND identifier == %@", "Permissions", "Auto-accept edits", "")).firstMatch
         let section = app.staticTexts["Permissions"]
         for header in [back, section] where header.exists && header.frame.intersects(visible) {
             let top = min(visible.maxY, max(visible.minY, header.frame.maxY))
@@ -110,6 +126,15 @@ import XCTest
     private func assertFullText(_ row: XCUIElement, expected: String) {
         XCTAssertTrue(row.exists)
         XCTAssertEqual(row.label, expected, "VoiceOver keeps the complete meaning and driver name")
+    }
+
+    private func assertSelectedLevel(_ app: XCUIApplication, in pane: CGRect) {
+        let selected = app.buttons["companion-level-auto_edit"]
+        assertFullText(selected, expected: levels[2].fullLabel)
+        XCTAssertTrue(selected.isSelected && selected.images["checkmark"].exists,
+                      "The current level retains its selected checkmark row")
+        XCTAssertTrue(selected.isHittable && pixelContains(pane, selected.frame),
+                      "The whole selected level stays visible inside the native pane")
     }
 
     private func capture(_ app: XCUIApplication, _ state: String) {
@@ -142,6 +167,7 @@ import XCTest
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
             let pane = visiblePane(app, requiresKeyboard: true)
+            assertSelectedLevel(app, in: pane)
             for level in levels {
                 let row = app.buttons["companion-level-\(level.id)"]
                 assertFullText(row, expected: level.fullLabel)
@@ -167,6 +193,7 @@ import XCTest
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
             let pane = visiblePane(app, requiresKeyboard: true)
+            assertSelectedLevel(app, in: pane)
             for level in levels {
                 let row = app.buttons["companion-level-\(level.id)"]
                 assertFullText(row, expected: level.fullLabel)
