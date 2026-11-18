@@ -345,16 +345,17 @@ extension AnnexTransportRegistry {
     private func applyNetwork(_ view: AnnexNetworkSnapshot, from source: String) async throws {
         guard let own = networkStates[source], let identity = identities[source] else { return }
         let networkRevision = revision
-        guard view.removals.allSatisfy(\.isValid) else { throw AnnexTransportError.malformedResponse }
+        // One malformed tombstone cannot suppress another valid revocation.
+        let removals = view.removals.filter(\.isValid)
         let phone = try AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.pairingIdentity.publicKeyBase64)
         // Leaving takes nothing else from this view (#3107), especially new hosts.
-        if view.removals.contains(where: { $0.fingerprint.lowercased() == phone && $0.ends(pairingID: own.pairing.id, joinedAt: own.pairing.joinedAt) }) {
+        if removals.contains(where: { $0.fingerprint.lowercased() == phone && $0.ends(pairingID: own.pairing.id, joinedAt: own.pairing.joinedAt) }) {
             try await forgetNetwork()
             return
         }
         networkRefusals.remove(source)
         var journal: [AnnexNetworkRemoval] = []
-        for removal in networkStates.values.flatMap(\.removals) + view.removals where !journal.contains(removal) { journal.append(removal) }
+        for removal in networkStates.values.flatMap(\.removals) + removals where !journal.contains(removal) { journal.append(removal) }
         journal.sort { ($0.fingerprint, $0.pairingId ?? "", $0.joinedAt ?? "", $0.removedAt) < ($1.fingerprint, $1.pairingId ?? "", $1.joinedAt ?? "", $1.removedAt) }
         var observations = Self.observations(in: networkStates)
         for (id, state) in networkStates {

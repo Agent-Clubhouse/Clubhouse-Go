@@ -773,9 +773,7 @@ func differentPairingIdsAdvanceOnlyWithStrictlyLaterJoinTime(joinedAt: String) a
     let (registry, store, _, a) = try await pairedNetwork()
     for record in [AnnexNetworkRemoval(fingerprint: a.fingerprint, removedAt: "invalid", pairingId: "desktop-pair", joinedAt: networkDate),
                    AnnexNetworkRemoval(fingerprint: a.fingerprint, removedAt: networkDate, pairingId: "desktop-pair", joinedAt: "invalid")] {
-        await #expect(throws: AnnexTransportError.malformedResponse) {
-            try await registry.reconcileNetwork(snapshot([a], removals: [record]), from: a.fingerprint)
-        }
+        try await registry.reconcileNetwork(snapshot([a], removals: [record]), from: a.fingerprint)
         #expect(await registry.transport(for: a.fingerprint) != nil)
         #expect(await store.loadAll().first?.network?.removals.isEmpty == true)
     }
@@ -905,4 +903,22 @@ func invalidObservationKeyIsSkippedBesideValidRealKeysAndNextSaveCleansIt(shape:
     }
     #expect(try await AnnexTransportRegistry(pairings: disk).restoreSaved().count == 2)
     #expect(try await disk.loadAll().allSatisfy { $0.network?.observations?[badKey] == nil })
+}
+
+@Test(arguments: [false, true]) func malformedTombstoneCannotBlockAnotherValidDesktopOrPhoneRevocation(phoneRevoked: Bool) async throws {
+    let (registry, store, _, a) = try await pairedNetwork()
+    let f = try member(desktopB.get())
+    try await registry.reconcileNetwork(snapshot([a, f]), from: a.fingerprint)
+    let invalid = AnnexNetworkRemoval(fingerprint: a.fingerprint, removedAt: "invalid", pairingId: "desktop-pair", joinedAt: networkDate)
+    let valid = removal(phoneRevoked ? try phoneIdentity.get().fingerprint : f.fingerprint, pairingID: phoneRevoked ? phonePairing.id : "desktop-pair")
+    try await registry.reconcileNetwork(snapshot([a, f], removals: [invalid, valid]), from: a.fingerprint)
+    #expect(await registry.transport(for: f.fingerprint) == nil)
+    if phoneRevoked {
+        #expect(await registry.all().isEmpty)
+        #expect(await store.loadAll().isEmpty)
+    } else {
+        #expect(await registry.all().count == 1)
+        #expect(await store.loadAll().allSatisfy { $0.network?.removals == [valid] })
+        #expect(try await AnnexTransportRegistry(pairings: store).restoreSaved().count == 1)
+    }
 }
