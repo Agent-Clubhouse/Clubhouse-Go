@@ -804,7 +804,8 @@ struct CompanionConversationView: View {
             let hasEntry = saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil
             let step = attempt.next(now: ProcessInfo.processInfo.systemUptime, revision: conversation.historyRevision,
                 followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
-                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames, rows: store.timelineRows(for: target)) : nil)
+                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames, rows: store.timelineRows(for: target)) : nil,
+                entryLowerBound: saved.entryID.flatMap { readingViewport.frames[$0]?.lowerBound })
             readingViewport.restoration = attempt
             switch step {
             case .finish(let outcome):

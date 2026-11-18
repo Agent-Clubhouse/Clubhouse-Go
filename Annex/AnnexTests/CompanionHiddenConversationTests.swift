@@ -31,6 +31,67 @@ import UIKit
             }
         }
     }
+    private struct PrefixTrimHost: View {
+        @Bindable var navigation: Navigation
+        var onSample: @MainActor (CompanionReadingPrefixTrimFixture.Sample) -> Void
+        var body: some View {
+            CompanionReadingPrefixTrimFixture(runRequest: navigation.tab, onSample: onSample)
+        }
+    }
+
+    /// A real tail event trims the rendered prefix between the first pin and delivery.
+    /// Public geometry must still match the saved semantic entry after final arrival.
+    @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
+        var observed: CompanionReadingPrefixTrimFixture.Sample?
+        let navigation = Navigation()
+        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+        let window = UIWindow(windowScene: scene)
+        window.rootViewController = UIHostingController(rootView: PrefixTrimHost(navigation: navigation) { observed = $0 })
+        window.makeKeyAndVisible()
+        defer {
+            CompanionReadingRestoreProbe.deliver = nil
+            window.isHidden = true
+            window.rootViewController = nil
+        }
+        let clock = ContinuousClock()
+        func waitUntil(_ condition: () -> Bool) async throws {
+            let start = clock.now
+            while !condition(), start.duration(to: clock.now) < .seconds(5) {
+                window.layoutIfNeeded()
+                try await Task.sleep(for: .milliseconds(20))
+            }
+        }
+        try await waitUntil { observed?.phase == "ready" && observed?.offset != nil && transcript(in: window) != nil }
+        let scroll = try #require(transcript(in: window))
+        // The same public native-scroll preparation as the existing hidden-conversation tests.
+        scroll.setContentOffset(CGPoint(x: 0, y: -scroll.adjustedContentInset.top), animated: false)
+        try await settle(window)
+        scroll.setContentOffset(CGPoint(x: 0, y: 1_200), animated: false)
+        try await settle(window)
+        try await waitUntil { observed?.followsLatest == false && observed?.entryID != nil }
+        let before = try #require(observed)
+        try #require(!before.followsLatest && before.entryID != nil, "The real native scroll must first capture a paused bookmark")
+        navigation.tab += 1
+        try await waitUntil { observed?.phase == "H1-not-exercised" || observed?.outcome == "arrived" }
+        let result = try #require(observed)
+        try #require(result.phase != "H1-not-exercised", "H1 not exercised: the real geometry gate missed its bound")
+        try #require(result.outcome == "arrived", "Only completed product arrival can classify this fixture")
+        let shift = try #require(result.shift)
+        let miss = try #require(result.miss)
+        let pin = try #require(result.pinnedOffset)
+        let beforeOffset = try #require(result.beforeOffset)
+        let beforeLower = try #require(result.beforeLowerBound)
+        let afterOffset = try #require(result.offset)
+        let afterLower = try #require(result.entryLowerBound)
+        #expect(result.attempts <= 10)
+        #expect((result.gateElapsed ?? .infinity) < 1)
+        #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
+        #expect(abs(pin - beforeOffset) <= 2)
+        #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
+        print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
+        #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
+                "A prefix trim during restoration must preserve the reading entry within six points")
+    }
     @MainActor private final class Counts {
         var bodies: [CompanionTarget: Int] = [:]
         var timelines: [CompanionTarget: Int] = [:]

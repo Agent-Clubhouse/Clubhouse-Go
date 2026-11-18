@@ -209,8 +209,8 @@ enum CompanionAssistantNavigation {
     }
 }
 
-/// One remount's bounded delivery, with a fixed target once layout supplies it. Streaming
-/// may change the content height but cannot move that target or extend the deadline.
+/// One remount's bounded delivery. Tail growth cannot move its target; a measured shift of
+/// the saved entry can, without extending the original deadline or delivery budget.
 struct CompanionReadingRestoration {
     enum Outcome: String { case arrived, touch, scrollPhase, navigation, generation, unmounted, taskCancelled, exhausted }
     enum Step: Equatable { case wait, scroll(Double), finish(Outcome) }
@@ -220,17 +220,33 @@ struct CompanionReadingRestoration {
     let revision: UUID
     let startedAt: TimeInterval
     private(set) var offset: Double?
+    private var entryLowerBound: Double?
     private(set) var attempts = 0
     var outcome: Outcome?
 
+    init(revision: UUID, startedAt: TimeInterval) {
+        self.revision = revision
+        self.startedAt = startedAt
+    }
+
     mutating func next(now: TimeInterval, revision: UUID, followsLatest: Bool,
-                       metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?) -> Step {
+                       metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?,
+                       entryLowerBound: Double? = nil) -> Step {
         if let outcome { return .finish(outcome) }
         guard self.revision == revision else { return .finish(.generation) }
         guard !followsLatest else { return .finish(.navigation) }
         guard now - startedAt < Self.maximumDuration else { return .finish(.exhausted) }
         guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else { return .wait }
-        if offset == nil { offset = proposedOffset }
+        if offset == nil {
+            offset = proposedOffset
+            if offset != nil { self.entryLowerBound = entryLowerBound }
+        } else if let prior = self.entryLowerBound, let entryLowerBound,
+                  abs(entryLowerBound - prior) > 1, let proposedOffset {
+            // A prefix trim/prepend can move the same semantic entry after the first pin.
+            // Height growth or a changed proposal alone must never chase the live tail.
+            offset = proposedOffset
+            self.entryLowerBound = entryLowerBound
+        }
         guard let offset else { return .wait }
         if abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 { return .finish(.arrived) }
         guard attempts < Self.maximumAttempts else { return .finish(.exhausted) }

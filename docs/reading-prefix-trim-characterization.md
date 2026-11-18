@@ -1,0 +1,15 @@
+# Reading prefix-shift restoration (#569)
+
+The deterministic fail-before at `1f719268` confirmed the original one-block miss: a real tail upsert between the numeric pin and delivery trimmed the rendered prefix, moving the saved entry −96.667pt. Hosted and UI each executed once and failed only the unchanged six-point contract. [Evidence](https://github.com/Agent-Clubhouse/Clubhouse-Go/tree/evidence/ux-569/prefix-trim-fail-before).
+
+The restore now pins the saved entry's measured lower bound with its numeric target. Only a change greater than one point in that same entry's position under consistent geometry can recalculate the target. Tail growth alone cannot move it. Arrival is checked against the recalculated target. Deadline, attempt limits, cancellation and the semantic bookmark remain unchanged.
+
+The shared DEBUG fixture starts an ordinary loaded preview transcript. A real native scroll captures a paused bookmark. On remount, the existing `CompanionReadingRestoreProbe.deliver` hook refuses the first delivery after the product pins its offset, then appends one distinct reply through a normal Store upsert. It never writes geometry or scroll offsets.
+
+Release requires a pinned offset, a changed window hidden count and first entry, the new first entry's real frame and the old first entry's removal, a retained entry displaced by more than one point, and content/frame heights within one point. Viewport and insets must match pre-remount geometry. Ten attempts or one second without this gate is **H1 not exercised**, not a product verdict. Probe teardown uses `defer`; only a final `.arrived` counts.
+
+The renamed regression methods are `prefixTrimDuringPinnedRestorePreservesTheReadingEntry()` (hosted) and `testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry()` (UI). Every gate and the independent six-point assertion remain. Only the baseline-specific miss≈−shift assertions become zero miss and zero pixel displacement within two points. The original historical Reading method keeps its six-point checks and controls; a bounded public-frame stability helper now waits for completion without supplying its expected position.
+
+Several entry shifts may settle under the same budget. Continuous movement exhausts the unchanged 20 attempts or two seconds, leaves the semantic bookmark available for the next mount, and does not chase indefinitely. First-paint seeding is deferred to #582: latest content can still appear before restoration. #569 remains open for device verification.
+
+Proof uses an exact-head fresh Debug build, compiled deinit gate, policy unit tests, focused restoration/hidden hosted suites, deterministic UI, both original order-controlled prefixes, cold single, full Reading on SE and current-main combined coverage. Each ticket uses normal FIFO, jobs2, one private simulator lifecycle, QuickPath suppression, exact-once outcome/order audit and no assertion retries. Admission requires free+inactive≥8GiB, idle≥40%, and swap growth≤64MiB/10s; runtime swap watch is record-only. The external exact-method manifest is independently reviewed before any run.
