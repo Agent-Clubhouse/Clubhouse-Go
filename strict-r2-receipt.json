@@ -1,0 +1,114 @@
+{
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "phase": "S",
+  "started_at": "2026-11-18T02:32:19.553671+00:00",
+  "guard": {
+    "top": "Processes: 837 total, 4 running, 833 sleeping, 5846 threads \n2026/11/17 18:32:20\nLoad Avg: 18.93, 12.41, 11.22 \nCPU usage: 19.79% user, 10.65% sys, 69.55% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1238902 total, 14G resident, 558M private, 4581M shared.\nPhysMem: 51G used (7131M wired, 5470M compressor), 12G unused.\nVM: 440T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337742241/1558G in, 553265230/414G out.\nDisks: 2141064374/25T read, 2923473374/34T written.\n\n\nProcesses: 854 total, 4 running, 850 sleeping, 5904 threads \n2026/11/17 18:32:30\nLoad Avg: 17.02, 12.22, 11.16 \nCPU usage: 18.31% user, 5.85% sys, 75.83% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1061 total, 26M resident, 558M private, 4582M shared.\nPhysMem: 52G used (7136M wired, 5470M compressor), 12G unused.\nVM: 447T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337744678/1558G in, 553268817/414G out.\nDisks: 2141065190/25T read, 2923484545/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 75.83,
+    "physmem_unused_bytes": 12884901888.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 6442450944,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source": "/tmp/ux-528-visible-proof/tickets/after-build-r2/source",
+  "DD": "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD",
+  "build_receipt": "/tmp/ux-528-visible-proof/after-build-r2-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "69ad2df98b28e8cdf0f23adc6232318424d37727f20c8546db7b3b09790d073f",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "b5ee4b900fb3c78c1e9c204abad7ce0b6ad0daae8ec53c5811491a7daf83ae89",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "724045a03fb99596fc5cf325a48f2215e3baff6dde7b64fada1e1dd8c3b37f1c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "a5c88643618dad2e87c2d5de9a6520c398eb9e179095508a9bb44aa0dc99db1f"
+  },
+  "overlay": {
+    "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+    "file_sha256": "7f3f0e589949285f544517e70831bc97cbe7688730a70dc1b60f2fd9f21f17a6",
+    "base_file_sha256": "d206ebe597fdb09f0881d26078229be46a13de66804d7548259dd09b3f417a35",
+    "patch_sha256": "76859dcfd573a1a88664248896a634145d4c6c77104853bfb65de4e62ba3507f",
+    "additive_inverse_verified": true
+  },
+  "fixture_identity": {
+    "before": "c1a62b75201b00a4a27b0f913b8673a4be4f2508",
+    "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+    "product_tree": "7082a44e1cebebabb885ae374a90b30c444c9657",
+    "product_tree_identical": true,
+    "diff_sha256": "7d259f3c9c47211f7bf348ac8a6cb6e58fa36cb21458e0c24bc6d3709126402b",
+    "existing_methods": {
+      "testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh": {
+        "byte_identical": true,
+        "sha256": "80c452e737fe8ac640bf1a093f85e5b00c4ab364f317b700a2d9ba61f13f2b63"
+      },
+      "testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession": {
+        "byte_identical": true,
+        "sha256": "c91a5ae0a770c37814b2d1d478a9e3bd525908631b93ade9b5842b25cb3b9ad2"
+      },
+      "testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh": {
+        "byte_identical": true,
+        "sha256": "03ecb22f32aa6ab5cfeaf7aa98709c1feacf523c6b63ae029b1944c158a1ffd5"
+      },
+      "testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability": {
+        "byte_identical": true,
+        "sha256": "bbd6dcbfe743506231740452d98493f698b8941eb82006bb69901c8e03c378a3"
+      },
+      "testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections": {
+        "byte_identical": true,
+        "sha256": "92c3e3d0cadc1d49e84368e166c71568c3c293fa9e65faa52f4689c0898c9dc3"
+      },
+      "testInactiveKeepsRecentHoldAndBackgroundStartsFresh": {
+        "byte_identical": true,
+        "sha256": "8273d91911926bab7f976d9b71a98895cb6a129c0550e2759e91765dbb1604d6"
+      },
+      "testRecentOrderStaysWhileVisibleThenRefreshesOnReturn": {
+        "byte_identical": true,
+        "sha256": "547e1d4a7d3d5589c04e811d9bda6184d1674e35ce06eb62d24d07edc8619101"
+      }
+    },
+    "shared_fixture_changes": [
+      "empty-by-default history override",
+      "nil-by-default dynamicTypeSize, original nil branch retained",
+      "optional OCR absence predicate; old calls unchanged"
+    ]
+  },
+  "simulator_uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA",
+  "postboot_resources_record_only": "Processes: 1004 total, 59 running, 1 stuck, 944 sleeping, 7399 threads \n2026/11/17 18:32:36\nLoad Avg: 18.14, 12.53, 11.28 \nCPU usage: 48.53% user, 29.8% sys, 22.38% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1263091 total, 15G resident, 1679M private, 5057M shared.\nPhysMem: 57G used (9074M wired, 5470M compressor), 6214M unused.\nVM: 505T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337747622/1558G in, 553273600/414G out.\nDisks: 2141065856/25T read, 2923519107/34T written.\n\n\n",
+  "runs": [
+    {
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks"
+      ],
+      "normal_dispatcher": false,
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-528-visible-proof/tickets/strict-r2/run-1/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    }
+  ],
+  "rc": 0,
+  "admitted_at": "2026-11-18T02:32:19.534216+00:00",
+  "closed_at": "2026-11-18T02:32:59.665629+00:00",
+  "duration_seconds": 40.13115379214287,
+  "hard_bound_seconds": 480,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 3,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-528-visible-proof/strict-r2-receipt.json",
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}

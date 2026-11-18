@@ -1,0 +1,97 @@
+{
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "phase": "B",
+  "started_at": "2026-11-18T02:34:06.338705+00:00",
+  "guard": {
+    "top": "Processes: 836 total, 3 running, 833 sleeping, 5846 threads \n2026/11/17 18:34:07\nLoad Avg: 12.43, 13.83, 12.05 \nCPU usage: 9.59% user, 8.4% sys, 82.35% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1238686 total, 13G resident, 557M private, 4582M shared.\nPhysMem: 51G used (7130M wired, 5469M compressor), 12G unused.\nVM: 440T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337790445/1558G in, 553309558/414G out.\nDisks: 2141151681/25T read, 2923645179/34T written.\n\n\nProcesses: 835 total, 4 running, 831 sleeping, 5832 threads \n2026/11/17 18:34:17\nLoad Avg: 10.90, 13.45, 11.93 \nCPU usage: 9.50% user, 3.3% sys, 87.45% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 0 total, 0B resident, 557M private, 4582M shared.\nPhysMem: 51G used (7130M wired, 5469M compressor), 12G unused.\nVM: 439T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337792823/1558G in, 553312528/414G out.\nDisks: 2141151922/25T read, 2923657196/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 87.45,
+    "physmem_unused_bytes": 12884901888.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 6442450944,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source": "/tmp/ux-528-visible-proof/tickets/after-build-r2/source",
+  "DD": "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD",
+  "build_receipt": "/tmp/ux-528-visible-proof/after-build-r2-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "69ad2df98b28e8cdf0f23adc6232318424d37727f20c8546db7b3b09790d073f",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "b5ee4b900fb3c78c1e9c204abad7ce0b6ad0daae8ec53c5811491a7daf83ae89",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "724045a03fb99596fc5cf325a48f2215e3baff6dde7b64fada1e1dd8c3b37f1c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "a5c88643618dad2e87c2d5de9a6520c398eb9e179095508a9bb44aa0dc99db1f"
+  },
+  "overlay": {
+    "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+    "file_sha256": "7f3f0e589949285f544517e70831bc97cbe7688730a70dc1b60f2fd9f21f17a6",
+    "base_file_sha256": "d206ebe597fdb09f0881d26078229be46a13de66804d7548259dd09b3f417a35",
+    "patch_sha256": "76859dcfd573a1a88664248896a634145d4c6c77104853bfb65de4e62ba3507f",
+    "additive_inverse_verified": true
+  },
+  "simulator_uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA",
+  "postboot_resources_record_only": "Processes: 974 total, 97 running, 1 stuck, 876 sleeping, 7258 threads \n2026/11/17 18:34:22\nLoad Avg: 30.12, 17.40, 13.33 \nCPU usage: 61.41% user, 38.52% sys, 0.6% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1260912 total, 15G resident, 1578M private, 5047M shared.\nPhysMem: 56G used (9172M wired, 5469M compressor), 6740M unused.\nVM: 493T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337794230/1558G in, 553313915/414G out.\nDisks: 2141155456/25T read, 2923689261/34T written.\n\n\n",
+  "runs": [
+    {
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testInactiveKeepsRecentHoldAndBackgroundStartsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testRecentOrderStaysWhileVisibleThenRefreshesOnReturn",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsHiddenWhenItMatchesKnownDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenItDiffersFromKnownDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenDefaultIsUnknown",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAgentSpecificDefaultWinsOverProjectDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testHostTagRequiresMultipleHostsAndNoImpliedHost",
+        "ClubhouseGoTests/CompanionAgentRowTests/testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression",
+        "ClubhouseGoTests/CompanionAgentRowTests/testPermissionStatusDoesNotRepeatAttentionLabel",
+        "ClubhouseGoTests/CompanionAgentRowTests/testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail",
+        "ClubhouseGoTests/CompanionAgentRowTests/testExistingReadsRetainDefaultsAndDisconnectClearsThem",
+        "ClubhouseGoTests/CompanionAgentRowTests/testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups",
+        "ClubhouseGoTests/CompanionAgentRowTests/testRowVisualMatrixAndAccessibleGrowth",
+        "ClubhouseGoTests/CompanionHomeLinkedRowsTests/testMountedCombinedRowsRenderOriginsAndOneQuietFold",
+        "ClubhouseGoTests/CompanionHomeLinkedRowsTests/testMountedExpandedQuietRowsKeepMachineAttributionAndClearTargets",
+        "ClubhouseGoTests/CompanionHomeLinkedRowsTests/testMountedLinkedAllRowsKeepFullOriginAtAccessibilitySize",
+        "ClubhouseGoTests/CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale",
+        "ClubhouseGoTests/CompanionProjectPageVisualTests/testProjectPageVisualMatrix",
+        "ClubhouseGoTests/CompanionProjectPageVisualTests/testRemovingSelectedDesktopReconcilesToAllAndKeepsRemainingAgentsVisible",
+        "ClubhouseGoTests/CompanionProjectPageVisualTests/testMachineActionAvailabilityNeverTreatsASelectedOfflineDesktopAsOperable",
+        "ClubhouseGoTests/CompanionConnectionRetryLatchTests/testDoubleTapIssuesOneReconnectUntilTheAttemptFinishes",
+        "ClubhouseGoTests/CompanionConnectionRetryLatchTests/testReportedStateClearsTheLatchAndAnOldCompletionCannotClearANewerAttempt",
+        "ClubhouseGoTests/CompanionConnectionRetryLatchTests/testCombinedRetryLatchesEachHostWithoutBlockingANewOfflineHost"
+      ],
+      "normal_dispatcher": false,
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-528-visible-proof/tickets/hosted-r1/run-1/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    }
+  ],
+  "rc": 0,
+  "admitted_at": "2026-11-18T02:34:06.319240+00:00",
+  "closed_at": "2026-11-18T02:35:02.173619+00:00",
+  "duration_seconds": 55.85222770879045,
+  "hard_bound_seconds": 840,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 4,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-528-visible-proof/hosted-r1-receipt.json",
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}

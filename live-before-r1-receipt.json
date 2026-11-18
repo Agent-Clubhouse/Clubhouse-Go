@@ -1,0 +1,85 @@
+{
+  "head": "92b6f1caff2686ca74ff7b3242b865c2d9122923",
+  "phase": "L-before",
+  "started_at": "2026-11-18T01:55:57.313602+00:00",
+  "guard": {
+    "top": "Processes: 853 total, 2 running, 851 sleeping, 5875 threads \n2026/11/17 17:55:58\nLoad Avg: 3.72, 4.71, 5.98 \nCPU usage: 4.12% user, 7.12% sys, 88.74% idle \nSharedLibs: 1034M resident, 187M data, 133M linkedit.\nMemRegions: 1239373 total, 13G resident, 567M private, 4501M shared.\nPhysMem: 55G used (7136M wired, 5502M compressor), 8261M unused.\nVM: 447T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1335079195/1555G in, 552469075/413G out.\nDisks: 2138413343/25T read, 2918612116/34T written.\n\n\nProcesses: 853 total, 2 running, 851 sleeping, 5839 threads \n2026/11/17 17:56:08\nLoad Avg: 3.62, 4.65, 5.95 \nCPU usage: 4.53% user, 2.75% sys, 92.71% idle \nSharedLibs: 1034M resident, 187M data, 133M linkedit.\nMemRegions: 0 total, 0B resident, 567M private, 4501M shared.\nPhysMem: 55G used (7135M wired, 5502M compressor), 8187M unused.\nVM: 447T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1335082259/1555G in, 552474170/413G out.\nDisks: 2138413400/25T read, 2918623505/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 92.71,
+    "physmem_unused_bytes": 8584691712.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 6442450944,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source": "/tmp/ux-528-visible-proof/tickets/before-build-r1/source",
+  "DD": "/tmp/ux-528-visible-proof/tickets/before-build-r1/DD",
+  "build_receipt": "/tmp/ux-528-visible-proof/before-build-r1-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-528-visible-proof/tickets/before-build-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "9b120917e9c42d6cb8df5c52c1b1ce23ed38ed9ec9c2e66bdab93d29af207503",
+    "/tmp/ux-528-visible-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "8690628130f064fd44dddb65bc7e0f69e69f6896e5c853d0dd23c5b187f200cd",
+    "/tmp/ux-528-visible-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "2e2b676179795b7ea09a8d512070610e31b3bbaabbfcdb8f897c38cf0852cfc5",
+    "/tmp/ux-528-visible-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-528-visible-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "2def1b2adc8b4ae94197a131e8369a6f739585e5b69f666c3b85f8944bdbb66c"
+  },
+  "overlay": {
+    "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+    "file_sha256": "0c3996308713aaa2555b0ddd7b2f24ad30ac337a140c9fcf32f36fa582a97a23",
+    "base_file_sha256": "1b489528484989f6fba101e86349681b2e7171458453ea682452d1fa4d48902e",
+    "patch_sha256": "6905e473db35752922dcb92b1ffddd14b8e1e07648d5e2e548f0103af2ba315d",
+    "additive_inverse_verified": true
+  },
+  "simulator_uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA",
+  "postboot_resources_record_only": "Processes: 1074 total, 79 running, 4 stuck, 991 sleeping, 7628 threads \n2026/11/17 17:56:27\nLoad Avg: 9.87, 5.94, 6.37 \nCPU usage: 54.65% user, 39.63% sys, 5.71% idle \nSharedLibs: 1034M resident, 187M data, 133M linkedit.\nMemRegions: 1274160 total, 16G resident, 2397M private, 4921M shared.\nPhysMem: 62G used (8839M wired, 5486M compressor), 1385M unused.\nVM: 531T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1335110109/1555G in, 552488188/413G out.\nDisks: 2138455013/25T read, 2918755556/34T written.\n\n\n",
+  "runs": [
+    {
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticLiveVisibleHomeDuring100RenderedStreamChunks"
+      ],
+      "normal_dispatcher": false,
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-528-visible-proof/tickets/live-before-r1/run-1/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    },
+    {
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticLiveVisibleHomeDuring100RenderedStreamChunks"
+      ],
+      "normal_dispatcher": false,
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-528-visible-proof/tickets/live-before-r1/run-2/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    }
+  ],
+  "rc": 0,
+  "admitted_at": "2026-11-18T01:55:57.293798+00:00",
+  "closed_at": "2026-11-18T01:57:05.482095+00:00",
+  "duration_seconds": 68.18855858314782,
+  "hard_bound_seconds": 300,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 5,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-528-visible-proof/live-before-r1-receipt.json",
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}

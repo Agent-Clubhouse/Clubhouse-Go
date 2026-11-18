@@ -1,0 +1,8 @@
+{
+  "package_receipt": "package-r4-receipt.json",
+  "tested_head": "c1a62b75201b00a4a27b0f913b8673a4be4f2508",
+  "current_head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "changed_package_input_paths": [],
+  "package_result": "49 tests/6 suites PASS",
+  "note": "Only Annex/AnnexTests hosted fixture changed; no package production/test input changed."
+}

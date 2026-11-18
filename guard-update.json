@@ -1,0 +1,7 @@
+{
+  "scope": "external runner only; frozen head95 unchanged",
+  "before_sha256": "0cc6ca241acdaf0ea6e82f7b74d6f7b11d155ecde2d4c7bb240e975520466b3d",
+  "after_sha256": "6ae7332ee1e41bafb03f29e10920bedcd0542dc9779785a0dad0edb2349788bf",
+  "memory_rule": "vm_stat free+inactive >=8GiB; topunused informational",
+  "other_rules": "idle>=40%, swapgrowth<=64MiB/10s; record-only runtime swap watch; all existing bounds/assertions unchanged"
+}

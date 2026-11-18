@@ -1,0 +1,84 @@
+{
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "phase": "C1",
+  "started_at": "2026-11-18T02:35:53.786288+00:00",
+  "guard": {
+    "top": "Processes: 838 total, 3 running, 835 sleeping, 5869 threads \n2026/11/17 18:35:54\nLoad Avg: 10.80, 14.57, 12.67 \nCPU usage: 9.48% user, 9.7% sys, 81.44% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1238927 total, 13G resident, 561M private, 4581M shared.\nPhysMem: 51G used (7132M wired, 5467M compressor), 12G unused.\nVM: 440T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337838915/1558G in, 553349610/414G out.\nDisks: 2141169937/25T read, 2923835666/34T written.\n\n\nProcesses: 838 total, 3 running, 835 sleeping, 5852 threads \n2026/11/17 18:36:04\nLoad Avg: 9.44, 14.16, 12.55 \nCPU usage: 9.49% user, 2.95% sys, 87.54% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 0 total, 0B resident, 561M private, 4581M shared.\nPhysMem: 51G used (7131M wired, 5467M compressor), 12G unused.\nVM: 440T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337841097/1558G in, 553351850/414G out.\nDisks: 2141169951/25T read, 2923846412/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 87.54,
+    "physmem_unused_bytes": 12884901888.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 6442450944,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source": "/tmp/ux-528-visible-proof/tickets/after-build-r2/source",
+  "DD": "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD",
+  "build_receipt": "/tmp/ux-528-visible-proof/after-build-r2-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "69ad2df98b28e8cdf0f23adc6232318424d37727f20c8546db7b3b09790d073f",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "b5ee4b900fb3c78c1e9c204abad7ce0b6ad0daae8ec53c5811491a7daf83ae89",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "724045a03fb99596fc5cf325a48f2215e3baff6dde7b64fada1e1dd8c3b37f1c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-528-visible-proof/tickets/after-build-r2/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "a5c88643618dad2e87c2d5de9a6520c398eb9e179095508a9bb44aa0dc99db1f"
+  },
+  "overlay": {
+    "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+    "file_sha256": "7f3f0e589949285f544517e70831bc97cbe7688730a70dc1b60f2fd9f21f17a6",
+    "base_file_sha256": "d206ebe597fdb09f0881d26078229be46a13de66804d7548259dd09b3f417a35",
+    "patch_sha256": "76859dcfd573a1a88664248896a634145d4c6c77104853bfb65de4e62ba3507f",
+    "additive_inverse_verified": true
+  },
+  "simulator_uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA",
+  "postboot_resources_record_only": "Processes: 975 total, 116 running, 1 stuck, 858 sleeping, 7230 threads \n2026/11/17 18:36:09\nLoad Avg: 20.78, 16.43, 13.36 \nCPU usage: 61.64% user, 38.35% sys, 0.0% idle \nSharedLibs: 1035M resident, 187M data, 175M linkedit.\nMemRegions: 1260297 total, 15G resident, 1570M private, 5020M shared.\nPhysMem: 57G used (9128M wired, 5467M compressor), 6708M unused.\nVM: 493T vsize, 6144M framework vsize, 9858204(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1337842538/1558G in, 553353331/414G out.\nDisks: 2141177879/25T read, 2923880456/34T written.\n\n\n",
+  "runs": [
+    {
+      "selectors": [
+        "ClubhouseGoUITests/CompanionHomeDesktopScopeUITests/testLinkedCopiesStayScopedAcrossTabsAndRemovedSelectionRestoresAll",
+        "ClubhouseGoUITests/CompanionHomeDesktopScopeUITests/testSelectedDesktopConstrainsBothNewAgentEntriesAndAllKeepsChooser",
+        "ClubhouseGoUITests/CompanionHomeDesktopScopeUITests/testFiveDesktopAppearanceMatrixAndOfflineScope",
+        "ClubhouseGoUITests/CompanionHomeSubtitleUITests/testSubtitleUpdatesAfterAgentAndConnectionReports",
+        "ClubhouseGoUITests/CompanionHomeSubtitleUITests/testHomeSubtitleAppearanceMatrixAndReadableXXXL",
+        "ClubhouseGoUITests/CompanionHomeSubtitleUITests/testSubtitleDoesNotLeakAcrossTabsAndRestoresAfterRelaunch",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testCombinedActiveTreesAndQuietFoldLightDarkAndXXXL",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testSingleDesktopScopeHidesOriginAndQuietOnlyScopeKeepsItsRows",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testOfflineDisclosureKeepsCachedRowsNonActionable",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testSameMachineLinkedCopiesKeepProjectOriginsInAllAndStudioScope",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testDismissThenClearAffectOnlyRetainedRunsAcrossMachines",
+        "ClubhouseGoUITests/CompanionLargeCatalogUITests/testHomeAndRealContextMenuRenderLargeGeneratedCatalog",
+        "ClubhouseGoUITests/CompanionHomeVisibilityUITests/testAgentSwipeBackPreservesHomeTitleBackLabelAndNonblankContent",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testHomeFoldsIdleProjectsAndPinsToTop"
+      ],
+      "normal_dispatcher": false,
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-528-visible-proof/tickets/ui-c1-r1/run-1/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    }
+  ],
+  "rc": 0,
+  "admitted_at": "2026-11-18T02:35:53.767633+00:00",
+  "closed_at": "2026-11-18T02:42:36.980643+00:00",
+  "duration_seconds": 403.2081767502241,
+  "hard_bound_seconds": 960,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 27,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-528-visible-proof/ui-c1-r1-receipt.json",
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}

@@ -1,0 +1,230 @@
+{
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "base": "92b6f1ca",
+  "source": "/tmp/ux-528-visible-home",
+  "simulator": {
+    "name": "ux-528-visible-private",
+    "device": "iPhone 17 Pro Max",
+    "runtime": "iOS 26.0",
+    "uuid": "28FBFEA9-6EDA-4359-9A50-7C7A7C7B39BA"
+  },
+  "guards": {
+    "build_pkg_unused_GiB": 4,
+    "sim_unused_GiB": 6,
+    "idle_percent": 40,
+    "swap_growth_MiB_per_10s": 64,
+    "postboot": "record-only; hard-bound termination only"
+  },
+  "r2_method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+  "phases": {
+    "P": {
+      "lane": "pkg",
+      "bound": 720,
+      "filter": "CompanionHomeAttentionProjectionTests|CompanionAttentionAvailabilityTests|CompanionAttentionCardTests|CompanionStoreTests|CompanionDesktopQuestions|CompanionPreviewPinnedApproval",
+      "jobs": 2
+    },
+    "A-before": {
+      "lane": "normal",
+      "bound": 720,
+      "build_only": true,
+      "base": "92b6f1ca",
+      "fresh_DD": true,
+      "overlay": "Darwin import plus byte-identical r2 method only"
+    },
+    "A-after": {
+      "lane": "normal",
+      "bound": 720,
+      "build_only": true,
+      "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+      "fresh_DD": true,
+      "overlay": "Darwin import plus byte-identical r2 method only",
+      "gates": [
+        "compiled deinit",
+        "20 policy tests"
+      ]
+    },
+    "L-before": {
+      "lane": "normal",
+      "bound": 300,
+      "invocations": 2,
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticLiveVisibleHomeDuring100RenderedStreamChunks"
+      ],
+      "fresh_launch_per_invocation": true,
+      "uncredited": true
+    },
+    "L-after": {
+      "lane": "normal",
+      "bound": 300,
+      "invocations": 2,
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticLiveVisibleHomeDuring100RenderedStreamChunks"
+      ],
+      "fresh_launch_per_invocation": true,
+      "uncredited": true
+    },
+    "S": {
+      "lane": "normal",
+      "bound": 480,
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks"
+      ]
+    },
+    "B": {
+      "lane": "normal",
+      "bound": 840,
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testInactiveKeepsRecentHoldAndBackgroundStartsFresh",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testRecentOrderStaysWhileVisibleThenRefreshesOnReturn",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsHiddenWhenItMatchesKnownDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenItDiffersFromKnownDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAccessBadgeIsShownWhenDefaultIsUnknown",
+        "ClubhouseGoTests/CompanionAgentRowTests/testAgentSpecificDefaultWinsOverProjectDefault",
+        "ClubhouseGoTests/CompanionAgentRowTests/testHostTagRequiresMultipleHostsAndNoImpliedHost",
+        "ClubhouseGoTests/CompanionAgentRowTests/testProjectOriginWinsOverImpliedHostAndEmptyMapPreservesSuppression",
+        "ClubhouseGoTests/CompanionAgentRowTests/testPermissionStatusDoesNotRepeatAttentionLabel",
+        "ClubhouseGoTests/CompanionAgentRowTests/testQuestionAndOrdinaryTaskKeepOneStateAndUsefulDetail",
+        "ClubhouseGoTests/CompanionAgentRowTests/testExistingReadsRetainDefaultsAndDisconnectClearsThem",
+        "ClubhouseGoTests/CompanionAgentRowTests/testQuietFoldCombinesSleepingAndFinishedWithoutEmptyGroups",
+        "ClubhouseGoTests/CompanionAgentRowTests/testRowVisualMatrixAndAccessibleGrowth",
+        "ClubhouseGoTests/CompanionHomeLinkedRowsTests/testMountedCombinedRowsRenderOriginsAndOneQuietFold",
+        "ClubhouseGoTests/CompanionHomeLinkedRowsTests/testMountedExpandedQuietRowsKeepMachineAttributionAndClearTargets",
+        "ClubhouseGoTests/CompanionHomeLinkedRowsTests/testMountedLinkedAllRowsKeepFullOriginAtAccessibilitySize",
+        "ClubhouseGoTests/CompanionLargeCatalogTests/testMountedHomeMenusUseFreshCatalogIdentityAndAuthorityAtScale",
+        "ClubhouseGoTests/CompanionProjectPageVisualTests/testProjectPageVisualMatrix",
+        "ClubhouseGoTests/CompanionProjectPageVisualTests/testRemovingSelectedDesktopReconcilesToAllAndKeepsRemainingAgentsVisible",
+        "ClubhouseGoTests/CompanionProjectPageVisualTests/testMachineActionAvailabilityNeverTreatsASelectedOfflineDesktopAsOperable",
+        "ClubhouseGoTests/CompanionConnectionRetryLatchTests/testDoubleTapIssuesOneReconnectUntilTheAttemptFinishes",
+        "ClubhouseGoTests/CompanionConnectionRetryLatchTests/testReportedStateClearsTheLatchAndAnOldCompletionCannotClearANewerAttempt",
+        "ClubhouseGoTests/CompanionConnectionRetryLatchTests/testCombinedRetryLatchesEachHostWithoutBlockingANewOfflineHost"
+      ]
+    },
+    "C1": {
+      "bound": 960,
+      "selectors": [
+        "ClubhouseGoUITests/CompanionHomeDesktopScopeUITests/testLinkedCopiesStayScopedAcrossTabsAndRemovedSelectionRestoresAll",
+        "ClubhouseGoUITests/CompanionHomeDesktopScopeUITests/testSelectedDesktopConstrainsBothNewAgentEntriesAndAllKeepsChooser",
+        "ClubhouseGoUITests/CompanionHomeDesktopScopeUITests/testFiveDesktopAppearanceMatrixAndOfflineScope",
+        "ClubhouseGoUITests/CompanionHomeSubtitleUITests/testSubtitleUpdatesAfterAgentAndConnectionReports",
+        "ClubhouseGoUITests/CompanionHomeSubtitleUITests/testHomeSubtitleAppearanceMatrixAndReadableXXXL",
+        "ClubhouseGoUITests/CompanionHomeSubtitleUITests/testSubtitleDoesNotLeakAcrossTabsAndRestoresAfterRelaunch",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testCombinedActiveTreesAndQuietFoldLightDarkAndXXXL",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testSingleDesktopScopeHidesOriginAndQuietOnlyScopeKeepsItsRows",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testOfflineDisclosureKeepsCachedRowsNonActionable",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testSameMachineLinkedCopiesKeepProjectOriginsInAllAndStudioScope",
+        "ClubhouseGoUITests/CompanionCombinedLinkedHomeUITests/testDismissThenClearAffectOnlyRetainedRunsAcrossMachines",
+        "ClubhouseGoUITests/CompanionLargeCatalogUITests/testHomeAndRealContextMenuRenderLargeGeneratedCatalog",
+        "ClubhouseGoUITests/CompanionHomeVisibilityUITests/testAgentSwipeBackPreservesHomeTitleBackLabelAndNonblankContent",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testHomeFoldsIdleProjectsAndPinsToTop"
+      ],
+      "lane": "normal"
+    },
+    "C2": {
+      "bound": 1440,
+      "selectors": [
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testHomeAndProjectPageMergeMachinesAndUnlinkSplitsThem",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testSpawningRequiresChoosingTheMachine",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testDisconnectedMemberKeepsItsPlaceWithoutShowingCachedAgents",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testProjectOptionsDisambiguateTwoProjectsOnTheSameMachine",
+        "ClubhouseGoUITests/CompanionLinkedProjectUITests/testNeedsYouUsesOneProjectHeadingWithMachineLabels",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testAllRequiresAnExplicitWakeMachineAndASelectedDesktopActsDirectly",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testAllTerminalChoosesOneMachineAndOpensOnlyItsShell",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testSingleProjectMenuKeepsPinInactiveAndReadOnlyInfo",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testLinkedToolbarUsesSharedPinAndInactiveEvenInASelectedDesktopScope",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testLinkedToolbarMixedVersionDisablesSharedChangesAndShowsConnectionHint",
+        "ClubhouseGoUITests/CompanionProjectPageUITests/testLinkedToolbarOldHostsRetainPerCopyStateFallback",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testLight",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testDark",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testLatte",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testMocha",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testAccessibilityXXXL",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testPartiallyOfflineGroupCanPinThroughItsConnectedCopy",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testMixedVersionGroupShowsDisabledSharedControlsAndExplains",
+        "ClubhouseGoUITests/CompanionLinkedProjectStateUITests/testOldHostDaysIdleMemberOffersMarkActiveWithoutAnExplicitInactiveMark",
+        "ClubhouseGoUITests/CompanionChatChromeUITests/testOfflineCaptionAppearsOnlyWhileReconnecting",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testPinnedRowOpensTheDispatchersChatAndSettings",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testDraftSurvivesTabSwitchAndDisconnectAndOffMovesHomeOnce",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testEveryLastTabRestoresAfterRelaunch",
+        "ClubhouseGoUITests/CompanionGrantRequestUITests/testDesktopUpdateInChatRequiresExplicitRestartMode",
+        "ClubhouseGoUITests/CompanionGrantRequestUITests/testDispatcherGrantOpenChatSwitchesTabsAndShowsTheRequest",
+        "ClubhouseGoUITests/CompanionAppUpdateUITests/testReadyRequestPresentsOwnInterruptionReviewAndRestartWhenIdleWithoutLeavingTheScreen"
+      ],
+      "lane": "normal"
+    },
+    "D": {
+      "bound": 720,
+      "filter": "CompanionHomeRecentSessionTests|CompanionAgentOrderingTests|CompanionAgentTreeTests|CompanionHomeProjectActivityTests|CompanionHomeScopeTests|CompanionHomeLinkedRowsTests|CompanionPinTests|CompanionIdleRuleTests|CompanionSharedLayoutTests|CompanionProjectStateStoreTests|CompanionLinkedProjectStateTests|entryPointsHideWithoutTheDesktopCapability|entryPointsWaitForTheConnection|attachIsOnlyForRunningTerminalAgents",
+      "lane": "pkg"
+    },
+    "C3": {
+      "lane": "normal",
+      "bound": 1200,
+      "selectors": [
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testARoutedBurstShowsEachSenderAndMessageSeparately",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions",
+        "ClubhouseGoUITests/CompanionDispatcherUITests/testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testCachedReplyDotsAndStreamingStackCanExpandWithReduceMotion",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testLastDispatcherRestoresIndependentlyOfHomeSelection",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testShowChipsSurvivesStreamedMessagesWithinTurn",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testScrollingBackKeepsChipsHeaderAndTranscriptStill",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testPermissionMidTurnKeepsChipsAndShowChoice",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testOfflineDesktopsCachedTurnKeepsChips",
+        "ClubhouseGoUITests/CompanionDispatchChipsUITests/testReconnectingBlipKeepsTurnAndShowChoice"
+      ]
+    },
+    "combined-coverage": {
+      "lane": "pkg",
+      "bound": 1200,
+      "command": "scripts/coverage.sh --check",
+      "jobs": 2,
+      "fresh_build": true,
+      "merge": "current origin/main + tested head; STOP on conflicts/overlap needing changed-source review"
+    }
+  },
+  "sequence": [
+    "P",
+    "A-before",
+    "A-after",
+    "L-before",
+    "L-after",
+    "S",
+    "B",
+    "C1",
+    "C2",
+    "C3",
+    "D",
+    "combined-coverage"
+  ],
+  "qa_additions": [
+    "Byte-identical r2 SHA plus additive source diff on each build tree",
+    "C3 uses head products and normal Dispatcher UI launches",
+    "Combined coverage merges current origin/main at execution time",
+    "Deadline passes with no Store traffic: approval becomes question, full parity unchanged"
+  ],
+  "original_zero_gate": {
+    "head_primary_per_batch": "owner/contentInputs/content/layout/header = 0 after readiness in both cases; both head runs",
+    "all_other_counts": "at or below paired main and pre-approved main ceilings; disclose row/menu late realisation separately",
+    "CPU": "supporting process seconds only; no phone claim",
+    "stop": "STOP if live or strict gate fails; classify before broad tests; no assertion retries"
+  },
+  "approved_gate": {
+    "head_primary_per_batch": "visible b0 <=1 owner/contentInputs/content/layout, <=24 header; visible b1-9=0; outside all=0",
+    "other_sites": "<=paired main",
+    "approval": "parent t_mwkvyvft after zero STOP; no test rerun/normalization",
+    "one_shot": "existing main first-mutation pass; stale unheld Recent lastActivity subscription is candidate1, unproven",
+    "stop": "STOP if approved live or strict fails; no retries"
+  },
+  "current_admission_guard": {
+    "source": "parent global update before C2",
+    "vm_stat_free_plus_inactive_GiB_min": 8,
+    "cpu_idle_percent_min": 40,
+    "swap_growth_MiB_max_over_10s": 64,
+    "top_unused": "informational only",
+    "runtime_swap_watch": "record only; flag growth>256MiB"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "before": "c1a62b75201b00a4a27b0f913b8673a4be4f2508",
+  "head": "95b61cf685ed74bb3ff9408aa5f508f14027b3cf",
+  "product_tree": "7082a44e1cebebabb885ae374a90b30c444c9657",
+  "product_tree_identical": true,
+  "diff_sha256": "7d259f3c9c47211f7bf348ac8a6cb6e58fa36cb21458e0c24bc6d3709126402b",
+  "existing_methods": {
+    "testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh": {
+      "byte_identical": true,
+      "sha256": "80c452e737fe8ac640bf1a093f85e5b00c4ab364f317b700a2d9ba61f13f2b63"
+    },
+    "testPushedHomeRouteFreezesAllRowsDuring100RenderedChunksAndPopKeepsTheSession": {
+      "byte_identical": true,
+      "sha256": "c91a5ae0a770c37814b2d1d478a9e3bd525908631b93ade9b5842b25cb3b9ad2"
+    },
+    "testPushedHomeKeepsLayoutStableAcross100RenderedChunksWithinSnapshotBudgetAndReturnsFresh": {
+      "byte_identical": true,
+      "sha256": "03ecb22f32aa6ab5cfeaf7aa98709c1feacf523c6b63ae029b1944c158a1ffd5"
+    },
+    "testFrozenMenuActivationRechecksChangedLivePermissionsAndAvailability": {
+      "byte_identical": true,
+      "sha256": "bbd6dcbfe743506231740452d98493f698b8941eb82006bb69901c8e03c378a3"
+    },
+    "testSortScopeAndPinIdleChangesResetOrMoveOnlyTheirIntendedSections": {
+      "byte_identical": true,
+      "sha256": "92c3e3d0cadc1d49e84368e166c71568c3c293fa9e65faa52f4689c0898c9dc3"
+    },
+    "testInactiveKeepsRecentHoldAndBackgroundStartsFresh": {
+      "byte_identical": true,
+      "sha256": "8273d91911926bab7f976d9b71a98895cb6a129c0550e2759e91765dbb1604d6"
+    },
+    "testRecentOrderStaysWhileVisibleThenRefreshesOnReturn": {
+      "byte_identical": true,
+      "sha256": "547e1d4a7d3d5589c04e811d9bda6184d1674e35ce06eb62d24d07edc8619101"
+    }
+  },
+  "shared_fixture_changes": [
+    "empty-by-default history override",
+    "nil-by-default dynamicTypeSize, original nil branch retained",
+    "optional OCR absence predicate; old calls unchanged"
+  ]
+}

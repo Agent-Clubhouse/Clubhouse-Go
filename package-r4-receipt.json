@@ -1,0 +1,35 @@
+{
+  "head": "c1a62b75201b00a4a27b0f913b8673a4be4f2508",
+  "phase": "P",
+  "started_at": "2026-11-18T01:39:25.364183+00:00",
+  "guard": {
+    "top": "Processes: 836 total, 4 running, 832 sleeping, 5818 threads \n2026/11/17 17:39:26\nLoad Avg: 3.23, 3.88, 5.70 \nCPU usage: 12.26% user, 9.50% sys, 78.23% idle \nSharedLibs: 1028M resident, 186M data, 133M linkedit.\nMemRegions: 1238325 total, 13G resident, 530M private, 4479M shared.\nPhysMem: 50G used (7127M wired, 5581M compressor), 13G unused.\nVM: 440T vsize, 6144M framework vsize, 9858201(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1334210109/1554G in, 552193703/413G out.\nDisks: 2137692245/25T read, 2916658183/34T written.\n\n\nProcesses: 836 total, 2 running, 834 sleeping, 5823 threads \n2026/11/17 17:39:36\nLoad Avg: 3.26, 3.87, 5.67 \nCPU usage: 13.17% user, 5.12% sys, 81.69% idle \nSharedLibs: 1028M resident, 186M data, 133M linkedit.\nMemRegions: 43 total, 1360K resident, 530M private, 4479M shared.\nPhysMem: 49G used (7127M wired, 5581M compressor), 14G unused.\nVM: 440T vsize, 6144M framework vsize, 9858201(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1334212083/1554G in, 552195682/413G out.\nDisks: 2137693345/25T read, 2916669755/34T written.\n\n\n",
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 81.69,
+    "physmem_unused_bytes": 15032385536.0,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "physmem_unused_bytes": 4294967296,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "test_rc": 0,
+  "rc": 0,
+  "admitted_at": "2026-11-18T01:39:25.344735+00:00",
+  "closed_at": "2026-11-18T01:40:36.681196+00:00",
+  "duration_seconds": 71.33641583286226,
+  "hard_bound_seconds": 720,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 5,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-528-visible-proof/package-r4-receipt.json"
+}
