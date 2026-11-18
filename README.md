@@ -1,4 +1,8 @@
-# #582 / draft #584 — HARD STOP after the bounded experiment
+# #582 / draft #584 — user-approved bookmark-first proposal, before code
+
+The user selected option A: a paused remount begins with its canonical saved entry as the first loaded row; earlier history is behind Show earlier. [New proposal for QA](proposal-and-proof/bookmark-start/proposal.md) covers every route, widening/history preservation and the explicit contract-test changes. No implementation or build of this new design exists yet. The stopped7c12e00df head remains unmergeable; PR584 stays draft.
+
+# Prior experiment: hard stop (preserved evidence)
 
 Exact source `7c12e00df` is NOT merge-ready. A-r4 fresh build, compiled deinit gate and20policy tests PASS. FD-r2's ONE F1 UI method PASS reached all scenarios, but its real video FAILS the first-frame gate: native destination reopen paints marker1 before jumping to90. No assertion or test retry follows it.
 
