@@ -77,6 +77,9 @@ public ScrollGeometry / ScrollPosition experiment; no runtime PASS is claimed.
 Source diagnosis A is fixed provisionally: resume enables capture but returns
 immediately when there is no valid bookmark. A fresh List already starts at the top;
 it must not schedule the old delayed summary scroll that can undo a user's scroll.
+If a saved target disappears during a pushed route, the retained List stays at its
+current position rather than scheduling a jump to summary; a fresh remount starts
+at its normal top.
 The original 29-line anchor method remains byte-intact, including its 8pt tolerance,
 real-row containment, same-owner/scope and no-silent-top-reset checks. All eight main
 HomeVisibility method bodies are also unchanged. Its shared fixture waits for the
