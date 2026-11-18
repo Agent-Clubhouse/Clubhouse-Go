@@ -1,0 +1,67 @@
+{
+  "classification": "Not reproduced; neither H1 nor H2 precondition observed during the two restore deliveries. No product fix claimed.",
+  "head": "6a208e1f8b5bee954c1b0b8ae41e9fe586a86d82",
+  "base": "3d4d01d7b601aca9a2d13b80b92157d5d999baa9",
+  "scope": {
+    "total": 23,
+    "passed": 20,
+    "strict_expected_failures": 2,
+    "pointer_wheel_skips": 1,
+    "unexpected_failures": 0,
+    "exactly_once": true,
+    "order_identical": true,
+    "unrelated_outcomes_identical": true
+  },
+  "H1": {
+    "observed_during_restore": false,
+    "episodes": [
+      {
+        "name": "Tab return",
+        "first_step_local": "2026-11-18 00:15:15.385700-0800",
+        "arrival_step_local": "2026-11-18 00:15:15.447855-0800",
+        "hidden_before_and_after": 15,
+        "first_before_and_after": "message:reading-16",
+        "saved_entry": "message:reading-164",
+        "entry_lower_bound_before_and_after": 14344.999999999993,
+        "normalized_target_inferred_from_frames_and_source": 14403.333333333334,
+        "arrival_ms": 168.84920839220285,
+        "ui_marker_y": 209.6666666666582
+      },
+      {
+        "name": "Chat reopen",
+        "first_step_local": "2026-11-18 00:15:25.045799-0800",
+        "arrival_step_local": "2026-11-18 00:15:25.109127-0800",
+        "hidden_before_and_after": 16,
+        "first_before_and_after": "message:reading-17",
+        "saved_entry": "message:reading-164",
+        "entry_lower_bound_before_and_after": 14248.333333333328,
+        "normalized_target_inferred_from_frames_and_source": 14306.666666666666,
+        "arrival_ms": 169.38433330506086,
+        "ui_marker_y": 209.66666666666183
+      }
+    ]
+  },
+  "H2": {
+    "observed": false,
+    "departure_mount_gap_count": 2,
+    "saved_lines_in_either_gap": 0,
+    "saved_identity_distance_offset_unchanged_across_each_gap": true
+  },
+  "post_arrival_trim": {
+    "observed": true,
+    "local": "2026-11-18 00:15:20.767778-0800",
+    "seconds_after_first_arrival_step": 5.319923,
+    "entry_lower_bound_before": 14344.999999999993,
+    "entry_lower_bound_after": 14248.333333333328,
+    "delta": -96.66666666666515,
+    "new_bookmark_offset": 14306.666666666666,
+    "distance_preserved_approximately": 58.33333333334,
+    "interpretation": "A prefix trim occurred after arrival, with native correction preserving the semantic entry and pixel alignment. It did not exercise H1 during the pinned delivery."
+  },
+  "logging_limitations": [
+    "NSLog truncates some long lines to a 1024-character message. Trailing step/pinned/attempt and some caller/window fields are cut.",
+    "The numeric targets above are inferred from matching source, saved entry frames/distance and arrival metrics, not observed in the truncated pinned field.",
+    "Leading event/entry/frame/metrics, hidden/first through the two delivery windows, and both departure-to-mount gaps are present. No general claim that H1/H2 cannot happen."
+  ],
+  "next": "No repeats or product changes. Submit a deterministic existing-probe fixture that forces the observed prefix trim between the first pin and arrival for independent QA."
+}

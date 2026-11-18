@@ -1,0 +1,129 @@
+{
+  "case": "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "classification": "Awaiting source/artifact review; no automatic PASS credit",
+  "timelines": [
+    {
+      "name": "Chat reopen restoration frame timeline_0_97BD785C-5248-4EC6-B2FB-C9BC753E6DE8.txt",
+      "path": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/attachments/A72A5A1F-DAC4-416A-877D-BF88A97FFDCD.txt",
+      "sha256": "6010f061402c55a8ce8b342db552d7d5221df0dcfd6480d48ba5353d423f0227",
+      "raw": "t=1.3901924584060907 exists=true anchor=(22.0, 209.66666666666183, 155.66666666666666, 20.33333333333394) viewport=(0.0, 116.0, 440.0, 696.0) keyboard=nil stableFor=0.0\nt=2.8429167084395885 exists=true anchor=(22.0, 209.66666666666183, 155.66666666666666, 20.33333333333394) viewport=(0.0, 116.0, 440.0, 696.0) keyboard=nil stableFor=1.4527242500334978\nt=4.245736791752279 exists=true anchor=(22.0, 209.66666666666183, 155.66666666666666, 20.33333333333394) viewport=(0.0, 116.0, 440.0, 696.0) keyboard=nil stableFor=2.855544333346188\nsettled t=4.245736791752279",
+      "samples": [
+        {
+          "elapsed_seconds": 1.3901924584060907,
+          "exists": true,
+          "anchor": [
+            22.0,
+            209.66666666666183,
+            155.66666666666666,
+            20.33333333333394
+          ],
+          "viewport": [
+            0.0,
+            116.0,
+            440.0,
+            696.0
+          ],
+          "stable_for_seconds": 0.0
+        },
+        {
+          "elapsed_seconds": 2.8429167084395885,
+          "exists": true,
+          "anchor": [
+            22.0,
+            209.66666666666183,
+            155.66666666666666,
+            20.33333333333394
+          ],
+          "viewport": [
+            0.0,
+            116.0,
+            440.0,
+            696.0
+          ],
+          "stable_for_seconds": 1.4527242500334978
+        },
+        {
+          "elapsed_seconds": 4.245736791752279,
+          "exists": true,
+          "anchor": [
+            22.0,
+            209.66666666666183,
+            155.66666666666666,
+            20.33333333333394
+          ],
+          "viewport": [
+            0.0,
+            116.0,
+            440.0,
+            696.0
+          ],
+          "stable_for_seconds": 2.855544333346188
+        }
+      ],
+      "settled": true,
+      "timeout": false
+    },
+    {
+      "name": "Tab return restoration frame timeline_0_841932E3-C95C-44F0-AC2D-C219A3FFC9CC.txt",
+      "path": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/attachments/F17EE034-1C47-4CF2-AEB0-D63CF0C1D59E.txt",
+      "sha256": "8d9e6f83cebb33445b9b7609db7ca1bcd56c6f0385fe1534e788415482923207",
+      "raw": "t=1.407934875227511 exists=true anchor=(22.0, 209.6666666666582, 155.66666666666666, 20.33333333333394) viewport=(0.0, 116.0, 440.0, 696.0) keyboard=nil stableFor=0.0\nt=2.816064250189811 exists=true anchor=(22.0, 209.6666666666582, 155.66666666666666, 20.33333333333394) viewport=(0.0, 116.0, 440.0, 696.0) keyboard=nil stableFor=1.4081293749623\nt=4.255236458498985 exists=true anchor=(22.0, 209.6666666666582, 155.66666666666666, 20.33333333333394) viewport=(0.0, 116.0, 440.0, 696.0) keyboard=nil stableFor=2.8473015832714736\nsettled t=4.255236458498985",
+      "samples": [
+        {
+          "elapsed_seconds": 1.407934875227511,
+          "exists": true,
+          "anchor": [
+            22.0,
+            209.6666666666582,
+            155.66666666666666,
+            20.33333333333394
+          ],
+          "viewport": [
+            0.0,
+            116.0,
+            440.0,
+            696.0
+          ],
+          "stable_for_seconds": 0.0
+        },
+        {
+          "elapsed_seconds": 2.816064250189811,
+          "exists": true,
+          "anchor": [
+            22.0,
+            209.6666666666582,
+            155.66666666666666,
+            20.33333333333394
+          ],
+          "viewport": [
+            0.0,
+            116.0,
+            440.0,
+            696.0
+          ],
+          "stable_for_seconds": 1.4081293749623
+        },
+        {
+          "elapsed_seconds": 4.255236458498985,
+          "exists": true,
+          "anchor": [
+            22.0,
+            209.6666666666582,
+            155.66666666666666,
+            20.33333333333394
+          ],
+          "viewport": [
+            0.0,
+            116.0,
+            440.0,
+            696.0
+          ],
+          "stable_for_seconds": 2.8473015832714736
+        }
+      ],
+      "settled": true,
+      "timeout": false
+    }
+  ],
+  "failures": []
+}

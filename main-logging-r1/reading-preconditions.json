@@ -1,0 +1,201 @@
+{
+  "classification": "Evidence candidates only; inspect entry frames and timing before assigning H1/H2. Missing episodes do not rule them out.",
+  "restore_episodes": [
+    {
+      "first_restore_step": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1504004,
+        "text": "2026-11-18 00:15:15.385700-0800 ClubhouseGo[95711:455306250] READING569 t=2523315.7643027087 event=restore-step entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=Optional(ClosedRange(14344.999999999993...14441.666666666659)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 1895.6666666666667, contentHeight: 17326.333333333332, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17326.333333333292) restoring=true outcome=nil follow=false nearby=message:reading-159:13861.666666666662,message:reading-160:13958.333333333328,message:reading-161:14054.999999999995,message:reading-162:14151.66666666666,message:reading-163:14248.333333333327,message:reading-164:14344.999999999993,message:reading-165:14441.666666666659,message:reading-166:14538.333333333325,message:reading-167:14634.99999999999,message:reading-168:14731.666666666657,message:reading-169:14828.333333333323,message:reading-170:14924.999999999989  saved=CompanionReadingPosition(followsLatest: false, entryID: O",
+        "previous_timestamp": "2026-11-18 00:15:15.385700-0800",
+        "timestamp": "2026-11-18 00:15:15.385700-0800",
+        "overlaps_target_interval": true
+      },
+      "pin_observability": "Trailing pin/step/attempt fields truncated by NSLog; infer delivery only from source plus matching frame/metrics. No direct pin-field claim.",
+      "window_at_pin": {
+        "hidden": 15,
+        "first": "message:reading-16"
+      },
+      "windows_after_pin": [
+        {
+          "window": {
+            "hidden": 15,
+            "first": "message:reading-16"
+          },
+          "record": {
+            "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+            "line": 1504005,
+            "text": "2026-11-18 00:15:15.388507-0800 ClubhouseGo[95711:455306250] READING569 t=2523315.7671235837 event=window entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=Optional(ClosedRange(14344.999999999993...14441.666666666659)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 1895.6666666666667, contentHeight: 17326.333333333332, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17326.333333333292) restoring=true outcome=nil follow=false nearby=message:reading-159:13861.666666666662,message:reading-160:13958.333333333328,message:reading-161:14054.999999999995,message:reading-162:14151.66666666666,message:reading-163:14248.333333333327,message:reading-164:14344.999999999993,message:reading-165:14441.666666666659,message:reading-166:14538.333333333325,message:reading-167:14634.99999999999,message:reading-168:14731.666666666657,message:reading-169:14828.333333333323,message:reading-170:14924.999999999989  hidden=15 first=message:reading-16 retaining=message:reading-164 show",
+            "previous_timestamp": "2026-11-18 00:15:15.388507-0800",
+            "timestamp": "2026-11-18 00:15:15.388507-0800",
+            "overlaps_target_interval": true
+          }
+        },
+        {
+          "window": {
+            "hidden": 15,
+            "first": "message:reading-16"
+          },
+          "record": {
+            "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+            "line": 1504008,
+            "text": "2026-11-18 00:15:15.419525-0800 ClubhouseGo[95711:455306250] READING569 t=2523315.7981335 event=window entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=Optional(ClosedRange(14344.999999999993...14441.666666666659)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 14395.333333333334, contentHeight: 17326.333333333332, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17326.333333333292) restoring=false outcome=nil follow=false nearby=message:reading-159:13861.666666666662,message:reading-160:13958.333333333328,message:reading-161:14054.999999999995,message:reading-162:14151.66666666666,message:reading-163:14248.333333333327,message:reading-164:14344.999999999993,message:reading-165:14441.666666666659,message:reading-166:14538.333333333325,message:reading-167:14634.99999999999,message:reading-168:14731.666666666657,message:reading-169:14828.333333333323,message:reading-170:14924.999999999989  hidden=15 first=message:reading-16 retaining=message:reading-164 shown=",
+            "previous_timestamp": "2026-11-18 00:15:15.419525-0800",
+            "timestamp": "2026-11-18 00:15:15.419525-0800",
+            "overlaps_target_interval": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+          "line": 1504004,
+          "text": "2026-11-18 00:15:15.385700-0800 ClubhouseGo[95711:455306250] READING569 t=2523315.7643027087 event=restore-step entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=Optional(ClosedRange(14344.999999999993...14441.666666666659)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 1895.6666666666667, contentHeight: 17326.333333333332, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17326.333333333292) restoring=true outcome=nil follow=false nearby=message:reading-159:13861.666666666662,message:reading-160:13958.333333333328,message:reading-161:14054.999999999995,message:reading-162:14151.66666666666,message:reading-163:14248.333333333327,message:reading-164:14344.999999999993,message:reading-165:14441.666666666659,message:reading-166:14538.333333333325,message:reading-167:14634.99999999999,message:reading-168:14731.666666666657,message:reading-169:14828.333333333323,message:reading-170:14924.999999999989  saved=CompanionReadingPosition(followsLatest: false, entryID: O",
+          "previous_timestamp": "2026-11-18 00:15:15.385700-0800",
+          "timestamp": "2026-11-18 00:15:15.385700-0800",
+          "overlaps_target_interval": true
+        },
+        {
+          "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+          "line": 1504009,
+          "text": "2026-11-18 00:15:15.447855-0800 ClubhouseGo[95711:455306250] READING569 t=2523315.826454167 event=restore-step entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=Optional(ClosedRange(14344.999999999993...14441.666666666659)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 14395.333333333334, contentHeight: 17326.333333333332, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17326.333333333292) restoring=false outcome=nil follow=false nearby=message:reading-159:13861.666666666662,message:reading-160:13958.333333333328,message:reading-161:14054.999999999995,message:reading-162:14151.66666666666,message:reading-163:14248.333333333327,message:reading-164:14344.999999999993,message:reading-165:14441.666666666659,message:reading-166:14538.333333333325,message:reading-167:14634.99999999999,message:reading-168:14731.666666666657,message:reading-169:14828.333333333323,message:reading-170:14924.999999999989  saved=CompanionReadingPosition(followsLatest: false, entryID: O",
+          "previous_timestamp": "2026-11-18 00:15:15.447855-0800",
+          "timestamp": "2026-11-18 00:15:15.447855-0800",
+          "overlaps_target_interval": true
+        }
+      ],
+      "outcome": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1504010,
+        "text": "READING_RESTORE outcome=arrived attempts=1 durationMs=168.84920839220285",
+        "previous_timestamp": "2026-11-18 00:15:15.447855-0800",
+        "next_timestamp": "2026-11-18 00:15:15.448164-0800",
+        "overlaps_target_interval": true
+      },
+      "hidden_or_first_changes": [],
+      "entry_frame_review_required": true
+    },
+    {
+      "first_restore_step": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1611910,
+        "text": "2026-11-18 00:15:25.045799-0800 ClubhouseGo[95711:455306250] READING569 t=2523325.42456975 event=restore-step entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=Optional(ClosedRange(14248.333333333328...14344.999999999995)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 2023.3333333333333, contentHeight: 17454.0, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17453.999999999956) restoring=true outcome=nil follow=false nearby=message:reading-159:13764.999999999998,message:reading-160:13861.666666666664,message:reading-161:13958.33333333333,message:reading-162:14054.999999999996,message:reading-163:14151.666666666662,message:reading-164:14248.333333333328,message:reading-165:14344.999999999995,message:reading-166:14441.66666666666,message:reading-167:14538.333333333327,message:reading-168:14634.999999999993,message:reading-169:14731.666666666659,message:reading-170:14828.333333333325  saved=CompanionReadingPosition(followsLatest: false, entryID: Optional(\"messa",
+        "previous_timestamp": "2026-11-18 00:15:25.045799-0800",
+        "timestamp": "2026-11-18 00:15:25.045799-0800",
+        "overlaps_target_interval": true
+      },
+      "pin_observability": "Trailing pin/step/attempt fields truncated by NSLog; infer delivery only from source plus matching frame/metrics. No direct pin-field claim.",
+      "window_at_pin": {
+        "hidden": 16,
+        "first": "message:reading-17"
+      },
+      "windows_after_pin": [
+        {
+          "window": {
+            "hidden": 16,
+            "first": "message:reading-17"
+          },
+          "record": {
+            "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+            "line": 1611911,
+            "text": "2026-11-18 00:15:25.050718-0800 ClubhouseGo[95711:455306250] READING569 t=2523325.4294874584 event=window entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=Optional(ClosedRange(14248.333333333328...14344.999999999995)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 2023.3333333333333, contentHeight: 17454.0, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17453.999999999956) restoring=true outcome=nil follow=false nearby=message:reading-159:13764.999999999998,message:reading-160:13861.666666666664,message:reading-161:13958.33333333333,message:reading-162:14054.999999999996,message:reading-163:14151.666666666662,message:reading-164:14248.333333333328,message:reading-165:14344.999999999995,message:reading-166:14441.66666666666,message:reading-167:14538.333333333327,message:reading-168:14634.999999999993,message:reading-169:14731.666666666659,message:reading-170:14828.333333333325  hidden=16 first=message:reading-17 retaining=message:reading-164 shown=170 follow",
+            "previous_timestamp": "2026-11-18 00:15:25.050718-0800",
+            "timestamp": "2026-11-18 00:15:25.050718-0800",
+            "overlaps_target_interval": true
+          }
+        },
+        {
+          "window": {
+            "hidden": 16,
+            "first": "message:reading-17"
+          },
+          "record": {
+            "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+            "line": 1611914,
+            "text": "2026-11-18 00:15:25.083253-0800 ClubhouseGo[95711:455306250] READING569 t=2523325.4620215837 event=window entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=Optional(ClosedRange(14248.333333333328...14344.999999999995)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 14298.666666666666, contentHeight: 17454.0, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17453.999999999956) restoring=false outcome=nil follow=false nearby=message:reading-159:13764.999999999998,message:reading-160:13861.666666666664,message:reading-161:13958.33333333333,message:reading-162:14054.999999999996,message:reading-163:14151.666666666662,message:reading-164:14248.333333333328,message:reading-165:14344.999999999995,message:reading-166:14441.66666666666,message:reading-167:14538.333333333327,message:reading-168:14634.999999999993,message:reading-169:14731.666666666659,message:reading-170:14828.333333333325  hidden=16 first=message:reading-17 retaining=message:reading-164 shown=170 follo",
+            "previous_timestamp": "2026-11-18 00:15:25.083253-0800",
+            "timestamp": "2026-11-18 00:15:25.083253-0800",
+            "overlaps_target_interval": true
+          }
+        }
+      ],
+      "steps": [
+        {
+          "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+          "line": 1611910,
+          "text": "2026-11-18 00:15:25.045799-0800 ClubhouseGo[95711:455306250] READING569 t=2523325.42456975 event=restore-step entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=Optional(ClosedRange(14248.333333333328...14344.999999999995)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 2023.3333333333333, contentHeight: 17454.0, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17453.999999999956) restoring=true outcome=nil follow=false nearby=message:reading-159:13764.999999999998,message:reading-160:13861.666666666664,message:reading-161:13958.33333333333,message:reading-162:14054.999999999996,message:reading-163:14151.666666666662,message:reading-164:14248.333333333328,message:reading-165:14344.999999999995,message:reading-166:14441.66666666666,message:reading-167:14538.333333333327,message:reading-168:14634.999999999993,message:reading-169:14731.666666666659,message:reading-170:14828.333333333325  saved=CompanionReadingPosition(followsLatest: false, entryID: Optional(\"messa",
+          "previous_timestamp": "2026-11-18 00:15:25.045799-0800",
+          "timestamp": "2026-11-18 00:15:25.045799-0800",
+          "overlaps_target_interval": true
+        },
+        {
+          "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+          "line": 1611915,
+          "text": "2026-11-18 00:15:25.109127-0800 ClubhouseGo[95711:455306250] READING569 t=2523325.4879018753 event=restore-step entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=Optional(ClosedRange(14248.333333333328...14344.999999999995)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 14298.666666666666, contentHeight: 17454.0, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17453.999999999956) restoring=false outcome=nil follow=false nearby=message:reading-159:13764.999999999998,message:reading-160:13861.666666666664,message:reading-161:13958.33333333333,message:reading-162:14054.999999999996,message:reading-163:14151.666666666662,message:reading-164:14248.333333333328,message:reading-165:14344.999999999995,message:reading-166:14441.66666666666,message:reading-167:14538.333333333327,message:reading-168:14634.999999999993,message:reading-169:14731.666666666659,message:reading-170:14828.333333333325  saved=CompanionReadingPosition(followsLatest: false, entryID: Optional(\"me",
+          "previous_timestamp": "2026-11-18 00:15:25.109127-0800",
+          "timestamp": "2026-11-18 00:15:25.109127-0800",
+          "overlaps_target_interval": true
+        }
+      ],
+      "outcome": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1611916,
+        "text": "READING_RESTORE outcome=arrived attempts=1 durationMs=169.38433330506086",
+        "previous_timestamp": "2026-11-18 00:15:25.109127-0800",
+        "next_timestamp": "2026-11-18 00:15:25.109409-0800",
+        "overlaps_target_interval": true
+      },
+      "hidden_or_first_changes": [],
+      "entry_frame_review_required": true
+    }
+  ],
+  "unfinished_restore_episode": null,
+  "departure_mount_gaps": [
+    {
+      "departure": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1468051,
+        "text": "2026-11-18 00:15:10.992749-0800 ClubhouseGo[95711:455306250] READING569 t=2523311.3712328337 event=disappear entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=Optional(ClosedRange(14344.999999999993...14441.666666666659)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 14395.333333333334, contentHeight: 17216.333333333332, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17216.333333333292) restoring=false outcome=nil follow=false nearby=message:reading-159:13861.666666666662,message:reading-160:13958.333333333328,message:reading-161:14054.999999999995,message:reading-162:14151.66666666666,message:reading-163:14248.333333333327,message:reading-164:14344.999999999993,message:reading-165:14441.666666666659,message:reading-166:14538.333333333325,message:reading-167:14634.99999999999,message:reading-168:14731.666666666657,message:reading-169:14828.333333333323,message:reading-170:14924.999999999989  ",
+        "previous_timestamp": "2026-11-18 00:15:10.992749-0800",
+        "timestamp": "2026-11-18 00:15:10.992749-0800",
+        "overlaps_target_interval": true
+      },
+      "saved": [],
+      "next_mount": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1503995,
+        "text": "2026-11-18 00:15:15.279022-0800 ClubhouseGo[95711:455306250] READING569 t=2523315.6576385833 event=mount-saved entry=message:reading-164 distance=58.333333333341216 offset=14403.333333333334 entryFrame=nil metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 1895.6666666666667, contentHeight: 2826.333333333333, containerHeight: 863.6666666666666, topInset: 8.0, bottomInset: 217.33333333333337)) frameHeight=Optional(2826.3333333333335) restoring=false outcome=nil follow=true nearby=  saved=CompanionReadingPosition(followsLatest: false, entryID: Optional(\"message:reading-164\"), distanceFromEntry: 58.333333333341216, offset: 14403.333333333334, shownEntries: 170)",
+        "previous_timestamp": "2026-11-18 00:15:15.279022-0800",
+        "timestamp": "2026-11-18 00:15:15.279022-0800",
+        "overlaps_target_interval": true
+      },
+      "disallowed_saved": []
+    },
+    {
+      "departure": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1578055,
+        "text": "2026-11-18 00:15:22.553149-0800 ClubhouseGo[95711:455306250] READING569 t=2523322.9318585834 event=disappear entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=Optional(ClosedRange(14248.333333333328...14344.999999999995)) metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 14298.666666666666, contentHeight: 17388.0, containerHeight: 814.6666666666666, topInset: 8.0, bottomInset: 168.33333333333337)) frameHeight=Optional(17387.999999999956) restoring=false outcome=Optional(ClubhouseGo.CompanionReadingRestoration.Outcome.arrived) follow=false nearby=message:reading-159:13764.999999999998,message:reading-160:13861.666666666664,message:reading-161:13958.33333333333,message:reading-162:14054.999999999996,message:reading-163:14151.666666666662,message:reading-164:14248.333333333328,message:reading-165:14344.999999999995,message:reading-166:14441.66666666666,message:reading-167:14538.333333333327,message:reading-168:14634.999999999993,message:reading-169:14731.666666666659,message:reading-170:14828.333333333325  ",
+        "previous_timestamp": "2026-11-18 00:15:22.553149-0800",
+        "timestamp": "2026-11-18 00:15:22.553149-0800",
+        "overlaps_target_interval": true
+      },
+      "saved": [],
+      "next_mount": {
+        "file": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/diagnostics/0_Test_ux-569-main-log_Diagnostics/ClubhouseGoUITests-5B8F9A2E-2C41-4ECD-96E9-4259ED89BEEE-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-1B9BAE00-FA85-47C9-8B76-C45D4750FF02/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+        "line": 1611901,
+        "text": "2026-11-18 00:15:24.939744-0800 ClubhouseGo[95711:455306250] READING569 t=2523325.318519 event=mount-saved entry=message:reading-164 distance=58.33333333333758 offset=14306.666666666666 entryFrame=nil metrics=Optional(ClubhouseGo.CompanionScrollMetrics(offset: 2023.3333333333333, contentHeight: 2954.0, containerHeight: 863.6666666666666, topInset: 8.0, bottomInset: 217.33333333333337)) frameHeight=Optional(2954.0000000000005) restoring=false outcome=nil follow=true nearby=  saved=CompanionReadingPosition(followsLatest: false, entryID: Optional(\"message:reading-164\"), distanceFromEntry: 58.33333333333758, offset: 14306.666666666666, shownEntries: 170)",
+        "previous_timestamp": "2026-11-18 00:15:24.939744-0800",
+        "timestamp": "2026-11-18 00:15:24.939744-0800",
+        "overlaps_target_interval": true
+      },
+      "disallowed_saved": []
+    }
+  ],
+  "unfinished_departure": null,
+  "observability": {
+    "records": 684,
+    "restore_steps": 4,
+    "windows": 122,
+    "saved": 482
+  }
+}

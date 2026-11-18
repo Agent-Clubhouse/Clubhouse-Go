@@ -1,0 +1,42 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "FEA84FD7-DE3F-42D1-BA84-9B9013A527C9",
+        "deviceName" : "ux-569-main-log",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 2,
+      "failedTests" : 0,
+      "passedTests" : 20,
+      "skippedTests" : 1,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "ClubhouseGo · Built with macOS 26.5.2",
+  "expectedFailures" : 2,
+  "failedTests" : 0,
+  "finishTime" : 1794989936.832,
+  "passedTests" : 20,
+  "result" : "Passed",
+  "skippedTests" : 1,
+  "startTime" : 1794989324.791,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - ClubhouseGo",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 23
+}

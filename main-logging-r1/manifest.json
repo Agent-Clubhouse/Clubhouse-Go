@@ -1,0 +1,77 @@
+{
+  "source": "/tmp/ux-569-logging-main",
+  "head": "6a208e1f8b5bee954c1b0b8ae41e9fe586a86d82",
+  "historical_product": "3d4d01d7b601aca9a2d13b80b92157d5d999baa9",
+  "patch": "/tmp/ux-569-logging-proof/main-overlay.patch",
+  "patch_sha256": "40796b143ee5cf1c588f71611d1712b2b3d5108f2101483eee5ca45dab530abe",
+  "patched_reading_sha256": "d7d5c839099a09a39a1b9c7f816a761111a115b98b0300fb81b70edc4b69a113",
+  "original_reading_sha256": "b1f920091d9d3338991f7a0cbee0c82115e907a91ec0807cfbda7d6a31eb24b9",
+  "original_bundle": "/tmp/go-footer-560/T565-r2-pro-20261117T230942Z.xcresult",
+  "selector_sha256": "5d145124373e6249cb176cb71980ab695cb97f761fb8a6d5edae2fdafd8d5667",
+  "original_order": "/tmp/ux-569-proof/original-b829-order.json",
+  "case": "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "private_simulator": {
+    "name": "ux-569-main-log"
+  },
+  "phases": {
+    "A": {
+      "bound": 900
+    },
+    "C": {
+      "bound": 1200,
+      "count": 23,
+      "selectors": [
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark",
+        "ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader",
+        "ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+        "ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
+        "ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+        "ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible",
+        "ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction",
+        "ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry",
+        "ClubhouseGoUITests/CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard",
+        "ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard"
+      ]
+    }
+  },
+  "only_changed_files": [
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift"
+  ],
+  "expected_source_sha256": {
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "53f6ca7ca83be5b9e47d06ad324b2dcd5307fc20263a81e68378461558308d6f",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "d7d5c839099a09a39a1b9c7f816a761111a115b98b0300fb81b70edc4b69a113"
+  },
+  "original_case_map_receipt": "/tmp/ux-569-proof/c-confirm-r1-receipt.json",
+  "kind": "Uncredited single main-at-3d4d01d7 DEBUG logging prefix; no product logic changes or repetitions",
+  "requires_confirmation_receipt": true,
+  "helper_contract_head": "6e84c4c890974e26175569f277c5504a27c1dc8c",
+  "runs_per_method": 1,
+  "repeat_policy": "No repeats. Passing run with neither H1 nor H2 precondition leads to a deterministic-fixture proposal for QA.",
+  "diagnostic_questions": {
+    "H1": "Does window hidden/first change between immutable numeric pin and arrived, with the saved entry lowerBound moving?",
+    "H2": "Does a saved line from a caller other than restore-arrived or scroll-idle occur after disappear and before next mount?"
+  },
+  "historical_confirmation": {
+    "receipt": "/tmp/ux-569-proof/c-confirm-r1-receipt.json",
+    "result": "Not reproduced; both returns stable 209.667; no fix claimed",
+    "runtime_load_caveat": "Parent observed heavy host load (load40,5.7% idle) during confirmation; admission was 85.41% idle. Timing differs from original failures."
+  },
+  "external_scripts_sha256": {
+    "run-logging.py": "ac3bf32a69786027177448734cf03a166695e0d9df2817e2298aa7cb0128991b",
+    "extract-reading-traces.py": "be3e48581efe0202d0620da867b8172aa12df543ca1be44d6d0a9bed813488dc"
+  }
+}

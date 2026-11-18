@@ -1,0 +1,9 @@
+{
+  "release_nonblank_source_identical": true,
+  "file": "Annex/Annex/Companion/Views/CompanionConversationView.swift",
+  "base": "3d4d01d7",
+  "method": "Remove #if DEBUG blocks, retaining all nonblank remaining lines in order",
+  "logging_head": "6a208e1f8b5bee954c1b0b8ae41e9fe586a86d82",
+  "stripped_source_sha256": "d7abb70bd325db2eeac8c4ffc19127b7e8f495f7f0cd653b0ed2c5a36465d003",
+  "full_product_file_sha256": "53f6ca7ca83be5b9e47d06ad324b2dcd5307fc20263a81e68378461558308d6f"
+}

@@ -1,0 +1,47 @@
+{
+  "head": "6a208e1f8b5bee954c1b0b8ae41e9fe586a86d82",
+  "source_provenance": {
+    "product_base": "3d4d01d7b601aca9a2d13b80b92157d5d999baa9",
+    "helper_head": "6a208e1f8b5bee954c1b0b8ae41e9fe586a86d82",
+    "only_changed_files": [
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift"
+    ],
+    "patch_sha256": "40796b143ee5cf1c588f71611d1712b2b3d5108f2101483eee5ca45dab530abe",
+    "reading_sha256": "d7d5c839099a09a39a1b9c7f816a761111a115b98b0300fb81b70edc4b69a113"
+  },
+  "admitted_at": "2026-11-18T08:08:08.629371+00:00",
+  "closed_at": "2026-11-18T08:19:02.114243+00:00",
+  "duration_seconds": 653.506456333,
+  "test_rc": 0,
+  "target_result": "Passed",
+  "exact_count_ok": true,
+  "execution_order_identical": true,
+  "unrelated_case_map_identical": true,
+  "diagnostic_scope_ok": true,
+  "simulator_uuid": "FEA84FD7-DE3F-42D1-BA84-9B9013A527C9",
+  "simulator_final_state_before_delete": "Shutdown",
+  "simulator_deleted": true,
+  "booted_after": [],
+  "swap_watch": {
+    "record_only": true,
+    "samples": 44,
+    "growth_bytes": 0,
+    "start_bytes": 2093219840.0,
+    "max_bytes": 2093219840.0,
+    "exceeded_256MiB": false
+  },
+  "result_bundle": "/tmp/ux-569-logging-proof/tickets/c-main-log-r1/tests.xcresult",
+  "diagnostics_rc": 0,
+  "trace_extract_rc": 0,
+  "frames_summary_rc": 0,
+  "owned_processes": [],
+  "system_booted_now": [],
+  "summary": {
+    "totalTestCount": 23,
+    "passedTests": 20,
+    "failedTests": 0,
+    "expectedFailures": 2,
+    "skippedTests": 1
+  }
+}
