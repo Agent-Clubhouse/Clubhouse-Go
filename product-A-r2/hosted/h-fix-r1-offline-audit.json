@@ -1,0 +1,61 @@
+{
+  "offline_verification": "PASS; no test execution",
+  "methods": 15,
+  "executions": 19,
+  "exact_names": true,
+  "arguments_each_once": {
+    "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()": [
+      "exactly one run"
+    ],
+    "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)": [
+      "tab",
+      "desktop"
+    ],
+    "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()": [
+      "exactly one run"
+    ],
+    "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()": [
+      "exactly one run"
+    ],
+    "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)": [
+      "touch",
+      "scrollPhase",
+      "navigation",
+      "unmounted"
+    ],
+    "CompanionReadingRestorationTests/generationAndLatestPreventReissue()": [
+      "exactly one run"
+    ],
+    "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()": [
+      "exactly one run"
+    ]
+  },
+  "regression": "READING569_REGRESSION phase=released follow=0 entry=message:reading-46 offset=1227.3333333333333 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=9.094947017729282e-13 attempts=2 elapsed=0.061089999973773956 outcome=arrived beforeOffset=1324.0 beforeLower=1295.0000000000146",
+  "native_test_rc": 0,
+  "original_receipt_rc": 1,
+  "original_stop": "Generic audit rejects declared parameter counts; parameter parent has no startTime. Original receipt preserved."
+}

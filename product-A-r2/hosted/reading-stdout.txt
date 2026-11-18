@@ -1,0 +1,33 @@
+2026-11-18 01:25:40.087319-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=ready follow=1 entry=nil offset=-1.0 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:25:40.524243-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=ready follow=1 entry=nil offset=14032.666666666666 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:25:40.611295-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=ready follow=0 entry=message:reading-33 offset=0.0 lower=38.33333333334788 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:25:40.728821-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=ready follow=0 entry=message:reading-46 offset=1324.0 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:25:40.867731-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=-1.0 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:25:41.119347-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=14032.666666666666 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=12708.666666666666 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:25:41.160127-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=14032.666666666666 lower=1295.0000000000146 pin=1324.0 shift=0.0 miss=12708.666666666666 attempts=1 elapsed=0.0 outcome=pending
+2026-11-18 01:25:41.196476-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=14000.333333333334 lower=1198.333333333347 pin=1324.0 shift=0.0 miss=12773.000000000002 attempts=1 elapsed=0.0 outcome=pending
+2026-11-18 01:25:41.221398-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=14000.333333333334 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=12773.000000000002 attempts=2 elapsed=0.061089999973773956 outcome=pending
+2026-11-18 01:25:41.250980-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1227.3333333333333 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=9.094947017729282e-13 attempts=2 elapsed=0.061089999973773956 outcome=pending
+READING_RESTORE outcome=arrived attempts=2 durationMs=138.06125009432435
+2026-11-18 01:25:41.293496-0800 ClubhouseGo[27440:455560530] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1227.3333333333333 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=9.094947017729282e-13 attempts=2 elapsed=0.061089999973773956 outcome=arrived
+READING569_REGRESSION phase=released follow=0 entry=message:reading-46 offset=1227.3333333333333 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=9.094947017729282e-13 attempts=2 elapsed=0.061089999973773956 outcome=arrived beforeOffset=1324.0 beforeLower=1295.0000000000146
+READING_RESTORE outcome=generation attempts=0 durationMs=0.04129204899072647
+READING_RESTORE outcome=generation attempts=0 durationMs=0.39074989035725594
+READING_RESTORE outcome=arrived attempts=1 durationMs=207.39962486550212
+READING_RESTORE outcome=arrived attempts=1 durationMs=212.06058328971267
+READING_RESTORE outcome=generation attempts=0 durationMs=0.036499928683042526
+READING_RESTORE outcome=generation attempts=0 durationMs=0.020042061805725098
+READING_RESTORE outcome=arrived attempts=2 durationMs=255.25541650131345
+READING_RESTORE outcome=generation attempts=0 durationMs=0.03237510100007057
+READING_RESTORE outcome=generation attempts=0 durationMs=0.022250227630138397
+READING_RESTORE outcome=touch attempts=1 durationMs=156.9389165379107
+READING_RESTORE outcome=generation attempts=0 durationMs=0.032333191484212875
+READING_RESTORE outcome=generation attempts=0 durationMs=0.024500302970409393
+READING_RESTORE outcome=exhausted attempts=20 durationMs=1045.7169585861266
+READING_RESTORE outcome=generation attempts=0 durationMs=0.3109998069703579
+READING_RESTORE outcome=arrived attempts=1 durationMs=190.88937528431416
+READING_RESTORE outcome=touch attempts=1 durationMs=10.0
+READING_RESTORE outcome=scrollPhase attempts=1 durationMs=10.0
+READING_RESTORE outcome=navigation attempts=1 durationMs=10.0
+READING_RESTORE outcome=unmounted attempts=1 durationMs=10.0
+READING_RESTORE outcome=exhausted attempts=20 durationMs=1100.0

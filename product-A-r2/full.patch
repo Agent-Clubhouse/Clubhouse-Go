@@ -1,0 +1,674 @@
+diff --git a/Annex/Annex/AnnexApp.swift b/Annex/Annex/AnnexApp.swift
+index e38155e3..8cf4274a 100644
+--- a/Annex/Annex/AnnexApp.swift
++++ b/Annex/Annex/AnnexApp.swift
+@@ -25,6 +25,8 @@ struct ClubhouseGoApp: App {
+                 CompanionDeinitProbe()
+             } else if ProcessInfo.processInfo.arguments.contains("--reading-restore-ui-testing") {
+                 CompanionReadingRestoreFixture()
++            } else if ProcessInfo.processInfo.arguments.contains("--reading-prefix-trim-ui-testing") {
++                CompanionReadingPrefixTrimFixture()
+             } else if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
+                 NavigationStack { CompanionDiagnosticsView() }
+             } else if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
+diff --git a/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift b/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift
+index 9695fa38..ede2d15a 100644
+--- a/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift
++++ b/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift
+@@ -209,8 +209,8 @@ enum CompanionAssistantNavigation {
+     }
+ }
+ 
+-/// One remount's bounded delivery, with a fixed target once layout supplies it. Streaming
+-/// may change the content height but cannot move that target or extend the deadline.
++/// One remount's bounded delivery. Tail growth cannot move its target; a measured shift of
++/// the saved entry can, without extending the original deadline or delivery budget.
+ struct CompanionReadingRestoration {
+     enum Outcome: String { case arrived, touch, scrollPhase, navigation, generation, unmounted, taskCancelled, exhausted }
+     enum Step: Equatable { case wait, scroll(Double), finish(Outcome) }
+@@ -220,17 +220,33 @@ struct CompanionReadingRestoration {
+     let revision: UUID
+     let startedAt: TimeInterval
+     private(set) var offset: Double?
++    private var entryLowerBound: Double?
+     private(set) var attempts = 0
+     var outcome: Outcome?
+ 
++    init(revision: UUID, startedAt: TimeInterval) {
++        self.revision = revision
++        self.startedAt = startedAt
++    }
++
+     mutating func next(now: TimeInterval, revision: UUID, followsLatest: Bool,
+-                       metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?) -> Step {
++                       metrics: CompanionScrollMetrics?, frameContentHeight: Double?, proposedOffset: Double?,
++                       entryLowerBound: Double? = nil) -> Step {
+         if let outcome { return .finish(outcome) }
+         guard self.revision == revision else { return .finish(.generation) }
+         guard !followsLatest else { return .finish(.navigation) }
+         guard now - startedAt < Self.maximumDuration else { return .finish(.exhausted) }
+         guard let metrics, abs(metrics.contentHeight - (frameContentHeight ?? -1)) < 1 else { return .wait }
+-        if offset == nil { offset = proposedOffset }
++        if offset == nil {
++            offset = proposedOffset
++            if offset != nil { self.entryLowerBound = entryLowerBound }
++        } else if let prior = self.entryLowerBound, let entryLowerBound,
++                  abs(entryLowerBound - prior) > 1, let proposedOffset {
++            // A prefix trim/prepend can move the same semantic entry after the first pin.
++            // Height growth or a changed proposal alone must never chase the live tail.
++            offset = proposedOffset
++            self.entryLowerBound = entryLowerBound
++        }
+         guard let offset else { return .wait }
+         if abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 { return .finish(.arrived) }
+         guard attempts < Self.maximumAttempts else { return .finish(.exhausted) }
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index 89387710..b1121daa 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -804,7 +804,8 @@ struct CompanionConversationView: View {
+             let hasEntry = saved.entryID == nil || readingViewport.frames[saved.entryID ?? ""] != nil
+             let step = attempt.next(now: ProcessInfo.processInfo.systemUptime, revision: conversation.historyRevision,
+                 followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
+-                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames, rows: store.timelineRows(for: target)) : nil)
++                proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames, rows: store.timelineRows(for: target)) : nil,
++                entryLowerBound: saved.entryID.flatMap { readingViewport.frames[$0]?.lowerBound })
+             readingViewport.restoration = attempt
+             switch step {
+             case .finish(let outcome):
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+index fb6c0add..be9a5b67 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+@@ -49,4 +49,195 @@ struct CompanionReadingRestoreFixture: View {
+         }
+     }
+ }
++
++/// Uncredited #569 characterization. This never changes restoration or fabricates geometry: the existing
++/// delivery probe only delays a command until a real Store event has trimmed the rendered window.
++struct CompanionReadingPrefixTrimFixture: View {
++    nonisolated struct Sample: Equatable, Sendable {
++        var phase = "loading"
++        var followsLatest = true
++        var entryID: String?
++        var offset: Double?
++        var entryLowerBound: Double?
++        var beforeOffset: Double?
++        var beforeLowerBound: Double?
++        var pinnedOffset: Double?
++        var shift: Double?
++        var miss: Double?
++        var attempts = 0
++        var gateElapsed: Double?
++        var outcome = "pending"
++        var description: String {
++            "phase=\(phase) follow=\(followsLatest ? 1 : 0) entry=\(entryID ?? "nil") offset=\(offset ?? -1) lower=\(entryLowerBound ?? -1) pin=\(pinnedOffset ?? -1) shift=\(shift ?? 0) miss=\(miss ?? 0) attempts=\(attempts) elapsed=\(gateElapsed ?? 0) outcome=\(outcome)"
++        }
++    }
++
++    var runRequest = 0
++    var onSample: (@MainActor (Sample) -> Void)?
++    @State private var lifetime = CompanionStateLifetime {
++        CompanionStore(service: CompanionPreviewService(showsReadingScenario: true))
++    }
++    @State private var ready = false
++    @State private var mounted = true
++    @State private var armed = false
++    @State private var released = false
++    @State private var notExercised = false
++    @State private var saved: CompanionReadingPosition?
++    @State private var oldFirst: String?
++    @State private var oldHidden = 0
++    @State private var oldLower: Double?
++    @State private var oldMetrics: CompanionScrollMetrics?
++    @State private var startedAt: TimeInterval?
++    @State private var pinned: Double?
++    @State private var observedShift: Double?
++    @State private var attempts = 0
++    @State private var gateAttempts: Int?
++    @State private var gateElapsed: Double?
++    @State private var sample = Sample()
++    private var store: CompanionStore { lifetime.value }
++    private var target: CompanionTarget { CompanionPreviewService.target }
++
++    var body: some View {
++        VStack(spacing: 0) {
++            NavigationStack {
++                if ready, mounted, let agent = store.hosts.flatMap(\.allAgents).first(where: { $0.id == target }) {
++                    CompanionConversationView(store: store, agent: agent)
++                } else { Text("Reading fixture") }
++            }
++            // Fixed geometry: publishing diagnostics must not resize the transcript.
++            Text(sample.description).font(.caption2).lineLimit(1).frame(height: 24)
++                .accessibilityIdentifier("reading-prefix-trim-state")
++            Button("Restore across a prefix trim", action: begin)
++                .accessibilityIdentifier("reading-prefix-trim-begin")
++                .disabled(!ready || armed || saved != nil)
++        }
++        .onChange(of: runRequest) { _, _ in begin() }
++        .task {
++            let service = CompanionPreviewService(showsReadingScenario: true)
++            var events = service.events().makeAsyncIterator()
++            if let event = await events.next() { store.apply(event) }
++            await store.load(target)
++            CompanionReadingRestoreProbe.deliver = { _, attempt, offset, _ in
++                guard armed else { return true }
++                return delivery(attempt: attempt, offset: offset)
++            }
++            defer { CompanionReadingRestoreProbe.deliver = nil }
++            ready = true
++            while !Task.isCancelled {
++                publish()
++                do { try await Task.sleep(for: .milliseconds(20)) } catch { return }
++            }
++        }
++    }
++
++    private func window(retaining id: String?) -> CompanionTimelineWindow {
++        CompanionTimelineWindow(rows: store.timelineRows(for: target),
++                                limit: store.readingBookmark(for: target).position.shownEntries, retaining: id)
++    }
++
++    private func begin() {
++        let bookmark = store.readingBookmark(for: target)
++        let viewport = bookmark.viewport
++        guard ready, !armed, saved == nil, !bookmark.position.followsLatest,
++              !viewport.isRestoring, let id = bookmark.position.entryID,
++              let lower = viewport.frames[id]?.lowerBound, let metrics = viewport.metrics,
++              abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 else { return }
++        let before = window(retaining: id)
++        saved = bookmark.position
++        oldFirst = before.entries.first?.id
++        oldHidden = before.hiddenCount
++        oldLower = lower
++        oldMetrics = metrics
++        armed = true
++        mounted = false
++        Task { @MainActor in
++            try? await Task.sleep(for: .milliseconds(100))
++            mounted = true
++        }
++    }
++
++    private func delivery(attempt: Int, offset: Double) -> Bool {
++        attempts = attempt
++        guard let saved, let id = saved.entryID, let oldLower, let oldMetrics else {
++            notExercised = true
++            return true
++        }
++        let bookmark = store.readingBookmark(for: target)
++        let viewport = bookmark.viewport
++        if startedAt == nil {
++            // The real restoration has already pinned its offset before invoking this existing hook.
++            startedAt = ProcessInfo.processInfo.systemUptime
++            pinned = viewport.restoration?.offset
++            guard pinned == offset else { notExercised = true; return true }
++            store.apply(.upsert(target, .message(.init(id: "prefix-trim-tail", role: .assistant,
++                text: "A distinct tail reply arrives while the earlier reading command is in flight.")), sequence: nil))
++            publish()
++            return false
++        }
++        if released || notExercised { return true }
++        let elapsed = ProcessInfo.processInfo.systemUptime - (startedAt ?? 0)
++        gateElapsed = elapsed
++        if attempt > 10 || elapsed >= 1 {
++            notExercised = true
++            publish()
++            return true
++        }
++        let after = window(retaining: id)
++        let first = after.entries.first?.id
++        let shift = viewport.frames[id].map { $0.lowerBound - oldLower }
++        let matches = viewport.metrics.map {
++            abs($0.contentHeight - (viewport.frameContentHeight ?? -1)) < 1
++                && abs($0.containerHeight - oldMetrics.containerHeight) < 1
++                && abs($0.topInset - oldMetrics.topInset) < 1
++                && abs($0.bottomInset - oldMetrics.bottomInset) < 1
++        } ?? false
++        // The projection alone is insufficient: require the new first entry's real frame and the old
++        // first entry's removal, as well as the bookmarked entry's actual measured displacement.
++        if pinned != nil, after.hiddenCount != oldHidden, first != oldFirst,
++           first.map({ viewport.frames[$0] != nil }) == true,
++           oldFirst.map({ viewport.frames[$0] == nil }) == true,
++           let shift, abs(shift) > 1, matches {
++            observedShift = shift
++            gateAttempts = attempt
++            released = true
++            publish()
++            return true
++        }
++        if attempt >= 10 {
++            // A missed gate is a fixture failure, never evidence for or against H1. Release normal
++            // delivery so this diagnostic does not modify product cancellation/timeout semantics.
++            notExercised = true
++            publish()
++            return true
++        }
++        publish()
++        return false
++    }
++
++    private func publish() {
++        let bookmark = store.readingBookmark(for: target)
++        let viewport = bookmark.viewport
++        var next = Sample()
++        next.phase = notExercised ? "H1-not-exercised" : released ? "released" : armed ? "waiting" : ready ? "ready" : "loading"
++        next.followsLatest = bookmark.position.followsLatest
++        next.entryID = saved?.entryID ?? bookmark.position.entryID
++        next.offset = viewport.metrics?.normalizedOffset
++        next.entryLowerBound = next.entryID.flatMap { viewport.frames[$0]?.lowerBound }
++        next.beforeOffset = oldMetrics?.normalizedOffset
++        next.beforeLowerBound = oldLower
++        next.pinnedOffset = pinned
++        next.shift = observedShift
++        next.attempts = gateAttempts ?? attempts
++        next.gateElapsed = gateElapsed
++        next.outcome = viewport.restoration?.outcome?.rawValue ?? "pending"
++        if let saved, let lower = next.entryLowerBound, let offset = next.offset {
++            next.miss = offset - (lower + saved.distanceFromEntry)
++        }
++        if next != sample {
++            sample = next
++            onSample?(next)
++            NSLog("READING569_FIXTURE %@", next.description)
++        }
++    }
++}
+ #endif
+diff --git a/Annex/AnnexTests/CompanionHiddenConversationTests.swift b/Annex/AnnexTests/CompanionHiddenConversationTests.swift
+index 1dedc2b7..458f651f 100644
+--- a/Annex/AnnexTests/CompanionHiddenConversationTests.swift
++++ b/Annex/AnnexTests/CompanionHiddenConversationTests.swift
+@@ -31,6 +31,67 @@ import UIKit
+             }
+         }
+     }
++    private struct PrefixTrimHost: View {
++        @Bindable var navigation: Navigation
++        var onSample: @MainActor (CompanionReadingPrefixTrimFixture.Sample) -> Void
++        var body: some View {
++            CompanionReadingPrefixTrimFixture(runRequest: navigation.tab, onSample: onSample)
++        }
++    }
++
++    /// A real tail event trims the rendered prefix between the first pin and delivery.
++    /// Public geometry must still match the saved semantic entry after final arrival.
++    @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
++        var observed: CompanionReadingPrefixTrimFixture.Sample?
++        let navigation = Navigation()
++        let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
++        let window = UIWindow(windowScene: scene)
++        window.rootViewController = UIHostingController(rootView: PrefixTrimHost(navigation: navigation) { observed = $0 })
++        window.makeKeyAndVisible()
++        defer {
++            CompanionReadingRestoreProbe.deliver = nil
++            window.isHidden = true
++            window.rootViewController = nil
++        }
++        let clock = ContinuousClock()
++        func waitUntil(_ condition: () -> Bool) async throws {
++            let start = clock.now
++            while !condition(), start.duration(to: clock.now) < .seconds(5) {
++                window.layoutIfNeeded()
++                try await Task.sleep(for: .milliseconds(20))
++            }
++        }
++        try await waitUntil { observed?.phase == "ready" && observed?.offset != nil && transcript(in: window) != nil }
++        let scroll = try #require(transcript(in: window))
++        // The same public native-scroll preparation as the existing hidden-conversation tests.
++        scroll.setContentOffset(CGPoint(x: 0, y: -scroll.adjustedContentInset.top), animated: false)
++        try await settle(window)
++        scroll.setContentOffset(CGPoint(x: 0, y: 1_200), animated: false)
++        try await settle(window)
++        try await waitUntil { observed?.followsLatest == false && observed?.entryID != nil }
++        let before = try #require(observed)
++        try #require(!before.followsLatest && before.entryID != nil, "The real native scroll must first capture a paused bookmark")
++        navigation.tab += 1
++        try await waitUntil { observed?.phase == "H1-not-exercised" || observed?.outcome == "arrived" }
++        let result = try #require(observed)
++        try #require(result.phase != "H1-not-exercised", "H1 not exercised: the real geometry gate missed its bound")
++        try #require(result.outcome == "arrived", "Only completed product arrival can classify this fixture")
++        let shift = try #require(result.shift)
++        let miss = try #require(result.miss)
++        let pin = try #require(result.pinnedOffset)
++        let beforeOffset = try #require(result.beforeOffset)
++        let beforeLower = try #require(result.beforeLowerBound)
++        let afterOffset = try #require(result.offset)
++        let afterLower = try #require(result.entryLowerBound)
++        #expect(result.attempts <= 10)
++        #expect((result.gateElapsed ?? .infinity) < 1)
++        #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
++        #expect(abs(pin - beforeOffset) <= 2)
++        #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
++        print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
++        #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
++                "A prefix trim during restoration must preserve the reading entry within six points")
++    }
+     @MainActor private final class Counts {
+         var bodies: [CompanionTarget: Int] = [:]
+         var timelines: [CompanionTarget: Int] = [:]
+diff --git a/Annex/AnnexTests/CompanionReadingRestorationTests.swift b/Annex/AnnexTests/CompanionReadingRestorationTests.swift
+index 2b2fe9e7..ba65a9d3 100644
+--- a/Annex/AnnexTests/CompanionReadingRestorationTests.swift
++++ b/Annex/AnnexTests/CompanionReadingRestorationTests.swift
+@@ -8,19 +8,87 @@ import Foundation
+     }
+     private func step(_ value: inout CompanionReadingRestoration, now: Double = 0,
+                       revision: UUID? = nil, follows: Bool = false, offset: Double = 8_000,
+-                      height: Double = 10_000, proposed: Double = 1_200) -> CompanionReadingRestoration.Step {
++                      height: Double = 10_000, proposed: Double = 1_200,
++                      lower: Double? = 1_000) -> CompanionReadingRestoration.Step {
+         value.next(now: now, revision: revision ?? value.revision, followsLatest: follows,
+-            metrics: metrics(offset, height: height), frameContentHeight: height, proposedOffset: proposed)
++            metrics: metrics(offset, height: height), frameContentHeight: height, proposedOffset: proposed,
++            entryLowerBound: lower)
+     }
+ 
+     @Test func droppedDeliveryRetriesButStreamingCannotChangeItsTarget() {
+         var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
+         #expect(step(&value) == .scroll(1_200)) // Simulate the framework losing this command.
+-        #expect(step(&value, now: 0.05, height: 20_000, proposed: 1_800) == .scroll(1_200))
++        #expect(step(&value, now: 0.05, height: 20_000, proposed: 1_800, lower: 1_000) == .scroll(1_200))
+         #expect(step(&value, now: 0.1, offset: 1_200, height: 21_000) == .finish(.arrived))
+         #expect(value.attempts == 2)
+     }
+ 
++    @Test func prefixShiftRetargetsBeforeStaleNumericArrival() {
++        var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&value) == .scroll(1_200))
++        #expect(step(&value, now: 0.05, offset: 1_200, proposed: 1_103.333, lower: 903.333) == .scroll(1_103.333))
++        #expect(step(&value, now: 0.1, offset: 1_103.333, proposed: 1_103.333, lower: 903.333) == .finish(.arrived))
++        #expect(value.attempts == 2)
++    }
++
++    @Test func prependIncreasesTheTargetByTheMeasuredEntryShift() {
++        var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&value) == .scroll(1_200))
++        #expect(step(&value, now: 0.05, offset: 1_200, proposed: 1_800, lower: 1_600) == .scroll(1_800))
++        #expect(step(&value, now: 0.1, offset: 1_800, proposed: 1_800, lower: 1_600) == .finish(.arrived))
++    }
++
++    @Test func halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget() {
++        var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&value) == .scroll(1_200))
++        #expect(step(&value, now: 0.05, proposed: 1_200.5, lower: 1_000.5) == .scroll(1_200))
++        #expect(step(&value, now: 0.1, proposed: 1_800, lower: nil) == .scroll(1_200))
++        #expect(step(&value, now: 0.15, offset: 1_200, proposed: 1_200.5, lower: 1_000.5) == .finish(.arrived))
++        var fallback = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&fallback, lower: nil) == .scroll(1_200))
++        #expect(step(&fallback, now: 0.05, proposed: 1_800, lower: nil) == .scroll(1_200))
++    }
++
++    @Test func inconsistentGeometryCannotRepinTheTarget() {
++        var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&value) == .scroll(1_200))
++        #expect(value.next(now: 0.05, revision: value.revision, followsLatest: false,
++            metrics: metrics(1_200), frameContentHeight: 9_000, proposedOffset: 1_100,
++            entryLowerBound: 900) == .wait)
++        #expect(value.offset == 1_200)
++        #expect(step(&value, now: 0.1, offset: 1_200, proposed: 1_100, lower: 900) == .scroll(1_100))
++    }
++
++    @Test func severalEntryShiftsConvergeWithinTheOriginalBudget() {
++        var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&value) == .scroll(1_200))
++        var offset = 1_200.0
++        for (index, lower) in [900.0, 850, 875].enumerated() {
++            #expect(step(&value, now: Double(index + 1) * 0.05, offset: offset,
++                         proposed: lower + 200, lower: lower) == .scroll(lower + 200))
++            offset = lower + 200
++        }
++        #expect(step(&value, now: 0.2, offset: offset, proposed: offset, lower: 875) == .finish(.arrived))
++        #expect(value.startedAt == 0)
++        #expect(value.attempts == 4)
++    }
++
++    @Test func continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits() {
++        var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        for index in 0..<CompanionReadingRestoration.maximumAttempts {
++            let lower = 1_000.0 + Double(index) * 10
++            #expect(step(&value, now: Double(index) * 0.05, proposed: lower + 200, lower: lower) == .scroll(lower + 200))
++        }
++        #expect(step(&value, now: 1.1, proposed: 1_500, lower: 1_300) == .finish(.exhausted))
++        #expect(value.startedAt == 0)
++        #expect(value.attempts == 20)
++        var deadline = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
++        #expect(step(&deadline) == .scroll(1_200))
++        #expect(step(&deadline, now: 1.99, proposed: 1_400, lower: 1_200) == .scroll(1_400))
++        #expect(step(&deadline, now: 2, proposed: 1_600, lower: 1_400) == .finish(.exhausted))
++        #expect(deadline.startedAt == 0)
++    }
++
+     @Test(arguments: [CompanionReadingRestoration.Outcome.touch, .scrollPhase, .navigation, .unmounted])
+     func userAndNavigationCancellationPreventEveryLateReissue(outcome: CompanionReadingRestoration.Outcome) {
+         let viewport = CompanionReadingViewport()
+@@ -31,15 +99,15 @@ import Foundation
+         viewport.finishRestoration(outcome, now: 0.01)
+         #expect(!viewport.isRestoring)
+         #expect(viewport.restoreOffset == nil)
+-        #expect(step(&viewport.restoration!, now: 0.05, offset: 2_400) == .finish(outcome))
++        #expect(step(&viewport.restoration!, now: 0.05, offset: 2_400, proposed: 1_400, lower: 1_200) == .finish(outcome))
+         #expect(viewport.restoration?.attempts == 1, "A drag's chosen position cannot receive a late restore")
+     }
+ 
+     @Test func generationAndLatestPreventReissue() {
+         var value = CompanionReadingRestoration(revision: UUID(), startedAt: 0)
+         #expect(step(&value) == .scroll(1_200))
+-        #expect(step(&value, now: 0.05, revision: UUID()) == .finish(.generation))
+-        #expect(step(&value, now: 0.05, follows: true) == .finish(.navigation))
++        #expect(step(&value, now: 0.05, revision: UUID(), proposed: 1_400, lower: 1_200) == .finish(.generation))
++        #expect(step(&value, now: 0.05, follows: true, proposed: 1_400, lower: 1_200) == .finish(.navigation))
+         #expect(value.attempts == 1)
+     }
+ 
+diff --git a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+index 9942c59f..5fd6060a 100644
+--- a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+@@ -1,6 +1,72 @@
+ import XCTest
+ 
+ @MainActor final class CompanionReadingRestoreUITests: ReliableUITestCase {
++    /// A real prefix trim after the restore pin must preserve both semantic and visible reading alignment.
++    func testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry() {
++        let app = launchApp(["--reading-prefix-trim-ui-testing", "--companion-preview-reading"])
++        let state = app.staticTexts["reading-prefix-trim-state"]
++        XCTAssertTrue(state.waitForExistence(timeout: 10))
++        let transcript = app.scrollViews["companion-transcript"]
++        XCTAssertTrue(transcript.waitForExistence(timeout: 10))
++        for _ in 0..<4 {
++            if state.label.contains("follow=0") { break }
++            transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
++                .press(forDuration: 0.1, thenDragTo: transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)),
++                       withVelocity: .slow, thenHoldForDuration: 0.1)
++        }
++        XCTAssertTrue(waitFor(state, NSPredicate(format: "label CONTAINS %@", "follow=0"), timeout: 5))
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++        let top = app.navigationBars.firstMatch.frame.maxY + 30
++        let bottom = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.frame.minY - 30
++        let markers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Reading marker ")).allElementsBoundByIndex
++        guard let marker = markers.first(where: { $0.isHittable && $0.frame.minY > top && $0.frame.maxY < bottom }) else {
++            XCTFail("A real reading marker must be visible before the fixture is armed"); return
++        }
++        let anchor = app.staticTexts[marker.label]
++        func stableFrame() -> Bool {
++            let deadline = Date().addingTimeInterval(4)
++            var previous: CGRect?, stable = 0
++            while Date() < deadline {
++                let current = anchor.frame
++                stable = current == previous && !current.isEmpty ? stable + 1 : 0
++                previous = current
++                if stable >= 2 { return true }
++                RunLoop.current.run(until: Date().addingTimeInterval(0.25))
++            }
++            return false
++        }
++        guard stableFrame() else { XCTFail("The prepared marker did not settle"); return }
++        let beforeY = anchor.frame.minY
++        app.buttons["reading-prefix-trim-begin"].tap()
++        XCTAssertTrue(waitFor(state, NSPredicate { _, _ in
++            state.label.contains("phase=H1-not-exercised") || state.label.contains("outcome=arrived")
++        }, timeout: 5), state.label)
++        guard !state.label.contains("phase=H1-not-exercised") else {
++            XCTFail("H1 not exercised: the real geometry gate missed its bound. \(state.label)"); return
++        }
++        guard state.label.contains("outcome=arrived") else { XCTFail("Only final arrived can classify H1"); return }
++        guard stableFrame() else { XCTFail("The completed restore did not settle"); return }
++        func number(_ key: String) -> Double? {
++            state.label.split(separator: " ").first { $0.hasPrefix(key + "=") }
++                .flatMap { Double($0.dropFirst(key.count + 1)) }
++        }
++        guard let shift = number("shift"), let miss = number("miss"),
++              let attempts = number("attempts"), let elapsed = number("elapsed") else {
++            XCTFail("The diagnostic state must contain its measured gate and displacement"); return
++        }
++        XCTAssertLessThanOrEqual(attempts, 10)
++        XCTAssertLessThan(elapsed, 1)
++        XCTAssertGreaterThan(abs(shift), 8)
++        XCTAssertEqual(miss, 0, accuracy: 2, "The numeric target must follow the saved entry across a prefix shift")
++        XCTAssertEqual(beforeY - anchor.frame.minY, 0, accuracy: 2, "The real pixels must preserve the same reading entry")
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++        let attachment = XCTAttachment(screenshot: app.screenshot())
++        attachment.name = "Deterministic prefix trim after the restore pin"
++        attachment.lifetime = .keepAlways
++        add(attachment)
++        XCTAssertEqual(anchor.frame.minY, beforeY, accuracy: 6, "Restoration must preserve the reader's entry")
++    }
++
+     func testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition() {
+         let app = launchApp(["--reading-restore-ui-testing"])
+         let state = app.staticTexts["reading-restore-fixture"]
+diff --git a/Annex/AnnexUITests/CompanionReadingUITests.swift b/Annex/AnnexUITests/CompanionReadingUITests.swift
+index 96fd92b1..11a6a2f0 100644
+--- a/Annex/AnnexUITests/CompanionReadingUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingUITests.swift
+@@ -25,6 +25,54 @@ import UIKit
+         return CGRect(x: app.frame.minX, y: top, width: app.frame.width, height: max(0, bottom - top))
+     }
+ 
++    private struct ReadingRestoreFrames: Equatable {
++        let anchor: CGRect
++        let viewport: CGRect
++        let keyboard: CGRect?
++    }
++
++    /// Existence precedes the asynchronous bookmark restore. Observe public frames for
++    /// longer than its two-second budget; never wait for the expected bookmark itself.
++    /// A settled wrong position must still fail the unchanged six-point assertion.
++    private func waitForReadingRestoration(_ anchor: XCUIElement, in app: XCUIApplication, context: String,
++                                           file: StaticString = #filePath, line: UInt = #line) -> Bool {
++        let start = ProcessInfo.processInfo.systemUptime
++        let timeout: TimeInterval = 8
++        let stableInterval: TimeInterval = 2.25
++        var stableSince: TimeInterval?
++        var previous: ReadingRestoreFrames?
++        var samples: [String] = []
++        defer {
++            let trace = XCTAttachment(string: samples.joined(separator: "\n"))
++            trace.name = "\(context) restoration frame timeline"
++            trace.lifetime = .keepAlways
++            add(trace)
++            screenshot(app, "\(context) restoration readiness")
++        }
++        while ProcessInfo.processInfo.systemUptime - start < timeout {
++            checkTimeLeft("waiting for \(context) reading restoration", file: file, line: line)
++            let exists = anchor.exists
++            let frame = exists ? anchor.frame : .zero
++            let viewport = transcriptViewport(app)
++            let keyboard = app.keyboards.firstMatch
++            let keyboardFrame = keyboard.exists ? keyboard.frame : nil
++            let now = ProcessInfo.processInfo.systemUptime
++            let current = ReadingRestoreFrames(anchor: frame, viewport: viewport, keyboard: keyboardFrame)
++            let ready = exists && !frame.isEmpty && !viewport.isEmpty
++            if !ready || current != previous { stableSince = ready ? now : nil }
++            samples.append("t=\(now - start) exists=\(exists) anchor=\(frame) viewport=\(viewport) keyboard=\(String(describing: keyboardFrame)) stableFor=\(stableSince.map { now - $0 } ?? 0)")
++            previous = ready ? current : nil
++            if now - start < timeout, let stableSince, now - stableSince >= stableInterval {
++                samples.append("settled t=\(now - start)")
++                return true
++            }
++            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
++        }
++        samples.append("timed out without stable public frames")
++        XCTFail("\(context): reading entry, viewport and keyboard must settle within \(timeout)s", file: file, line: line)
++        return false
++    }
++
+     /// Real transcript gestures replace setup through the arrows removed by #447.
+     private func dragTranscript(_ app: XCUIApplication, by distance: CGFloat) {
+         let viewport = gestureViewport(app)
+@@ -302,12 +350,12 @@ import UIKit
+         app.buttons.matching(NSPredicate(format: "label == %@", "Search")).firstMatch.tap()
+         app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch.tap()
+         openRiver(app)
+-        XCTAssertTrue(anchor.waitForExistence(timeout: 10))
++        guard waitForReadingRestoration(anchor, in: app, context: "Tab return") else { return }
+         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Tab return preserves the reader's place")
+ 
+         app.navigationBars.buttons.element(boundBy: 0).tap()
+         openRiver(app)
+-        XCTAssertTrue(anchor.waitForExistence(timeout: 10))
++        guard waitForReadingRestoration(anchor, in: app, context: "Chat reopen") else { return }
+         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Leaving and reopening restores the entry bookmark")
+         navigateToChatEnd(app)
+         XCTAssertFalse(latest.exists, "Returning to the true bottom resumes following")
+diff --git a/docs/isolated-deinit.md b/docs/isolated-deinit.md
+index ef6b075d..ade62ed9 100644
+--- a/docs/isolated-deinit.md
++++ b/docs/isolated-deinit.md
+@@ -104,7 +104,7 @@ The root-owner replacement regression waits for an actual teardown event before
+ | `CompanionTimelineProjection` | arc_only | UUID, counters/index dictionaries and Sendable timeline rows; reachable image wrappers own immutable Data with reviewed ARC-only teardown. No UI or callbacks. |
+ | `CompanionRuntime` | main_actor_task | Nonisolated deinit transfers feedback and whole Store/service/lifecycle subtrees into a MainActor task. First quiesce Presenter, clear Store's isolated provider flows and stop listeners/telemetry without awaiting. Then settle queued transitions, shut down/disconnect and relinquish transports, and release owners inside the task. Fields and exact deinit body are gated (#349). |
+ | `CompanionHomeRenderSession` | `main_actor_task` | Lazy SwiftUI StateObject owns display snapshot and existing Root execution handles. StateObject teardown reproduced the isolated-deinit runtime invalid-free abort. Empty/nonisolated ARC alone cannot waive captured UI affinity: deinit copies actions/snapshot into a real MainActor Task and extends their lifetime there; exact fields and body are gated. No task handle is retained. |
+-| `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue, Runtime, a synthetic PreviewService Store, or the DEBUG feedback-fixture tuple. Factories capture Store, a Bool, or nothing; Runtime separately defers UI teardown onto MainActor. New constructor/capture sites require review. |
++| `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue, Runtime, a synthetic PreviewService Store, or the DEBUG feedback-fixture tuple. The DEBUG prefix-trim fixture adds a capture-free factory producing a synthetic reading PreviewService Store, with the same UI-free ownership graph. Factories capture Store, a Bool, or nothing; Runtime separately defers UI teardown onto MainActor. New constructor/capture sites require review. |
+ | `CompanionStore` | arc_only | Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Home decision projection stores only existing Sendable approval/question timeline values; no callbacks/tasks/UI owner. |
+ | `CompanionStreamDiagnostics` | arc_only | Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields. |
+ | `CompanionTelemetry` | main_actor | Owns SDK/MetricKit/subscription objects; their destruction affinity is not proved here. |
+diff --git a/docs/reading-prefix-trim-characterization.md b/docs/reading-prefix-trim-characterization.md
+new file mode 100644
+index 00000000..a3b53ee6
+--- /dev/null
++++ b/docs/reading-prefix-trim-characterization.md
+@@ -0,0 +1,15 @@
++# Reading prefix-shift restoration (#569)
++
++The deterministic fail-before at `1f719268` confirmed the original one-block miss: a real tail upsert between the numeric pin and delivery trimmed the rendered prefix, moving the saved entry −96.667pt. Hosted and UI each executed once and failed only the unchanged six-point contract. [Evidence](https://github.com/Agent-Clubhouse/Clubhouse-Go/tree/evidence/ux-569/prefix-trim-fail-before).
++
++The restore now pins the saved entry's measured lower bound with its numeric target. Only a change greater than one point in that same entry's position under consistent geometry can recalculate the target. Tail growth alone cannot move it. Arrival is checked against the recalculated target. Deadline, attempt limits, cancellation and the semantic bookmark remain unchanged.
++
++The shared DEBUG fixture starts an ordinary loaded preview transcript. A real native scroll captures a paused bookmark. On remount, the existing `CompanionReadingRestoreProbe.deliver` hook refuses the first delivery after the product pins its offset, then appends one distinct reply through a normal Store upsert. It never writes geometry or scroll offsets.
++
++Release requires a pinned offset, a changed window hidden count and first entry, the new first entry's real frame and the old first entry's removal, a retained entry displaced by more than one point, and content/frame heights within one point. Viewport and insets must match pre-remount geometry. Ten attempts or one second without this gate is **H1 not exercised**, not a product verdict. Probe teardown uses `defer`; only a final `.arrived` counts.
++
++The renamed regression methods are `prefixTrimDuringPinnedRestorePreservesTheReadingEntry()` (hosted) and `testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry()` (UI). Every gate and the independent six-point assertion remain. Only the baseline-specific miss≈−shift assertions become zero miss and zero pixel displacement within two points. The original historical Reading method keeps its six-point checks and controls; a bounded public-frame stability helper now waits for completion without supplying its expected position.
++
++Several entry shifts may settle under the same budget. Continuous movement exhausts the unchanged 20 attempts or two seconds, leaves the semantic bookmark available for the next mount, and does not chase indefinitely. First-paint seeding is deferred to #582: latest content can still appear before restoration. #569 remains open for device verification.
++
++Proof uses an exact-head fresh Debug build, compiled deinit gate, policy unit tests, focused restoration/hidden hosted suites, deterministic UI, both original order-controlled prefixes, cold single, full Reading on SE and current-main combined coverage. Each ticket uses normal FIFO, jobs2, one private simulator lifecycle, QuickPath suppression, exact-once outcome/order audit and no assertion retries. Admission requires free+inactive≥8GiB, idle≥40%, and swap growth≤64MiB/10s; runtime swap watch is record-only. The external exact-method manifest is independently reviewed before any run.
+diff --git a/scripts/isolated-deinit-policy.json b/scripts/isolated-deinit-policy.json
+index 68604ea7..c535ba62 100644
+--- a/scripts/isolated-deinit-policy.json
++++ b/scripts/isolated-deinit-policy.json
+@@ -1129,12 +1129,20 @@
+         {
+           "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) ) }",
+           "producers": {}
++        },
++        {
++          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) ) }",
++          "producers": {}
+         }
+       ],
+       "constructor:CompanionStore": [
+         {
+           "expression": "CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) )",
+           "producers": {}
++        },
++        {
++          "expression": "CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) )",
++          "producers": {}
+         }
+       ]
+     },

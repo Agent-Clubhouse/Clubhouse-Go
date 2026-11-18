@@ -1,0 +1,83 @@
+{
+  "head": "3db11ac3234a47a4ba3420acdef8799d3e5c0309",
+  "phase": "A",
+  "started_at": "2026-11-18T09:21:28.755486+00:00",
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 834 total, 2 running, 832 sleeping, 5702 threads \n2026/11/18 01:21:29\nLoad Avg: 2.41, 3.78, 6.27 \nCPU usage: 5.27% user, 7.91% sys, 86.80% idle \nSharedLibs: 1128M resident, 195M data, 176M linkedit.\nMemRegions: 1220523 total, 13G resident, 543M private, 4884M shared.\nPhysMem: 51G used (7130M wired, 5991M compressor), 12G unused.\nVM: 436T vsize, 6144M framework vsize, 9860350(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1361452703/1585G in, 561378933/419G out.\nDisks: 2161581655/26T read, 2969871646/34T written.\n\n\nProcesses: 836 total, 3 running, 833 sleeping, 5701 threads \n2026/11/18 01:21:39\nLoad Avg: 2.43, 3.74, 6.22 \nCPU usage: 3.26% user, 2.93% sys, 93.79% idle \nSharedLibs: 1128M resident, 195M data, 176M linkedit.\nMemRegions: 72 total, 1888K resident, 543M private, 4884M shared.\nPhysMem: 51G used (7130M wired, 5991M compressor), 12G unused.\nVM: 437T vsize, 6144M framework vsize, 9860350(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1361454784/1585G in, 561381370/419G out.\nDisks: 2161581680/26T read, 2969882589/34T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   655780.\nPages active:                                1296228.\nPages inactive:                              1207511.\nPages speculative:                            134417.\nPages throttled:                                   0.\nPages wired down:                             456336.\nPages purgeable:                               32226.\n\"Translation faults\":                   111759551397.\nPages copy-on-write:                     10730156019.\nPages zero filled:                       56550736045.\nPages reactivated:                       11744801862.\nPages purged:                              289975355.\nFile-backed pages:                           1193285.\nAnonymous pages:                             1444871.\nPages stored in compressor:                  1034682.\nPages occupied by compressor:                 383419.\nDecompressions:                           6116329508.\nCompressions:                             6816948727.\nPageins:                                  1523586444.\nPageouts:                                   12319777.\nSwapins:                                     9860350.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   656272.\nPages active:                                1296361.\nPages inactive:                              1207533.\nPages speculative:                            134143.\nPages throttled:                                   0.\nPages wired down:                             456297.\nPages purgeable:                               32240.\n\"Translation faults\":                   111759593711.\nPages copy-on-write:                     10730159455.\nPages zero filled:                       56550753582.\nPages reactivated:                       11744801862.\nPages purged:                              289975355.\nFile-backed pages:                           1193311.\nAnonymous pages:                             1444726.\nPages stored in compressor:                  1034679.\nPages occupied by compressor:                 383418.\nDecompressions:                           6116329511.\nCompressions:                             6816948727.\nPageins:                                  1523586545.\nPageouts:                                   12319777.\nSwapins:                                     9860350.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 10744299520,
+      "inactive_bytes": 19783860224,
+      "free_plus_inactive_bytes": 30528159744
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 10752360448,
+      "inactive_bytes": 19784220672,
+      "free_plus_inactive_bytes": 30536581120
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 1996.25M  free = 1075.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 1996.25M  free = 1075.75M  (encrypted)\n",
+    "cpu_idle_percent": 93.79,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "incremental_from": "/tmp/ux-569-fix-proof/a-fix-r1-receipt.json",
+  "source": "/tmp/ux-569-fix-proof/tickets/a-fix-r1/source",
+  "DD": "/tmp/ux-569-fix-proof/tickets/a-fix-r1/DD",
+  "source_provenance": {
+    "head": "3db11ac3234a47a4ba3420acdef8799d3e5c0309",
+    "base": "1797d21f91c25f7c6e8fd2baba0db64a6f1c9fdd",
+    "source_sha256": {
+      "Annex/Annex/AnnexApp.swift": "8932d561cd69e1b916345ce8d5c87c996d6f661b409a8f8b37430aa598602eaf",
+      "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "573c51da26d7b711331663db8cd0d9caadc4e65410a05b0d553bbb6d25ad65a5",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "a45e2a86e5ced96d7aefaae6d3528a8a4edb39f506ddc1ba6efb7d662747989a",
+      "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "a78f1d878680734c02c9aa9de119de704280e3820af069e133cf3f82deb0124a",
+      "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+      "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+      "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+      "docs/isolated-deinit.md": "660997aa5f14c04957bb0fa0bf6e86c066b0673a4d1948d2915c807c2e9618e9",
+      "docs/reading-prefix-trim-characterization.md": "ba7686ca639e837993dba2eca802e568731a14d2307bcaf8051d74df1988aff1",
+      "scripts/isolated-deinit-policy.json": "0c26dd03ca9085861e4860c5432c230574422bcc220cd99ecea98b00150e7c3d"
+    },
+    "full_diff_sha256": "8bbb21543527fc920fe38baa25f33241aee826a659524a15cc5d06ac0a076e51"
+  },
+  "runner_sha256": "a899b70d7f474c68365a351439dce98dd19ee6eea50afb9382867e6a408425db",
+  "build_rc": 0,
+  "rc": 0,
+  "artifact_sha256": {
+    "/tmp/ux-569-fix-proof/tickets/a-fix-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "8c7bfa24bb407146e22ed4dbef5484e07d7766f3273db85c9dffe4d58f25ffaf",
+    "/tmp/ux-569-fix-proof/tickets/a-fix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "2e5e4b716a13939f42d8046bc978b6b5eb54ad8deaf2952208141ffaf5f3e0fd",
+    "/tmp/ux-569-fix-proof/tickets/a-fix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "755d9993ae6ddbbd4cc9bd140d8e7b648cbec8467f19a332046cbe896fa8ae1b",
+    "/tmp/ux-569-fix-proof/tickets/a-fix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-569-fix-proof/tickets/a-fix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "11d1529df4af64d788007340fa51a15d7d248ffa5204247f42d9bf188d4e1268"
+  },
+  "deinit_rc": 0,
+  "policy_rc": 0,
+  "admitted_at": "2026-11-18T09:21:28.733331+00:00",
+  "closed_at": "2026-11-18T09:24:08.088735+00:00",
+  "duration_seconds": 159.34375408338383,
+  "hard_bound_seconds": 600,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 11,
+    "growth_bytes": 0,
+    "start_bytes": 2093219840.0,
+    "max_bytes": 2093219840.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-569-fix-proof/a-fix-r2-receipt.json",
+  "booted_after": []
+}
