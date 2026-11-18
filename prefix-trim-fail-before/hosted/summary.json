@@ -1,0 +1,49 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "816524AA-3C95-4567-8C63-BACEC2C2D3DF",
+        "deviceName" : "ux-569-prefix-trim",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 0,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "ClubhouseGo · Built with macOS 26.5.2",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1794992804.683,
+  "passedTests" : 0,
+  "result" : "Failed",
+  "skippedTests" : 0,
+  "startTime" : 1794992781.962,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "Expectation failed: (abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) → 96.66666666666765) <= (6 → 6.0): A prefix trim during restoration must preserve the reading entry within six points",
+      "targetName" : "ClubhouseGoTests",
+      "testIdentifier" : 1,
+      "testIdentifierString" : "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+      "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+      "testName" : "prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()"
+    }
+  ],
+  "title" : "Test - ClubhouseGo",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 1
+}

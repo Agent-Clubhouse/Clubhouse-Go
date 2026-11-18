@@ -1,0 +1,26 @@
+{
+  "capture_sites_equal_extractor": true,
+  "actual": {
+    "constructor:CompanionStateLifetime": [
+      {
+        "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) ) }",
+        "producers": {}
+      },
+      {
+        "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) ) }",
+        "producers": {}
+      }
+    ],
+    "constructor:CompanionStore": [
+      {
+        "expression": "CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) )",
+        "producers": {}
+      },
+      {
+        "expression": "CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) )",
+        "producers": {}
+      }
+    ]
+  },
+  "review": "Both factories capture no external value. New factory constructs same UI-free PreviewService Store with reading scenario flag. Deliver callback lives in DEBUG fixture task; defer nil resets global hook, hosted test also clears in defer."
+}

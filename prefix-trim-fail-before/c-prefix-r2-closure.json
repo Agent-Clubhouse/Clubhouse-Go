@@ -1,0 +1,213 @@
+{
+  "head": "1f7192686e9773470fc81c6ccaf9a7ad3ce6cf80",
+  "phase": "C",
+  "started_at": "2026-11-18T09:05:40.467414+00:00",
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 841 total, 3 running, 1 stuck, 837 sleeping, 5683 threads \n2026/11/18 01:05:41\nLoad Avg: 33.84, 16.90, 9.41 \nCPU usage: 7.48% user, 16.4% sys, 76.46% idle \nSharedLibs: 1127M resident, 195M data, 174M linkedit.\nMemRegions: 1220808 total, 14G resident, 541M private, 4876M shared.\nPhysMem: 46G used (7099M wired, 6002M compressor), 17G unused.\nVM: 439T vsize, 6144M framework vsize, 9860338(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1360543762/1584G in, 561137610/419G out.\nDisks: 2159343708/26T read, 2968185928/34T written.\n\n\nProcesses: 840 total, 3 running, 1 stuck, 836 sleeping, 5724 threads \n2026/11/18 01:05:51\nLoad Avg: 26.81, 16.17, 9.28 \nCPU usage: 2.89% user, 10.2% sys, 87.8% idle \nSharedLibs: 1127M resident, 195M data, 174M linkedit.\nMemRegions: 0 total, 0B resident, 541M private, 4876M shared.\nPhysMem: 48G used (7101M wired, 6002M compressor), 15G unused.\nVM: 439T vsize, 6144M framework vsize, 9860338(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1360545650/1584G in, 561139404/419G out.\nDisks: 2159683048/26T read, 2968241683/34T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   697546.\nPages active:                                1052390.\nPages inactive:                              1103416.\nPages speculative:                            442227.\nPages throttled:                                   0.\nPages wired down:                             454318.\nPages purgeable:                               30359.\n\"Translation faults\":                   111742598553.\nPages copy-on-write:                     10729378615.\nPages zero filled:                       56543007587.\nPages reactivated:                       11744796922.\nPages purged:                              289965137.\nFile-backed pages:                           1280302.\nAnonymous pages:                             1317731.\nPages stored in compressor:                  1036967.\nPages occupied by compressor:                 384146.\nDecompressions:                           6116327116.\nCompressions:                             6816948431.\nPageins:                                  1522742391.\nPageouts:                                   12317277.\nSwapins:                                     9860338.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   524939.\nPages active:                                1052439.\nPages inactive:                              1234566.\nPages speculative:                            483428.\nPages throttled:                                   0.\nPages wired down:                             454433.\nPages purgeable:                               30377.\n\"Translation faults\":                   111742624473.\nPages copy-on-write:                     10729380223.\nPages zero filled:                       56543020923.\nPages reactivated:                       11744796924.\nPages purged:                              289965137.\nFile-backed pages:                           1453115.\nAnonymous pages:                             1317318.\nPages stored in compressor:                  1036966.\nPages occupied by compressor:                 384146.\nDecompressions:                           6116327117.\nCompressions:                             6816948431.\nPageins:                                  1522884706.\nPageouts:                                   12317277.\nSwapins:                                     9860338.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 11428593664,
+      "inactive_bytes": 18078367744,
+      "free_plus_inactive_bytes": 29506961408
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 8600600576,
+      "inactive_bytes": 20227129344,
+      "free_plus_inactive_bytes": 28827729920
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 1996.25M  free = 1075.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 1996.25M  free = 1075.75M  (encrypted)\n",
+    "cpu_idle_percent": 87.8,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source_provenance": {
+    "head": "1f7192686e9773470fc81c6ccaf9a7ad3ce6cf80",
+    "main_base": "f89bb9eed316a9af2f75ab5e97f1f6bc2ec0cf8d",
+    "source_sha256": {
+      "Annex/Annex/AnnexApp.swift": "8932d561cd69e1b916345ce8d5c87c996d6f661b409a8f8b37430aa598602eaf",
+      "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "a78f1d878680734c02c9aa9de119de704280e3820af069e133cf3f82deb0124a",
+      "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "504bab84115833f566d93c829651ff3c0c48f7f18f0b803b2d21b53d623e7f44",
+      "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "4d8208c5b19f813fe43d5210bb2a23da0baf1b7785b051bbd518a0283cf50821",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+      "docs/reading-prefix-trim-characterization.md": "562f185d8d0751fc8dec129bd81810e89d964c0caf00e68053661d9aeac9d2bf",
+      "scripts/isolated-deinit-policy.json": "0c26dd03ca9085861e4860c5432c230574422bcc220cd99ecea98b00150e7c3d",
+      "docs/isolated-deinit.md": "660997aa5f14c04957bb0fa0bf6e86c066b0673a4d1948d2915c807c2e9618e9"
+    },
+    "core_diff_empty": true
+  },
+  "source": "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/source",
+  "DD": "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD",
+  "build_receipt": "/tmp/ux-569-prefix-proof/a-prefix-r3-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "3cf93d0be21d33e345c814ae21f7cab26baef575e4d16841099a61c4a42aa82e",
+    "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "9f09776fd7814384828de3593c1ff74b9ded2edd9778150f2802993ac7e449ee",
+    "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "92e21c3f43a0df098f843cdef633cfbe0eff9ab3581c9999c4d4bcd28b9f626d",
+    "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "37f50a7e7f836815159809f6e46d57e23247f2f78dd7b09370d8e3a3d4d82908"
+  },
+  "simulator_uuid": "816524AA-3C95-4567-8C63-BACEC2C2D3DF",
+  "cases": [
+    {
+      "label": "hosted",
+      "selector": "ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+      "identifier": "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+      "signature": "A prefix trim during restoration must preserve the reading entry within six points",
+      "result_bundle": "/tmp/ux-569-prefix-proof/tickets/c-prefix-r2/hosted.xcresult",
+      "test_rc": 65,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "audit_rc": 0,
+      "attachments_rc": 0,
+      "diagnostics_rc": 0,
+      "summary": {
+        "devicesAndConfigurations": [
+          {
+            "device": {
+              "architecture": "arm64",
+              "deviceId": "816524AA-3C95-4567-8C63-BACEC2C2D3DF",
+              "deviceName": "ux-569-prefix-trim",
+              "modelName": "iPhone 17 Pro Max",
+              "osBuildNumber": "23A343",
+              "osVersion": "26.0",
+              "platform": "iOS Simulator"
+            },
+            "expectedFailures": 0,
+            "failedTests": 1,
+            "passedTests": 0,
+            "skippedTests": 0,
+            "testPlanConfiguration": {
+              "configurationId": "1",
+              "configurationName": "Test Scheme Action"
+            }
+          }
+        ],
+        "environmentDescription": "ClubhouseGo \u00b7 Built with macOS 26.5.2",
+        "expectedFailures": 0,
+        "failedTests": 1,
+        "finishTime": 1794992804.683,
+        "passedTests": 0,
+        "result": "Failed",
+        "skippedTests": 0,
+        "startTime": 1794992781.962,
+        "statistics": [],
+        "testFailures": [
+          {
+            "failureText": "Expectation failed: (abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) \u2192 96.66666666666765) <= (6 \u2192 6.0): A prefix trim during restoration must preserve the reading entry within six points",
+            "targetName": "ClubhouseGoTests",
+            "testIdentifier": 1,
+            "testIdentifierString": "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+            "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+            "testName": "prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()"
+          }
+        ],
+        "title": "Test - ClubhouseGo",
+        "topInsights": [],
+        "totalTestCount": 1
+      },
+      "exactly_one_target": true,
+      "target_result": "Failed",
+      "six_point_only_failure": true,
+      "diagnostic_map_ok": true
+    },
+    {
+      "label": "ui",
+      "selector": "ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss",
+      "identifier": "CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+      "signature": "Restoration must preserve the reader's entry",
+      "result_bundle": "/tmp/ux-569-prefix-proof/tickets/c-prefix-r2/ui.xcresult",
+      "test_rc": 65,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "audit_rc": 0,
+      "attachments_rc": 0,
+      "diagnostics_rc": 0,
+      "summary": {
+        "devicesAndConfigurations": [
+          {
+            "device": {
+              "architecture": "arm64",
+              "deviceId": "816524AA-3C95-4567-8C63-BACEC2C2D3DF",
+              "deviceName": "ux-569-prefix-trim",
+              "modelName": "iPhone 17 Pro Max",
+              "osBuildNumber": "23A343",
+              "osVersion": "26.0",
+              "platform": "iOS Simulator"
+            },
+            "expectedFailures": 0,
+            "failedTests": 1,
+            "passedTests": 0,
+            "skippedTests": 0,
+            "testPlanConfiguration": {
+              "configurationId": "1",
+              "configurationName": "Test Scheme Action"
+            }
+          }
+        ],
+        "environmentDescription": "ClubhouseGo \u00b7 Built with macOS 26.5.2",
+        "expectedFailures": 0,
+        "failedTests": 1,
+        "finishTime": 1794992835.113,
+        "passedTests": 0,
+        "result": "Failed",
+        "skippedTests": 0,
+        "startTime": 1794992810.683,
+        "statistics": [],
+        "testFailures": [
+          {
+            "failureText": "XCTAssertEqualWithAccuracy failed: (\"69.99999999999977\") is not equal to (\"166.6666666666663\") +/- (\"6.0\") - Restoration must preserve the reader's entry",
+            "targetName": "ClubhouseGoUITests",
+            "testIdentifier": 1,
+            "testIdentifierString": "CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()",
+            "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss",
+            "testName": "testPrefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()"
+          }
+        ],
+        "title": "Test - ClubhouseGo",
+        "topInsights": [],
+        "totalTestCount": 1
+      },
+      "exactly_one_target": true,
+      "target_result": "Failed",
+      "six_point_only_failure": true,
+      "diagnostic_map_ok": true
+    }
+  ],
+  "quickpath_suppression": true,
+  "postboot_resources_record_only": "Processes: 1059 total, 23 running, 1 stuck, 1035 sleeping, 7350 threads \n2026/11/18 01:06:15\nLoad Avg: 44.51, 20.81, 11.10 \nCPU usage: 49.51% user, 44.62% sys, 5.86% idle \nSharedLibs: 1127M resident, 195M data, 174M linkedit.\nMemRegions: 1255168 total, 16G resident, 2353M private, 5261M shared.\nPhysMem: 54G used (8417M wired, 6002M compressor), 9667M unused.\nVM: 523T vsize, 6144M framework vsize, 9860338(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1360614233/1584G in, 561153584/419G out.\nDisks: 2160374409/26T read, 2968467051/34T written.\n\n\n",
+  "rc": 0,
+  "diagnostic_only": true,
+  "product_acceptance": false,
+  "classification": "Both exact-once six-point failures captured; H1 signature requires independent review.",
+  "admitted_at": "2026-11-18T09:05:40.444816+00:00",
+  "closed_at": "2026-11-18T09:07:20.000385+00:00",
+  "duration_seconds": 99.5553628327325,
+  "hard_bound_seconds": 600,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 7,
+    "growth_bytes": 0,
+    "start_bytes": 2093219840.0,
+    "max_bytes": 2093219840.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-569-prefix-proof/c-prefix-r2-receipt.json",
+  "simulator_final_state_before_delete": "Shutdown",
+  "simulator_deleted": true,
+  "booted_after": [],
+  "owned_processes": [],
+  "process_closure_checked": true,
+  "process_snapshot": "/tmp/ux-569-prefix-proof/c-prefix-r2-ps.txt"
+}

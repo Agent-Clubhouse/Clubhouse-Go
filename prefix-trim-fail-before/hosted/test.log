@@ -1,0 +1,64 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD -destination "platform=iOS Simulator,id=816524AA-3C95-4567-8C63-BACEC2C2D3DF" -resultBundlePath /tmp/ux-569-prefix-proof/tickets/c-prefix-r2/hosted.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss()"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  Framebriar: /tmp/ux-569-prefix-proof/tickets/a-prefix-r1/source/Vendor/Framebriar @ local
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  ClubhouseTransport: /tmp/ux-569-prefix-proof/tickets/a-prefix-r1/source @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+
+Writing result bundle at path:
+	/tmp/ux-569-prefix-proof/tickets/c-prefix-r2/hosted.xcresult
+
+Test Suite 'Selected tests' started at 2026-11-18 01:06:32.246.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-18 01:06:32.247.
+Test Suite 'ClubhouseGoTests.xctest' passed at 2026-11-18 01:06:32.247.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 01:06:32.247.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: arm64-apple-ios13.0-simulator
+◇ Suite CompanionHiddenConversationTests started.
+◇ Test prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss() started.
+2026-11-18 01:06:32.355887-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=ready follow=1 entry=nil offset=-1.0 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:06:32.604300-0800 ClubhouseGo[19278:455471100] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+2026-11-18 01:06:32.810021-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=ready follow=1 entry=nil offset=14032.666666666666 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:06:32.901293-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=ready follow=0 entry=message:reading-33 offset=0.0 lower=38.33333333334788 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:06:33.017961-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=ready follow=0 entry=message:reading-46 offset=1324.0 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:06:33.164442-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=-1.0 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:06:33.332126-0800 ClubhouseGo[19278:455471100] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+2026-11-18 01:06:33.420984-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=14032.666666666666 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=12708.666666666666 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 01:06:33.448006-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=14032.666666666666 lower=1295.0000000000146 pin=1324.0 shift=0.0 miss=12708.666666666666 attempts=1 elapsed=0.0 outcome=pending
+2026-11-18 01:06:33.485767-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=14000.333333333334 lower=1198.333333333347 pin=1324.0 shift=0.0 miss=12773.000000000002 attempts=1 elapsed=0.0 outcome=pending
+2026-11-18 01:06:33.502737-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=14000.333333333334 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=12773.000000000002 attempts=2 elapsed=0.054658916778862476 outcome=pending
+2026-11-18 01:06:33.543022-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1324.0 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=96.66666666666765 attempts=2 elapsed=0.054658916778862476 outcome=pending
+READING_RESTORE outcome=arrived attempts=2 durationMs=137.0028331875801
+2026-11-18 01:06:33.564370-0800 ClubhouseGo[19278:455471100] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1324.0 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=96.66666666666765 attempts=2 elapsed=0.054658916778862476 outcome=arrived
+READING569_CHARACTERIZATION phase=released follow=0 entry=message:reading-46 offset=1324.0 lower=1198.333333333347 pin=1324.0 shift=-96.66666666666765 miss=96.66666666666765 attempts=2 elapsed=0.054658916778862476 outcome=arrived beforeOffset=1324.0 beforeLower=1295.0000000000146
+✘ Test prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss() recorded an issue at CompanionHiddenConversationTests.swift:92:9: Expectation failed: (abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) → 96.66666666666765) <= (6 → 6.0)
+↳ A prefix trim during restoration must preserve the reading entry within six points
+✘ Test prefixTrimDuringPinnedRestoreCharacterizesTheOneBlockMiss() failed after 1.343 seconds with 1 issue.
+↳ /// Uncredited fail-before characterization. The signature check is intentionally baseline-specific;
+↳ /// a later product fix must replace that check with zero miss while retaining the six-point contract.
+✘ Suite CompanionHiddenConversationTests failed after 1.344 seconds with 1 issue.
+↳ /// Real hosted views, long preview histories, and separately rendered store events. Bounds count work, not time.
+✘ Test run with 1 test in 1 suite failed after 1.344 seconds with 1 issue.
+2026-11-18 01:06:44.677 xcodebuild[18977:455469287] [MT] IDETestOperationsObserverDebug: 21.650 elapsed -- Testing started completed.
+2026-11-18 01:06:44.677 xcodebuild[18977:455469287] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 01:06:44.677 xcodebuild[18977:455469287] [MT] IDETestOperationsObserverDebug: 21.650 sec, +21.650 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-569-prefix-proof/tickets/c-prefix-r2/hosted.xcresult
+
+** TEST EXECUTE FAILED **
+
+Testing started
