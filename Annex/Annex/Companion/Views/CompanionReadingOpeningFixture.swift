@@ -17,6 +17,13 @@ struct CompanionReadingOpeningFixture: View {
     @State private var status = "loading"
     private var store: CompanionStore { lifetime.value }
     private var target: CompanionTarget? { agents.indices.contains(selected) ? agents[selected].id : nil }
+    private var theme: CompanionDesktopTheme { CompanionPreviewService.appearanceTheme ?? .clubhouse }
+    private var colorScheme: ColorScheme {
+        let arguments = ProcessInfo.processInfo.arguments
+        if arguments.contains("--companion-preview-light") { return .light }
+        if arguments.contains("--companion-preview-dark") { return .dark }
+        return theme.mode == .light ? .light : .dark
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -77,6 +84,8 @@ struct CompanionReadingOpeningFixture: View {
                 }.buttonStyle(.bordered).font(.caption)
             }.accessibilityIdentifier("reading-opening-actions")
         }
+        .companionTheme(theme)
+        .preferredColorScheme(colorScheme)
         .task {
             let preview = CompanionPreviewService(showsReadingScenario: true)
             var events = preview.events().makeAsyncIterator()

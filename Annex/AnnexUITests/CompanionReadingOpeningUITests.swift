@@ -17,13 +17,22 @@ import UIKit
         }
         let button = app.buttons["reading-opening-" + id]
         let strip = app.scrollViews["reading-opening-actions"]
+        func canTap() -> Bool {
+            guard button.exists else { return false }
+            let frame = button.frame
+            guard !frame.isEmpty, !frame.isNull, !frame.isInfinite,
+                  frame.minX.isFinite, frame.minY.isFinite,
+                  frame.maxX.isFinite, frame.maxY.isFinite,
+                  strip.frame.intersects(frame) else { return false }
+            return button.isHittable
+        }
         for _ in 0..<8 {
             checkTimeLeft("revealing recording-fixture control")
-            if button.isHittable { tap(button); return }
+            if canTap() { tap(button); return }
             strip.swipeLeft()
         }
         for _ in 0..<8 {
-            if button.isHittable { tap(button); return }
+            if canTap() { tap(button); return }
             strip.swipeRight()
         }
         XCTFail("The recording-fixture control must be reachable: \(id)")
