@@ -1,3 +1,5 @@
+> **Classification superseded:** see [revised-ruling.md](revised-ruling.md). Native insets already cover the banner; A intentionally scrolls the inline header above the viewport. No product fix/comparator is authorized. The original STOP result and observations below are preserved as history.
+
 # Bookmark-first F-r1 — STOP before N/H/S/CPU/broad
 
 Exact source `a971c93431ca4f1b4493337a3f6e38aef5fa2591`. QA static PASS preceded all work. A-r5 fresh build PASS230.83s; compiled deinit gate PASS,20policy tests PASS. No simulator in A.

@@ -1,0 +1,283 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
+index 481c2ae62..2b970bacd 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
+@@ -47,25 +47,26 @@ struct CompanionReadingOpeningFixture: View {
+                 Tab("Home", systemImage: "house", value: 1) { Text("Recording fixture Home") }
+             }
+             Text(status).font(.caption2).lineLimit(3).frame(height: 48).accessibilityIdentifier("reading-opening-state")
+-            ScrollView(.horizontal) {
+-                HStack {
+-                    Button("Open latest") { scenario = "latest"; mounted = true }
++            // DEBUG controls only: two visible rows replace the unreliable offscreen strip.
++            // Their offered height is disclosed in the recording; the real chat uses the remaining viewport.
++            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 6), spacing: 4) {
++                    recordingControl("Latest") { scenario = "latest"; mounted = true }
+                         .accessibilityIdentifier("reading-opening-latest")
+-                    Button("Open paused") { Task { await openPaused() } }
++                    recordingControl("Paused") { Task { await openPaused() } }
+                         .accessibilityIdentifier("reading-opening-paused")
+-                    Button("Hide tab") { scenario = "hidden"; tab = 1 }
++                    recordingControl("Hide") { scenario = "hidden"; tab = 1 }
+                         .accessibilityIdentifier("reading-opening-hide")
+-                    Button("Show tab") { scenario = "tab-return"; tab = 0 }
++                    recordingControl("Show") { scenario = "tab-return"; tab = 0 }
+                         .accessibilityIdentifier("reading-opening-show")
+-                    Button("Close chat") {
++                    recordingControl("Close") {
+                         Task { if await closeCurrentMount() { scenario = "closed" } }
+                     }
+                         .accessibilityIdentifier("reading-opening-close")
+-                    Button("Reopen chat") { scenario = "reopen"; presentsDestination = true }
++                    recordingControl("Reopen") { scenario = "reopen"; presentsDestination = true }
+                         .accessibilityIdentifier("reading-opening-reopen")
+-                    Button("Other chat") { scenario = "target-switch"; selected = selected == 0 ? 1 : 0 }
++                    recordingControl("Other") { scenario = "target-switch"; selected = selected == 0 ? 1 : 0 }
+                         .accessibilityIdentifier("reading-opening-other")
+-                    Button("Reload history") {
++                    recordingControl("Reload") {
+                         guard let target else { return }
+                         let wasHidden = !visible
+                         scenario = "loading-history"
+@@ -74,23 +75,24 @@ struct CompanionReadingOpeningFixture: View {
+                             scenario = wasHidden ? "hidden-reload" : "open-reload"
+                         }
+                     }.accessibilityIdentifier("reading-opening-reload")
+-                    Button("Stream reply") {
++                    recordingControl("Stream") {
+                         guard let target else { return }
+                         store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed after drag", sequence: nil))
+                         scenario = "streamed"
+                     }.accessibilityIdentifier("reading-opening-stream")
+-                    Button("Append reply") {
++                    recordingControl("Append") {
+                         guard let target else { return }
+                         store.apply(.upsert(target, .message(.init(id: "opening-earlier-tail", role: .assistant,
+                             text: "A new tail reply arrives while earlier history is visible.")), sequence: nil))
+                         scenario = "tail-arrived"
+                     }.accessibilityIdentifier("reading-opening-append")
+-                    Button("Short paused") { Task { await openShortPaused() } }
++                    recordingControl("Short") { Task { await openShortPaused() } }
+                         .accessibilityIdentifier("reading-opening-short")
+-                    Button("Replace session") { replaceSession() }
++                    recordingControl("Replace") { replaceSession() }
+                         .accessibilityIdentifier("reading-opening-session")
+-                }.buttonStyle(.bordered).font(.caption)
+-            }.accessibilityIdentifier("reading-opening-actions")
++            }
++            .buttonStyle(.bordered).font(.system(size: 12))
++            .accessibilityIdentifier("reading-opening-actions")
+         }
+         .companionTheme(theme)
+         .preferredColorScheme(colorScheme)
+@@ -131,6 +133,10 @@ struct CompanionReadingOpeningFixture: View {
+         }
+     }
+ 
++    private func recordingControl(_ title: String, action: @escaping () -> Void) -> some View {
++        Button(action: action) { Text(title).frame(maxWidth: .infinity, minHeight: 44) }
++    }
++
+     /// Observe the actual outgoing lifecycle, including a native pop, before starting a different recording case.
+     /// This is explicit fixture setup; no product mount waits or hides its first paint.
+     private func closeCurrentMount() async -> Bool {
+diff --git a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+index bc8fd7006..eee5e3105 100644
+--- a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+@@ -7,35 +7,18 @@ import UIKit
+     private func state(_ app: XCUIApplication) -> XCUIElement { app.staticTexts["reading-opening-state"] }
+     private func control(_ id: String, in app: XCUIApplication) {
+         let oldTarget = state(app).label.split(separator: " ").first { $0.hasPrefix("target=") }.map(String.init)
+-        func tap(_ button: XCUIElement) {
+-            button.tap()
+-            if id == "other", let oldTarget {
+-                XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
+-                    !self.state(app).label.split(separator: " ").map(String.init).contains(oldTarget)
+-                }, timeout: 8), "The other chat must actually be selected before its controls are assessed")
+-            }
+-        }
+         let button = app.buttons["reading-opening-" + id]
+-        let strip = app.scrollViews["reading-opening-actions"]
+-        func canTap() -> Bool {
+-            guard button.exists else { return false }
+-            let frame = button.frame
+-            guard !frame.isEmpty, !frame.isNull, !frame.isInfinite,
+-                  frame.minX.isFinite, frame.minY.isFinite,
+-                  frame.maxX.isFinite, frame.maxY.isFinite,
+-                  strip.frame.intersects(frame) else { return false }
+-            return button.isHittable
+-        }
+-        for _ in 0..<8 {
+-            checkTimeLeft("revealing recording-fixture control")
+-            if canTap() { tap(button); return }
+-            strip.swipeLeft()
+-        }
+-        for _ in 0..<8 {
+-            if canTap() { tap(button); return }
+-            strip.swipeRight()
++        XCTAssertTrue(button.waitForExistence(timeout: 5))
++        let frame = button.frame
++        XCTAssertTrue(!frame.isEmpty && !frame.isNull && !frame.isInfinite && app.frame.contains(frame),
++                      "Every DEBUG grid action must be physically on screen: \(id), \(frame)")
++        XCTAssertTrue(button.isHittable, "Every DEBUG grid action must be natively hittable: \(id)")
++        button.tap() // One real tap, no scrolling/retry can rescue an unreachable fixture action.
++        if id == "other", let oldTarget {
++            XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
++                !self.state(app).label.split(separator: " ").map(String.init).contains(oldTarget)
++            }, timeout: 8), "The other chat must actually be selected before its controls are assessed")
+         }
+-        XCTFail("The recording-fixture control must be reachable: \(id)")
+     }
+     private func waitState(_ fragment: String, in app: XCUIApplication) {
+         XCTAssertTrue(waitFor(state(app), NSPredicate(format: "label CONTAINS %@", fragment), timeout: 8), state(app).label)
+@@ -65,8 +48,39 @@ import UIKit
+         XCTFail("The bookmark's public frame must settle independently of its expected position")
+         return anchor.frame.minY
+     }
+-    private func launchFixture() -> XCUIApplication {
+-        let app = launchApp(["--reading-opening-ui-testing", "--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"])
++    private func assertEarlierIsClearOfThePinnedBanner(in app: XCUIApplication) {
++        let earlier = app.buttons["companion-show-earlier"]
++        let banner = app.buttons["View River"]
++        let track = app.scrollViews["companion-transcript"].otherElements
++            .matching(NSPredicate(format: "label BEGINSWITH %@", "Vertical scroll bar")).firstMatch
++        XCTAssertTrue(banner.waitForExistence(timeout: 5), "This proof requires the real pinned other-agent banner")
++        XCTAssertTrue(track.waitForExistence(timeout: 5), "The public native track measures the unobscured scroll region")
++        XCTAssertTrue(waitFor(earlier, NSPredicate { _, _ in
++            let frame = earlier.frame, native = track.frame
++            return earlier.exists && earlier.isHittable && !frame.isEmpty && !native.isEmpty
++                && frame.minY >= native.minY && frame.maxY <= native.maxY
++                && native.minY >= banner.frame.maxY
++        }, timeout: 5), "Show earlier must be completely below the pinned banner, not merely AX-hittable")
++        XCTAssertEqual(earlier.label, "Show earlier messages", "The spoken action label is unchanged")
++        XCTAssertEqual(earlier.identifier, "companion-show-earlier", "The existing public identifier is unchanged")
++        let note = XCTAttachment(string: "earlier=\(earlier.frame) nativeTrack=\(track.frame) bannerAction=\(banner.frame) label=\(earlier.label) identifier=\(earlier.identifier)")
++        note.name = "Native content-top clearance and unchanged action semantics"; note.lifetime = .keepAlways; add(note)
++    }
++
++    private func openSoftwareKeyboard(_ composer: XCUIElement, in app: XCUIApplication) {
++        composer.tap()
++        let keyboard = app.keyboards.firstMatch
++        if !keyboard.waitForExistence(timeout: 2), app.buttons["Keyboard"].exists {
++            app.buttons["Keyboard"].tap()
++            let show = app.buttons["Show Keyboard"]
++            XCTAssertTrue(show.waitForExistence(timeout: 3))
++            show.tap()
++        }
++        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
++    }
++
++    private func launchFixture(extra: [String] = []) -> XCUIApplication {
++        let app = launchApp(["--reading-opening-ui-testing", "--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"] + extra, attempts: 1)
+         XCTAssertTrue(state(app).waitForExistence(timeout: 10))
+         waitState("case=ready", in: app)
+         return app
+@@ -153,18 +167,17 @@ import UIKit
+         let anchor = app.staticTexts["Reading marker 90."]
+         let earlier = app.buttons["companion-show-earlier"]
+         let transcript = app.scrollViews["companion-transcript"]
+-        // Reach the inline control through an ordinary native scroll, then save that real reading position.
+-        for _ in 0..<8 {
+-            if earlier.exists, earlier.frame.intersects(viewport(app)), earlier.isHittable { break }
+-            transcript.swipeDown()
+-        }
+-        XCTAssertTrue(earlier.exists && earlier.isHittable)
++        // A intentionally aligns the saved entry after first paint. Reach the inline control like a reader:
++        // one native status-bar scroll to content top, not a tap through the pinned banner's hit region.
++        tapChatStatusBar(in: app)
++        assertEarlierIsClearOfThePinnedBanner(in: app)
+         let before = settledY(anchor, in: app)
+         var expansions = 0
+         while earlier.exists, expansions < 8 {
+             let previousStart = state(app).label.split(separator: " ").first { $0.hasPrefix("start=") }.map(String.init)
+             XCTAssertNotNil(previousStart)
+             observation("Before earlier expansion \(expansions)", in: app, anchor: anchor)
++            assertEarlierIsClearOfThePinnedBanner(in: app)
+             earlier.tap()
+             XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
+                 !self.state(app).label.split(separator: " ").map(String.init).contains(previousStart ?? "missing")
+@@ -198,9 +211,10 @@ import UIKit
+         control("paused", in: app)
+         waitState("outcome=arrived", in: app)
+         let anchor = app.staticTexts["Reading marker 90."]
+-        let composer = app.textViews["companion-composer"]
++        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+         XCTAssertTrue(composer.waitForExistence(timeout: 5))
+-        composer.tap(); composer.typeText("First paint draft")
++        openSoftwareKeyboard(composer, in: app)
++        composer.typeText("First paint draft")
+         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+         let savedY = settledY(anchor, in: app)
+         control("reload", in: app)
+@@ -230,4 +244,40 @@ import UIKit
+         XCTAssertTrue(newSession.waitForExistence(timeout: 5))
+         XCTAssertEqual(composer.value as? String, "First paint draft")
+     }
++    /// Run on SE portrait. Encoded first paused frame must show this unchanged label fully below the banner.
++    /// Eventual AX checks establish semantics/real access only; they cannot rescue a bad first encoded frame.
++    func testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
++        let app = launchFixture()
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        observation("SE portrait paused first-frame recording; later AX sample", in: app,
++                    anchor: app.staticTexts["Reading marker 90."])
++        tapChatStatusBar(in: app)
++        assertEarlierIsClearOfThePinnedBanner(in: app)
++    }
++
++    /// Run on Pro Max at XXXL portrait; first-frame visibility and canonical-first content are video gates.
++    func testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
++        let app = launchFixture(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        observation("XXXL portrait paused first-frame recording; later AX sample", in: app,
++                    anchor: app.staticTexts["Reading marker 90."])
++        tapChatStatusBar(in: app)
++        assertEarlierIsClearOfThePinnedBanner(in: app)
++    }
++
++    /// Diagnostic recording ONLY: #483 excludes landscape tight-room visibility from this acceptance contract.
++    /// No passing portrait/landscape containment claim may be inferred from this method's eventual completion.
++    func testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit() {
++        let app = launchFixture()
++        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
++        XCUIDevice.shared.orientation = .landscapeLeft
++        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
++        control("paused", in: app)
++        waitState("case=paused-expanded", in: app)
++        observation("Landscape diagnostic only; #483 visibility exclusion", in: app,
++                    anchor: app.staticTexts["Reading marker 90."])
++    }
++
+ }
+diff --git a/docs/reading-first-paint-plan.md b/docs/reading-first-paint-plan.md
+index 32c9c8fc2..c76759e34 100644
+--- a/docs/reading-first-paint-plan.md
++++ b/docs/reading-first-paint-plan.md
+@@ -10,9 +10,9 @@ A valid paused bookmark resolves its canonical visible entry once. An opt-in Tim
+ 
+ Valid paused openings seed ScrollPosition(edge:.top); following/missing-ID openings seed bottom. The stopped onAppear proxy experiment and opening ID/handoff machinery are removed. There is no implicit ID owner to release at idle. Phase tests therefore assert ZERO active AND idle identity writes, and the real native drag still proves ownership and no late handoff. No Task, paint delay, opacity, animation, guessed numeric offset or UIKit introspection is added.
+ 
+-Show earlier stays inline above the first message. “At the top” means the canonical entry is the first message below the visible existing header/control/padding. Short bookmark-first content uses top alignment; following content retains bottom alignment. Product A subsequently restores the saved fractional distance using its unchanged six-point contract, retarget and20-attempt/2-second budget. Per-route video must show movement no greater than measured header/padding + saved distance +6pt, with the canonical row remaining at least partially visible as the top row.
++Show earlier stays inline above the first message and is visible below the pinned banner in the first paused frame. A’s accepted entry-alignment correction can subsequently move that inline control above the viewport; a reader reaches it by a normal native scroll to content top. This is not a missing-inset defect; no banner/content-margin change is included. “At the top” means the canonical entry is the first message below the visible existing header/control/padding. Short bookmark-first content uses top alignment; following content retains bottom alignment. Product A subsequently restores the saved fractional distance using its unchanged six-point contract, retarget and20-attempt/2-second budget. Per-route video must show movement no greater than measured header/padding + saved distance +6pt, with the canonical row remaining at least partially visible as the top row.
+ 
+-Before a prefix-widening State change, capture the real reading position and set the existing restoring/pending-offset guard. Existing preference/consistent-geometry compensation holds that entry's screen position. The new recording must show every Show-earlier tap and a normal tail arrival within4pt, and eventually prove the older history is reachable. No timing workaround is accepted if it visibly jumps.
++Before a prefix-widening State change, capture the real reading position and set the existing restoring/pending-offset guard. Existing preference/consistent-geometry compensation holds that entry's screen position. The test first performs the native status-bar top action and requires the whole earlier control to fit in the public native scroll track below the banner. Its AX label and identifier are unchanged. The new recording must show every subsequent Show-earlier tap and a normal tail arrival within4pt, and eventually prove the older history is reachable. No timing workaround is accepted if it visibly jumps.
+ 
+ ## Disclosed test changes
+ 
+@@ -26,6 +26,12 @@ A separate capture correction uses upperBound > offset +0.5pt (shared minimumVis
+ 
+ ## Proof and stop
+ 
+-Before any build, QA reviews the cumulative implementation, test diff, source hashes and exact fresh manifest. Fresh guarded build/deinit/policy; three recorded opening methods cover all four routes, Show-earlier expansion and short content; N; original H15/19 and S2; identical additive main/head CPU test overlays (16 scroll steps,100 paused chunks and two fresh 600-row/bookmark-60 openings per side), with paired DEBUG-only hooks observing the actual rendered window’s preparedRowCount. Counts (including deep-open prepared rows and body/timeline) must be no greater than main; process CPU is supporting evidence, flagged non-blocking if more than20% higher with equal counts; original ordered C23/C50; cold R0; Reading SE; D/current-main combined coverage with overlap/conflict review. Device acceptance remains deferred.
++Before any build, QA reviews the cumulative implementation, test diff, source hashes and exact fresh manifest. Fresh guarded build/deinit/policy; three Pro Max recording methods cover all four routes, Show-earlier expansion and short content; separate SE portrait and XXXL portrait paused recordings require first-frame visibility below the banner; landscape is recorded only under the disclosed #483 exclusion; N; original H15/19 and S2; identical additive main/head CPU test overlays (16 scroll steps,100 paused chunks and two fresh 600-row/bookmark-60 openings per side), with paired DEBUG-only hooks observing the actual rendered window’s preparedRowCount. Counts (including deep-open prepared rows and body/timeline) must be no greater than main; process CPU is supporting evidence, flagged non-blocking if more than20% higher with equal counts; original ordered C23/C50; cold R0; Reading SE; D/current-main combined coverage with overlap/conflict review. Device acceptance remains deferred.
+ 
+ The opening/performance/restore gates are independent of eventual AX readiness. Original videos, unaltered full frames with actual presentation timestamps, complete stdout and cleanup receipts are retained on evidence/ux-582. No first-paint claim comes from a screenshot queried after readiness. Every unexpected count/outcome or wrong first content is a STOP, with no assertion retry or timing iteration. The parent owns landing.
++
++## Recording-only fixture correction after F-r1
++
++F-r1 is preserved as STOP evidence, not credited. Its two fixture defects were an offscreen horizontal action strip and a TextView-only composer query. The DEBUG fixture now uses two visible rows of six native controls with short labels and44pt minimum label content, preserving all12 actions. Its controls use a fixed12pt test-only font; product Dynamic Type is unchanged. This adds offered control height and reduces the real conversation viewport; the footage and measured viewport disclose it. No product view, height, header, scroll inset, delay or positioning logic changes for this correction. The new test uses the existing general descendant composer lookup and the same software-keyboard setup sequence as Reading tests.
++
++The branch was rebased onto85ee757a. The full pre-harness cumulative patch is byte-identical to the reviewed a971c9343/77b24899 patch. The one re-pinned original Reading file equals #587 on main; the #588 permission-menu product file is outside #582’s delta. Evidence and fresh configuration are independently reviewed before any build.

@@ -1,3 +1,5 @@
+> **RESCINDED / DO NOT IMPLEMENT OR RUN.** QA and the Orchestrator withdrew both the inset change and main comparator. Neither was coded/run. See the current [harness-only plan](../harness-r2/harness-r2-review-notes.md). The proposal below is preserved as unaccepted history.
+
 # #582 pinned-banner access proposal — BEFORE product/harness changes or another run
 
 Authority: Orchestrator t_mwmomzr7 authorizes fixing pinned-banner access within #582, subject to main attribution and QA static review. F-r1 remains STOPped at a971c9343. Nothing below is runtime-accepted. No correction has been coded.

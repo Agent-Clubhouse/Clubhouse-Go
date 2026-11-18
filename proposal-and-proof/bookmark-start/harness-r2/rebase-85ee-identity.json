@@ -1,0 +1,55 @@
+{
+  "old_base": "77b24899170c6da76067f205a93f2b06bf9aede8",
+  "old_head": "a971c93431ca4f1b4493337a3f6e38aef5fa2591",
+  "new_base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "old_full_diff_sha256": "5bdaa4d766b79b5cb3e1213899f88f322814351997fd5910abfa736f425ba9a0",
+  "old_changed_files": [
+    "Annex/Annex/AnnexApp.swift",
+    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift",
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift",
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift",
+    "Annex/AnnexTests/CompanionReadingOpeningTests.swift",
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift",
+    "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift",
+    "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift",
+    "docs/isolated-deinit.md",
+    "docs/reading-first-paint-extraction.json",
+    "docs/reading-first-paint-plan.md",
+    "scripts/isolated-deinit-policy.json"
+  ],
+  "old_product_sha256": {
+    "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "d0d0fa43ef7361d21a1e81ee7ba908663f49f71533df0bbe0379d641418efb7f",
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "02dee4efb081c672f9fad77dc6673bb9164dc5dac8d70530ef7f57920bc63e9b",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "1349db2618f8a04290cc6cc1082f6b9d2dc3cbdda74452a93d5c94d78dff0614",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "02d023ad8d4727cde45c3d8b0fe956be8cad2fe4e4f2f2eb336c00eb4a73c255",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "0902bfc687af2eada91b57e59c57b13c7da914298f7f1020754c4b0e8d6af874",
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "b93592a241ecc4d52dd08e8dfa92b8dee5207c367db3de907ddc4eddd75d319a"
+  },
+  "rebased_head": "e9337fccce0d0892cd4e68d740ccde1ec4f58e96",
+  "rebased_full_diff_sha256": "5bdaa4d766b79b5cb3e1213899f88f322814351997fd5910abfa736f425ba9a0",
+  "full_patch_byte_identical": true,
+  "product_files_byte_identical": true,
+  "reading_contract_delta_sha256": "d1ebe2651c1288b0b9cace998453246ebc1f706da5d1e6a493a03d55e2547be8",
+  "reading_contract_new_sha256": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+  "reading_delta_exact_587": true,
+  "main_overlap_files": [
+    "Annex/Annex/Companion/Views/CompanionChatControlsBar.swift",
+    "Annex/AnnexUITests/CompanionLiveE2ETests.swift",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift",
+    "docs/compact-chat.md",
+    "docs/testing.md",
+    "scripts/e2e-live/test_replace_text.py"
+  ],
+  "588_product_file_outside_582_diff": true,
+  "harness_head": "5c785b864c4fe706c0b37765672fa9ece0e4283d",
+  "harness_only_changed_files": [
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift",
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift",
+    "docs/reading-first-paint-plan.md"
+  ],
+  "core_product_unchanged_after_harness": true
+}

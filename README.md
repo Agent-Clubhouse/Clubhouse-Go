@@ -1,3 +1,9 @@
+# Current: harness-only correction, pending exact QA review
+
+#582 source5c785b864 rebases cleanly onto85ee757a; the pre-harness cumulative patch is byte-identical to reviewed a971c9343. [Rebase identity + current diff/manifest](proposal-and-proof/bookmark-start/harness-r2/harness-r2-review-notes.md). Product code is unchanged; only the DEBUG recording fixture, its new UI tests and the proof doc change. No build/test/simulator on the rebased head yet. PR584 remains draft.
+
+F-r1 stays STOPped (3 once/3F), with all original evidence retained. [Revised QA ruling](runtime/f-r1/revised-ruling.md) supersedes the initial product-bug classification: the banner inset is correct, and A’s intentional38pt correction moves the inline header above the viewport. No inset change or main comparator was coded/run. Current fixes are native-top setup/physical clearance,2x6fixture controls,genericcomposer and SE/XXXL/landscape recording scope. Video QA comes before the remaining suites.
+
 # Current STOP: F-r1 pinned-banner access
 
 Fresh A-r5 on a971c9343 PASS (compiled gate +20policy). F-r1 ran3 methods once,3 failures: a real Show-earlier occlusion by the pinned other-agent banner, plus separate fixture reachability/composer-query defects. [Complete STOP report and original video/frames](runtime/f-r1/report.md). No retry/correction or later suite has run. Private simulator deleted, system0Booted/processes empty/swap0; host returned. PR584 stays draft.

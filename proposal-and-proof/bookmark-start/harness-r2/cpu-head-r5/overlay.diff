@@ -1,0 +1,237 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+index 8a6eb4905..1dab7a102 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+@@ -3,6 +3,7 @@
+ @MainActor enum CompanionConversationBuildProbe {
+     enum Kind { case body, timeline }
+     static var record: ((Kind, CompanionTarget) -> Void)?
++    static var preparedRows: ((CompanionTarget, Int) -> Void)?
+ }
+ 
+ /// Optional lifecycle evidence for hosted focus regressions. No draft/selection observation or focus mutation.
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index eccfef47f..3b3e62eec 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -668,6 +668,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+         let window = openingWindowStartID.flatMap { CompanionTimelineWindow(rows: rows, startingAt: $0) }
+             ?? CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+         let entries = window.entries
++        #if DEBUG
++        let _ = CompanionConversationBuildProbe.preparedRows?(target, window.preparedRowCount)
++        #endif
+         let stops = CompanionAssistantNavigation.targets(in: entries)
+         #if DEBUG
+         let _ = traceOpening(.body, firstEntryID: entries.first?.id)
+diff --git a/Annex/AnnexTests/CompanionHomeVisibilityTests.swift b/Annex/AnnexTests/CompanionHomeVisibilityTests.swift
+index 510d4ea86..0967f250c 100644
+--- a/Annex/AnnexTests/CompanionHomeVisibilityTests.swift
++++ b/Annex/AnnexTests/CompanionHomeVisibilityTests.swift
+@@ -6,6 +6,55 @@ import ClubhouseTransport
+ 
+ /// Real Root/TabView/NavigationStack owners, synthetic catalogs and in-memory service only.
+ @MainActor final class CompanionHomeVisibilityTests: XCTestCase {
++    /// Uncredited diagnostic: real List offsets, no Store traffic or new body-time State reads.
++    /// Programmatic movement is not a claim about native finger-gesture invalidation.
++    func testDiagnosticHomeScrollStepsReportExpensiveWork() async throws {
++        let fixture = try Fixture()
++        defer { fixture.close() }
++        try await fixture.mount()
++        @MainActor func findList(in view: UIView) -> UICollectionView? {
++            (view as? UICollectionView) ?? view.subviews.lazy.compactMap { findList(in: $0) }.first
++        }
++        let list = try XCTUnwrap(findList(in: fixture.window))
++        XCTAssertGreaterThan(list.contentSize.height, list.bounds.height * 2)
++        XCTAssertGreaterThan(fixture.counts[.layout, default: 0], 0)
++        try await fixture.waitForVisibleWorkToSettle()
++        // Warm the native large-title collapse before measuring; main adjusts the first
++        // raw offset by 52pt as its top inset changes. Every measured offset stays exact.
++        list.setContentOffset(CGPoint(x: 0, y: 200), animated: false)
++        try await fixture.waitForVisibleWorkToSettle()
++        let warmup: [String: Any] = ["requestedOffset": 200, "actualOffset": list.contentOffset.y,
++            "adjustedInsets": String(describing: list.adjustedContentInset)]
++        @MainActor func counts() -> [String: Int] {
++            Dictionary(fixture.counts.map { (String(describing: $0.key), $0.value) }, uniquingKeysWith: { _, last in last })
++        }
++        let measuredTopInset = list.adjustedContentInset.top
++        let offsets = (0..<8).map { CGFloat(300 + $0 * 160) }
++        var samples: [[String: Any]] = []
++        for (step, offset) in (offsets + Array(offsets.reversed())).enumerated() {
++            let before = counts()
++            let oldOffset = list.contentOffset.y
++            list.setContentOffset(CGPoint(x: 0, y: offset), animated: false)
++            try await fixture.waitForVisibleWorkToSettle()
++            XCTAssertEqual(list.contentOffset.y, offset, accuracy: 1, "The measured scroll step actually moved the real List")
++            let after = counts()
++            let keys = Set(before.keys).union(after.keys)
++            let delta = Dictionary(keys.map { ($0, after[$0, default: 0] - before[$0, default: 0]) }, uniquingKeysWith: { _, last in last })
++            samples.append(["step": step, "oldOffset": oldOffset, "requestedOffset": offset,
++                "actualOffset": list.contentOffset.y, "before": before, "after": after, "delta": delta,
++                "listBounds": String(describing: list.bounds),
++                "adjustedInsets": String(describing: list.adjustedContentInset)])
++        }
++        XCTAssertEqual(list.adjustedContentInset.top, measuredTopInset, "Native title bar must remain collapsed throughout the measured steps")
++        let report: [String: Any] = ["uncredited": true, "warmup": warmup, "samples": samples,
++            "notes": "Real hosted List programmatic offsets, not finger gestures. Lazy row realisation is distinguished from owner/content/layout/header reconstruction. No Store traffic, counter allowance or new body-time State reads."]
++        let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
++        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
++        attachment.name = "Home step-scroll redraw measurement JSON"; attachment.lifetime = .keepAlways
++        add(attachment)
++        fixture.capture("Home after measured step-scroll diagnostic")
++    }
++
+     func testHiddenHomeDoesNoWorkDuring100RenderedDispatchUpdatesAndReturnsFresh() async throws {
+         let fixture = try Fixture()
+         defer { fixture.close() }
+diff --git a/Annex/AnnexTests/CompanionReadingPausedCostTests.swift b/Annex/AnnexTests/CompanionReadingPausedCostTests.swift
+new file mode 100644
+index 000000000..6d21e15ab
+--- /dev/null
++++ b/Annex/AnnexTests/CompanionReadingPausedCostTests.swift
+@@ -0,0 +1,145 @@
++import XCTest
++import SwiftUI
++import UIKit
++@testable import ClubhouseGo
++
++/// Identical additive overlay on main and head. Uncredited performance measurement, not a new tolerance.
++@MainActor final class CompanionReadingPausedCostTests: XCTestCase {
++    func testPausedStreamingReportsPerBatchConversationWork() async throws {
++        let service = CompanionPreviewService(showsReadingScenario: true)
++        let store = CompanionStore(service: service)
++        var events = service.events().makeAsyncIterator()
++        let next = await events.next()
++        store.apply(try XCTUnwrap(next))
++        let agent = try XCTUnwrap(store.hosts.flatMap(\.allAgents).first { !$0.isDispatcher })
++        let target = agent.id
++        await store.load(target)
++        let bookmark = store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: 0,
++                                  offset: 0, shownEntries: 300)
++        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
++        let window = UIWindow(windowScene: scene)
++        window.frame = CGRect(x: 0, y: 0, width: 800, height: 1000)
++        var body = 0, timeline = 0
++        CompanionConversationBuildProbe.record = { kind, observed in
++            guard observed == target else { return }
++            switch kind { case .body: body += 1; case .timeline: timeline += 1 }
++        }
++        defer {
++            CompanionConversationBuildProbe.record = nil
++            window.isHidden = true
++            window.rootViewController = nil
++        }
++        window.rootViewController = UIHostingController(rootView: NavigationStack {
++            CompanionConversationView(store: store, agent: agent, isVisible: true)
++        })
++        window.makeKeyAndVisible()
++        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
++        while bookmark.viewport.restoration?.outcome != .arrived, ContinuousClock.now < deadline {
++            window.layoutIfNeeded()
++            try await Task.sleep(for: .milliseconds(20))
++        }
++        XCTAssertEqual(bookmark.viewport.restoration?.outcome, .arrived, "The real product must arrive before measuring")
++        try await Task.sleep(for: .milliseconds(250))
++        var samples: [[String: Int]] = []
++        for batch in 0..<10 {
++            let beforeBody = body, beforeTimeline = timeline
++            for _ in 0..<10 { store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed", sequence: nil)) }
++            window.layoutIfNeeded()
++            try await Task.sleep(for: .milliseconds(150))
++            window.layoutIfNeeded()
++            XCTAssertFalse(bookmark.position.followsLatest)
++            samples.append(["batch": batch, "chunks": 10, "body": body - beforeBody, "timeline": timeline - beforeTimeline])
++        }
++        let report: [String: Any] = ["uncredited": true, "samples": samples, "chunks": 100,
++                                    "notes": "Paused actual transcript, identical fixture on main/head, 10 separately rendered batches; compare body/timeline batch by batch. Per-mount seed/slicing count proven separately on the production head."]
++        let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
++        print("READING_PAUSED_COST " + String(decoding: data, as: UTF8.self))
++        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
++        attachment.name = "Paused streaming conversation work JSON"; attachment.lifetime = .keepAlways; add(attachment)
++    }
++}
++
++import Darwin
++
++/// Identical additive main/head measurement. Opening CPU time is supporting data; work counts are the gate.
++@MainActor final class CompanionReadingDeepOpeningCostTests: XCTestCase {
++    private func processCPU() -> Double {
++        var usage = rusage()
++        XCTAssertEqual(getrusage(RUSAGE_SELF, &usage), 0)
++        return Double(usage.ru_utime.tv_sec + usage.ru_stime.tv_sec)
++            + Double(usage.ru_utime.tv_usec + usage.ru_stime.tv_usec) / 1_000_000
++    }
++
++    func testDeepPausedOpeningReportsWorkForTwoFreshMounts() async throws {
++        var reports: [[String: Any]] = []
++        for iteration in 0..<2 {
++            let service = CompanionPreviewService(showsReadingScenario: true)
++            let store = CompanionStore(service: service)
++            var events = service.events().makeAsyncIterator()
++            let initialEvent = await events.next()
++            store.apply(try XCTUnwrap(initialEvent))
++            let agent = try XCTUnwrap(store.hosts.flatMap(\.allAgents).first { $0.id == CompanionPreviewService.target })
++            let target = agent.id
++            let items: [CompanionTimelineItem] = (0..<600).map {
++                .message(.init(id: "deep-\($0)", role: .assistant, text: "Deep reading marker \($0). A stable short paragraph."))
++            }
++            store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "deep-opening-cost"))
++            let bookmark = store.readingBookmark(for: target)
++            bookmark.hasMounted = true
++            bookmark.position = .init(followsLatest: false, entryID: "message:deep-60", distanceFromEntry: 40,
++                                      shownEntries: CompanionTimelineWindow.pageSize)
++            let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
++            let window = UIWindow(windowScene: scene)
++            window.frame = CGRect(x: 0, y: 0, width: 800, height: 1_000)
++            var body = 0, timeline = 0
++            var preparedRows: [Int] = []
++            CompanionConversationBuildProbe.record = { kind, observed in
++                guard observed == target else { return }
++                switch kind { case .body: body += 1; case .timeline: timeline += 1 }
++            }
++            CompanionConversationBuildProbe.preparedRows = { observed, count in
++                if observed == target { preparedRows.append(count) }
++            }
++            defer {
++                CompanionConversationBuildProbe.preparedRows = nil
++                CompanionConversationBuildProbe.record = nil
++                window.isHidden = true
++                window.rootViewController = nil
++            }
++            let cpu = processCPU(), start = ProcessInfo.processInfo.systemUptime
++            window.rootViewController = UIHostingController(rootView: NavigationStack {
++                CompanionConversationView(store: store, agent: agent, isVisible: true)
++            })
++            window.makeKeyAndVisible()
++            let deadline = ContinuousClock.now.advanced(by: .seconds(12))
++            while bookmark.viewport.restoration?.outcome != .arrived, ContinuousClock.now < deadline {
++                window.layoutIfNeeded()
++                try await Task.sleep(for: .milliseconds(20))
++            }
++            XCTAssertEqual(bookmark.viewport.restoration?.outcome, .arrived)
++            try await Task.sleep(for: .milliseconds(250))
++            window.layoutIfNeeded()
++            let frame = try XCTUnwrap(bookmark.viewport.frames["message:deep-60"])
++            let offset = try XCTUnwrap(bookmark.viewport.metrics?.normalizedOffset)
++            XCTAssertEqual(offset - frame.lowerBound, 40, accuracy: 6)
++            XCTAssertEqual(preparedRows.count, timeline, "Every actual transcript window build must report its prepared rows")
++            XCTAssertFalse(preparedRows.isEmpty)
++            reports.append(["iteration": iteration, "rows": 600, "bookmarkIndex": 60,
++                            "body": body, "timeline": timeline,
++                            "preparedRowCount": preparedRows.max() ?? -1,
++                            "preparedRowCountTotal": preparedRows.reduce(0, +), "preparedRowCountByBuild": preparedRows,
++                            "processCPUSeconds": processCPU() - cpu,
++                            "wallSeconds": ProcessInfo.processInfo.systemUptime - start])
++            CompanionConversationBuildProbe.preparedRows = nil
++            CompanionConversationBuildProbe.record = nil
++            window.isHidden = true
++            window.rootViewController = nil
++        }
++        let data = try JSONSerialization.data(withJSONObject: reports, options: [.prettyPrinted, .sortedKeys])
++        print("READING_DEEP_OPEN_COST " + String(decoding: data, as: UTF8.self))
++        let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")
++        attachment.name = "Deep paused opening work JSON"; attachment.lifetime = .keepAlways; add(attachment)
++    }
++}
