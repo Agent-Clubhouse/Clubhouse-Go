@@ -62,6 +62,8 @@ struct CompanionReadingGesture {
 /// Content coordinates avoid depending on estimates of row heights. One visible entry and its pixel offset survive
 /// prepends, grouping changes above it, and keyboard/composer resizing. Stored per conversation outside snapshots.
 struct CompanionReadingPosition: Equatable, Sendable {
+    /// Ignore an edge that is effectively at the viewport top, including floating-point rounding noise.
+    static let minimumVisibleExtent: Double = 0.5
     var followsLatest = true
     var entryID: String?
     var distanceFromEntry: Double = 0
@@ -73,7 +75,7 @@ struct CompanionReadingPosition: Equatable, Sendable {
     mutating func capture(offset: Double, frames: [String: ClosedRange<Double>]) {
         self.offset = offset
         var first: (key: String, value: ClosedRange<Double>)?
-        for entry in frames where entry.value.upperBound > offset {
+        for entry in frames where entry.value.upperBound > offset + Self.minimumVisibleExtent {
             if first == nil || entry.value.lowerBound < first!.value.lowerBound { first = entry }
         }
         if let first {
