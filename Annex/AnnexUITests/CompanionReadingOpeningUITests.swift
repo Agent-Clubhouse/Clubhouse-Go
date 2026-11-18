@@ -89,10 +89,10 @@ import UIKit
         waitState("outcome=arrived", in: app)
         XCTAssertEqual(settledY(anchor, in: app), savedY, accuracy: 6)
         control("close", in: app)
-        waitState("mounted=0", in: app)
+        waitState("case=closed", in: app)
         control("reopen", in: app)
         waitState("case=reopen", in: app)
-        observation("Destination-style reopen", in: app, anchor: anchor)
+        observation("Native destination reopen", in: app, anchor: anchor)
         waitState("outcome=arrived", in: app)
         XCTAssertEqual(settledY(anchor, in: app), savedY, accuracy: 6)
 

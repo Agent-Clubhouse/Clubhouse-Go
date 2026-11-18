@@ -10,7 +10,9 @@ struct CompanionReadingOpeningFixture: View {
     @State private var agents: [CompanionAgent] = []
     @State private var selected = 0
     @State private var mounted = false
-    @State private var visible = true
+    @State private var tab = 0
+    @State private var presentsDestination = false
+    private var visible: Bool { tab == 0 }
     @State private var scenario = "loading"
     @State private var status = "loading"
     private var store: CompanionStore { lifetime.value }
@@ -18,11 +20,24 @@ struct CompanionReadingOpeningFixture: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            NavigationStack {
-                if mounted, agents.indices.contains(selected) {
-                    // No identity on this parent: the transcript itself must separate target State.
-                    CompanionConversationView(store: store, agent: agents[selected], isVisible: visible)
-                } else { Text("Ready to open a chat").accessibilityIdentifier("reading-opening-unmounted") }
+            TabView(selection: $tab) {
+                Tab("Chat", systemImage: "bubble.left", value: 0) {
+                    NavigationStack {
+                        Group {
+                            if mounted, agents.indices.contains(selected) {
+                                // No identity on this parent: the transcript itself must separate target State.
+                                CompanionConversationView(store: store, agent: agents[selected], isVisible: visible)
+                            } else { Text("Ready to open a chat").accessibilityIdentifier("reading-opening-unmounted") }
+                        }
+                        .navigationDestination(isPresented: $presentsDestination) {
+                            if agents.indices.contains(selected) {
+                                CompanionConversationView(store: store, agent: agents[selected])
+                                    .toolbar(.hidden, for: .tabBar)
+                            }
+                        }
+                    }
+                }
+                Tab("Home", systemImage: "house", value: 1) { Text("Recording fixture Home") }
             }
             Text(status).font(.caption2).lineLimit(3).accessibilityIdentifier("reading-opening-state")
             ScrollView(.horizontal) {
@@ -31,13 +46,15 @@ struct CompanionReadingOpeningFixture: View {
                         .accessibilityIdentifier("reading-opening-latest")
                     Button("Open paused") { Task { await openPaused() } }
                         .accessibilityIdentifier("reading-opening-paused")
-                    Button("Hide tab") { scenario = "hidden"; visible = false }
+                    Button("Hide tab") { scenario = "hidden"; tab = 1 }
                         .accessibilityIdentifier("reading-opening-hide")
-                    Button("Show tab") { scenario = "tab-return"; visible = true }
+                    Button("Show tab") { scenario = "tab-return"; tab = 0 }
                         .accessibilityIdentifier("reading-opening-show")
-                    Button("Close chat") { scenario = "closed"; mounted = false }
+                    Button("Close chat") {
+                        Task { if await closeCurrentMount() { scenario = "closed" } }
+                    }
                         .accessibilityIdentifier("reading-opening-close")
-                    Button("Reopen chat") { scenario = "reopen"; mounted = true }
+                    Button("Reopen chat") { scenario = "reopen"; presentsDestination = true }
                         .accessibilityIdentifier("reading-opening-reopen")
                     Button("Other chat") { scenario = "target-switch"; selected = selected == 0 ? 1 : 0 }
                         .accessibilityIdentifier("reading-opening-other")
@@ -62,12 +79,18 @@ struct CompanionReadingOpeningFixture: View {
             agents = Array(store.hosts.flatMap(\.allAgents).filter { !$0.isDispatcher }.prefix(2))
             for agent in agents { await store.load(agent.id) }
             ReadingOpeningRecording.last = nil
+            ReadingOpeningRecording.unmounted = []
             CompanionReadingOpeningProbe.record = { sample in
                 ReadingOpeningRecording.last = sample
+                if sample.phase == .unmounted { ReadingOpeningRecording.unmounted.insert(sample.mountID) }
                 print("READING_OPEN time=\(Date().timeIntervalSince1970) case=\(scenario) phase=\(sample.phase.rawValue) mount=\(sample.mountID) target=\(sample.target.agentID) follow=\(sample.followsLatest ? 1 : 0) shown=\(sample.shownEntries) id=\(sample.requestedEntryID ?? "nil") bottom=\(sample.requestedBottom ? 1 : 0) point=\(sample.pointY ?? -1) first=\(sample.windowFirstID ?? "nil") offset=\(sample.offset ?? -1) lower=\(sample.entryLowerBound ?? -1) latest=\(sample.latestVisible ? 1 : 0)")
             }
             scenario = "ready"
-            defer { CompanionReadingOpeningProbe.record = nil; ReadingOpeningRecording.last = nil }
+            defer {
+                CompanionReadingOpeningProbe.record = nil
+                ReadingOpeningRecording.last = nil
+                ReadingOpeningRecording.unmounted = []
+            }
             while !Task.isCancelled {
                 let bookmark = target.map { store.readingBookmark(for: $0) }
                 let sample = ReadingOpeningRecording.last
@@ -78,17 +101,34 @@ struct CompanionReadingOpeningFixture: View {
         }
     }
 
-    private func openPaused() async {
-        guard let target else { return }
+    /// Observe the actual outgoing lifecycle, including a native pop, before starting a different recording case.
+    /// This is explicit fixture setup; no product mount waits or hides its first paint.
+    private func closeCurrentMount() async -> Bool {
+        let hadMount = mounted || presentsDestination
+        let prior = ReadingOpeningRecording.last?.mountID
         mounted = false
-        // This is an explicit recording-fixture close/reopen, never a delay in the product's first paint.
-        try? await Task.sleep(for: .milliseconds(100))
+        presentsDestination = false
+        if hadMount {
+            guard let prior else { scenario = "unmount-not-observed"; return false }
+            let deadline = ProcessInfo.processInfo.systemUptime + 3
+            while !ReadingOpeningRecording.unmounted.contains(prior), ProcessInfo.processInfo.systemUptime < deadline {
+                do { try await Task.sleep(for: .milliseconds(10)) } catch { return false }
+            }
+            guard ReadingOpeningRecording.unmounted.contains(prior) else { scenario = "unmount-not-observed"; return false }
+            // Explicit removal of a managed fixture root is not a production root-navigation path.
+            if let target { store.readingBookmark(for: target).viewport.clearGeometry() }
+        }
+        return true
+    }
+
+    private func openPaused() async {
+        guard let target, await closeCurrentMount() else { return }
         let bookmark = store.readingBookmark(for: target)
         bookmark.hasMounted = true
         bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: 0,
                                   offset: 0, shownEntries: 300)
         scenario = "paused-expanded"
-        visible = true
+        tab = 0
         mounted = true
     }
 
@@ -104,5 +144,6 @@ struct CompanionReadingOpeningFixture: View {
 
 @MainActor private enum ReadingOpeningRecording {
     static var last: CompanionReadingOpeningProbe.Sample?
+    static var unmounted: Set<UUID> = []
 }
 #endif

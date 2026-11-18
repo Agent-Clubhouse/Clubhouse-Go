@@ -890,6 +890,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 await restoreReadingPosition(saved, id: restoration.id)
             }
             .onDisappear {
+                #if DEBUG
+                traceOpening(.unmounted, firstEntryID: entries.first?.id)
+                #endif
                 // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
                 // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
                 if !isVisibilityManaged { viewport.clearGeometry() }
