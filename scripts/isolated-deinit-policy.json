@@ -1129,11 +1129,19 @@
         {
           "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) ) }",
           "producers": {}
+        },
+        {
+          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) ) }",
+          "producers": {}
         }
       ],
       "constructor:CompanionStore": [
         {
           "expression": "CompanionStore ( service : CompanionPreviewService ( showsLongReply : true ) )",
+          "producers": {}
+        },
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) )",
           "producers": {}
         }
       ]
