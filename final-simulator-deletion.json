@@ -1,0 +1,9 @@
+{
+  "uuid": "695314C8-C88A-4C63-BC9B-5A761943E342",
+  "name": "ux-567-scroll-private",
+  "state_before": "Shutdown",
+  "deleted": true,
+  "absent_after": true,
+  "booted_after": [],
+  "verified_at": "2026-11-18T04:49:21.099816+00:00"
+}
