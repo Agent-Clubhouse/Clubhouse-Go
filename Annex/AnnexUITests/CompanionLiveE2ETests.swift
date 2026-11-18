@@ -231,13 +231,24 @@ final class CompanionLiveE2ETests: ReliableUITestCase {
         }
     }
 
-    /// Selects a text field's contents and types over them.
-    private func replaceText(_ app: XCUIApplication, in field: XCUIElement, with text: String) {
+    /// Clears from the end, verifies emptiness, then types the replacement.
+    private func replaceText(_ app: XCUIApplication, in field: XCUIElement, with text: String,
+                             file: StaticString = #filePath, line: UInt = #line) {
         field.tap()
-        field.press(forDuration: 1.0)
-        let selectAll = app.menuItems["Select All"]
-        if selectAll.waitForExistence(timeout: 3) { selectAll.tap() }
-        field.typeText(XCUIKeyboardKey.delete.rawValue + text)
+        guard let old = field.value as? String else {
+            XCTFail("Text replacement requires the field's current value", file: file, line: line)
+            return
+        }
+        field.coordinate(withNormalizedOffset: CGVector(dx: 0.98, dy: 0.5)).tap()
+        if !old.isEmpty {
+            field.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: old.count))
+        }
+        guard waitFor(field, NSPredicate(format: "value == '' OR value == nil"), timeout: 5) else {
+            XCTFail("The field must be empty before typing a replacement; found \(String(describing: field.value))",
+                    file: file, line: line)
+            return
+        }
+        field.typeText(text)
     }
 
     /// Waits until `query` has more than `count` matches.
