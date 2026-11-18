@@ -25,6 +25,7 @@ struct CompanionChatControlsBar: View, Equatable {
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
+            && lhs.keyboardVisible == rhs.keyboardVisible
             && lhs.usesCompactPermissionHeader == rhs.usesCompactPermissionHeader
             && lhs.modelDifference == rhs.modelDifference && lhs.savedModelError == rhs.savedModelError
     }
