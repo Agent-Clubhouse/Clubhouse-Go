@@ -153,6 +153,44 @@ import XCTest
         }
     }
 
+    func testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes() {
+        for (name, theme) in [
+            ("Light", ["--companion-header-light"]),
+            ("Dark", []),
+            ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
+            ("Catppuccin Mocha", ["--companion-header-mocha"]),
+        ] {
+            let app = openMenu(theme + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXL"])
+            let full = app.buttons["companion-level-full_access"]
+            XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
+            let pane = visiblePane(app, requiresKeyboard: true)
+            for level in levels {
+                let row = app.buttons["companion-level-\(level.id)"]
+                assertFullText(row, expected: level.fullLabel)
+                XCTAssertTrue(row.isHittable)
+                XCTAssertTrue(pixelContains(pane, row.frame), "XLarge \(name) \(level.id) \(row.frame) must fit wholly in \(pane), without scrolling")
+                print("PERMISSION_GEOMETRY state=XLarge-\(name) level=\(level.id) pane=\(pane) row=\(row.frame)")
+            }
+            capture(app, "XLarge portrait \(name)")
+            confirmFullAccess(app)
+            app.terminate()
+        }
+    }
+
+    func testFullAccessConfirmationExplainsUnpromptedEditsAndCommands() {
+        let app = openMenu(["--companion-header-light"])
+        let confirmation = app.buttons["Switch to Full access"]
+        waitAndTap(app.buttons["companion-level-full_access"], until: confirmation, attempts: 1)
+        XCTAssertTrue(app.staticTexts["River will edit files and run commands without asking you first."].exists,
+                      "The confirmation retains the safety meaning omitted from compact visual subtitles")
+        XCTAssertTrue(confirmation.isHittable)
+        capture(app, "Full access consequence confirmation")
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertEqual(composer.value as? String, "Permission menu draft")
+    }
+
     /// Swipes stay inside the clipped native pane; the collection's oversized frame extends over the keyboard.
     private func reveal(_ row: XCUIElement, in app: XCUIApplication, accessibility: Bool) {
         for step in 0...8 {

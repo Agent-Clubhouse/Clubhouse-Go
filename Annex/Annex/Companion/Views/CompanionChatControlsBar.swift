@@ -69,7 +69,9 @@ struct CompanionChatControlsBar: View, Equatable {
                         else { setLevel(level) }
                     } label: {
                         Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
-                        Text(permissionSummary(level))
+                        // Single-line native rows keep all five levels above the editing keyboard.
+                        // The full meaning remains in the AX label and the escalation confirmation.
+                        if !compact { Text(permissionSummary(level)) }
                     }
                     // Menus don't read subtitles aloud; the label carries them.
                     .accessibilityLabel("\(level.label), \(subtitle(level))")
