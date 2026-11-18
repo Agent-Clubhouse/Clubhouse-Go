@@ -4,6 +4,8 @@ import ClubhouseTransport
 
 extension EnvironmentValues {
     @Entry var companionComposerCompactHeight = false
+    @Entry var companionPermissionMenuAvailableHeight: CGFloat = .infinity
+    @Entry var companionPermissionMenuKeyboardVisible = false
 }
 
 /// A retained tab's editing bookmark. Plain values only; never UIKit or SwiftUI handles.
@@ -42,6 +44,8 @@ struct CompanionConversationComposer: View {
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionComposerFitsGrantFooter) private var fitsGrantFooter
     @Environment(\.companionComposerCompactHeight) private var compactHeight
+    @Environment(\.companionPermissionMenuAvailableHeight) private var permissionMenuAvailableHeight
+    @Environment(\.companionPermissionMenuKeyboardVisible) private var permissionMenuKeyboardVisible
     @Environment(\.companionDispatcherFocus) private var externalDispatcherFocus
     @Environment(\.companionPalette) private var palette
     /// A generous estimate of the composer's line height, so one line can be centred in the send row at every text size.
@@ -345,7 +349,8 @@ struct CompanionConversationComposer: View {
             CompanionChatControlsBar(agentName: agent.name, controls: controls, enabled: store.canChangeChatControls(target),
                 setLevel: { level in Task { await store.setLevel(level, target: target) } },
                 setModel: { model, effort in Task { await store.setModel(model, effort: effort, target: target) } },
-                compact: true, requestLevel: { pendingLevel = $0 },
+                compact: true, availableHeight: permissionMenuAvailableHeight,
+                keyboardVisible: permissionMenuKeyboardVisible, requestLevel: { pendingLevel = $0 },
                 modelDifference: agent.modelDifference(from: hasCurrentSettings ? modelSettings : nil),
                 savedModelError: hasCurrentSettings ? savedModelError : nil,
                 retrySavedModel: { modelSettingsRetry += 1 })

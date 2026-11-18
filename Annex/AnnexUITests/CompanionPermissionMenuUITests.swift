@@ -2,6 +2,7 @@ import XCTest
 
 /// Native menu geometry and VoiceOver content, using the socket-free conversation fixture.
 @MainActor final class CompanionPermissionMenuUITests: ReliableUITestCase {
+    private var expectedBackTitle = "Auto-accept edits"
     private let levels: [(id: String, fullLabel: String)] = [
         ("plan", "Plan, Reads and plans, changes nothing · plan"),
         ("ask", "Ask first, Asks before edits and commands · default"),
@@ -40,12 +41,48 @@ import XCTest
         assertMinimumTarget(controls, "Chat controls")
         XCTAssertTrue(controls.label.contains("Auto-accept edits") && controls.label.contains("Opus"),
                       "The circle names the current access and model for VoiceOver and Voice Control: \(controls.label)")
+        XCTAssertTrue(controls.label.contains("Permissions: Auto-accept edits"),
+                      "The circle retains the current permission level when the short menu entry shows only its context")
         let appearance = flags.contains("--companion-header-latte") ? "Latte"
             : flags.contains("--companion-header-mocha") ? "Mocha"
             : flags.contains("--companion-header-light") ? "Light" : "Dark"
         capture(app, "composer \(landscape ? "landscape" : "portrait") \(appearance) \(flags.contains("UICTContentSizeCategoryAccessibilityXXXL") ? "XXXL" : "standard")")
+        // This matrix has SE3 and Pro Max. Classify from the device/orientation,
+        // independently of the app's title, available-height budget or AX value.
+        // Both landscape keyboards and SE's portrait keyboard leave short windows,
+        // including SE at accessibility sizes; native scrolling is still allowed there.
+        let shortWindow = landscape || app.frame.height < 800
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
+        // The native outer menu can dismiss the keyboard at AX sizes/landscape.
+        // Its actual visible frame is independent of the app's title or fit budget.
+        let menuKeyboard = visibleKeyboardFrame(app)
+        let expectsTightMenu = shortWindow && menuKeyboard != nil
+        expectedBackTitle = expectsTightMenu ? "Permissions" : "Auto-accept edits"
+        print("PERMISSION_MENU_LAYOUT shortWindow=\(shortWindow) keyboard=\(String(describing: menuKeyboard)) tight=\(expectsTightMenu)")
+        let permissions = app.buttons["companion-permissions-menu"]
+        let context = ([permissions.label, permissions.value as? String ?? ""]
+                       + permissions.staticTexts.allElementsBoundByIndex.map(\.label)).joined(separator: " · ")
+        print("PERMISSION_MENU_CONTEXT \(context)")
+        capture(app, "native permissions entry \(appearance)")
+        if expectsTightMenu {
+            XCTAssertEqual(permissions.label, "Permissions", "Short editing requires the native Permissions title")
+            // Native title-only layout trades the entry's current-level subtitle
+            // for room. The circle above names it; the checked row below shows it.
+        } else {
+            // Roomy native menus keep their original current-level title and shield;
+            // their expanded Permissions heading supplies the section context.
+            XCTAssertEqual(permissions.label, "Auto-accept edits")
+            // UIKit omits all decorative native menu images at AX XXXL.
+            if !flags.contains("UICTContentSizeCategoryAccessibilityXXXL") {
+                XCTAssertTrue(permissions.images.matching(identifier: "shield").firstMatch.exists)
+            }
+        }
         waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
+        capture(app, "expanded permissions \(appearance)")
+        let initialBack = backHeader(app)
+        XCTAssertTrue(initialBack.exists, "The native back header matches the independently expected layout")
+        XCTAssertLessThanOrEqual(initialBack.frame.maxY, app.buttons["companion-level-plan"].frame.minY + 1,
+                                 "Before scrolling, the matched header is above the first level, not another button")
         XCTAssertEqual(composer.value as? String, "Permission menu draft", "Opening a native menu preserves the draft")
         if visibleKeyboardFrame(app) == nil {
             XCTAssertTrue(app.keyboards.allElementsBoundByIndex.allSatisfy { keyboard in
@@ -96,7 +133,9 @@ import XCTest
         var visible = pane.intersection(CGRect(x: app.frame.minX, y: app.frame.minY,
                                               width: app.frame.width, height: (keyboard?.minY ?? app.frame.maxY) - app.frame.minY))
         // Native submenu headers can remain above scrolled cells. A row behind one isn't readable.
-        let back = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", "Auto-accept edits", "")).firstMatch
+        // Require the independently expected title, rather than accepting either.
+        // Its sticky back button must exclude exactly the same covered area.
+        let back = backHeader(app)
         let section = app.staticTexts["Permissions"]
         for header in [back, section] where header.exists && header.frame.intersects(visible) {
             let top = min(visible.maxY, max(visible.minY, header.frame.maxY))
@@ -105,9 +144,22 @@ import XCTest
         return visible
     }
 
+    private func backHeader(_ app: XCUIApplication) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label == %@ AND identifier == %@", expectedBackTitle, "")).firstMatch
+    }
+
     private func assertFullText(_ row: XCUIElement, expected: String) {
         XCTAssertTrue(row.exists)
         XCTAssertEqual(row.label, expected, "VoiceOver keeps the complete meaning and driver name")
+    }
+
+    private func assertSelectedLevel(_ app: XCUIApplication, in pane: CGRect) {
+        let selected = app.buttons["companion-level-auto_edit"]
+        assertFullText(selected, expected: levels[2].fullLabel)
+        XCTAssertTrue(selected.isSelected && selected.images["checkmark"].exists,
+                      "The current level retains its selected checkmark row")
+        XCTAssertTrue(selected.isHittable && pixelContains(pane, selected.frame),
+                      "The whole selected level stays visible inside the native pane")
     }
 
     private func capture(_ app: XCUIApplication, _ state: String) {
@@ -140,6 +192,7 @@ import XCTest
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
             let pane = visiblePane(app, requiresKeyboard: true)
+            assertSelectedLevel(app, in: pane)
             for level in levels {
                 let row = app.buttons["companion-level-\(level.id)"]
                 assertFullText(row, expected: level.fullLabel)
@@ -147,10 +200,103 @@ import XCTest
                 XCTAssertTrue(pixelContains(pane, row.frame), "\(name) \(level.id) \(row.frame) must fit wholly in \(pane), without scrolling")
                 print("PERMISSION_GEOMETRY state=portrait-\(name) level=\(level.id) pane=\(pane) row=\(row.frame)")
             }
+            if app.frame.height < 800 { XCTAssertGreaterThanOrEqual(pane.maxY - full.frame.maxY, 8, "Default SE retains a real bottom margin") }
             capture(app, "portrait \(name)")
             confirmFullAccess(app)
             app.terminate()
         }
+    }
+
+    func testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes() {
+        for (name, theme) in [
+            ("Light", ["--companion-header-light"]),
+            ("Dark", []),
+            ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
+            ("Catppuccin Mocha", ["--companion-header-mocha"]),
+        ] {
+            let app = openMenu(theme + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXL"])
+            let full = app.buttons["companion-level-full_access"]
+            XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
+            let pane = visiblePane(app, requiresKeyboard: true)
+            assertSelectedLevel(app, in: pane)
+            for level in levels {
+                let row = app.buttons["companion-level-\(level.id)"]
+                assertFullText(row, expected: level.fullLabel)
+                XCTAssertTrue(row.isHittable)
+                XCTAssertTrue(pixelContains(pane, row.frame), "XLarge \(name) \(level.id) \(row.frame) must fit wholly in \(pane), without scrolling")
+                print("PERMISSION_GEOMETRY state=XLarge-\(name) level=\(level.id) pane=\(pane) row=\(row.frame)")
+            }
+            if app.frame.height < 800 { XCTAssertGreaterThanOrEqual(pane.maxY - full.frame.maxY, 8, "XLarge SE retains a real bottom margin") }
+            capture(app, "XLarge portrait \(name)")
+            confirmFullAccess(app)
+            app.terminate()
+        }
+    }
+
+    func testFullAccessConfirmationExplainsUnpromptedEditsAndCommands() {
+        let app = openMenu(["--companion-header-light"])
+        let agentName = app.buttons["companion-chat-header"].label.components(separatedBy: ",")[0]
+        XCTAssertFalse(agentName.isEmpty)
+        let confirmation = app.buttons["Switch to Full access"]
+        waitAndTap(app.buttons["companion-level-full_access"], until: confirmation, attempts: 1)
+        XCTAssertTrue(app.staticTexts["\(agentName) will edit files and run commands without asking you first."].exists,
+                      "The confirmation retains the safety meaning omitted from compact visual subtitles")
+        XCTAssertTrue(confirmation.isHittable)
+        capture(app, "Full access consequence confirmation")
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertEqual(composer.value as? String, "Permission menu draft")
+    }
+
+    func testAutoConfirmationExplainsApprovalChoice() {
+        let app = openMenu(["--companion-header-light"])
+        let agentName = app.buttons["companion-chat-header"].label.components(separatedBy: ",")[0]
+        XCTAssertFalse(agentName.isEmpty)
+        let confirmation = app.buttons["Switch to Auto"]
+        waitAndTap(app.buttons["companion-level-auto"], until: confirmation, attempts: 1)
+        XCTAssertTrue(app.staticTexts["\(agentName) will decide for itself what needs your approval."].exists,
+                      "Auto retains its approval consequence when compact visual subtitles are omitted")
+        XCTAssertTrue(confirmation.isHittable)
+        capture(app, "Auto consequence confirmation")
+        confirmation.tap()
+        XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertEqual(composer.value as? String, "Permission menu draft")
+    }
+
+    func testPermissionDescriptionsUseEditingRoomAndRemainVisibleWithKeyboardDown() {
+        let editing = openMenu(["--companion-header-light"])
+        XCTAssertGreaterThan(editing.frame.height, editing.frame.width)
+        // This matrix runs on SE3 (667pt) and Pro Max (956pt). Assert the native
+        // row geometry independently of the app's available-height classification.
+        let shortPhone = editing.frame.height < 800
+        XCTAssertEqual(editing.staticTexts["Permissions"].exists, !shortPhone,
+                       "Only the short editing pane omits the redundant section heading")
+        for level in levels {
+            let row = editing.buttons["companion-level-\(level.id)"]
+            assertFullText(row, expected: level.fullLabel)
+            if shortPhone {
+                XCTAssertLessThanOrEqual(row.frame.height, 46, "Short editing uses a single native title line")
+            } else {
+                XCTAssertGreaterThanOrEqual(row.frame.height, 57, "Roomy editing retains the native subtitle line")
+            }
+        }
+        capture(editing, "editing visual descriptions \(shortPhone ? "short" : "roomy")")
+        editing.terminate()
+
+        let reading = launchApp(["--companion-preview", "--companion-preview-header-fixture", "--companion-header-light"], attempts: 1)
+        XCTAssertTrue(reading.buttons["companion-chat-header"].waitForExistence(timeout: 10))
+        XCTAssertNil(visibleKeyboardFrame(reading))
+        waitAndTap(reading.buttons["companion-level-menu"], until: reading.buttons["companion-permissions-menu"], attempts: 1)
+        waitAndTap(reading.buttons["companion-permissions-menu"], until: reading.buttons["companion-level-plan"], attempts: 1)
+        XCTAssertTrue(reading.staticTexts["Permissions"].exists, "Keyboard-down presentation retains its section heading")
+        for level in levels {
+            let row = reading.buttons["companion-level-\(level.id)"]
+            assertFullText(row, expected: level.fullLabel)
+            XCTAssertGreaterThanOrEqual(row.frame.height, 57, "Keyboard-down presentation retains every native subtitle line")
+        }
+        capture(reading, "keyboard down visual descriptions")
     }
 
     /// Swipes stay inside the clipped native pane; the collection's oversized frame extends over the keyboard.

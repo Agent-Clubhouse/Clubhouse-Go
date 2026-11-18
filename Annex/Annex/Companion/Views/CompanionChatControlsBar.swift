@@ -14,6 +14,8 @@ struct CompanionChatControlsBar: View, Equatable {
     let setLevel: @MainActor (CompanionPermissionLevel) -> Void
     let setModel: @MainActor (String, CompanionEffortChoice?) -> Void
     var compact = false
+    var availableHeight: CGFloat = .infinity
+    var keyboardVisible = false
     let requestLevel: @MainActor (CompanionPermissionLevel) -> Void
     var modelDifference: CompanionModelDifference?
     var savedModelError: String?
@@ -22,7 +24,16 @@ struct CompanionChatControlsBar: View, Equatable {
 
     nonisolated static func == (lhs: Self, rhs: Self) -> Bool {
         lhs.agentName == rhs.agentName && lhs.controls == rhs.controls && lhs.enabled == rhs.enabled && lhs.compact == rhs.compact
+            && lhs.usesSingleLinePermissionRows == rhs.usesSingleLinePermissionRows
             && lhs.modelDifference == rhs.modelDifference && lhs.savedModelError == rhs.savedModelError
+    }
+
+    private var usesSingleLinePermissionRows: Bool {
+        // Measured native submenu chrome is 100.5pt and each two-line row is 58pt
+        // at Large. Reserve another 20pt for the next standard text size and menu insets.
+        // The existing keyboard-safe container measurement distinguishes short editing
+        // windows from roomy phones/tablets and from the same phone with its keyboard down.
+        compact && keyboardVisible && availableHeight < 100.5 + CGFloat(controls.levels.count) * 58 + 20
     }
 
     var body: some View {
@@ -61,24 +72,19 @@ struct CompanionChatControlsBar: View, Equatable {
     private var levelMenu: some View {
         let current = controls.currentLevel
         return Menu {
-            Section("Permissions") {
-                ForEach(controls.levels, id: \.self) { level in
-                    Button {
-                        guard level != current else { return }
-                        if level.needsConfirmation(from: current) { requestLevel(level) }
-                        else { setLevel(level) }
-                    } label: {
-                        Label(level.label, systemImage: level == current ? "checkmark" : level.symbol)
-                        Text(permissionSummary(level))
-                    }
-                    // Menus don't read subtitles aloud; the label carries them.
-                    .accessibilityLabel("\(level.label), \(subtitle(level))")
-                    .accessibilityAddTraits(level == current ? .isSelected : [])
-                    .accessibilityIdentifier("companion-level-\(level.rawValue)")
-                }
+            if usesSingleLinePermissionRows {
+                // Avoid repeating the section heading in the short keyboard-up pane.
+                permissionChoices
+            } else {
+                Section("Permissions") { permissionChoices }
             }
         } label: {
-            if compact { Label(current.label, systemImage: "shield") }
+            if usesSingleLinePermissionRows {
+                // Native nested menus ignore custom AX names, so name the context
+                // directly. A subtitle also consumes the back-header budget at XL.
+                // The circle's AX label and selected choice retain the current level.
+                Text("Permissions")
+            } else if compact { Label(current.label, systemImage: "shield") }
             else {
                 chip(current.label, systemImage: "shield", menu: controls.canChangeLevel)
             }
@@ -87,6 +93,24 @@ struct CompanionChatControlsBar: View, Equatable {
         .accessibilityLabel("Permissions: \(current.label)")
         .accessibilityHint(controls.canChangeLevel ? "Changes the permission level" : "This agent can't change permission level mid-session")
         .accessibilityIdentifier(compact ? "companion-permissions-menu" : "companion-level-menu")
+    }
+
+    private var permissionChoices: some View {
+        ForEach(controls.levels, id: \.self) { level in
+            Button {
+                guard level != controls.currentLevel else { return }
+                if level.needsConfirmation(from: controls.currentLevel) { requestLevel(level) }
+                else { setLevel(level) }
+            } label: {
+                Label(level.label, systemImage: level == controls.currentLevel ? "checkmark" : level.symbol)
+                // Full meaning remains in the AX label and escalation confirmation.
+                if !usesSingleLinePermissionRows { Text(permissionSummary(level)) }
+            }
+            // Menus don't read subtitles aloud; the label carries them.
+            .accessibilityLabel("\(level.label), \(subtitle(level))")
+            .accessibilityAddTraits(level == controls.currentLevel ? .isSelected : [])
+            .accessibilityIdentifier("companion-level-\(level.rawValue)")
+        }
     }
 
     private func modelDetail(_ model: CompanionChatModel) -> String? {
