@@ -21,7 +21,7 @@ import XCTest
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10))
         // Loading River supplies its real pending Bash approval; the catalog has no tool.
-        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-review-approval").firstMatch.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "companion-pinned-decision").firstMatch.waitForExistence(timeout: 10))
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollUntilExists(row, in: app) && scrollTo(row, in: app))
         XCTAssertTrue(row.label.contains("Needs permission · Bash"), row.label)
