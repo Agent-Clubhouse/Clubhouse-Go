@@ -269,6 +269,18 @@
       "additive_proof": "Two product bases, identical full test patch SHA, zero removed lines; source-only preparer before measured build tickets; generated exact overlay manifest sent to QA before admission.",
       "status": "r2 generated main34a5747b/head79dec95c on green caaac0337; awaiting QA quick review, no CPU heavy admitted",
       "generated_provenance": "/tmp/ux-582-proof/cpu-overlay-provenance.json"
+    },
+    "FD": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats"
+      ],
+      "count": 1,
+      "record_video": true,
+      "status": "PROPOSED uncredited first-paint diagnostic after N STOP; no source/test edit; QA exactscope review pending",
+      "acceptance": "No runtime acceptance. Inspect FIRST rendered paused-expanded frame and full fixture Opening timeline before classifying N zero-arrival setup or changing product. All other phases HOLD."
     }
   },
   "order": [

@@ -1,0 +1,52 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "90145A85-6E87-4AA9-9D51-26726E9FF6E1",
+        "deviceName" : "ux-582-first-paint",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 1,
+      "passedTests" : 11,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "ClubhouseGo · Built with macOS 26.5.2",
+  "expectedFailures" : 0,
+  "failedTests" : 1,
+  "finishTime" : 1795025983.135,
+  "passedTests" : 10,
+  "result" : "Failed",
+  "skippedTests" : 0,
+  "startTime" : 1795025955.362,
+  "statistics" : [
+    {
+      "subtitle" : "2 test runs",
+      "title" : "1 test ran with dynamic parameters"
+    }
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "Expectation failed: (viewport.restoration?.attempts → 1) == 0: The nonzero 0.5pt saved distance exercises A's unchanged 1pt arrival threshold",
+      "targetName" : "ClubhouseGoTests",
+      "testIdentifier" : 8,
+      "testIdentifierString" : "CompanionReadingOpeningTests/exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection()",
+      "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingOpeningTests/exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection()",
+      "testName" : "exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection()"
+    }
+  ],
+  "title" : "Test - ClubhouseGo",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 11
+}
