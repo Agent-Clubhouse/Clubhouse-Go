@@ -747,7 +747,7 @@ func differentPairingIdsAdvanceOnlyWithStrictlyLaterJoinTime(joinedAt: String) a
     let (_, existing, _, a) = try await pairedNetwork()
     let io = try NetworkIO(desktopA.get())
     await io.setServerPairing(.init(id: "desktop-pair", joinedAt: "invalid"))
-    let registry = AnnexTransportRegistry(pairings: existing, pairingIO: { _, _ in io })
+    let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: existing, pairingIO: { _, _ in io })
     await #expect(throws: AnnexTransportError.malformedResponse) {
         try await registry.pair(host: a.trustedHost(), pin: "123456", alias: "Phone", clientIdentity: phoneIdentity.get(), persistence: .persistent)
     }
@@ -816,7 +816,7 @@ func differentPairingIdsAdvanceOnlyWithStrictlyLaterJoinTime(joinedAt: String) a
     saved.network?.observations = map
     await store.save(saved)
     let io = try NetworkIO(desktopB.get())
-    let registry = AnnexTransportRegistry(pairings: store, pairingIO: { _, _ in io })
+    let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: store, pairingIO: { _, _ in io })
     _ = try await registry.restoreSaved()
     await #expect(throws: AnnexTransportError.commandTooLarge) {
         try await registry.pair(host: member(desktopB.get()).trustedHost(), pin: "123456", alias: "Phone", clientIdentity: phoneIdentity.get(), persistence: .persistent)
