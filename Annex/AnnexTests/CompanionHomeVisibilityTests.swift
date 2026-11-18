@@ -353,6 +353,58 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.counts[.layout], fixture.counts[.content])
     }
 
+    func testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        let target = fixture.hosts[0].projects[0].agents[1].id
+        fixture.hosts[0].projects[0].agents[1].status = .approval
+        fixture.store.apply(.hosts(fixture.hosts))
+        var approval = CompanionApproval(id: "home-projection", toolName: "Edit", summary: "Generated pending decision",
+            options: [.init(id: "deny", label: "Deny", kind: .rejectOnce)])
+        fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
+        try await fixture.mount()
+        let initialText = try await fixture.waitForRenderedText("Edit")
+        XCTAssertTrue(initialText.contains("Edit"), "Home must show the actual pending approval")
+        try await fixture.waitForVisibleWorkToSettle()
+        let kinds: Set<CompanionHomeBuildProbe.Kind> = [.owner, .contentInputs, .content, .layout, .header]
+        let before = fixture.counts.filter { kinds.contains($0.key) }
+        XCTAssertGreaterThan(before[.owner, default: 0], 0)
+        XCTAssertGreaterThan(before[.layout, default: 0], 0)
+        XCTAssertGreaterThan(before[.header, default: 0], 0)
+        for batch in 0..<10 {
+            for chunk in 0..<10 {
+                fixture.store.apply(.textDelta(fixture.dispatcher, messageID: "perf-stream", text: " visible", sequence: batch * 10 + chunk + 1))
+            }
+            try await fixture.waitForVisibleWorkToSettle()
+            XCTAssertTrue(fixture.homeVisible)
+            XCTAssertEqual(fixture.navigation?.wrappedValue.tab, .home)
+            XCTAssertEqual(fixture.counts.filter { kinds.contains($0.key) }, before,
+                "A pending Needs-you item must not make visible Home follow transcript batch \(batch)")
+        }
+        XCTAssertEqual(fixture.store.conversation(for: fixture.dispatcher).lastSequence, 100)
+        XCTAssertEqual(fixture.store.conversation(for: fixture.dispatcher).items.compactMap { item -> String? in
+            if case .message(let value) = item, value.id == "perf-stream" { return value.text }; return nil
+        }.first, "start" + String(repeating: " visible", count: 100))
+
+        approval.toolName = "Shell"
+        fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
+        let changedText = try await fixture.waitForRenderedText("Shell")
+        XCTAssertTrue(changedText.contains("Shell"), "Decision metadata must refresh without a host report")
+        approval.resolution = .denied
+        fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
+        let question = CompanionQuestion(id: "home-question", prompts: [.init(id: "prompt", text: "Generated question",
+            options: [], allowsMultiple: false, allowsFreeText: true)])
+        fixture.store.apply(.upsert(target, .question(question), sequence: nil))
+        let questionText = try await fixture.waitForRenderedText("Has a question for you")
+        XCTAssertTrue(questionText.contains("Has a question for you"))
+        XCTAssertFalse(questionText.contains("Shell"), "The resolved approval must not remain rendered")
+        fixture.hosts[0].projects[0].agents[1].status = .working
+        fixture.store.apply(.hosts(fixture.hosts))
+        let emptyText = try await fixture.waitForRenderedText("Nothing needs you right now")
+        XCTAssertTrue(emptyText.contains("Nothing needs you right now"))
+        fixture.capture("Visible Home decisions remain fresh after isolated stream updates")
+    }
+
     @MainActor private final class Fixture {
         let service: HomeVisibilityService
         let store: CompanionStore
@@ -519,6 +571,21 @@ import ClubhouseTransport
         func turn() async throws {
             await withCheckedContinuation { continuation in DispatchQueue.main.async { continuation.resume() } }
             window.layoutIfNeeded()
+        }
+
+        /// Bounded rendering readiness, never a stream retry or a work allowance.
+        func waitForVisibleWorkToSettle() async throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 3
+            var sample = counts, sampledAt = ProcessInfo.processInfo.systemUptime
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                try await turn()
+                let now = ProcessInfo.processInfo.systemUptime
+                if counts != sample { sample = counts; sampledAt = now }
+                else if now - sampledAt >= 0.15 { return }
+                try await Task.sleep(for: .milliseconds(20)) // Condition polling only.
+            }
+            XCTFail("Visible Home did not settle between measured batches")
+            throw NSError(domain: "HomeVisibleReadiness", code: 1)
         }
 
         func wait(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {

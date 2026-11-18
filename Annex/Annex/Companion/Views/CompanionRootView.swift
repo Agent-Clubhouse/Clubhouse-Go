@@ -75,7 +75,9 @@ struct CompanionRootView: View {
             }
             if navigation.tabs.contains(.dispatcher) {
                 Tab("Dispatch", systemImage: "point.3.connected.trianglepath.dotted", value: CompanionTab.dispatcher) {
-                    stack(.dispatcher) { dispatcherRoot }
+                    stack(.dispatcher) {
+                        CompanionDispatcherRootBody { AnyView(dispatcherRoot) }
+                    }
                 }
                 .badge(store.dispatcherNeedsYouCount + navigation.dispatcherReplies.unreadHostIDs.count)
             }
@@ -397,6 +399,13 @@ extension NavigationLink where Destination == Never {
 
 // MARK: - Home
 
+/// Dispatcher transcript/reply observations belong to this child, not the Root that
+/// constructs Home. No state owner or alternate navigation path is introduced.
+private struct CompanionDispatcherRootBody: View {
+    let content: @MainActor () -> AnyView
+    var body: AnyView { content() }
+}
+
 /// Needs you across every desktop, then projects in the order you choose.
 struct CompanionHomeView: View {
     @Bindable var store: CompanionStore
@@ -485,7 +494,7 @@ struct CompanionHomeView: View {
         #if DEBUG
         CompanionHomeBuildProbe.record?(.attention)
         #endif
-        return (display?.attention ?? contentValues?.attention ?? store.attentionItems()).filter { scope.contains($0.agent.id) }
+        return (display?.attention ?? contentValues?.attention ?? store.homeAttentionItems()).filter { scope.contains($0.agent.id) }
     }
     private var multipleHosts: Bool { scope.showsHostTags }
     /// Agents of an offline desktop drop out of the list instead of showing stale states.
@@ -701,7 +710,7 @@ struct CompanionHomeView: View {
         CompanionHomeBuildProbe.record?(.contentInputs)
         #endif
         let hosts = store.hosts, entries = store.projectEntries
-        let attention = store.attentionItems()
+        let attention = store.homeAttentionItems()
         let shown = layout.projects + (preferences.idleExpanded ? layout.idle : [])
         let full = Dictionary(entries.map { ($0.orderKey, $0) }, uniquingKeysWith: { first, _ in first })
         var finished: [CompanionProjectTarget: [CompanionFinishedRun]] = [:]
