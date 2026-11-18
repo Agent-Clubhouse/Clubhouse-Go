@@ -70,6 +70,13 @@ Model's status lines stay together in its section header; no global menu orderin
 and Effort retain their existing ordering.
 No rows are added to the collapsed composer.
 
+With the keyboard visible, permission choices use single-line native rows at XLarge and above.
+UIKit's anchored menu pane can be shorter than the keyboard-safe container, so growing two-line rows
+cannot use that container height as their fit budget. Short editing windows also omit the redundant
+Permissions section and simplify the back title; roomier windows retain both independently of row detail.
+Keyboard-down menus retain their descriptions, and every layout keeps the full VoiceOver labels,
+selected checkmark and elevated-access confirmation.
+
 The pinned desktop contract (`8c0029a1`) exports optional `MobileChatControls.startModel: string | null`
 in v1 chat snapshots/pages. The desktop folds the full session to produce it; Go never infers it from
 whatever bounded history happens to arrive. Live model changes preserve the authoritative baseline;
