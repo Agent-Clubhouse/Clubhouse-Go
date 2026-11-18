@@ -3,7 +3,7 @@ import SwiftUI
 
 /// Opt-in test observation only. No transcript text, State writes, timers or production callback.
 @MainActor enum CompanionReadingOpeningProbe {
-    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump, openingRequest }
+    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump }
     struct Sample {
         let phase: Phase
         let mountID: UUID
@@ -14,6 +14,9 @@ import SwiftUI
         let shownEntries: Int
         let requestedEntryID: String?
         let requestedBottom: Bool
+        let requestedTop: Bool
+        let windowStartID: String?
+        let savedDistanceFromEntry: Double
         let pointY: Double?
         let positionedByUser: Bool
         let windowFirstID: String?
@@ -23,8 +26,6 @@ import SwiftUI
         let latestVisible: Bool
     }
     static var record: ((Sample) -> Void)?
-    /// Nil uses SwiftUI ownership. Hosted phase tests can exercise the no-write branch without fake UIKit touches.
-    static var positionedByUserOverride: Bool?
     static var didComputeSeed: ((CompanionTarget) -> Void)?
 }
 #endif

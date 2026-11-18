@@ -56,7 +56,6 @@ import UIKit
         func close() {
             CompanionReadingOpeningProbe.record = nil
             CompanionReadingOpeningProbe.didComputeSeed = nil
-            CompanionReadingOpeningProbe.positionedByUserOverride = nil
             CompanionConversationBuildProbe.record = nil
             CompanionReadingRestoreProbe.deliver = nil
             window.isHidden = true
@@ -83,7 +82,7 @@ import UIKit
         }
     }
 
-    @Test func pausedFirstBodyUsesItsEntryInsideAnExpandedWindowAndReleasesTheIDAfterScrolling() async throws {
+    @Test func pausedFirstBodyStartsAtItsCanonicalBookmarkWithoutAnIdentityRequest() async throws {
         let f = try await Fixture()
         defer { f.close() }
         f.pause(distance: 40)
@@ -94,8 +93,9 @@ import UIKit
         try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
         let first = try #require(samples.first { $0.phase == .body })
         #expect(!first.followsLatest && first.shownEntries == 300)
-        #expect(first.requestedEntryID == "message:reading-90" && !first.requestedBottom && first.pointY == nil)
-        #expect(first.windowFirstID != first.requestedEntryID, "Earlier loaded messages must not become the first-paint target")
+        #expect(first.requestedEntryID == nil && first.requestedTop && !first.requestedBottom && first.pointY == nil)
+        #expect(first.windowStartID == "message:reading-90" && first.windowFirstID == first.windowStartID,
+                "User-approved #582 UX replaces the old expanded-prefix inequality")
         #expect(first.latestVisible, "Latest must be available from the paused semantic state before geometry")
         let scrolled = try #require(samples.first { $0.phase == .scroll })
         #expect(scrolled.requestedEntryID == nil && scrolled.pointY != nil,
@@ -192,6 +192,8 @@ import UIKit
         let secondID = try #require(samples.last?.mountID)
         #expect(Set(samples.map(\.mountID)) == [originalID, secondID])
         #expect(seedCounts[target] == 2, "Exactly one seed is computed on re-show after hidden reload")
+        let reopened = try #require(samples.first { $0.phase == .body && $0.mountID == secondID })
+        #expect(reopened.windowFirstID == reopened.windowStartID && reopened.requestedTop && reopened.requestedEntryID == nil)
         try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
         f.navigation.selected = 1
         try await f.wait { samples.contains { $0.target == f.agents[1].id && $0.phase == .body } }
@@ -218,7 +220,8 @@ import UIKit
         f.mount()
         try await f.wait { samples.contains { $0.phase == .body } }
         let opening = try #require(samples.first { $0.phase == .body })
-        #expect(opening.requestedEntryID == "question:first" && !opening.requestedBottom)
+        #expect(opening.requestedEntryID == nil && opening.requestedTop && !opening.requestedBottom)
+        #expect(opening.windowStartID == "question:first" && opening.windowFirstID == "question:first")
     }
 
     @Test func removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget() async throws {
@@ -270,19 +273,33 @@ import UIKit
     }
 
 
-    @Test func exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection() async throws {
+    @Test func exactTopOpeningArrivesWithoutANumericCorrection() async throws {
         let f = try await Fixture()
         defer { f.close() }
-        f.pause(distance: 0.5)
+        f.pause(distance: 40)
         var samples: [CompanionReadingOpeningProbe.Sample] = []
         CompanionReadingOpeningProbe.record = { samples.append($0) }
         f.mount()
-        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
+        let bookmark = f.store.readingBookmark(for: f.agents[0].id)
+        let viewport = bookmark.viewport
         try await f.wait { viewport.restoration?.outcome == .arrived }
+        let entryID = try #require(samples.first { $0.phase == .body }?.windowFirstID)
+        let measuredLower = try #require(viewport.frames[entryID]?.lowerBound)
+        f.navigation.visible = false
+        try await f.wait { samples.contains { $0.phase == .unmounted } && viewport.metrics == nil }
+        // A real top-position capture has a negative entry-relative distance when header/padding precedes it.
+        // Derive it from the identical mounted window, never from a guessed height or an assumed ID landing.
+        bookmark.position = .init(followsLatest: false, entryID: entryID,
+            distanceFromEntry: 0.5 - measuredLower, offset: 0.5, shownEntries: 300)
+        samples.removeAll()
+        f.navigation.visible = true
+        try await f.wait { viewport.restoration?.outcome == .arrived }
+        #expect(abs((viewport.frames[entryID]?.lowerBound ?? -.infinity) - measuredLower) <= 0.01,
+                "The zero-arrival setup requires the same real window geometry")
         #expect(viewport.restoration?.attempts == 0, "The nonzero 0.5pt saved distance exercises A's unchanged 1pt arrival threshold")
         let arrival = try #require(samples.first { $0.phase == .arrived })
         #expect(arrival.requestedEntryID == nil)
-        if let handoff = samples.first(where: { $0.phase == .handoff }) { #expect(handoff.pointY != nil) }
+        #expect(samples.filter { $0.phase == .handoff }.isEmpty)
         #expect(samples.filter { $0.phase == .scroll }.isEmpty)
         let offset = try #require(viewport.metrics?.normalizedOffset)
         let phaseCount = samples.filter { $0.phase == .phaseChanged }.count
@@ -292,6 +309,49 @@ import UIKit
         #expect(samples.filter { $0.phase == .saved }.count == 1,
                 "Only the original arrival save is allowed; the marker handoff adds none")
         #expect(viewport.restoration?.attempts == 0)
+    }
+
+    /// #569 can still trim on an open reload; bookmark-first remounts themselves must retain their boundary.
+    @Test func reopenedPausedWindowKeepsItsFirstEntryWhenATailArrivesDuringRestore() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause(distance: 40)
+        let target = f.agents[0].id
+        let bookmark = f.store.readingBookmark(for: target)
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        var injected = false
+        var exercised = false
+        var firstLower: Double?
+        CompanionReadingRestoreProbe.deliver = { _, attempt, pinnedOffset, _ in
+            if !injected {
+                injected = true
+                firstLower = bookmark.viewport.frames["message:reading-90"]?.lowerBound
+                #expect(bookmark.viewport.restoration?.offset == pinnedOffset)
+                f.store.apply(.upsert(target, .message(.init(id: "opening-tail", role: .assistant,
+                    text: "A normal tail arrival during bookmark-first restoration.")), sequence: nil))
+                return false
+            }
+            let viewport = bookmark.viewport
+            if viewport.frames["message:opening-tail"] != nil,
+               let metrics = viewport.metrics, abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 {
+                exercised = true
+                return true
+            }
+            #expect(attempt < 10, "The real tail geometry must be exercised, not passed on a timeout")
+            return attempt >= 10
+        }
+        f.mount()
+        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
+        #expect(injected && exercised)
+        #expect(samples.filter { $0.phase == .body }.allSatisfy {
+            $0.windowFirstID == "message:reading-90" && $0.windowStartID == "message:reading-90" && $0.requestedEntryID == nil
+        })
+        let lower = try #require(bookmark.viewport.frames["message:reading-90"]?.lowerBound)
+        #expect(abs(lower - (firstLower ?? -.infinity)) <= 1,
+                "Tail growth cannot trim the bookmark-first prefix")
+        let offset = try #require(bookmark.viewport.metrics?.normalizedOffset)
+        #expect(abs(offset - lower - 40) <= 6)
     }
 
     private func touchAnchor(_ view: UIView) -> CompanionReadingTouchObserver.Anchor? {
@@ -306,7 +366,7 @@ import UIKit
     }
 
     /// Native hosted scroll view, with phases injected through the existing DEBUG hook, not a finger gesture.
-    @Test(arguments: [false, true]) func activeOpeningDragWritesOnlyAtIdleUnlessTheUserAlreadyOwnsThePosition(userOwnsPosition: Bool) async throws {
+    @Test func activeOpeningDragNeverWritesAnIdentityHandoff() async throws {
         let f = try await Fixture()
         defer { f.close() }
         f.pause(distance: 40)
@@ -333,8 +393,6 @@ import UIKit
         let attempts = viewport.restoration?.attempts
         let writesBefore = samples.filter { $0.phase == .handoff || $0.phase == .scroll }.count
         #expect(writesBefore == 0)
-        // This controlled ownership input tests the same guard; it never changes the native binding.
-        CompanionReadingOpeningProbe.positionedByUserOverride = userOwnsPosition
         let activeOffset = scroll.contentOffset.y
         try await f.settle()
         #expect(abs(scroll.contentOffset.y - activeOffset) <= 1)
@@ -350,11 +408,7 @@ import UIKit
         try await f.settle()
         #expect(abs(scroll.contentOffset.y - idleOffset) <= 1)
         let handoffs = samples.filter { $0.phase == .handoff }
-        #expect(handoffs.count == (userOwnsPosition ? 0 : 1))
-        if !userOwnsPosition {
-            let handoff = try #require(handoffs.first)
-            #expect(handoff.requestedEntryID == nil && handoff.pointY != nil)
-        }
+        #expect(handoffs.isEmpty, "Edge-seeded openings have no held identity, including at idle")
         #expect(samples.filter { $0.phase == .saved }.count == savesBeforeIdle + 1,
                 "Only the unchanged gesture-idle save is allowed; the handoff adds no save")
         #expect(samples.filter { $0.phase == .scroll }.isEmpty && deliveries == 1)
@@ -362,7 +416,7 @@ import UIKit
         drivePhase = nil
     }
 
-    @Test func lightOpeningTouchDefersTheIdentityHandoffUntilIdle() async throws {
+    @Test func lightOpeningTouchNeverInstallsAnIdentityHandoff() async throws {
         let f = try await Fixture()
         defer { f.close() }
         f.pause(distance: 40)
@@ -388,7 +442,7 @@ import UIKit
         let phase = try #require(drivePhase)
         phase(.idle)
         try await f.settle()
-        #expect(samples.filter { $0.phase == .handoff }.count == 1)
+        #expect(samples.filter { $0.phase == .handoff }.isEmpty)
         #expect(samples.filter { $0.phase == .saved }.count == saves,
                 "A light-touch idle is not a gesture and cannot add a save")
         #expect(abs(scroll.contentOffset.y - before) <= 1)

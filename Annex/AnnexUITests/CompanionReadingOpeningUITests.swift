@@ -72,7 +72,7 @@ import UIKit
         return app
     }
 
-    func testRecordedFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats() {
+    func testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats() {
         let app = launchFixture()
         control("latest", in: app)
         waitState("case=latest", in: app)
@@ -84,7 +84,7 @@ import UIKit
         control("paused", in: app)
         waitState("case=paused-expanded", in: app)
         let anchor = app.staticTexts["Reading marker 90."]
-        observation("Paused expanded-window opening", in: app, anchor: anchor)
+        observation("Paused bookmark-first opening", in: app, anchor: anchor)
         waitState("outcome=arrived", in: app)
         let savedY = settledY(anchor, in: app)
         XCTAssertTrue(anchor.isHittable && viewport(app).intersects(anchor.frame))
@@ -136,6 +136,61 @@ import UIKit
         RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         XCTAssertTrue(state(app).label.split(separator: " ").map(String.init).contains(handoffs ?? "missing"),
                       "No identity handoff may be written after the real drag owns scrolling")
+
+        control("short", in: app)
+        waitState("case=short-paused", in: app)
+        let short = app.staticTexts["Short bookmark."]
+        XCTAssertTrue(short.waitForExistence(timeout: 5))
+        observation("Short-tail paused opening", in: app, anchor: short)
+        XCTAssertTrue(short.isHittable && viewport(app).intersects(short.frame))
+    }
+
+    /// External video audits every frame across each prepend; these are public-AX samples, not first-paint claims.
+    func testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival() {
+        let app = launchFixture()
+        control("paused", in: app)
+        waitState("outcome=arrived", in: app)
+        let anchor = app.staticTexts["Reading marker 90."]
+        let earlier = app.buttons["companion-show-earlier"]
+        let transcript = app.scrollViews["companion-transcript"]
+        // Reach the inline control through an ordinary native scroll, then save that real reading position.
+        for _ in 0..<8 {
+            if earlier.exists, earlier.frame.intersects(viewport(app)), earlier.isHittable { break }
+            transcript.swipeDown()
+        }
+        XCTAssertTrue(earlier.exists && earlier.isHittable)
+        let before = settledY(anchor, in: app)
+        var expansions = 0
+        while earlier.exists, expansions < 8 {
+            let previousStart = state(app).label.split(separator: " ").first { $0.hasPrefix("start=") }.map(String.init)
+            XCTAssertNotNil(previousStart)
+            observation("Before earlier expansion \(expansions)", in: app, anchor: anchor)
+            earlier.tap()
+            XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
+                !self.state(app).label.split(separator: " ").map(String.init).contains(previousStart ?? "missing")
+            }, timeout: 8), "The real loaded prefix must widen before this can pass")
+            XCTAssertEqual(settledY(anchor, in: app), before, accuracy: 4,
+                "Show earlier preserves the same entry's screen position")
+            observation("After earlier expansion \(expansions)", in: app, anchor: anchor)
+            expansions += 1
+        }
+        XCTAssertGreaterThan(expansions, 0)
+        XCTAssertFalse(earlier.exists, "The bounded expansion must recover the entire prior prefix")
+        XCTAssertTrue(app.staticTexts["Reading marker 1."].exists)
+        control("append", in: app)
+        waitState("case=tail-arrived", in: app)
+        XCTAssertEqual(settledY(anchor, in: app), before, accuracy: 4,
+            "A normal new tail reply cannot move the entry after prefix expansion")
+        observation("Tail arrives after earlier expansion", in: app, anchor: anchor)
+        let oldest = app.staticTexts["Reading marker 1."]
+        for _ in 0..<25 {
+            checkTimeLeft("reaching the restored older history")
+            if oldest.frame.intersects(viewport(app)), oldest.isHittable { break }
+            transcript.swipeDown()
+        }
+        XCTAssertTrue(oldest.isHittable && viewport(app).intersects(oldest.frame),
+            "Restored earlier history must be user-reachable, not just retained in the model")
+        observation("Recovered beginning of history", in: app, anchor: oldest)
     }
 
     func testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls() {

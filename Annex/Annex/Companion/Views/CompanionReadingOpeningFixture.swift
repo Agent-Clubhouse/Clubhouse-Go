@@ -46,7 +46,7 @@ struct CompanionReadingOpeningFixture: View {
                 }
                 Tab("Home", systemImage: "house", value: 1) { Text("Recording fixture Home") }
             }
-            Text(status).font(.caption2).lineLimit(3).accessibilityIdentifier("reading-opening-state")
+            Text(status).font(.caption2).lineLimit(3).frame(height: 48).accessibilityIdentifier("reading-opening-state")
             ScrollView(.horizontal) {
                 HStack {
                     Button("Open latest") { scenario = "latest"; mounted = true }
@@ -79,6 +79,14 @@ struct CompanionReadingOpeningFixture: View {
                         store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed after drag", sequence: nil))
                         scenario = "streamed"
                     }.accessibilityIdentifier("reading-opening-stream")
+                    Button("Append reply") {
+                        guard let target else { return }
+                        store.apply(.upsert(target, .message(.init(id: "opening-earlier-tail", role: .assistant,
+                            text: "A new tail reply arrives while earlier history is visible.")), sequence: nil))
+                        scenario = "tail-arrived"
+                    }.accessibilityIdentifier("reading-opening-append")
+                    Button("Short paused") { Task { await openShortPaused() } }
+                        .accessibilityIdentifier("reading-opening-short")
                     Button("Replace session") { replaceSession() }
                         .accessibilityIdentifier("reading-opening-session")
                 }.buttonStyle(.bordered).font(.caption)
@@ -96,19 +104,19 @@ struct CompanionReadingOpeningFixture: View {
             ReadingOpeningRecording.unmounted = []
             ReadingOpeningRecording.handoffs = 0
             CompanionReadingOpeningProbe.didComputeSeed = { target in
-                print("READING_OPEN_SEED time=\(Date().timeIntervalSince1970) target=\(target.agentID)")
+                let saved = store.readingBookmark(for: target).position
+                print("READING_OPEN_SEED time=\(Date().timeIntervalSince1970) target=\(target.agentID) entry=\(saved.entryID ?? "nil") distance=\(saved.distanceFromEntry) shown=\(saved.shownEntries) follow=\(saved.followsLatest ? 1 : 0)")
             }
             CompanionReadingOpeningProbe.record = { sample in
                 ReadingOpeningRecording.last = sample
                 if sample.phase == .handoff { ReadingOpeningRecording.handoffs += 1 }
                 if sample.phase == .unmounted { ReadingOpeningRecording.unmounted.insert(sample.mountID) }
-                print("READING_OPEN time=\(Date().timeIntervalSince1970) case=\(scenario) phase=\(sample.phase.rawValue) mount=\(sample.mountID) target=\(sample.target.agentID) follow=\(sample.followsLatest ? 1 : 0) shown=\(sample.shownEntries) id=\(sample.requestedEntryID ?? "nil") bottom=\(sample.requestedBottom ? 1 : 0) user=\(sample.positionedByUser ? 1 : 0) point=\(sample.pointY ?? -1) first=\(sample.windowFirstID ?? "nil") offset=\(sample.offset ?? -1) lower=\(sample.entryLowerBound ?? -1) latest=\(sample.latestVisible ? 1 : 0)")
+                print("READING_OPEN time=\(Date().timeIntervalSince1970) case=\(scenario) phase=\(sample.phase.rawValue) mount=\(sample.mountID) target=\(sample.target.agentID) follow=\(sample.followsLatest ? 1 : 0) shown=\(sample.shownEntries) id=\(sample.requestedEntryID ?? "nil") bottom=\(sample.requestedBottom ? 1 : 0) top=\(sample.requestedTop ? 1 : 0) start=\(sample.windowStartID ?? "nil") distance=\(sample.savedDistanceFromEntry) user=\(sample.positionedByUser ? 1 : 0) point=\(sample.pointY ?? -1) first=\(sample.windowFirstID ?? "nil") offset=\(sample.offset ?? -1) lower=\(sample.entryLowerBound ?? -1) latest=\(sample.latestVisible ? 1 : 0)")
             }
             scenario = "ready"
             defer {
                 CompanionReadingOpeningProbe.record = nil
                 CompanionReadingOpeningProbe.didComputeSeed = nil
-                CompanionReadingOpeningProbe.positionedByUserOverride = nil
                 ReadingOpeningRecording.handoffs = 0
                 ReadingOpeningRecording.last = nil
                 ReadingOpeningRecording.unmounted = []
@@ -116,7 +124,7 @@ struct CompanionReadingOpeningFixture: View {
             while !Task.isCancelled {
                 let bookmark = target.map { store.readingBookmark(for: $0) }
                 let sample = ReadingOpeningRecording.last
-                let next = "case=\(scenario) mounted=\(mounted ? 1 : 0) visible=\(visible ? 1 : 0) target=\(target?.agentID ?? "nil") follow=\(bookmark?.position.followsLatest == true ? 1 : 0) entry=\(bookmark?.position.entryID ?? "nil") outcome=\(bookmark?.viewport.restoration?.outcome?.rawValue ?? "none") mount=\(sample?.mountID.uuidString ?? "none") user=\(sample?.positionedByUser == true ? 1 : 0) handoffs=\(ReadingOpeningRecording.handoffs)"
+                let next = "case=\(scenario) mounted=\(mounted ? 1 : 0) visible=\(visible ? 1 : 0) target=\(target?.agentID ?? "nil") start=\(sample?.windowStartID ?? "nil") follow=\(bookmark?.position.followsLatest == true ? 1 : 0) entry=\(bookmark?.position.entryID ?? "nil") outcome=\(bookmark?.viewport.restoration?.outcome?.rawValue ?? "none") mount=\(sample?.mountID.uuidString ?? "none") user=\(sample?.positionedByUser == true ? 1 : 0) handoffs=\(ReadingOpeningRecording.handoffs)"
                 if status != next { status = next }
                 do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
             }
@@ -150,6 +158,20 @@ struct CompanionReadingOpeningFixture: View {
         bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: 0,
                                   offset: 0, shownEntries: 300)
         scenario = "paused-expanded"
+        tab = 0
+        mounted = true
+    }
+
+    private func openShortPaused() async {
+        guard let target, await closeCurrentMount() else { return }
+        store.apply(.timeline(target, items: [
+            .message(.init(id: "before-short", role: .assistant, text: "Earlier short history.")),
+            .message(.init(id: "short-bookmark", role: .assistant, text: "Short bookmark."))
+        ], sequence: 1, reset: true, sessionID: "opening-short-session"))
+        let bookmark = store.readingBookmark(for: target)
+        bookmark.hasMounted = true
+        bookmark.position = .init(followsLatest: false, entryID: "message:short-bookmark", shownEntries: 300)
+        scenario = "short-paused"
         tab = 0
         mounted = true
     }

@@ -15,7 +15,7 @@ import Testing
         #expect(latest.followsLatest && latest.shownEntries == 300 && latest.entryID == nil)
     }
 
-    @Test func expandedPausedWindowAndExactMessageIdentitySurviveSeeding() {
+    @Test func pausedBookmarkBoundaryAndExactMessageIdentitySurviveSeeding() {
         let row = CompanionTimelineRow.item(.message(.init(id: "ordinary", role: .assistant, text: "A real reply")))
         let position = CompanionReadingPosition(followsLatest: false, entryID: row.id, distanceFromEntry: 40,
                                                offset: 900, shownEntries: 300)
@@ -34,7 +34,7 @@ import Testing
         let group = try #require(rows.first)
         #expect(group.id == "question:first" && seed.entryID == group.id)
         #expect(position.entryID == "question:later", "The semantic bookmark still names the authoritative request")
-        let window = CompanionTimelineWindow(rows: rows, limit: seed.shownEntries, retaining: position.entryID)
+        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: try #require(seed.entryID)))
         #expect(window.entries.contains { $0.id == seed.entryID })
     }
 
@@ -47,13 +47,15 @@ import Testing
         }
     }
 
-    @Test func pausedWindowRetainsAnEntryBelowItsFirstLoadedRow() throws {
+    @Test func pausedWindowStartsAtItsCanonicalBookmarkAndRetainsEveryLaterEntry() throws {
         let rows = (0..<40).map { CompanionTimelineRow.item(.message(.init(id: "row-\($0)", role: .user, text: "Row \($0)"))) }
         let position = CompanionReadingPosition(followsLatest: false, entryID: rows[24].id, shownEntries: 150)
         let seed = opening(position, rows: rows)
-        let window = CompanionTimelineWindow(rows: rows, limit: seed.shownEntries, retaining: position.entryID)
-        #expect(window.entries.first?.id != seed.entryID,
-                "An expanded window cannot be treated as though its top were the saved entry")
+        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: try #require(seed.entryID)))
+        #expect(window.entries.first?.id == seed.entryID,
+                "User-approved #582 contract: a paused remount starts WITH its canonical bookmark")
+        #expect(window.hiddenCount > 0)
+        #expect(window.entries.map(\.id) == rows[24...].map(\.id))
         #expect(window.entries.contains { $0.id == seed.entryID })
         #expect(seed.entryID == rows[24].id)
     }
@@ -66,4 +68,40 @@ import Testing
         #expect(opening(.init(followsLatest: false, entryID: actual.id), rows: [row]).entryID == actual.id)
         #expect(opening(.init(followsLatest: false, entryID: row.id + "#999"), rows: [row]).entryID == nil)
     }
+    @Test func startingInsideAReplyAndThenExpandingRecoversItsBeginningAndPriorHistory() throws {
+        let row = CompanionTimelineRow.item(.message(.init(id: "long", role: .assistant,
+            text: String(repeating: "A paragraph of reply text.\n\n", count: 500))))
+        let rows: [CompanionTimelineRow] = [.item(.notice(id: "older", text: "Older history")), row,
+            .item(.notice(id: "tail", text: "Tail"))]
+        let slices = CompanionTimelineEntry.entries(for: [row])
+        let selected = try #require(slices.dropFirst(2).first)
+        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: selected.id))
+        #expect(window.entries.first?.id == selected.id && window.hiddenCount > 0)
+        let earlier = try #require(CompanionTimelineWindow.precedingStart(in: rows, before: selected.id))
+        let expanded = try #require(CompanionTimelineWindow(rows: rows, startingAt: earlier))
+        #expect(expanded.entries.contains { $0.id == slices.first?.id })
+        #expect(expanded.entries == CompanionTimelineEntry.entries(for: rows))
+        #expect(expanded.hiddenCount == 0)
+    }
+
+    @Test func deepBookmarkDoesNotPrepareTheHiddenPrefixAndTailGrowthKeepsItsBoundary() throws {
+        let rows = (0..<2_000).map { CompanionTimelineRow.item(.notice(id: "row-\($0)", text: "Row \($0)")) }
+        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[1_000].id))
+        #expect(window.preparedRowCount == 1_000 && window.hiddenCount == 1_000)
+        let grown = try #require(CompanionTimelineWindow(rows: rows + [.item(.notice(id: "new-tail", text: "New tail"))],
+                                                         startingAt: rows[1_000].id))
+        #expect(grown.entries.first?.id == window.entries.first?.id)
+        #expect(Array(grown.entries.dropLast()) == window.entries)
+        let earlier = try #require(CompanionTimelineWindow.precedingStart(in: rows, before: rows[1_000].id))
+        let expanded = try #require(CompanionTimelineWindow(rows: rows, startingAt: earlier))
+        #expect(expanded.entries.count == window.entries.count + CompanionTimelineWindow.pageSize)
+        #expect(Array(expanded.entries.suffix(window.entries.count)) == window.entries)
+    }
+
+    @Test func missingExactWindowBoundaryFailsInsteadOfPretendingItsFirstRowIsCanonical() {
+        let rows: [CompanionTimelineRow] = [.item(.message(.init(id: "current", role: .assistant, text: "Current")))]
+        #expect(CompanionTimelineWindow(rows: rows, startingAt: "message:old-session") == nil)
+        #expect(CompanionTimelineWindow(rows: rows, startingAt: "message:current#999") == nil)
+    }
+
 }
