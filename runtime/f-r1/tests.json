@@ -1,0 +1,89 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "1E35DBEE-80B0-4591-BA9A-ADBEECA99CAF",
+      "deviceName" : "ux-582-first-paint",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "children" : [
+                    {
+                      "name" : "CompanionReadingOpeningUITests.swift:38: failed - The recording-fixture control must be reachable: other",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "1m 6s",
+                  "durationInSeconds" : 66.12184405326843,
+                  "name" : "testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats",
+                  "nodeType" : "Test Case",
+                  "result" : "Failed"
+                },
+                {
+                  "children" : [
+                    {
+                      "name" : "CompanionReadingOpeningUITests.swift:169: XCTAssertTrue failed - The real loaded prefix must widen before this can pass",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "18s",
+                  "durationInSeconds" : 18.129083037376404,
+                  "name" : "testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival",
+                  "nodeType" : "Test Case",
+                  "result" : "Failed"
+                },
+                {
+                  "children" : [
+                    {
+                      "name" : "CompanionReadingOpeningUITests.swift:202: XCTAssertTrue failed",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "12s",
+                  "durationInSeconds" : 12.491089940071106,
+                  "name" : "testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls",
+                  "nodeType" : "Test Case",
+                  "result" : "Failed"
+                }
+              ],
+              "name" : "CompanionReadingOpeningUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Failed"
+            }
+          ],
+          "name" : "ClubhouseGoUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Failed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Failed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

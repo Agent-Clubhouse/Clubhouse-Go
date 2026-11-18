@@ -1,0 +1,4 @@
+Query chain:
+ →Find: Target Application 'com.Agent-Clubhouse.Go'
+  ↪︎Find: Descendants matching type TextView
+    ↪︎Find: Elements matching predicate '"companion-composer" IN identifiers'

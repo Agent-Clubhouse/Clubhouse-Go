@@ -1,0 +1,1 @@
+time=1795043452.747822 case=latest mounted=1 visible=1 target=maple start=nil follow=1 entry=nil outcome=none mount=A357C719-F143-44C7-912F-DC94B34B8C53 user=0 handoffs=0 anchor=(0.0, 0.0, 0.0, 0.0) viewport=(0.0, 116.0, 440.0, 536.6666666666666) distanceFromTop=-116.0 Latest=false keyboard=false

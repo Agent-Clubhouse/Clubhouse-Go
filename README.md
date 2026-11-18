@@ -1,3 +1,9 @@
+# Current STOP: F-r1 pinned-banner access
+
+Fresh A-r5 on a971c9343 PASS (compiled gate +20policy). F-r1 ran3 methods once,3 failures: a real Show-earlier occlusion by the pinned other-agent banner, plus separate fixture reachability/composer-query defects. [Complete STOP report and original video/frames](runtime/f-r1/report.md). No retry/correction or later suite has run. Private simulator deleted, system0Booted/processes empty/swap0; host returned. PR584 stays draft.
+
+The Orchestrator authorized addressing banner access within #582. [Main attribution and inset proposal](proposal-and-proof/bookmark-start/banner-access/proposal.md) is submitted BEFORE code/run. It distinguishes the native inset (already measured) from an additional scroll-content protected band; no pre-existing attribution is claimed without the comparator.
+
 # #582 / draft #584 — bookmark-first implementation, pending static/runtime proof
 
 The user approved paused remounts starting WITH the canonical saved entry, with earlier history behind Show earlier. The implementation is pushed at `a971c9343`. [Cumulative review packet](proposal-and-proof/bookmark-start/implementation/bookmark-start-review-notes.md) records QA's required mounted-replacement correction, its new hosted control, the nil-predecessor edge, exact source/test/config hashes and paired CPU count instrumentation. The capture epsilon correction is a separate commit.

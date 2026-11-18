@@ -1,0 +1,16 @@
+{
+  "task": "t_mwmomzr7",
+  "authority": "Orchestrator refinement, QA agreed",
+  "current_head": "a971c93431ca4f1b4493337a3f6e38aef5fa2591",
+  "before_rebase": [
+    "F",
+    "N",
+    "H",
+    "S",
+    "CPU"
+  ],
+  "after_587_merge": "Rebase onto current main before C23/C50/R0/RSE; prove reviewed cumulative diff identity, re-pin all hashes; fresh A for broad and D",
+  "carry_forward": "F/N/H/S/CPU only with identity proof",
+  "unexpected": "STOP and attribute",
+  "supersedes": "Earlier D-only contract-hash re-pin"
+}

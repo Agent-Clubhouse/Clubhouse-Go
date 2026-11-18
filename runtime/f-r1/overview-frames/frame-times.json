@@ -1,0 +1,100 @@
+[
+  {
+    "actualSeconds" : 23.278333333333332,
+    "file" : "frame-0000-23.300.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.300000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.5,
+    "file" : "frame-0001-23.500.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.5,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.998333333333335,
+    "file" : "frame-0002-24.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 24,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 29.138333333333332,
+    "file" : "frame-0003-30.100.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.100000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.495000000000001,
+    "file" : "frame-0004-30.500.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.5,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 48.288333333333334,
+    "file" : "frame-0005-48.500.png",
+    "height" : 2868,
+    "requestedSeconds" : 48.5,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 48.993333333333332,
+    "file" : "frame-0006-49.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 49,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 64.778333333333336,
+    "file" : "frame-0007-65.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 65,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 83.49666666666667,
+    "file" : "frame-0008-83.500.png",
+    "height" : 2868,
+    "requestedSeconds" : 83.5,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 86.826666666666668,
+    "file" : "frame-0009-87.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 87,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 86.826666666666668,
+    "file" : "frame-0010-89.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 89,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 89.126666666666665,
+    "file" : "frame-0011-92.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 92,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 101.99333333333334,
+    "file" : "frame-0012-102.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 102,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 102.59,
+    "file" : "frame-0013-107.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 107,
+    "width" : 1320
+  }
+]

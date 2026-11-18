@@ -1,0 +1,163 @@
+[
+  {
+    "actualSeconds" : 30.215,
+    "file" : "frame-0000-30.215.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.215,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.241666666666667,
+    "file" : "frame-0001-30.242.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.241666666666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.246666666666666,
+    "file" : "frame-0002-30.247.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.246666666666666,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.256666666666668,
+    "file" : "frame-0003-30.257.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.256666666666668,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.258333333333333,
+    "file" : "frame-0004-30.258.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.258333333333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.274999999999999,
+    "file" : "frame-0005-30.275.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.274999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.295000000000002,
+    "file" : "frame-0006-30.295.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.295000000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.308333333333334,
+    "file" : "frame-0007-30.308.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.308333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.328333333333333,
+    "file" : "frame-0008-30.328.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.328333333333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.344999999999999,
+    "file" : "frame-0009-30.345.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.344999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.359999999999999,
+    "file" : "frame-0010-30.360.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.359999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.378333333333334,
+    "file" : "frame-0011-30.378.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.378333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.395,
+    "file" : "frame-0012-30.395.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.395,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.408333333333335,
+    "file" : "frame-0013-30.408.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.408333333333335,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.428333333333335,
+    "file" : "frame-0014-30.428.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.428333333333335,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.443333333333332,
+    "file" : "frame-0015-30.443.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.443333333333332,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.460000000000001,
+    "file" : "frame-0016-30.460.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.460000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.466666666666665,
+    "file" : "frame-0017-30.467.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.466666666666665,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.475000000000001,
+    "file" : "frame-0018-30.475.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.475000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.495000000000001,
+    "file" : "frame-0019-30.495.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.495000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.510000000000002,
+    "file" : "frame-0020-30.510.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.510000000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.530000000000001,
+    "file" : "frame-0021-30.530.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.530000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 30.541666666666668,
+    "file" : "frame-0022-30.542.png",
+    "height" : 2868,
+    "requestedSeconds" : 30.541666666666668,
+    "width" : 1320
+  }
+]

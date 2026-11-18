@@ -1,0 +1,423 @@
+Application, 0x105715900, pid: 79751, label: 'Clubhouse Go' <App element pid: 79751>
+  Window (Main), 0x105718f30, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 79751, elementOrHash.elementID: 4326501792.4>
+    Other, 0x105714400, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 79751, elementOrHash.elementID: 4326524992.5>
+      Other, 0x105719970, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 79751, elementOrHash.elementID: 4326530464.6>
+        Other, 0x105717740, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 79751, elementOrHash.elementID: 4326494656.7>
+          Other, 0x105717e40, {{0.0, 0.0}, {440.0, 956.0}} <AX element pid: 79751, elementOrHash.elementID: 4320392208.8>
+            Other, 0x105714e70, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4326624432.9>
+              Other, 0x105715c10, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321703520.12>
+                Other, 0x105713b40, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321681488.16>
+                  Other, 0x105715540, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321584416.32>
+                    Other, 0x105714770, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4320446624.35>
+                      Other, 0x1057173f0, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4320445840.38>
+                        Other, 0x105716650, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321823440.44>
+                          NavigationBar, 0x105717090, {{0.0, 62.0}, {440.0, 54.0}}, identifier: 'Maple' <AX element pid: 79751, elementOrHash.elementID: 4326608128.68>
+                            Other, 0x1057181a0, {{24.0, 62.0}, {89.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 4323377456.69>
+                              Other, 0x1057162f0, {{24.0, 62.0}, {89.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 4323402672.72>
+                                Other, 0x105717ad0, {{24.0, 62.0}, {89.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 4323399632.75>
+                            StaticText, 0x105718520, {{129.0, 52.8}, {182.0, 62.3}}, label: 'Maple' <AX element pid: 79751, elementOrHash.elementID: 5526867488.70>
+                              Other, 0x105715fa0, {{129.0, 52.8}, {182.0, 62.3}} <AX element pid: 79751, elementOrHash.elementID: 5527284352.73>
+                                Other, 0x105716d30, {{129.0, 52.8}, {182.0, 62.3}} <AX element pid: 79751, elementOrHash.elementID: 4325535424.76>
+                                Button, 0x105713eb0, {{187.0, 52.8}, {66.0, 62.3}}, identifier: 'companion-chat-header', label: 'Maple, Studio Mac / Website, Done, Access: Ask first', value: Details collapsed <AX element pid: 79751, elementOrHash.elementID: 5527464096.77>
+                                  StaticText, 0x105718870, {{198.0, 52.8}, {47.0, 47.0}}, label: 'M' <AX element pid: 79751, elementOrHash.elementID: 5527294592.80>
+                                  StaticText, 0x1057169d0, {{196.0, 97.8}, {36.0, 14.3}}, label: 'Maple' <AX element pid: 79751, elementOrHash.elementID: 5527295024.81>
+                                  Image, 0x105718be0, {{237.3, 99.8}, {6.0, 10.3}}, identifier: 'chevron.right', label: 'Forward' <AX element pid: 79751, elementOrHash.elementID: 5527463664.82>
+                            Other, 0x105719cc0, {{327.0, 62.0}, {89.0, 44.0}}, identifier: 'companion-chat-header-actions', label: 'More' <AX element pid: 79751, elementOrHash.elementID: 5526873136.71>
+                              Other, 0x105719610, {{327.0, 62.0}, {89.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 4323313968.74>
+                                Other, 0x10571a3e0, {{327.0, 62.0}, {89.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 5575303376.78>
+                                Other, 0x10571a750, {{327.0, 62.0}, {89.0, 44.0}}, identifier: 'companion-chat-header-actions' <AX element pid: 79751, elementOrHash.elementID: 4323332288.79>
+                                  Button, 0x10571aab0, {{327.0, 62.0}, {44.0, 44.0}}, identifier: 'companion-context-settings', label: 'Context and plan limits', value: Context usage unkn... <AX element pid: 79751, elementOrHash.elementID: 5575307728.83>
+                                  Other, 0x10571cd30, {{371.0, 74.0}, {1.0, 20.0}} <AX element pid: 79751, elementOrHash.elementID: 5575308832.84>
+                                  Button, 0x10571b4d0, {{372.0, 62.0}, {44.0, 44.0}}, identifier: 'conversation-actions-menu', label: 'Conversation actions' <AX element pid: 79751, elementOrHash.elementID: 4323331088.85>
+                                    Button, 0x10571a040, {{372.0, 62.0}, {44.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 5575316096.94>
+                                      Other, 0x10571ae10, {{372.0, 62.0}, {44.0, 44.0}} <AX element pid: 79751, elementOrHash.elementID: 5575309616.105>
+                                      Image, 0x10571c2a0, {{372.0, 62.0}, {44.0, 44.0}}, identifier: 'ellipsis', label: 'More' <AX element pid: 79751, elementOrHash.elementID: 5575314544.106>
+                          Other, 0x10571bf10, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321704032.50>
+                            Other, 0x10571e620, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4326711888.57>
+                              Other, 0x10571e9b0, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4320287520.62>
+                                Other, 0x10571c610, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4320459712.65>
+                                  Other, 0x10571b830, {{0.0, 180.3}, {440.0, 462.3}}, identifier: 'companion-transcript', value: Following: 0; paus... <AX element pid: 79751, elementOrHash.elementID: 4326917040.86>
+                                  ScrollView, 0x10571e2a0, {{0.0, 0.0}, {440.0, 845.7}}, identifier: 'companion-transcript', value: Following: 0; paus... <AX element pid: 79751, elementOrHash.elementID: 4354643968.87>
+                                    Other, 0x10571d830, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325617504.95>
+                                    Other, 0x10571c9a0, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325625840.96>
+                                      Image, 0x10571bb90, {{-120.0, -234.3}, {680.0, 468.7}}, identifier: 'AdditionalDimmingOverlay' <AX element pid: 79751, elementOrHash.elementID: 4325626800.107>
+                                      Other, 0x10571ed20, {{0.0, 0.0}, {440.0, 174.3}} <AX element pid: 79751, elementOrHash.elementID: 4325609600.108>
+                                      Other, 0x10571f410, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325618256.109>
+                                        Other, 0x10571b180, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325621744.221>
+                                      Other, 0x105720f80, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325649712.110>
+                                        Other, 0x10571fe50, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325728880.222>
+                                      Other, 0x10571fad0, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325598528.111>
+                                        Other, 0x1057201d0, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4325679872.223>
+                                        Other, 0x10571dbc0, {{0.0, 0.0}, {440.0, 245.1}} <AX element pid: 79751, elementOrHash.elementID: 4323430352.224>
+                                    Other, 0x10571df20, {{0.0, 142.0}, {440.0, 9142.0}} <AX element pid: 79751, elementOrHash.elementID: 4324821520.97>
+                                      Button, 0x10571f770, {{144.0, 166.0}, {152.0, 14.3}}, identifier: 'companion-show-earlier', label: 'Show earlier messages' <AX element pid: 79751, elementOrHash.elementID: 5526551968.112>
+                                        Image, 0x1057208a0, {{145.0, 167.0}, {12.0, 12.0}}, identifier: 'arrow.up.circle', label: 'Arrow Up Circle' <AX element pid: 79751, elementOrHash.elementID: 5526550432.225>
+                                        StaticText, 0x10571f0a0, {{144.0, 166.0}, {152.0, 14.3}}, label: 'Show earlier messages' <AX element pid: 79751, elementOrHash.elementID: 5526551536.226>
+                                      Other, 0x105721660, {{22.0, 202.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526556144.113>
+                                        StaticText, 0x1057219c0, {{22.0, 202.3}, {148.3, 20.3}}, label: 'Reading marker 90.' <AX element pid: 79751, elementOrHash.elementID: 5526553936.227>
+                                        StaticText, 0x105721d30, {{22.0, 234.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526555040.228>
+                                      Other, 0x105720c20, {{22.0, 299.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526558784.114>
+                                        StaticText, 0x1057212f0, {{22.0, 299.0}, {145.7, 20.3}}, label: 'Reading marker 91.' <AX element pid: 79751, elementOrHash.elementID: 5526556576.229>
+                                        StaticText, 0x105720530, {{22.0, 331.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526557680.230>
+                                      Other, 0x1057220d0, {{22.0, 395.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526561776.115>
+                                        StaticText, 0x105733700, {{22.0, 395.7}, {148.3, 20.3}}, label: 'Reading marker 92.' <AX element pid: 79751, elementOrHash.elementID: 5526559216.231>
+                                        StaticText, 0x10571d250, {{22.0, 428.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526560672.232>
+                                      Other, 0x1057238f0, {{22.0, 492.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526564768.116>
+                                        StaticText, 0x105734dc0, {{22.0, 492.3}, {148.3, 20.3}}, label: 'Reading marker 93.' <AX element pid: 79751, elementOrHash.elementID: 5526562208.233>
+                                        StaticText, 0x1057351e0, {{22.0, 524.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526563664.234>
+                                      Other, 0x1057362c0, {{22.0, 589.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526567760.117>
+                                        StaticText, 0x1057363e0, {{22.0, 589.0}, {148.7, 20.3}}, label: 'Reading marker 94.' <AX element pid: 79751, elementOrHash.elementID: 5526565200.235>
+                                        StaticText, 0x105736500, {{22.0, 621.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526566656.236>
+                                      Other, 0x105736620, {{22.0, 685.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526570752.118>
+                                        StaticText, 0x105736740, {{22.0, 685.7}, {148.3, 20.3}}, label: 'Reading marker 95.' <AX element pid: 79751, elementOrHash.elementID: 5526568192.237>
+                                        StaticText, 0x105736860, {{22.0, 718.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526569648.238>
+                                      Other, 0x105736980, {{22.0, 782.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526573744.119>
+                                        StaticText, 0x105736aa0, {{22.0, 782.3}, {148.7, 20.3}}, label: 'Reading marker 96.' <AX element pid: 79751, elementOrHash.elementID: 5526571184.239>
+                                        StaticText, 0x105736bc0, {{22.0, 814.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526572640.240>
+                                      Other, 0x105736ce0, {{22.0, 879.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526576736.120>
+                                        StaticText, 0x105736e00, {{22.0, 879.0}, {146.0, 20.3}}, label: 'Reading marker 97.' <AX element pid: 79751, elementOrHash.elementID: 5526574176.241>
+                                        StaticText, 0x105736f20, {{22.0, 911.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526575632.242>
+                                      Other, 0x105737040, {{22.0, 975.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526579728.121>
+                                        StaticText, 0x105737160, {{22.0, 975.7}, {148.7, 20.3}}, label: 'Reading marker 98.' <AX element pid: 79751, elementOrHash.elementID: 5526577168.243>
+                                        StaticText, 0x105737280, {{22.0, 1008.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526578624.244>
+                                      Other, 0x1057373a0, {{22.0, 1072.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526582720.122>
+                                        StaticText, 0x1057374c0, {{22.0, 1072.3}, {148.7, 20.3}}, label: 'Reading marker 99.' <AX element pid: 79751, elementOrHash.elementID: 5526580160.245>
+                                        StaticText, 0x1057375e0, {{22.0, 1104.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526581616.246>
+                                      Other, 0x105737700, {{22.0, 1169.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526585712.123>
+                                        StaticText, 0x105737820, {{22.0, 1169.0}, {155.7, 20.3}}, label: 'Reading marker 100.' <AX element pid: 79751, elementOrHash.elementID: 5526583152.247>
+                                        StaticText, 0x105737940, {{22.0, 1201.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526584608.248>
+                                      Other, 0x105737a60, {{22.0, 1265.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526588704.124>
+                                        StaticText, 0x105737b80, {{22.0, 1265.7}, {153.0, 20.3}}, label: 'Reading marker 101.' <AX element pid: 79751, elementOrHash.elementID: 5526586144.249>
+                                        StaticText, 0x105737ca0, {{22.0, 1298.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526587600.250>
+                                      Other, 0x105737dc0, {{22.0, 1362.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526591696.125>
+                                        StaticText, 0x105737ee0, {{22.0, 1362.3}, {155.7, 20.3}}, label: 'Reading marker 102.' <AX element pid: 79751, elementOrHash.elementID: 5526589136.251>
+                                        StaticText, 0x105738000, {{22.0, 1394.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526590592.252>
+                                      Other, 0x105738120, {{22.0, 1459.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526594688.126>
+                                        StaticText, 0x105738240, {{22.0, 1459.0}, {155.7, 20.3}}, label: 'Reading marker 103.' <AX element pid: 79751, elementOrHash.elementID: 5526592128.253>
+                                        StaticText, 0x105738360, {{22.0, 1491.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526593584.254>
+                                      Other, 0x105738480, {{22.0, 1555.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526597680.127>
+                                        StaticText, 0x1057385a0, {{22.0, 1555.7}, {156.0, 20.3}}, label: 'Reading marker 104.' <AX element pid: 79751, elementOrHash.elementID: 5526595120.255>
+                                        StaticText, 0x1057386c0, {{22.0, 1588.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526596576.256>
+                                      Other, 0x1057387e0, {{22.0, 1652.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526600672.128>
+                                        StaticText, 0x105738900, {{22.0, 1652.3}, {155.7, 20.3}}, label: 'Reading marker 105.' <AX element pid: 79751, elementOrHash.elementID: 5526598112.257>
+                                        StaticText, 0x105738a20, {{22.0, 1684.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526599568.258>
+                                      Other, 0x105738b40, {{22.0, 1749.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526603952.129>
+                                        StaticText, 0x105738c60, {{22.0, 1749.0}, {156.0, 20.3}}, label: 'Reading marker 106.' <AX element pid: 79751, elementOrHash.elementID: 5526601392.259>
+                                        StaticText, 0x105738d80, {{22.0, 1781.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526602848.260>
+                                      Other, 0x105738ea0, {{22.0, 1845.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526606944.130>
+                                        StaticText, 0x105738fc0, {{22.0, 1845.7}, {153.3, 20.3}}, label: 'Reading marker 107.' <AX element pid: 79751, elementOrHash.elementID: 5526604384.261>
+                                        StaticText, 0x1057390e0, {{22.0, 1878.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526605840.262>
+                                      Other, 0x105739200, {{22.0, 1942.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526609936.131>
+                                        StaticText, 0x105739320, {{22.0, 1942.3}, {156.0, 20.3}}, label: 'Reading marker 108.' <AX element pid: 79751, elementOrHash.elementID: 5526607376.263>
+                                        StaticText, 0x105739440, {{22.0, 1974.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526608832.264>
+                                      Other, 0x105739560, {{22.0, 2039.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526612928.132>
+                                        StaticText, 0x105739680, {{22.0, 2039.0}, {156.0, 20.3}}, label: 'Reading marker 109.' <AX element pid: 79751, elementOrHash.elementID: 5526610368.265>
+                                        StaticText, 0x1057397a0, {{22.0, 2071.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526611824.266>
+                                      Other, 0x1057398c0, {{22.0, 2135.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526615920.133>
+                                        StaticText, 0x1057399e0, {{22.0, 2135.7}, {153.0, 20.3}}, label: 'Reading marker 110.' <AX element pid: 79751, elementOrHash.elementID: 5526613360.267>
+                                        StaticText, 0x105739b00, {{22.0, 2168.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526614816.268>
+                                      Other, 0x105739c20, {{22.0, 2232.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526618912.134>
+                                        StaticText, 0x105739d40, {{22.0, 2232.3}, {150.3, 20.3}}, label: 'Reading marker 111.' <AX element pid: 79751, elementOrHash.elementID: 5526616352.269>
+                                        StaticText, 0x105739e60, {{22.0, 2264.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526617808.270>
+                                      Other, 0x105739f80, {{22.0, 2329.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526621904.135>
+                                        StaticText, 0x10573a0a0, {{22.0, 2329.0}, {153.0, 20.3}}, label: 'Reading marker 112.' <AX element pid: 79751, elementOrHash.elementID: 5526619344.271>
+                                        StaticText, 0x10573a1c0, {{22.0, 2361.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526620800.272>
+                                      Other, 0x10573a2e0, {{22.0, 2425.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526624896.136>
+                                        StaticText, 0x10573a400, {{22.0, 2425.7}, {153.0, 20.3}}, label: 'Reading marker 113.' <AX element pid: 79751, elementOrHash.elementID: 5526622336.273>
+                                        StaticText, 0x10573a520, {{22.0, 2458.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526623792.274>
+                                      Other, 0x10573a640, {{22.0, 2522.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526627888.137>
+                                        StaticText, 0x10573a760, {{22.0, 2522.3}, {153.3, 20.3}}, label: 'Reading marker 114.' <AX element pid: 79751, elementOrHash.elementID: 5526625328.275>
+                                        StaticText, 0x10573a880, {{22.0, 2554.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526626784.276>
+                                      Other, 0x10573a9a0, {{22.0, 2619.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526630880.138>
+                                        StaticText, 0x10573aac0, {{22.0, 2619.0}, {152.7, 20.3}}, label: 'Reading marker 115.' <AX element pid: 79751, elementOrHash.elementID: 5526628320.277>
+                                        StaticText, 0x10573abe0, {{22.0, 2651.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526629776.278>
+                                      Other, 0x10573ae50, {{22.0, 2715.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526633872.139>
+                                        StaticText, 0x10573af70, {{22.0, 2715.7}, {153.0, 20.3}}, label: 'Reading marker 116.' <AX element pid: 79751, elementOrHash.elementID: 5526631312.279>
+                                        StaticText, 0x10573b090, {{22.0, 2748.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526632768.280>
+                                      Other, 0x10573b1b0, {{22.0, 2812.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526636864.140>
+                                        StaticText, 0x10573b2d0, {{22.0, 2812.3}, {150.7, 20.3}}, label: 'Reading marker 117.' <AX element pid: 79751, elementOrHash.elementID: 5526634304.281>
+                                        StaticText, 0x10573b3f0, {{22.0, 2844.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526635760.282>
+                                      Other, 0x10573b510, {{22.0, 2909.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526639856.141>
+                                        StaticText, 0x10573b630, {{22.0, 2909.0}, {153.0, 20.3}}, label: 'Reading marker 118.' <AX element pid: 79751, elementOrHash.elementID: 5526637296.283>
+                                        StaticText, 0x10573b750, {{22.0, 2941.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526638752.284>
+                                      Other, 0x10573b870, {{22.0, 3005.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526642848.142>
+                                        StaticText, 0x10573b990, {{22.0, 3005.7}, {153.0, 20.3}}, label: 'Reading marker 119.' <AX element pid: 79751, elementOrHash.elementID: 5526640288.285>
+                                        StaticText, 0x10573bab0, {{22.0, 3038.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526641744.286>
+                                      Other, 0x10573bbd0, {{22.0, 3102.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526645840.143>
+                                        StaticText, 0x10573bcf0, {{22.0, 3102.3}, {155.3, 20.3}}, label: 'Reading marker 120.' <AX element pid: 79751, elementOrHash.elementID: 5526643280.287>
+                                        StaticText, 0x10573be10, {{22.0, 3134.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526644736.288>
+                                      Other, 0x10573bf30, {{22.0, 3199.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526648832.144>
+                                        StaticText, 0x10573c050, {{22.0, 3199.0}, {152.7, 20.3}}, label: 'Reading marker 121.' <AX element pid: 79751, elementOrHash.elementID: 5526646272.289>
+                                        StaticText, 0x10573c170, {{22.0, 3231.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526647728.290>
+                                      Other, 0x10573c290, {{22.0, 3295.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526652368.145>
+                                        StaticText, 0x10573c3b0, {{22.0, 3295.7}, {155.3, 20.3}}, label: 'Reading marker 122.' <AX element pid: 79751, elementOrHash.elementID: 5526649808.291>
+                                        StaticText, 0x10573c4d0, {{22.0, 3328.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526651264.292>
+                                      Other, 0x10573c5f0, {{22.0, 3392.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526655360.146>
+                                        StaticText, 0x10573c710, {{22.0, 3392.3}, {155.3, 20.3}}, label: 'Reading marker 123.' <AX element pid: 79751, elementOrHash.elementID: 5526652800.293>
+                                        StaticText, 0x10573c830, {{22.0, 3424.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526654256.294>
+                                      Other, 0x10573c950, {{22.0, 3489.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526658352.147>
+                                        StaticText, 0x10573ca70, {{22.0, 3489.0}, {155.3, 20.3}}, label: 'Reading marker 124.' <AX element pid: 79751, elementOrHash.elementID: 5526655792.295>
+                                        StaticText, 0x10573cb90, {{22.0, 3521.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526657248.296>
+                                      Other, 0x10573ccb0, {{22.0, 3585.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526661344.148>
+                                        StaticText, 0x10573cdd0, {{22.0, 3585.7}, {155.3, 20.3}}, label: 'Reading marker 125.' <AX element pid: 79751, elementOrHash.elementID: 5526658784.297>
+                                        StaticText, 0x10573cef0, {{22.0, 3618.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526660240.298>
+                                      Other, 0x10573d010, {{22.0, 3682.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526664336.149>
+                                        StaticText, 0x10573d130, {{22.0, 3682.3}, {155.3, 20.3}}, label: 'Reading marker 126.' <AX element pid: 79751, elementOrHash.elementID: 5526661776.299>
+                                        StaticText, 0x10573d250, {{22.0, 3714.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526663232.300>
+                                      Other, 0x10573d370, {{22.0, 3779.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526667328.150>
+                                        StaticText, 0x10573d490, {{22.0, 3779.0}, {153.0, 20.3}}, label: 'Reading marker 127.' <AX element pid: 79751, elementOrHash.elementID: 5526664768.301>
+                                        StaticText, 0x10573d5b0, {{22.0, 3811.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526666224.302>
+                                      Other, 0x10573d6d0, {{22.0, 3875.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526670320.151>
+                                        StaticText, 0x10573d7f0, {{22.0, 3875.7}, {155.7, 20.3}}, label: 'Reading marker 128.' <AX element pid: 79751, elementOrHash.elementID: 5526667760.303>
+                                        StaticText, 0x10573d910, {{22.0, 3908.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526669216.304>
+                                      Other, 0x10573da30, {{22.0, 3972.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526673312.152>
+                                        StaticText, 0x10573db50, {{22.0, 3972.3}, {155.3, 20.3}}, label: 'Reading marker 129.' <AX element pid: 79751, elementOrHash.elementID: 5526670752.305>
+                                        StaticText, 0x10573dc70, {{22.0, 4004.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526672208.306>
+                                      Other, 0x10573dd90, {{22.0, 4069.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526676304.153>
+                                        StaticText, 0x10573deb0, {{22.0, 4069.0}, {155.7, 20.3}}, label: 'Reading marker 130.' <AX element pid: 79751, elementOrHash.elementID: 5526673744.307>
+                                        StaticText, 0x10573dfd0, {{22.0, 4101.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526675200.308>
+                                      Other, 0x10573e0f0, {{22.0, 4165.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526679296.154>
+                                        StaticText, 0x10573e210, {{22.0, 4165.7}, {153.0, 20.3}}, label: 'Reading marker 131.' <AX element pid: 79751, elementOrHash.elementID: 5526676736.309>
+                                        StaticText, 0x10573e330, {{22.0, 4198.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526678192.310>
+                                      Other, 0x10573ad00, {{22.0, 4262.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526682288.155>
+                                        StaticText, 0x10573e670, {{22.0, 4262.3}, {155.7, 20.3}}, label: 'Reading marker 132.' <AX element pid: 79751, elementOrHash.elementID: 5526679728.311>
+                                        StaticText, 0x10573e790, {{22.0, 4294.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526681184.312>
+                                      Other, 0x10573e8b0, {{22.0, 4359.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526685280.156>
+                                        StaticText, 0x10573e9d0, {{22.0, 4359.0}, {155.7, 20.3}}, label: 'Reading marker 133.' <AX element pid: 79751, elementOrHash.elementID: 5526682720.313>
+                                        StaticText, 0x10573eaf0, {{22.0, 4391.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526684176.314>
+                                      Other, 0x10573ec10, {{22.0, 4455.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526688272.157>
+                                        StaticText, 0x10573ed30, {{22.0, 4455.7}, {156.0, 20.3}}, label: 'Reading marker 134.' <AX element pid: 79751, elementOrHash.elementID: 5526685712.315>
+                                        StaticText, 0x10573ee50, {{22.0, 4488.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526687168.316>
+                                      Other, 0x10573ef70, {{22.0, 4552.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526691264.158>
+                                        StaticText, 0x10573f090, {{22.0, 4552.3}, {155.7, 20.3}}, label: 'Reading marker 135.' <AX element pid: 79751, elementOrHash.elementID: 5526688704.317>
+                                        StaticText, 0x10573f1b0, {{22.0, 4584.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526690160.318>
+                                      Other, 0x10573f2d0, {{22.0, 4649.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526694256.159>
+                                        StaticText, 0x10573f3f0, {{22.0, 4649.0}, {156.0, 20.3}}, label: 'Reading marker 136.' <AX element pid: 79751, elementOrHash.elementID: 5526691696.319>
+                                        StaticText, 0x10573f510, {{22.0, 4681.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526693152.320>
+                                      Other, 0x10573f630, {{22.0, 4745.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526697248.160>
+                                        StaticText, 0x10573f750, {{22.0, 4745.7}, {153.3, 20.3}}, label: 'Reading marker 137.' <AX element pid: 79751, elementOrHash.elementID: 5526694688.321>
+                                        StaticText, 0x10573f870, {{22.0, 4778.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526696144.322>
+                                      Other, 0x10573f990, {{22.0, 4842.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526700240.161>
+                                        StaticText, 0x10573fab0, {{22.0, 4842.3}, {156.0, 20.3}}, label: 'Reading marker 138.' <AX element pid: 79751, elementOrHash.elementID: 5526697680.323>
+                                        StaticText, 0x10573fbd0, {{22.0, 4874.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526699136.324>
+                                      Other, 0x10573fcf0, {{22.0, 4939.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526703232.162>
+                                        StaticText, 0x10573fe10, {{22.0, 4939.0}, {155.7, 20.3}}, label: 'Reading marker 139.' <AX element pid: 79751, elementOrHash.elementID: 5526700672.325>
+                                        StaticText, 0x10573ff30, {{22.0, 4971.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526702128.326>
+                                      Other, 0x105740050, {{22.0, 5035.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526706224.163>
+                                        StaticText, 0x105740170, {{22.0, 5035.7}, {156.0, 20.3}}, label: 'Reading marker 140.' <AX element pid: 79751, elementOrHash.elementID: 5526703664.327>
+                                        StaticText, 0x105740290, {{22.0, 5068.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526705120.328>
+                                      Other, 0x1057403b0, {{22.0, 5132.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526709216.164>
+                                        StaticText, 0x1057404d0, {{22.0, 5132.3}, {153.3, 20.3}}, label: 'Reading marker 141.' <AX element pid: 79751, elementOrHash.elementID: 5526706656.329>
+                                        StaticText, 0x1057405f0, {{22.0, 5164.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526708112.330>
+                                      Other, 0x105740710, {{22.0, 5229.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526712208.165>
+                                        StaticText, 0x105740830, {{22.0, 5229.0}, {156.0, 20.3}}, label: 'Reading marker 142.' <AX element pid: 79751, elementOrHash.elementID: 5526709648.331>
+                                        StaticText, 0x105740950, {{22.0, 5261.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526711104.332>
+                                      Other, 0x105740a70, {{22.0, 5325.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526715200.166>
+                                        StaticText, 0x105740b90, {{22.0, 5325.7}, {156.0, 20.3}}, label: 'Reading marker 143.' <AX element pid: 79751, elementOrHash.elementID: 5526712640.333>
+                                        StaticText, 0x105740cb0, {{22.0, 5358.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526714096.334>
+                                      Other, 0x105740dd0, {{22.0, 5422.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526718192.167>
+                                        StaticText, 0x105740ef0, {{22.0, 5422.3}, {156.3, 20.3}}, label: 'Reading marker 144.' <AX element pid: 79751, elementOrHash.elementID: 5526715632.335>
+                                        StaticText, 0x105741010, {{22.0, 5454.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526717088.336>
+                                      Other, 0x105741130, {{22.0, 5519.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526721184.168>
+                                        StaticText, 0x105741250, {{22.0, 5519.0}, {156.0, 20.3}}, label: 'Reading marker 145.' <AX element pid: 79751, elementOrHash.elementID: 5526718624.337>
+                                        StaticText, 0x105741370, {{22.0, 5551.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526720080.338>
+                                      Other, 0x105741490, {{22.0, 5615.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526724176.169>
+                                        StaticText, 0x1057415b0, {{22.0, 5615.7}, {156.0, 20.3}}, label: 'Reading marker 146.' <AX element pid: 79751, elementOrHash.elementID: 5526721616.339>
+                                        StaticText, 0x1057416d0, {{22.0, 5648.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526723072.340>
+                                      Other, 0x1057417f0, {{22.0, 5712.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526727168.170>
+                                        StaticText, 0x105741910, {{22.0, 5712.3}, {153.7, 20.3}}, label: 'Reading marker 147.' <AX element pid: 79751, elementOrHash.elementID: 5526724608.341>
+                                        StaticText, 0x105741a30, {{22.0, 5744.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526726064.342>
+                                      Other, 0x105741b50, {{22.0, 5809.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526730160.171>
+                                        StaticText, 0x105741c70, {{22.0, 5809.0}, {156.3, 20.3}}, label: 'Reading marker 148.' <AX element pid: 79751, elementOrHash.elementID: 5526727600.343>
+                                        StaticText, 0x105741d90, {{22.0, 5841.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526729056.344>
+                                      Other, 0x105741eb0, {{22.0, 5905.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526733152.172>
+                                        StaticText, 0x105741fd0, {{22.0, 5905.7}, {156.0, 20.3}}, label: 'Reading marker 149.' <AX element pid: 79751, elementOrHash.elementID: 5526730592.345>
+                                        StaticText, 0x1057420f0, {{22.0, 5938.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526732048.346>
+                                      Other, 0x105742210, {{22.0, 6002.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526736144.173>
+                                        StaticText, 0x105742330, {{22.0, 6002.3}, {155.7, 20.3}}, label: 'Reading marker 150.' <AX element pid: 79751, elementOrHash.elementID: 5526733584.347>
+                                        StaticText, 0x105742450, {{22.0, 6034.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526735040.348>
+                                      Other, 0x105742570, {{22.0, 6099.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526739136.174>
+                                        StaticText, 0x105742690, {{22.0, 6099.0}, {153.0, 20.3}}, label: 'Reading marker 151.' <AX element pid: 79751, elementOrHash.elementID: 5526736576.349>
+                                        StaticText, 0x1057427b0, {{22.0, 6131.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526738032.350>
+                                      Other, 0x1057428d0, {{22.0, 6195.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526742128.175>
+                                        StaticText, 0x1057429f0, {{22.0, 6195.7}, {155.3, 20.3}}, label: 'Reading marker 152.' <AX element pid: 79751, elementOrHash.elementID: 5526739568.351>
+                                        StaticText, 0x105742b10, {{22.0, 6228.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526741024.352>
+                                      Other, 0x105742c30, {{22.0, 6292.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526745120.176>
+                                        StaticText, 0x105742d50, {{22.0, 6292.3}, {155.7, 20.3}}, label: 'Reading marker 153.' <AX element pid: 79751, elementOrHash.elementID: 5526742560.353>
+                                        StaticText, 0x105742e70, {{22.0, 6324.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526744016.354>
+                                      Other, 0x105742f90, {{22.0, 6389.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526747680.177>
+                                        StaticText, 0x1057430b0, {{22.0, 6389.0}, {156.0, 20.3}}, label: 'Reading marker 154.' <AX element pid: 79751, elementOrHash.elementID: 5526649264.355>
+                                        StaticText, 0x1057431d0, {{22.0, 6421.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526746576.356>
+                                      Other, 0x1057432f0, {{22.0, 6485.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526750672.178>
+                                        StaticText, 0x105743410, {{22.0, 6485.7}, {155.3, 20.3}}, label: 'Reading marker 155.' <AX element pid: 79751, elementOrHash.elementID: 5526748112.357>
+                                        StaticText, 0x105743530, {{22.0, 6518.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526749568.358>
+                                      Other, 0x105743650, {{22.0, 6582.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526753664.179>
+                                        StaticText, 0x105743770, {{22.0, 6582.3}, {155.7, 20.3}}, label: 'Reading marker 156.' <AX element pid: 79751, elementOrHash.elementID: 5526751104.359>
+                                        StaticText, 0x105743890, {{22.0, 6614.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526752560.360>
+                                      Other, 0x1057439b0, {{22.0, 6679.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526756656.180>
+                                        StaticText, 0x105743ad0, {{22.0, 6679.0}, {153.3, 20.3}}, label: 'Reading marker 157.' <AX element pid: 79751, elementOrHash.elementID: 5526754096.361>
+                                        StaticText, 0x105743bf0, {{22.0, 6711.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526755552.362>
+                                      Other, 0x10573e450, {{22.0, 6775.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526759648.181>
+                                        StaticText, 0x105744080, {{22.0, 6775.7}, {155.7, 20.3}}, label: 'Reading marker 158.' <AX element pid: 79751, elementOrHash.elementID: 5526757088.363>
+                                        StaticText, 0x1057441a0, {{22.0, 6808.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526758544.364>
+                                      Other, 0x1057442c0, {{22.0, 6872.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526762640.182>
+                                        StaticText, 0x1057443e0, {{22.0, 6872.3}, {155.7, 20.3}}, label: 'Reading marker 159.' <AX element pid: 79751, elementOrHash.elementID: 5526760080.365>
+                                        StaticText, 0x105744500, {{22.0, 6904.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526761536.366>
+                                      Other, 0x105744620, {{22.0, 6969.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526765632.183>
+                                        StaticText, 0x105744740, {{22.0, 6969.0}, {156.0, 20.3}}, label: 'Reading marker 160.' <AX element pid: 79751, elementOrHash.elementID: 5526763072.367>
+                                        StaticText, 0x105744860, {{22.0, 7001.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526764528.368>
+                                      Other, 0x105744980, {{22.0, 7065.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526768624.184>
+                                        StaticText, 0x105744aa0, {{22.0, 7065.7}, {153.3, 20.3}}, label: 'Reading marker 161.' <AX element pid: 79751, elementOrHash.elementID: 5526766064.369>
+                                        StaticText, 0x105744bc0, {{22.0, 7098.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526767520.370>
+                                      Other, 0x105744ce0, {{22.0, 7162.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526771616.185>
+                                        StaticText, 0x105744e00, {{22.0, 7162.3}, {155.7, 20.3}}, label: 'Reading marker 162.' <AX element pid: 79751, elementOrHash.elementID: 5526769056.371>
+                                        StaticText, 0x105744f20, {{22.0, 7194.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526770512.372>
+                                      Other, 0x105745040, {{22.0, 7259.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526774608.186>
+                                        StaticText, 0x105745160, {{22.0, 7259.0}, {156.0, 20.3}}, label: 'Reading marker 163.' <AX element pid: 79751, elementOrHash.elementID: 5526772048.373>
+                                        StaticText, 0x105745280, {{22.0, 7291.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526773504.374>
+                                      Other, 0x1057453a0, {{22.0, 7355.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526777600.187>
+                                        StaticText, 0x1057454c0, {{22.0, 7355.7}, {156.0, 20.3}}, label: 'Reading marker 164.' <AX element pid: 79751, elementOrHash.elementID: 5526775040.375>
+                                        StaticText, 0x1057455e0, {{22.0, 7388.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526776496.376>
+                                      Other, 0x105745700, {{22.0, 7452.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526780592.188>
+                                        StaticText, 0x105745820, {{22.0, 7452.3}, {155.7, 20.3}}, label: 'Reading marker 165.' <AX element pid: 79751, elementOrHash.elementID: 5526778032.377>
+                                        StaticText, 0x105745940, {{22.0, 7484.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526779488.378>
+                                      Other, 0x105745a60, {{22.0, 7549.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526783584.189>
+                                        StaticText, 0x105745b80, {{22.0, 7549.0}, {156.0, 20.3}}, label: 'Reading marker 166.' <AX element pid: 79751, elementOrHash.elementID: 5526781024.379>
+                                        StaticText, 0x105745ca0, {{22.0, 7581.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526782480.380>
+                                      Other, 0x105745dc0, {{22.0, 7645.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526786576.190>
+                                        StaticText, 0x105745ee0, {{22.0, 7645.7}, {153.7, 20.3}}, label: 'Reading marker 167.' <AX element pid: 79751, elementOrHash.elementID: 5526784016.381>
+                                        StaticText, 0x105746000, {{22.0, 7678.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526785472.382>
+                                      Other, 0x105746120, {{22.0, 7742.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526789568.191>
+                                        StaticText, 0x105746240, {{22.0, 7742.3}, {156.0, 20.3}}, label: 'Reading marker 168.' <AX element pid: 79751, elementOrHash.elementID: 5526787008.383>
+                                        StaticText, 0x105746360, {{22.0, 7774.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526788464.384>
+                                      Other, 0x105746480, {{22.0, 7839.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526792560.192>
+                                        StaticText, 0x1057465a0, {{22.0, 7839.0}, {156.0, 20.3}}, label: 'Reading marker 169.' <AX element pid: 79751, elementOrHash.elementID: 5526790000.385>
+                                        StaticText, 0x1057466c0, {{22.0, 7871.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526791456.386>
+                                      Other, 0x1057467e0, {{22.0, 7935.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526795552.193>
+                                        StaticText, 0x105746900, {{22.0, 7935.7}, {154.3, 20.3}}, label: 'Reading marker 170.' <AX element pid: 79751, elementOrHash.elementID: 5526792992.387>
+                                        StaticText, 0x105746a20, {{22.0, 7968.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526794448.388>
+                                      Other, 0x105746b40, {{22.0, 8032.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526798544.194>
+                                        StaticText, 0x105746c60, {{22.0, 8032.3}, {152.0, 20.3}}, label: 'Reading marker 171.' <AX element pid: 79751, elementOrHash.elementID: 5526795984.389>
+                                        StaticText, 0x105746d80, {{22.0, 8064.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526797440.390>
+                                      Other, 0x105746ea0, {{22.0, 8129.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526801536.195>
+                                        StaticText, 0x105746fc0, {{22.0, 8129.0}, {154.7, 20.3}}, label: 'Reading marker 172.' <AX element pid: 79751, elementOrHash.elementID: 5526798976.391>
+                                        StaticText, 0x1057470e0, {{22.0, 8161.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526800432.392>
+                                      Other, 0x105747200, {{22.0, 8225.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526804528.196>
+                                        StaticText, 0x105747320, {{22.0, 8225.7}, {154.3, 20.3}}, label: 'Reading marker 173.' <AX element pid: 79751, elementOrHash.elementID: 5526801968.393>
+                                        StaticText, 0x105747440, {{22.0, 8258.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526803424.394>
+                                      Other, 0x105747560, {{22.0, 8322.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526807520.197>
+                                        StaticText, 0x105747680, {{22.0, 8322.3}, {154.0, 20.3}}, label: 'Reading marker 174.' <AX element pid: 79751, elementOrHash.elementID: 5526804960.395>
+                                        StaticText, 0x1057477a0, {{22.0, 8354.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526806416.396>
+                                      Other, 0x1057478c0, {{22.0, 8419.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526810512.198>
+                                        StaticText, 0x1057479e0, {{22.0, 8419.0}, {154.3, 20.3}}, label: 'Reading marker 175.' <AX element pid: 79751, elementOrHash.elementID: 5526807952.397>
+                                        StaticText, 0x105747b00, {{22.0, 8451.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526809408.398>
+                                      Other, 0x105747c20, {{22.0, 8515.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526813504.199>
+                                        StaticText, 0x105747d40, {{22.0, 8515.7}, {154.7, 20.3}}, label: 'Reading marker 176.' <AX element pid: 79751, elementOrHash.elementID: 5526810944.399>
+                                        StaticText, 0x105747e60, {{22.0, 8548.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526812400.400>
+                                      Other, 0x105747f80, {{22.0, 8612.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526816496.200>
+                                        StaticText, 0x1057480a0, {{22.0, 8612.3}, {153.0, 20.3}}, label: 'Reading marker 177.' <AX element pid: 79751, elementOrHash.elementID: 5526813936.401>
+                                        StaticText, 0x1057481c0, {{22.0, 8644.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526815392.402>
+                                      Other, 0x1057482e0, {{22.0, 8709.0}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526819488.201>
+                                        StaticText, 0x105748400, {{22.0, 8709.0}, {154.7, 20.3}}, label: 'Reading marker 178.' <AX element pid: 79751, elementOrHash.elementID: 5526816928.403>
+                                        StaticText, 0x105748520, {{22.0, 8741.3}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526818384.404>
+                                      Other, 0x105748640, {{22.0, 8805.7}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526822480.202>
+                                        StaticText, 0x105748760, {{22.0, 8805.7}, {154.7, 20.3}}, label: 'Reading marker 179.' <AX element pid: 79751, elementOrHash.elementID: 5526819920.405>
+                                        StaticText, 0x105748880, {{22.0, 8838.0}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526821376.406>
+                                      Other, 0x1057489a0, {{22.0, 8902.3}, {354.0, 74.7}} <AX element pid: 79751, elementOrHash.elementID: 5526825472.203>
+                                        StaticText, 0x105748ac0, {{22.0, 8902.3}, {156.0, 20.3}}, label: 'Reading marker 180.' <AX element pid: 79751, elementOrHash.elementID: 5526822912.407>
+                                        StaticText, 0x105748be0, {{22.0, 8934.7}, {354.0, 42.3}}, label: 'A stable preview paragraph for testing history, keyboard and streaming position.' <AX element pid: 79751, elementOrHash.elementID: 5526824368.408>
+                                      Image, 0x105748d00, {{37.3, 9016.0}, {17.0, 17.0}}, identifier: 'exclamationmark.circle', label: 'Error' <AX element pid: 79751, elementOrHash.elementID: 5526825904.204>
+                                      StaticText, 0x105748e20, {{65.7, 9013.0}, {131.3, 18.0}}, label: 'Preview command' <AX element pid: 79751, elementOrHash.elementID: 5526826688.205>
+                                      StaticText, 0x105748f40, {{65.7, 9035.0}, {76.7, 14.3}}, identifier: 'companion-tool-status-reading-failure', label: 'Failed (exit 2)' <AX element pid: 79751, elementOrHash.elementID: 5526827472.206>
+                                      StaticText, 0x105749060, {{65.7, 9053.3}, {74.3, 14.3}}, label: 'swift test' <AX element pid: 79751, elementOrHash.elementID: 5526828928.207>
+                                      Button, 0x105749180, {{36.0, 9077.7}, {92.7, 14.3}}, identifier: 'companion-tool-toggle-reading-failure', label: 'Show output' <AX element pid: 79751, elementOrHash.elementID: 5526831248.208>
+                                        Image, 0x1057492a0, {{37.3, 9082.0}, {10.3, 6.0}}, identifier: 'chevron.down', label: 'Go Down' <AX element pid: 79751, elementOrHash.elementID: 5526829360.409>
+                                        StaticText, 0x1057493c0, {{36.0, 9077.7}, {92.7, 14.3}}, label: 'Show output' <AX element pid: 79751, elementOrHash.elementID: 5526830816.410>
+                                      StaticText, 0x1057494e0, {{36.0, 9102.0}, {200.3, 14.3}}, identifier: 'companion-tool-preview-reading-failure', label: 'Preview error: build failed' <AX element pid: 79751, elementOrHash.elementID: 5526833216.209>
+                                      Other, 0x105749600, {{22.0, 9152.3}, {250.7, 68.7}} <AX element pid: 79751, elementOrHash.elementID: 5526839600.210>
+                                        Other, 0x105749720, {{30.0, 9152.3}, {178.0, 14.3}}, identifier: 'companion-subagent-reading-helper', label: 'Helper activity · preview-helper' <AX element pid: 79751, elementOrHash.elementID: 5526836528.411>
+                                          Image, 0x105749840, {{22.0, 9159.4}, {0.0, 0.0}}, identifier: 'person.crop.circle.badge.gearshape', label: 'person.crop.circle.badge.gearshape' <AX element pid: 79751, elementOrHash.elementID: 5526834320.422>
+                                          StaticText, 0x105749960, {{30.0, 9152.3}, {178.0, 14.3}}, label: 'Helper activity · preview-helper' <AX element pid: 79751, elementOrHash.elementID: 5526835424.423>
+                                        StaticText, 0x105749a80, {{22.0, 9176.7}, {250.7, 20.3}}, label: 'Preview helper streamed update.' <AX element pid: 79751, elementOrHash.elementID: 5526837632.412>
+                                        ActivityIndicator, 0x105749ba0, {{22.0, 9207.0}, {14.0, 14.0}}, label: 'Responding', value: 1 <AX element pid: 79751, elementOrHash.elementID: 5526839168.413>
+                                          ActivityIndicator, 0x105749cc0, {{22.0, 9207.0}, {14.0, 14.0}}, value: 1 <AX element pid: 79751, elementOrHash.elementID: 4326695408.424>
+                                    Other, 0x105749de0, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325666112.98>
+                                    Other, 0x105749f00, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325665536.99>
+                                      Other, 0x10574a020, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325666560.211>
+                                        Other, 0x10574a140, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325674784.414>
+                                      Other, 0x10574a260, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325675200.212>
+                                        Other, 0x10574a380, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4323385888.415>
+                                      Other, 0x10574a4a0, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325670336.213>
+                                        Other, 0x10574a5c0, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4325675680.416>
+                                        Other, 0x10574a6e0, {{0.0, 577.9}, {440.0, 267.8}} <AX element pid: 79751, elementOrHash.elementID: 4323426336.417>
+                                      Image, 0x10574a800, {{-120.0, 592.7}, {680.0, 506.0}}, identifier: 'AdditionalDimmingOverlay' <AX element pid: 79751, elementOrHash.elementID: 4325646304.214>
+                                      Other, 0x10574a920, {{0.0, 652.7}, {440.0, 193.0}} <AX element pid: 79751, elementOrHash.elementID: 4325647424.215>
+                                    Other, 0x10574aa40, {{407.0, 180.3}, {30.0, 462.3}}, label: 'Vertical scroll bar, 20 pages', value: 0% <AX element pid: 79751, elementOrHash.elementID: 4325684272.100>
+                                      Other, 0x10574ab60, {{434.0, 185.3}, {3.0, 40.7}} <AX element pid: 79751, elementOrHash.elementID: 4325685248.216>
+                                    Other, 0x10574ac80, {{407.0, 180.3}, {30.0, 462.3}}, label: 'Vertical scroll bar, 20 pages', value: 0% <AX element pid: 79751, elementOrHash.elementID: 4325684272.100>
+                                      Other, 0x10574ada0, {{434.0, 185.3}, {3.0, 40.7}} <AX element pid: 79751, elementOrHash.elementID: 4325685248.216>
+                                  Button, 0x10574aec0, {{172.7, 590.7}, {94.7, 44.0}}, identifier: 'companion-latest', label: 'Latest', value: Reading earlier me... <AX element pid: 79751, elementOrHash.elementID: 5526844576.88>
+                                    StaticText, 0x10574afe0, {{186.7, 603.7}, {45.0, 18.0}}, label: 'Latest' <AX element pid: 79751, elementOrHash.elementID: 5526549024.101>
+                                    Image, 0x10574b100, {{239.7, 605.7}, {11.7, 14.0}}, identifier: 'arrow.down', label: 'Down' <AX element pid: 79751, elementOrHash.elementID: 5526844144.102>
+                                  Image, 0x10574b220, {{36.0, 140.0}, {13.3, 18.0}}, identifier: 'hand.raised.fill', label: 'Block' <AX element pid: 79751, elementOrHash.elementID: 5526848704.89>
+                                  StaticText, 0x10574b340, {{62.0, 140.2}, {111.0, 18.0}}, label: 'River needs you' <AX element pid: 79751, elementOrHash.elementID: 5526851632.90>
+                                  Button, 0x10574b460, {{355.0, 132.0}, {61.0, 34.3}}, label: 'View River' <AX element pid: 79751, elementOrHash.elementID: 5526853504.91>
+                                  Other, 0x10574b580, {{0.0, 0.0}, {0.0, 0.0}} <AX element pid: 79751, elementOrHash.elementID: 5526847344.92>
+                                  ScrollView, 0x10574b6a0, {{0.0, 642.7}, {440.0, 203.0}}, identifier: 'companion-grant-footer-scroll' <AX element pid: 79751, elementOrHash.elementID: 4355891200.93>
+                                    Other, 0x10574b7c0, {{0.0, 642.7}, {440.0, 120.0}} <AX element pid: 79751, elementOrHash.elementID: 4324812480.103>
+                                      Other, 0x10574b8e0, {{16.0, 652.7}, {408.0, 100.0}}, identifier: 'companion-composer-region' <AX element pid: 79751, elementOrHash.elementID: 5526858976.217>
+                                        Other, 0x10574ba00, {{16.0, 652.7}, {408.0, 100.0}}, identifier: 'companion-composer-card-bounds', label: 'Composer card bounds', value: Regular <AX element pid: 79751, elementOrHash.elementID: 5526856336.418>
+                                        Other, 0x10574bb20, {{16.0, 652.7}, {408.0, 46.0}} <AX element pid: 79751, elementOrHash.elementID: 5527459936.419>
+                                        TextField, 0x10574bc40, {{32.0, 664.7}, {376.0, 22.0}}, identifier: 'companion-composer', label: 'Message', placeholderValue: 'Message Maple…' <AX element pid: 79751, elementOrHash.elementID: 4354596864.420>
+                                          Other, 0x10574bd60, {{32.0, 672.7}, {376.0, 11.0}}, label: 'Horizontal scroll bar, 1 page', value: 0% <AX element pid: 79751, elementOrHash.elementID: 4321956592.425>
+                                            Other, 0x10574be80, {{35.0, 680.7}, {370.0, 3.0}} <AX element pid: 79751, elementOrHash.elementID: 4321957056.428>
+                                        Button, 0x10574bfa0, {{374.0, 700.7}, {44.0, 44.0}}, identifier: 'companion-send', label: 'Send message', Disabled <AX element pid: 79751, elementOrHash.elementID: 5526859648.421>
+                          Other, 0x10574c0c0, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321827824.51>
+                            Other, 0x10574c1e0, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4321829760.58>
+              Other, 0x10574c300, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4326625392.13>
+                Other, 0x10574c420, {{0.0, 0.0}, {440.0, 845.7}} <AX element pid: 79751, elementOrHash.elementID: 4326657872.17>
+                  TabBar, 0x10574c540, {{0.0, 762.7}, {440.0, 83.0}}, label: 'Tab Bar' <AX element pid: 79751, elementOrHash.elementID: 4326630224.33>
+                    Other, 0x10574c660, {{126.0, 762.7}, {188.0, 62.0}} <AX element pid: 79751, elementOrHash.elementID: 4326632048.36>
+                      Other, 0x10574c780, {{126.0, 762.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4321619664.39>
+                      Other, 0x10574c8a0, {{126.0, 762.7}, {188.0, 62.0}} <AX element pid: 79751, elementOrHash.elementID: 4326632464.40>
+                        Button, 0x10574c9c0, {{130.0, 766.7}, {94.0, 54.0}}, identifier: 'bubble.left', label: 'Chat', Selected <AX element pid: 79751, elementOrHash.elementID: 4337098752.45>
+                          Image, 0x10574cae0, {{161.0, 773.3}, {31.3, 27.7}}, identifier: 'bubble.left.fill', label: 'comment left' <AX element pid: 79751, elementOrHash.elementID: 4321745408.52>
+                        Button, 0x10574cc00, {{216.0, 766.7}, {94.0, 54.0}}, identifier: 'house', label: 'Home' <AX element pid: 79751, elementOrHash.elementID: 4337193984.46>
+                          Image, 0x10574cd20, {{246.0, 772.7}, {33.3, 28.0}}, identifier: 'house.fill', label: 'home' <AX element pid: 79751, elementOrHash.elementID: 4321765808.53>
+                      Other, 0x10574ce40, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326641280.41>
+                        Other, 0x10574cf60, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326644176.47>
+                          Other, 0x10574d080, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326535440.54>
+                            Other, 0x10574d1a0, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4321892208.59>
+                          Other, 0x10574d2c0, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326644592.55>
+                            Other, 0x10574d3e0, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326648336.60>
+                              Other, 0x10574d500, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326649264.63>
+                                Other, 0x10574d620, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326650704.66>
+                              Other, 0x10574d740, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326645056.64>
+                            Other, 0x10574d860, {{130.0, 766.7}, {94.0, 54.0}} <AX element pid: 79751, elementOrHash.elementID: 4326647920.61>
+                Other, 0x10574d980, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4326626320.18>
+                  Other, 0x10574daa0, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321783664.34>
+                    Other, 0x10574dbc0, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321381248.37>
+                      Other, 0x10574dce0, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321367856.42>
+                        Other, 0x10574de00, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321791120.48>
+                          Other, 0x10574df20, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321327168.56>
+                      Other, 0x10574e040, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321793664.43>
+                        Other, 0x10574e160, {{0.0, 762.7}, {440.0, 83.0}} <AX element pid: 79751, elementOrHash.elementID: 4321797632.49>
+            StaticText, 0x10574e280, {{5.2, 850.0}, {429.7, 39.3}}, identifier: 'reading-opening-state', label: 'case=paused-expanded mounted=1 visible=1 target=maple start=message:reading-90 follow=0 entry=message:reading-90 outcome=arrived mount=29F9FABD-506A-443F-8E21-512E3C3BE774 user=0 handoffs=0' <AX element pid: 79751, elementOrHash.elementID: 4320375840.10>
+            ScrollView, 0x10574e3a0, {{0.0, 893.7}, {440.0, 62.3}}, identifier: 'reading-opening-actions' <AX element pid: 79751, elementOrHash.elementID: 4371168768.11>
+              Other, 0x10574e4c0, {{0.0, 893.7}, {1204.7, 28.3}} <AX element pid: 79751, elementOrHash.elementID: 4326538112.14>
+                Button, 0x10574e5e0, {{0.0, 893.7}, {89.3, 28.3}}, identifier: 'reading-opening-latest', label: 'Open latest' <AX element pid: 79751, elementOrHash.elementID: 4320377296.19>
+                Button, 0x10574e700, {{97.3, 893.7}, {99.3, 28.3}}, identifier: 'reading-opening-paused', label: 'Open paused' <AX element pid: 79751, elementOrHash.elementID: 4320378560.20>
+                Button, 0x10574e820, {{204.7, 893.7}, {72.0, 28.3}}, identifier: 'reading-opening-hide', label: 'Hide tab' <AX element pid: 79751, elementOrHash.elementID: 4320379664.21>
+                Button, 0x10574e940, {{284.7, 893.7}, {76.7, 28.3}}, identifier: 'reading-opening-show', label: 'Show tab' <AX element pid: 79751, elementOrHash.elementID: 4320380768.22>
+                Button, 0x10574ea60, {{369.3, 893.7}, {84.0, 28.3}}, identifier: 'reading-opening-close', label: 'Close chat' <AX element pid: 79751, elementOrHash.elementID: 4320381872.23>
+                Button, 0x10574eb80, {{461.3, 893.7}, {95.0, 28.3}}, identifier: 'reading-opening-reopen', label: 'Reopen chat' <AX element pid: 79751, elementOrHash.elementID: 4320382976.24>
+                Button, 0x10574eca0, {{564.3, 893.7}, {84.3, 28.3}}, identifier: 'reading-opening-other', label: 'Other chat' <AX element pid: 79751, elementOrHash.elementID: 4320384080.25>
+                Button, 0x10574edc0, {{656.7, 893.7}, {105.0, 28.3}}, identifier: 'reading-opening-reload', label: 'Reload history' <AX element pid: 79751, elementOrHash.elementID: 4320385184.26>
+                Button, 0x10574eee0, {{769.7, 893.7}, {96.0, 28.3}}, identifier: 'reading-opening-stream', label: 'Stream reply' <AX element pid: 79751, elementOrHash.elementID: 4320386288.27>
+                Button, 0x10574f000, {{873.7, 893.7}, {99.7, 28.3}}, identifier: 'reading-opening-append', label: 'Append reply' <AX element pid: 79751, elementOrHash.elementID: 4320387392.28>
+                Button, 0x10574f120, {{981.3, 893.7}, {100.0, 28.3}}, identifier: 'reading-opening-short', label: 'Short paused' <AX element pid: 79751, elementOrHash.elementID: 4320388496.29>
+                Button, 0x10574f240, {{1089.3, 893.7}, {115.3, 28.3}}, identifier: 'reading-opening-session', label: 'Replace session' <AX element pid: 79751, elementOrHash.elementID: 4320389600.30>
+              Other, 0x10574f360, {{31.2, 923.0}, {377.7, 30.0}}, label: 'Horizontal scroll bar, 3 pages', value: 0% <AX element pid: 79751, elementOrHash.elementID: 4321799520.15>
+                Other, 0x10574f480, {{34.2, 950.0}, {135.7, 3.0}} <AX element pid: 79751, elementOrHash.elementID: 4321799984.31>
+              Other, 0x10574f5a0, {{31.2, 923.0}, {377.7, 30.0}}, label: 'Horizontal scroll bar, 3 pages', value: 0% <AX element pid: 79751, elementOrHash.elementID: 4321799520.15>
+                Other, 0x10574f6c0, {{34.2, 950.0}, {135.7, 3.0}} <AX element pid: 79751, elementOrHash.elementID: 4321799984.31>

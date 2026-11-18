@@ -1,0 +1,191 @@
+[
+  {
+    "actualSeconds" : 23.176666666666666,
+    "file" : "frame-0000-23.177.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.176666666666666,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.226666666666667,
+    "file" : "frame-0001-23.227.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.226666666666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.258333333333333,
+    "file" : "frame-0002-23.258.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.258333333333333,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.278333333333332,
+    "file" : "frame-0003-23.278.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.278333333333332,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.278333333333332,
+    "file" : "frame-0004-23.318.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.318333333333332,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.335000000000001,
+    "file" : "frame-0005-23.335.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.335000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.376666666666665,
+    "file" : "frame-0006-23.377.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.376666666666665,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.395,
+    "file" : "frame-0007-23.395.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.395,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.434999999999999,
+    "file" : "frame-0008-23.435.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.434999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.445,
+    "file" : "frame-0009-23.445.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.445,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.448333333333334,
+    "file" : "frame-0010-23.448.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.448333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.449999999999999,
+    "file" : "frame-0011-23.450.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.449999999999999,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.458333333333332,
+    "file" : "frame-0012-23.458.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.458333333333332,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.475000000000001,
+    "file" : "frame-0013-23.475.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.475000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.491666666666667,
+    "file" : "frame-0014-23.492.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.491666666666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.5,
+    "file" : "frame-0015-23.500.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.5,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.511666666666667,
+    "file" : "frame-0016-23.512.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.511666666666667,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.536666666666665,
+    "file" : "frame-0017-23.537.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.536666666666665,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.545000000000002,
+    "file" : "frame-0018-23.545.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.545000000000002,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.558333333333334,
+    "file" : "frame-0019-23.558.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.558333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.558333333333334,
+    "file" : "frame-0020-23.580.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.579999999999998,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.593333333333334,
+    "file" : "frame-0021-23.593.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.593333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.600000000000001,
+    "file" : "frame-0022-23.600.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.600000000000001,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.608333333333334,
+    "file" : "frame-0023-23.608.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.608333333333334,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.625,
+    "file" : "frame-0024-23.625.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.625,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.641666666666666,
+    "file" : "frame-0025-23.642.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.641666666666666,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 23.648333333333333,
+    "file" : "frame-0026-23.648.png",
+    "height" : 2868,
+    "requestedSeconds" : 23.648333333333333,
+    "width" : 1320
+  }
+]

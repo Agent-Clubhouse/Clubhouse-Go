@@ -1,0 +1,65 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "1E35DBEE-80B0-4591-BA9A-ADBEECA99CAF",
+        "deviceName" : "ux-582-first-paint",
+        "modelName" : "iPhone 17 Pro Max",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 3,
+      "passedTests" : 0,
+      "skippedTests" : 0,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "ClubhouseGo · Built with macOS 26.5.2",
+  "expectedFailures" : 0,
+  "failedTests" : 3,
+  "finishTime" : 1795043547.993,
+  "passedTests" : 0,
+  "result" : "Failed",
+  "skippedTests" : 0,
+  "startTime" : 1795043433.878,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+    {
+      "failureText" : "failed - The recording-fixture control must be reachable: other",
+      "targetName" : "ClubhouseGoUITests",
+      "testIdentifier" : 1,
+      "testIdentifierString" : "CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats()",
+      "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats",
+      "testName" : "testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats()"
+    },
+    {
+      "failureText" : "XCTAssertTrue failed - The real loaded prefix must widen before this can pass",
+      "targetName" : "ClubhouseGoUITests",
+      "testIdentifier" : 2,
+      "testIdentifierString" : "CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival()",
+      "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival",
+      "testName" : "testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival()"
+    },
+    {
+      "failureText" : "XCTAssertTrue failed",
+      "targetName" : "ClubhouseGoUITests",
+      "testIdentifier" : 3,
+      "testIdentifierString" : "CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls()",
+      "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls",
+      "testName" : "testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls()"
+    }
+  ],
+  "title" : "Test - ClubhouseGo",
+  "topInsights" : [
+
+  ],
+  "totalTestCount" : 3
+}
