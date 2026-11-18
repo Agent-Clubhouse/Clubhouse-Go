@@ -85,6 +85,7 @@ struct CompanionReadingPrefixTrimFixture: View {
     @State private var saved: CompanionReadingPosition?
     @State private var oldFirst: String?
     @State private var oldHidden = 0
+    @State private var oldEntryIDs: [String] = []
     @State private var oldLower: Double?
     @State private var oldMetrics: CompanionScrollMetrics?
     @State private var startedAt: TimeInterval?
@@ -121,7 +122,18 @@ struct CompanionReadingPrefixTrimFixture: View {
                 guard armed else { return true }
                 return delivery(attempt: attempt, offset: offset)
             }
-            defer { CompanionReadingRestoreProbe.deliver = nil }
+            PrefixTrimWindowObservation.observed = false
+            CompanionReadingOpeningProbe.record = { value in
+                guard value.target == target, value.phase == .body else { return }
+                PrefixTrimWindowObservation.observed = true
+                PrefixTrimWindowObservation.startID = value.windowStartID
+            }
+            defer {
+                CompanionReadingRestoreProbe.deliver = nil
+                CompanionReadingOpeningProbe.record = nil
+                PrefixTrimWindowObservation.observed = false
+                PrefixTrimWindowObservation.startID = nil
+            }
             ready = true
             while !Task.isCancelled {
                 publish()
@@ -139,6 +151,7 @@ struct CompanionReadingPrefixTrimFixture: View {
         let bookmark = store.readingBookmark(for: target)
         let viewport = bookmark.viewport
         guard ready, !armed, saved == nil, !bookmark.position.followsLatest,
+              PrefixTrimWindowObservation.observed, PrefixTrimWindowObservation.startID == nil,
               !viewport.isRestoring, let id = bookmark.position.entryID,
               let lower = viewport.frames[id]?.lowerBound, let metrics = viewport.metrics,
               abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 else { return }
@@ -146,13 +159,14 @@ struct CompanionReadingPrefixTrimFixture: View {
         saved = bookmark.position
         oldFirst = before.entries.first?.id
         oldHidden = before.hiddenCount
+        oldEntryIDs = before.entries.map(\.id)
         oldLower = lower
         oldMetrics = metrics
         armed = true
-        mounted = false
+        // #582 removes prefix trim on bookmark-first remounts. The same A race remains on an OPEN
+        // normal-window history reload; keep the strict H/S methods and their six-point checks unchanged.
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(100))
-            mounted = true
+            await store.load(target, force: true)
         }
     }
 
@@ -165,6 +179,14 @@ struct CompanionReadingPrefixTrimFixture: View {
         let bookmark = store.readingBookmark(for: target)
         let viewport = bookmark.viewport
         if startedAt == nil {
+            let beforeTail = window(retaining: id)
+            guard PrefixTrimWindowObservation.observed, PrefixTrimWindowObservation.startID == nil,
+                  beforeTail.entries.map(\.id) == oldEntryIDs, beforeTail.hiddenCount == oldHidden,
+                  let lower = viewport.frames[id]?.lowerBound, abs(lower - oldLower) < 1 else {
+                // A different reload window cannot classify this race. Never compensate the fixture silently.
+                notExercised = true
+                return true
+            }
             // The real restoration has already pinned its offset before invoking this existing hook.
             startedAt = ProcessInfo.processInfo.systemUptime
             pinned = viewport.restoration?.offset
@@ -239,5 +261,10 @@ struct CompanionReadingPrefixTrimFixture: View {
             NSLog("READING569_FIXTURE %@", next.description)
         }
     }
+}
+/// Shared only by this opt-in serialized fixture; it observes the actual production window mode.
+@MainActor private enum PrefixTrimWindowObservation {
+    static var observed = false
+    static var startID: String?
 }
 #endif
