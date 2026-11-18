@@ -95,6 +95,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; the last-tab choice is a Sendable raw-value enum, and recent choices contain only Sendable CompanionTarget values. UIDevice is read during init, not retained. No callback, UI owner or teardown change. |
 | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. |
 | `CompanionPreviewTerminalChannel` | arc_only | Value scope/text/size and Sendable stream continuation; no UI fields. |
+| `CompanionReadingSeed` | arc_only | Immutable opening values only: Bool, Int and optional String. Constructor Store/target are not retained; no UI handle, task, callback or mutable ScrollPosition. StateObject computes once per mounted target. |
 | `CompanionReadingBookmark` | arc_only | Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UI objects or callback captures. |
 | `CompanionReadingViewport` | arc_only | Numeric SwiftUI/UIKit geometry snapshots and a bounded restoration value (UUIDs, numeric target/time/attempts, closed outcome); no SwiftUI scroll handles, tasks, UI objects or callbacks. UIKit publishes only value metrics here, never a view/delegate reference. |
 | `CompanionReadingTouchObserver.Anchor` | main_actor | UIKit window/recognizer attachment and a view callback require main-thread teardown. |

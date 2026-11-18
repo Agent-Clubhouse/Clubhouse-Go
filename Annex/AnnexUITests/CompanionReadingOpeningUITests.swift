@@ -114,6 +114,19 @@ import UIKit
         waitState("follow=0", in: app)
         observation("Latest on one chat leaves the other paused", in: app, anchor: anchor)
         XCTAssertTrue(app.pausedChatNavigation.exists)
+
+        // A real finger drag complements the hosted injected-phase/ownership branch tests.
+        // This probe reports SwiftUI's actual flag, never the DEBUG ownership override.
+        let handoffs = state(app).label.split(separator: " ").first { $0.hasPrefix("handoffs=") }.map(String.init)
+        XCTAssertNotNil(handoffs)
+        app.scrollViews["companion-transcript"].swipeDown()
+        waitState("user=1", in: app)
+        observation("Real drag reports native user ownership", in: app)
+        control("stream", in: app)
+        waitState("case=streamed", in: app)
+        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+        XCTAssertTrue(state(app).label.split(separator: " ").map(String.init).contains(handoffs ?? "missing"),
+                      "No identity handoff may be written after the real drag owns scrolling")
     }
 
     func testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls() {

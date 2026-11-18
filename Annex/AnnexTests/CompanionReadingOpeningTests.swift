@@ -55,6 +55,9 @@ import UIKit
         }
         func close() {
             CompanionReadingOpeningProbe.record = nil
+            CompanionReadingOpeningProbe.didComputeSeed = nil
+            CompanionReadingOpeningProbe.positionedByUserOverride = nil
+            CompanionConversationBuildProbe.record = nil
             CompanionReadingRestoreProbe.deliver = nil
             window.isHidden = true
             window.rootViewController = nil
@@ -107,6 +110,13 @@ import UIKit
         let f = try await Fixture()
         defer { f.close() }
         f.pause()
+        let target = f.agents[0].id
+        var seedCounts: [CompanionTarget: Int] = [:]
+        var parentBodies = 0
+        CompanionReadingOpeningProbe.didComputeSeed = { seedCounts[$0, default: 0] += 1 }
+        CompanionConversationBuildProbe.record = { kind, observed in
+            if observed == target, case .body = kind { parentBodies += 1 }
+        }
         var samples: [CompanionReadingOpeningProbe.Sample] = []
         CompanionReadingOpeningProbe.record = { samples.append($0) }
         f.mount()
@@ -114,14 +124,44 @@ import UIKit
         try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
         let first = try #require(samples.first { $0.phase == .body })
         let saved = bookmark.position
+        #expect(seedCounts[target] == 1)
         for _ in 0..<5 { f.navigation.revision += 1; try await f.settle() }
+        let beforeChunks = seedCounts[target, default: 0]
+        let parentBefore = parentBodies
+        for _ in 0..<20 {
+            f.store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed", sequence: nil))
+            try await f.settle()
+        }
+        #expect(parentBodies > parentBefore, "This must observe real parent re-evaluation while paused")
+        #expect(seedCounts[target] == beforeChunks && beforeChunks == 1,
+                "No opening seed or its candidate slicing may run per chunk or discarded initializer")
+        print("READING_OPENING_SEED chunks=20 before=\(beforeChunks) after=\(seedCounts[target, default: 0]) parentBodyDelta=\(parentBodies - parentBefore)")
         await f.store.load(f.agents[0].id, force: true)
         try await f.wait { bookmark.viewport.historyRevision == f.store.conversation(for: f.agents[0].id).historyRevision
             && bookmark.viewport.restoration?.outcome == .arrived }
         #expect(Set(samples.map(\.mountID)) == [first.mountID], "A reload is not a mount boundary")
+        #expect(seedCounts[target] == 1, "Reload/resync keeps the immutable opening seed")
         #expect(samples.filter { $0.phase == .body }.allSatisfy { $0.shownEntries >= 300 && !$0.followsLatest })
         let frame = try #require(saved.entryID.flatMap { bookmark.viewport.frames[$0] })
         #expect(abs((bookmark.viewport.metrics?.normalizedOffset ?? -.infinity) - frame.lowerBound - saved.distanceFromEntry) <= 6)
+    }
+
+    @Test func followingStreamAndParentRecreationComputeOnlyOneOpeningSeed() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        let target = f.agents[0].id
+        var seeds = 0
+        CompanionReadingOpeningProbe.didComputeSeed = { if $0 == target { seeds += 1 } }
+        f.mount()
+        try await f.wait { seeds == 1 && f.store.readingBookmark(for: target).viewport.metrics != nil }
+        for _ in 0..<20 {
+            f.navigation.revision += 1
+            f.store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed", sequence: nil))
+            try await f.settle()
+        }
+        #expect(seeds == 1, "Following streaming and discarded parent initializers cannot recompute or slice the opening seed")
+        #expect(f.store.readingBookmark(for: target).position.followsLatest)
+        print("READING_OPENING_SEED followingChunks=20 seeds=\(seeds)")
     }
 
     @Test func hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState() async throws {
@@ -130,6 +170,8 @@ import UIKit
         f.pause()
         f.store.drafts[f.agents[0].id] = "First chat draft"
         f.store.drafts[f.agents[1].id] = "Second chat draft"
+        var seedCounts: [CompanionTarget: Int] = [:]
+        CompanionReadingOpeningProbe.didComputeSeed = { seedCounts[$0, default: 0] += 1 }
         var samples: [CompanionReadingOpeningProbe.Sample] = []
         CompanionReadingOpeningProbe.record = { samples.append($0) }
         f.mount()
@@ -144,16 +186,19 @@ import UIKit
         await f.store.load(target, force: true)
         try await f.settle()
         #expect(samples.count == hiddenCount, "A hidden transcript must not build a seed or body")
+        #expect(seedCounts[target] == 1)
         f.navigation.visible = true
         try await f.wait { samples.contains { $0.phase == .body && $0.mountID != originalID } }
         let secondID = try #require(samples.last?.mountID)
         #expect(Set(samples.map(\.mountID)) == [originalID, secondID])
+        #expect(seedCounts[target] == 2, "Exactly one seed is computed on re-show after hidden reload")
         try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
         f.navigation.selected = 1
         try await f.wait { samples.contains { $0.target == f.agents[1].id && $0.phase == .body } }
         let other = try #require(samples.first { $0.target == f.agents[1].id && $0.phase == .body })
         #expect(other.followsLatest && other.requestedBottom && other.requestedEntryID == nil)
         #expect(other.mountID != secondID)
+        #expect(seedCounts[f.agents[1].id] == 1 && seedCounts[target] == 2)
         #expect(!bookmark.position.followsLatest && f.store.readingBookmark(for: f.agents[1].id).position.followsLatest)
         #expect(f.store.drafts[target] == "First chat draft" && f.store.drafts[f.agents[1].id] == "Second chat draft")
     }
@@ -228,36 +273,104 @@ import UIKit
     @Test func exactInitialLandingReleasesTheIdentityEvenWithoutANumericCorrection() async throws {
         let f = try await Fixture()
         defer { f.close() }
-        f.pause(distance: 0)
+        f.pause(distance: 0.5)
         var samples: [CompanionReadingOpeningProbe.Sample] = []
         CompanionReadingOpeningProbe.record = { samples.append($0) }
         f.mount()
         let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
         try await f.wait { viewport.restoration?.outcome == .arrived }
-        #expect(viewport.restoration?.attempts == 0, "This fixture must exercise an exact initial ID landing")
+        #expect(viewport.restoration?.attempts == 0, "The nonzero 0.5pt saved distance exercises A's unchanged 1pt arrival threshold")
         let arrival = try #require(samples.first { $0.phase == .arrived })
         #expect(arrival.requestedEntryID == nil)
         if let handoff = samples.first(where: { $0.phase == .handoff }) { #expect(handoff.pointY != nil) }
         #expect(samples.filter { $0.phase == .scroll }.isEmpty)
+        let offset = try #require(viewport.metrics?.normalizedOffset)
+        let phaseCount = samples.filter { $0.phase == .phaseChanged }.count
+        try await f.settle()
+        #expect(abs((viewport.metrics?.normalizedOffset ?? -.infinity) - offset) <= 1)
+        #expect(samples.filter { $0.phase == .phaseChanged }.count == phaseCount)
+        #expect(samples.filter { $0.phase == .saved }.count == 1,
+                "Only the original arrival save is allowed; the marker handoff adds none")
+        #expect(viewport.restoration?.attempts == 0)
     }
 
-    @Test func realOpeningTouchDropsTheInitialIdentityWithoutIssuingAnotherTarget() async throws {
+    private func touchAnchor(_ view: UIView) -> CompanionReadingTouchObserver.Anchor? {
+        if let anchor = view as? CompanionReadingTouchObserver.Anchor { return anchor }
+        return view.subviews.lazy.compactMap { touchAnchor($0) }.first
+    }
+    private func transcript(_ view: UIView) -> UIScrollView? {
+        if view.isHidden || view.alpha == 0 { return nil }
+        if let scroll = view as? UIScrollView, scroll.bounds.width > 300,
+           scroll.contentSize.height > scroll.bounds.height * 2 { return scroll }
+        return view.subviews.lazy.compactMap { transcript($0) }.first
+    }
+
+    /// Native hosted scroll view, with phases injected through the existing DEBUG hook, not a finger gesture.
+    @Test(arguments: [false, true]) func activeOpeningDragWritesOnlyAtIdleUnlessTheUserAlreadyOwnsThePosition(userOwnsPosition: Bool) async throws {
         let f = try await Fixture()
         defer { f.close() }
         f.pause(distance: 40)
         var samples: [CompanionReadingOpeningProbe.Sample] = []
         CompanionReadingOpeningProbe.record = { samples.append($0) }
-        var deliveryCount = 0
-        var priorPoint: Double?
-        var priorOffset: Double?
-        func touchAnchor(_ view: UIView) -> CompanionReadingTouchObserver.Anchor? {
-            if let anchor = view as? CompanionReadingTouchObserver.Anchor { return anchor }
-            return view.subviews.lazy.compactMap { touchAnchor($0) }.first
+        var drivePhase: ((ScrollPhase) -> Void)?
+        var deliveries = 0
+        CompanionReadingRestoreProbe.deliver = { _, _, _, phaseChanged in
+            deliveries += 1
+            drivePhase = phaseChanged
+            // The installed passive observer takes the same path as a touch in the transcript.
+            let anchor = touchAnchor(f.window)
+            #expect(anchor != nil)
+            anchor?.touchBegan(at: CGPoint(x: 10, y: 10))
+            phaseChanged(.tracking)
+            phaseChanged(.interacting)
+            return false
         }
-        CompanionReadingRestoreProbe.deliver = { _, _, _, _ in
-            deliveryCount += 1
-            priorPoint = samples.last?.pointY
-            priorOffset = f.store.readingBookmark(for: f.agents[0].id).viewport.metrics?.normalizedOffset
+        f.mount()
+        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
+        try await f.wait { drivePhase != nil && viewport.restoration?.outcome == .touch }
+        let scroll = try #require(transcript(f.window))
+        let phase = try #require(drivePhase)
+        let attempts = viewport.restoration?.attempts
+        let writesBefore = samples.filter { $0.phase == .handoff || $0.phase == .scroll }.count
+        #expect(writesBefore == 0)
+        // This controlled ownership input tests the same guard; it never changes the native binding.
+        CompanionReadingOpeningProbe.positionedByUserOverride = userOwnsPosition
+        let activeOffset = scroll.contentOffset.y
+        try await f.settle()
+        #expect(abs(scroll.contentOffset.y - activeOffset) <= 1)
+        #expect(samples.filter { $0.phase == .handoff || $0.phase == .scroll }.isEmpty,
+                "No binding write is allowed while tracking, interacting or decelerating")
+        phase(.decelerating)
+        try await f.settle()
+        #expect(abs(scroll.contentOffset.y - activeOffset) <= 1)
+        #expect(samples.filter { $0.phase == .handoff || $0.phase == .scroll }.isEmpty)
+        let savesBeforeIdle = samples.filter { $0.phase == .saved }.count
+        let idleOffset = scroll.contentOffset.y
+        phase(.idle)
+        try await f.settle()
+        #expect(abs(scroll.contentOffset.y - idleOffset) <= 1)
+        let handoffs = samples.filter { $0.phase == .handoff }
+        #expect(handoffs.count == (userOwnsPosition ? 0 : 1))
+        if !userOwnsPosition {
+            let handoff = try #require(handoffs.first)
+            #expect(handoff.requestedEntryID == nil && handoff.pointY != nil)
+        }
+        #expect(samples.filter { $0.phase == .saved }.count == savesBeforeIdle + 1,
+                "Only the unchanged gesture-idle save is allowed; the handoff adds no save")
+        #expect(samples.filter { $0.phase == .scroll }.isEmpty && deliveries == 1)
+        #expect(viewport.restoration?.attempts == attempts && viewport.restoration?.outcome == .touch)
+        drivePhase = nil
+    }
+
+    @Test func lightOpeningTouchDefersTheIdentityHandoffUntilIdle() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause(distance: 40)
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        var drivePhase: ((ScrollPhase) -> Void)?
+        CompanionReadingRestoreProbe.deliver = { _, _, _, phaseChanged in
+            drivePhase = phaseChanged
             let anchor = touchAnchor(f.window)
             #expect(anchor != nil)
             anchor?.touchBegan(at: CGPoint(x: 10, y: 10))
@@ -265,16 +378,40 @@ import UIKit
         }
         f.mount()
         let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
-        try await f.wait { viewport.restoration?.outcome == .touch }
-        let cancellation = try #require(samples.first { $0.phase == .cancelled })
-        #expect(cancellation.requestedEntryID == nil)
-        #expect(cancellation.pointY == nil || cancellation.pointY == priorPoint,
-                "User authority clears the ID without requesting any new numeric target")
+        try await f.wait { drivePhase != nil && viewport.restoration?.outcome == .touch }
+        let scroll = try #require(transcript(f.window))
+        let before = scroll.contentOffset.y
+        let saves = samples.filter { $0.phase == .saved }.count
         try await f.settle()
-        #expect(deliveryCount == 1 && samples.filter { $0.phase == .scroll }.isEmpty)
-        #expect(viewport.restoration?.outcome == .touch)
-        let before = try #require(priorOffset)
-        #expect(abs((viewport.metrics?.normalizedOffset ?? -.infinity) - before) <= 6)
+        #expect(samples.filter { $0.phase == .handoff || $0.phase == .scroll }.isEmpty)
+        #expect(abs(scroll.contentOffset.y - before) <= 1)
+        let phase = try #require(drivePhase)
+        phase(.idle)
+        try await f.settle()
+        #expect(samples.filter { $0.phase == .handoff }.count == 1)
+        #expect(samples.filter { $0.phase == .saved }.count == saves,
+                "A light-touch idle is not a gesture and cannot add a save")
+        #expect(abs(scroll.contentOffset.y - before) <= 1)
+        drivePhase = nil
+    }
+
+    @Test func navigationAwayDuringTheOpeningHoldWritesNoIdentityHandoff() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause(distance: 40)
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        var deliveries = 0
+        CompanionReadingRestoreProbe.deliver = { _, _, _, _ in deliveries += 1; return false }
+        f.mount()
+        try await f.wait { deliveries > 0 }
+        #expect(samples.filter { $0.phase == .scroll || $0.phase == .handoff }.isEmpty)
+        f.navigation.visible = false
+        try await f.wait { samples.contains { $0.phase == .unmounted } }
+        try await f.settle()
+        #expect(samples.filter { $0.phase == .scroll || $0.phase == .handoff }.isEmpty,
+                "An unmounted transcript must not write any late target")
+        #expect(f.store.readingBookmark(for: f.agents[0].id).viewport.metrics == nil)
     }
 
 }

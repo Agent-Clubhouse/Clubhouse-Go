@@ -67,6 +67,11 @@ struct CompanionReadingOpeningFixture: View {
                             scenario = wasHidden ? "hidden-reload" : "open-reload"
                         }
                     }.accessibilityIdentifier("reading-opening-reload")
+                    Button("Stream reply") {
+                        guard let target else { return }
+                        store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed after drag", sequence: nil))
+                        scenario = "streamed"
+                    }.accessibilityIdentifier("reading-opening-stream")
                     Button("Replace session") { replaceSession() }
                         .accessibilityIdentifier("reading-opening-session")
                 }.buttonStyle(.bordered).font(.caption)
@@ -80,21 +85,29 @@ struct CompanionReadingOpeningFixture: View {
             for agent in agents { await store.load(agent.id) }
             ReadingOpeningRecording.last = nil
             ReadingOpeningRecording.unmounted = []
+            ReadingOpeningRecording.handoffs = 0
+            CompanionReadingOpeningProbe.didComputeSeed = { target in
+                print("READING_OPEN_SEED time=\(Date().timeIntervalSince1970) target=\(target.agentID)")
+            }
             CompanionReadingOpeningProbe.record = { sample in
                 ReadingOpeningRecording.last = sample
+                if sample.phase == .handoff { ReadingOpeningRecording.handoffs += 1 }
                 if sample.phase == .unmounted { ReadingOpeningRecording.unmounted.insert(sample.mountID) }
-                print("READING_OPEN time=\(Date().timeIntervalSince1970) case=\(scenario) phase=\(sample.phase.rawValue) mount=\(sample.mountID) target=\(sample.target.agentID) follow=\(sample.followsLatest ? 1 : 0) shown=\(sample.shownEntries) id=\(sample.requestedEntryID ?? "nil") bottom=\(sample.requestedBottom ? 1 : 0) point=\(sample.pointY ?? -1) first=\(sample.windowFirstID ?? "nil") offset=\(sample.offset ?? -1) lower=\(sample.entryLowerBound ?? -1) latest=\(sample.latestVisible ? 1 : 0)")
+                print("READING_OPEN time=\(Date().timeIntervalSince1970) case=\(scenario) phase=\(sample.phase.rawValue) mount=\(sample.mountID) target=\(sample.target.agentID) follow=\(sample.followsLatest ? 1 : 0) shown=\(sample.shownEntries) id=\(sample.requestedEntryID ?? "nil") bottom=\(sample.requestedBottom ? 1 : 0) user=\(sample.positionedByUser ? 1 : 0) point=\(sample.pointY ?? -1) first=\(sample.windowFirstID ?? "nil") offset=\(sample.offset ?? -1) lower=\(sample.entryLowerBound ?? -1) latest=\(sample.latestVisible ? 1 : 0)")
             }
             scenario = "ready"
             defer {
                 CompanionReadingOpeningProbe.record = nil
+                CompanionReadingOpeningProbe.didComputeSeed = nil
+                CompanionReadingOpeningProbe.positionedByUserOverride = nil
+                ReadingOpeningRecording.handoffs = 0
                 ReadingOpeningRecording.last = nil
                 ReadingOpeningRecording.unmounted = []
             }
             while !Task.isCancelled {
                 let bookmark = target.map { store.readingBookmark(for: $0) }
                 let sample = ReadingOpeningRecording.last
-                let next = "case=\(scenario) mounted=\(mounted ? 1 : 0) visible=\(visible ? 1 : 0) target=\(target?.agentID ?? "nil") follow=\(bookmark?.position.followsLatest == true ? 1 : 0) entry=\(bookmark?.position.entryID ?? "nil") outcome=\(bookmark?.viewport.restoration?.outcome?.rawValue ?? "none") mount=\(sample?.mountID.uuidString ?? "none")"
+                let next = "case=\(scenario) mounted=\(mounted ? 1 : 0) visible=\(visible ? 1 : 0) target=\(target?.agentID ?? "nil") follow=\(bookmark?.position.followsLatest == true ? 1 : 0) entry=\(bookmark?.position.entryID ?? "nil") outcome=\(bookmark?.viewport.restoration?.outcome?.rawValue ?? "none") mount=\(sample?.mountID.uuidString ?? "none") user=\(sample?.positionedByUser == true ? 1 : 0) handoffs=\(ReadingOpeningRecording.handoffs)"
                 if status != next { status = next }
                 do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
             }
@@ -145,5 +158,6 @@ struct CompanionReadingOpeningFixture: View {
 @MainActor private enum ReadingOpeningRecording {
     static var last: CompanionReadingOpeningProbe.Sample?
     static var unmounted: Set<UUID> = []
+    static var handoffs = 0
 }
 #endif

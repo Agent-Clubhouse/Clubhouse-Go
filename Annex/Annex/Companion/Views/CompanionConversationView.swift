@@ -462,10 +462,12 @@ struct CompanionConversationView: View {
     }
 
     private var timeline: some View {
-        CompanionConversationTranscript(store: store, target: target, isVisibilityManaged: isVisible != nil,
-            decisionChatJump: decisionChatJump, dismissComposer: dismissComposer,
-            header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) })
-            .id(target)
+        CompanionReadingSeedScope(store: store, target: target) { opening in
+            CompanionConversationTranscript(store: store, target: target, opening: opening,
+                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump, dismissComposer: dismissComposer,
+                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) })
+        }
+        .id(target)
     }
 
     /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
@@ -563,6 +565,42 @@ struct CompanionDecisionChatJump: Equatable {
     let itemID: String
 }
 
+/// StateObject's autoclosure computes the seed once per mounted target, not per discarded View initializer.
+/// This owner retains immutable values only; composer and all mutable reading State stay outside it.
+@MainActor private final class CompanionReadingSeed: ObservableObject {
+    nonisolated deinit {}
+    let value: CompanionReadingOpening
+
+    init(store: CompanionStore, target: CompanionTarget) {
+        let bookmark = store.readingBookmark(for: target)
+        value = CompanionReadingOpening(position: bookmark.position, hasMounted: bookmark.hasMounted,
+            initialLimit: Self.initialEntryLimit, rows: store.timelineRows(for: target))
+        #if DEBUG
+        CompanionReadingOpeningProbe.didComputeSeed?(target)
+        #endif
+    }
+    private static var initialEntryLimit: Int {
+        #if DEBUG
+        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
+        #endif
+        return CompanionTimelineWindow.pageSize
+    }
+
+}
+
+private struct CompanionReadingSeedScope<Content: View>: View {
+    @StateObject private var seed: CompanionReadingSeed
+    @ViewBuilder var content: (CompanionReadingOpening) -> Content
+
+    init(store: CompanionStore, target: CompanionTarget,
+         @ViewBuilder content: @escaping (CompanionReadingOpening) -> Content) {
+        _seed = StateObject(wrappedValue: CompanionReadingSeed(store: store, target: target))
+        self.content = content
+    }
+    var body: some View { content(seed.value) }
+}
+
 /// Only the transcript unmounts when a retained chat is hidden. Composer/header State stays above this boundary.
 private struct CompanionConversationTranscript<Header: View, Entry: View>: View {
     @Bindable var store: CompanionStore
@@ -576,6 +614,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     @State private var atLatest = true
     @State private var nextAssistantMessageID: String?
     @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
+    @State private var pendingIdentityRelease = false
+    @State private var transcriptIsMounted = true
     @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -585,16 +625,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     @State private var followSawDeceleration = false
     #endif
     /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
-    @State private var shownEntries = Self.initialEntryLimit
-    private static var initialEntryLimit: Int {
-        #if DEBUG
-        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
-        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
-        #endif
-        return CompanionTimelineWindow.pageSize
-    }
+    @State private var shownEntries = CompanionTimelineWindow.pageSize
 
-    init(store: CompanionStore, target: CompanionTarget, isVisibilityManaged: Bool,
+    init(store: CompanionStore, target: CompanionTarget, opening: CompanionReadingOpening, isVisibilityManaged: Bool,
          decisionChatJump: CompanionDecisionChatJump?, dismissComposer: @escaping () -> Void,
          @ViewBuilder header: @escaping () -> Header,
          @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
@@ -605,11 +638,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         self.dismissComposer = dismissComposer
         self.header = header
         self.entry = entry
-        // The Store owns this bookmark already. These discarded initial values are pure values, not dependencies.
-        // SwiftUI keeps the original State across parent re-evaluations; hiding the transcript destroys this scope.
-        let bookmark = store.readingBookmark(for: target)
-        let opening = CompanionReadingOpening(position: bookmark.position, hasMounted: bookmark.hasMounted,
-            initialLimit: Self.initialEntryLimit, rows: store.timelineRows(for: target))
+        // Repeated View initialization copies only this cached value. No Store lookup or text slicing runs here.
         _followLatest = State(initialValue: opening.followsLatest)
         _atLatest = State(initialValue: opening.followsLatest)
         _shownEntries = State(initialValue: opening.shownEntries)
@@ -889,7 +918,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 readingViewport.restoration = restoration
                 await restoreReadingPosition(saved, id: restoration.id)
             }
+            .onAppear { transcriptIsMounted = true }
             .onDisappear {
+                transcriptIsMounted = false
+                pendingIdentityRelease = false
                 #if DEBUG
                 traceOpening(.unmounted, firstEntryID: entries.first?.id)
                 #endif
@@ -910,6 +942,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         readingViewport.acceptsGeometry(historyRevision: conversation.historyRevision, isLoaded: conversation.isLoaded)
     }
     private func readingScrollPhaseChanged(from old: ScrollPhase, to phase: ScrollPhase, metrics: CompanionScrollMetrics) {
+        #if DEBUG
+        traceOpening(.phaseChanged, firstEntryID: nil, detail: String(describing: phase))
+        #endif
         let userPhase = phase == .tracking || phase == .interacting || phase == .decelerating
         if userPhase {
             cancelNativeScrollToTop()
@@ -925,6 +960,11 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         readingViewport.isInteracting = phase == .interacting || phase == .decelerating
         if phase == .idle {
             defer { readingViewport.gesture.end() }
+            // A touch/drag never writes a scroll target. Only a still-owned ID can hand off at idle.
+            if pendingIdentityRelease, transcriptIsMounted {
+                pendingIdentityRelease = false
+                if canRecordReadingPosition { releaseInitialReadingIdentity(at: metrics.normalizedOffset, gestureEnded: true) }
+            }
             // A system animation or settling to idle is not a user's reading choice.
             guard readingViewport.gesture.hasStarted, canRecordReadingPosition,
                   !readingViewport.preserveBookmarkUntilUserAction, !readingViewport.isRestoring else { return }
@@ -941,9 +981,14 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
+        #if DEBUG
+        traceOpening(.saved, firstEntryID: nil)
+        #endif
     }
     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
-        releaseInitialReadingIdentity()
+        if outcome == .touch || outcome == .scrollPhase {
+            pendingIdentityRelease = readingScrollPosition.viewID(type: String.self) != nil && !readingScrollPosition.isPositionedByUser
+        }
         #if DEBUG
         traceOpening(.cancelled, firstEntryID: nil)
         #endif
@@ -1007,11 +1052,20 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         }
     }
 
+    private var identityPositionIsUserOwned: Bool {
+        #if DEBUG
+        if let override = CompanionReadingOpeningProbe.positionedByUserOverride { return override }
+        #endif
+        return readingScrollPosition.isPositionedByUser
+    }
+
     /// The ID is an opening request only, not a second owner of later content-size anchoring.
-    private func releaseInitialReadingIdentity(at offset: Double? = nil) {
-        guard readingScrollPosition.viewID(type: String.self) != nil else { return }
-        if let offset { readingScrollPosition = ScrollPosition(y: offset) }
-        else { readingScrollPosition = ScrollPosition(idType: String.self) }
+    private func releaseInitialReadingIdentity(at offset: Double, gestureEnded: Bool = false) {
+        guard transcriptIsMounted, !identityPositionIsUserOwned,
+              !readingViewport.isInteracting, gestureEnded || !readingViewport.gesture.hasStarted,
+              readingScrollPosition.viewID(type: String.self) != nil else { return }
+        readingScrollPosition = ScrollPosition(y: offset)
+        pendingIdentityRelease = false
         #if DEBUG
         traceOpening(.handoff, firstEntryID: nil)
         #endif
@@ -1067,6 +1121,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         } else if reason != .restore && reason != .mount {
             cancelNativeScrollToTop()
             cancelReadingRestoration(.navigation)
+            pendingIdentityRelease = readingScrollPosition.viewID(type: String.self) != nil && !readingScrollPosition.isPositionedByUser
         }
         let previous = followLatest
         followLatest = follows
@@ -1074,12 +1129,12 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     }
 
     #if DEBUG
-    private func traceOpening(_ phase: CompanionReadingOpeningProbe.Phase, firstEntryID: String?) {
+    private func traceOpening(_ phase: CompanionReadingOpeningProbe.Phase, firstEntryID: String?, detail: String? = nil) {
         guard let record = CompanionReadingOpeningProbe.record else { return }
-        record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, followsLatest: followLatest,
+        record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, detail: detail, followsLatest: followLatest,
             shownEntries: shownEntries, requestedEntryID: readingScrollPosition.viewID(type: String.self),
             requestedBottom: readingScrollPosition.edge == .bottom,
-            pointY: readingScrollPosition.y.map(Double.init), windowFirstID: firstEntryID,
+            pointY: readingScrollPosition.y.map(Double.init), positionedByUser: readingScrollPosition.isPositionedByUser, windowFirstID: firstEntryID,
             historyRevision: conversation.historyRevision, offset: readingViewport.metrics?.normalizedOffset,
             entryLowerBound: readingBookmark.position.entryID.flatMap { readingViewport.frames[$0]?.lowerBound },
             latestVisible: showsLatestControl))
@@ -1231,6 +1286,6 @@ private struct CompanionReadingFrames: PreferenceKey {
 #if DEBUG
 @MainActor enum CompanionReadingRestoreProbe {
     /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
-    static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
+    static var deliver: ((UUID, Int, Double, @escaping (ScrollPhase) -> Void) -> Bool)?
 }
 #endif
