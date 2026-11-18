@@ -1,0 +1,43 @@
+{
+  "head": "a971c93431ca4f1b4493337a3f6e38aef5fa2591",
+  "N_methods": [
+    "pausedFirstBodyStartsAtItsCanonicalBookmarkWithoutAnIdentityRequest",
+    "parentRecreationAndOpenReloadDoNotReseedOrShrinkTheReadersWindow",
+    "mountedReplacementClearsTheBoundaryWithoutRequestingBottom",
+    "followingStreamAndParentRecreationComputeOnlyOneOpeningSeed",
+    "hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState",
+    "groupedQuestionAliasUsesTheVisibleGroupOnTheFirstBody",
+    "removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget",
+    "aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest",
+    "exactTopOpeningArrivesWithoutANumericCorrection",
+    "reopenedPausedWindowKeepsItsFirstEntryWhenATailArrivesDuringRestore",
+    "activeOpeningDragNeverWritesAnIdentityHandoff",
+    "lightOpeningTouchNeverInstallsAnIdentityHandoff",
+    "navigationAwayDuringTheOpeningHoldWritesNoIdentityHandoff"
+  ],
+  "N_executions": 13,
+  "F_methods": [
+    "testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats",
+    "testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival",
+    "testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls"
+  ],
+  "F_executions": 3,
+  "H_methods": 15,
+  "H_executions": 19,
+  "S_executions": 2,
+  "CPU_per_side_methods": 3,
+  "CPU_deep_mounts_per_side": 2,
+  "C23": 23,
+  "C50": 50,
+  "R0": 1,
+  "RSE": 15,
+  "newDomainOpeningMethods": 10,
+  "epsilonMethods": 1,
+  "epsilonParameterExecutions": 3,
+  "original_contract_files_unchanged": {
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4"
+  }
+}

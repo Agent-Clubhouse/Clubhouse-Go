@@ -1,0 +1,134 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index 7e4f6c2bb..eccfef47f 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -867,8 +867,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+                     let exists = row.map { CompanionTimelineEntry.entries(for: [$0]).contains { $0.id == start } } ?? false
+                     if !exists {
+                         // A replacement generation removed this boundary. Never resurrect its old cursor later.
++                        // Keep the mounted reader's position. A handles a missing entry using its saved offset.
+                         openingWindowStartID = nil
+-                        readingScrollPosition = ScrollPosition(edge: .bottom)
+                     }
+                 }
+                 if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
+@@ -949,9 +949,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+         // Guard geometry saves BEFORE either State value can prepend content.
+         readingViewport.isRestoring = true
+         readingViewport.restoreOffset = nil
+-        if let start = openingWindowStartID,
+-           let earlier = CompanionTimelineWindow.precedingStart(in: rows, before: start) {
+-            openingWindowStartID = earlier
++        if let start = openingWindowStartID {
++            // A stale/oldest boundary has no predecessor: fall back to the normal widened window.
++            openingWindowStartID = CompanionTimelineWindow.precedingStart(in: rows, before: start)
+         }
+         shownEntries += CompanionTimelineWindow.pageSize
+     }
+diff --git a/Annex/AnnexTests/CompanionReadingOpeningTests.swift b/Annex/AnnexTests/CompanionReadingOpeningTests.swift
+index b8ca96b51..e31d43f86 100644
+--- a/Annex/AnnexTests/CompanionReadingOpeningTests.swift
++++ b/Annex/AnnexTests/CompanionReadingOpeningTests.swift
+@@ -141,11 +141,57 @@ import UIKit
+             && bookmark.viewport.restoration?.outcome == .arrived }
+         #expect(Set(samples.map(\.mountID)) == [first.mountID], "A reload is not a mount boundary")
+         #expect(seedCounts[target] == 1, "Reload/resync keeps the immutable opening seed")
+-        #expect(samples.filter { $0.phase == .body }.allSatisfy { $0.shownEntries >= 300 && !$0.followsLatest })
++        #expect(samples.filter { $0.phase == .body }.allSatisfy {
++            $0.shownEntries >= 300 && !$0.followsLatest && $0.windowStartID == first.windowStartID
++                && $0.windowFirstID == first.windowFirstID
++        }, "An unchanged mounted boundary cannot shrink, reset or silently return its prefix during reload")
+         let frame = try #require(saved.entryID.flatMap { bookmark.viewport.frames[$0] })
+         #expect(abs((bookmark.viewport.metrics?.normalizedOffset ?? -.infinity) - frame.lowerBound - saved.distanceFromEntry) <= 6)
+     }
+ 
++    /// A mounted replacement uses A's existing missing-entry offset fallback, never a new bottom-edge seed.
++    @Test func mountedReplacementClearsTheBoundaryWithoutRequestingBottom() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        let target = f.agents[0].id
++        let items: [CompanionTimelineItem] = (0..<240).map {
++            .message(.init(id: "replacement-\($0)", role: .assistant, text: "Replacement marker \($0). A stable paragraph."))
++        }
++        f.store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "mounted-replacement"))
++        let bookmark = f.store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "message:replacement-90", distanceFromEntry: 40,
++                                  shownEntries: 300)
++        f.store.drafts[target] = "Draft survives a mounted replacement"
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        var seeds = 0
++        CompanionReadingOpeningProbe.record = { if $0.target == target { samples.append($0) } }
++        CompanionReadingOpeningProbe.didComputeSeed = { if $0 == target { seeds += 1 } }
++        f.mount()
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        let first = try #require(samples.first { $0.phase == .body })
++        #expect(first.requestedTop && first.windowStartID == "message:replacement-90")
++        let savedOffset = try #require(bookmark.viewport.metrics?.normalizedOffset)
++        let before = samples.count
++        let revision = f.store.conversation(for: target).historyRevision
++        f.store.apply(.timeline(target, items: items.filter { $0.id != "message:replacement-90" },
++                                sequence: 2, reset: true, sessionID: "mounted-replacement"))
++        let replacementRevision = f.store.conversation(for: target).historyRevision
++        #expect(replacementRevision != revision)
++        try await f.wait { bookmark.viewport.historyRevision == replacementRevision
++            && bookmark.viewport.restoration?.outcome == .arrived
++            && samples.dropFirst(before).contains { $0.phase == .body && $0.windowStartID == nil } }
++        try await f.settle()
++        let later = Array(samples.dropFirst(before))
++        #expect(later.allSatisfy { !$0.requestedBottom }, "Clearing a missing boundary must never install a bottom request")
++        #expect(later.allSatisfy { $0.mountID == first.mountID } && seeds == 1,
++                "A replacement is not a remount and must not recompute its edge seed")
++        let metrics = try #require(bookmark.viewport.metrics)
++        #expect(abs(metrics.normalizedOffset - savedOffset) <= 6, "A retains the saved numeric offset for a removed entry")
++        #expect(!metrics.isAtTrueBottom && !bookmark.position.followsLatest)
++        #expect(f.store.drafts[target] == "Draft survives a mounted replacement")
++    }
++
+     @Test func followingStreamAndParentRecreationComputeOnlyOneOpeningSeed() async throws {
+         let f = try await Fixture()
+         defer { f.close() }
+diff --git a/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift b/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift
+index e3059e482..6b5c01ff0 100644
+--- a/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift
++++ b/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift
+@@ -106,4 +106,18 @@ import Testing
+         #expect(CompanionTimelineWindow(rows: rows, startingAt: "message:current#999") == nil)
+     }
+ 
++    @Test func noPredecessorMeansTheBoundaryIsOldestOrNoLongerExists() throws {
++        let rows: [CompanionTimelineRow] = [.item(.notice(id: "first", text: "First")),
++                                            .item(.notice(id: "last", text: "Last"))]
++        let oldest = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[0].id))
++        #expect(oldest.hiddenCount == 0, "The oldest boundary cannot display Show earlier")
++        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: rows[0].id) == nil)
++        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: "notice:removed") == nil)
++        #expect(CompanionTimelineWindow(rows: rows, startingAt: "notice:removed") == nil,
++                "A stale boundary must fall back to the normal window, not remain a no-op cursor")
++        let later = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[1].id))
++        #expect(later.hiddenCount > 0)
++        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: rows[1].id) == rows[0].id)
++    }
++
+ }
+diff --git a/docs/reading-first-paint-plan.md b/docs/reading-first-paint-plan.md
+index daaff3254..32c9c8fc2 100644
+--- a/docs/reading-first-paint-plan.md
++++ b/docs/reading-first-paint-plan.md
+@@ -6,7 +6,7 @@ PR584 is a draft. The user approved a new UX after the earlier ID-positioning ex
+ 
+ A lazy immutable StateObject computes one value-only opening seed per actual mounted full target. Discarded parent initializers, streaming and mounted history reloads do not recompute the seed. The transcript subtree owns reading State; composer/header/draft State remains above it. Initial, retained-tab return, native destination and A/B switch share this boundary.
+ 
+-A valid paused bookmark resolves its canonical visible entry once. An opt-in TimelineWindow starts exactly there, including an existing slice within a long reply; older rows are not prepared. A per-mount cursor remains stable under streaming and reload. Explicit Show earlier/previous-page actions can only move it earlier; Show-in-chat can only widen it. Latest ends the opening boundary and uses the normal bottom path. A removed boundary is cleared on generation replacement and cannot resurrect. Missing, removed, invalid-slice and old-session opening IDs have the existing deterministic normal-tail/bottom fallback. Grouped-question aliases choose the visible group without mutating the semantic bookmark.
++A valid paused bookmark resolves its canonical visible entry once. An opt-in TimelineWindow starts exactly there, including an existing slice within a long reply; older rows are not prepared. A per-mount cursor remains stable under streaming and reload. Explicit Show earlier/previous-page actions can only move it earlier; Show-in-chat can only widen it. Latest ends the opening boundary and uses the normal bottom path. A removed boundary is cleared on generation replacement and cannot resurrect. This does not write a new ScrollPosition: the mounted reader stays under A’s existing missing-entry offset fallback. A nil predecessor also clears the boundary so Show earlier falls back to the normal widened window. Missing, removed, invalid-slice and old-session opening IDs have the existing deterministic normal-tail/bottom fallback. Grouped-question aliases choose the visible group without mutating the semantic bookmark.
+ 
+ Valid paused openings seed ScrollPosition(edge:.top); following/missing-ID openings seed bottom. The stopped onAppear proxy experiment and opening ID/handoff machinery are removed. There is no implicit ID owner to release at idle. Phase tests therefore assert ZERO active AND idle identity writes, and the real native drag still proves ownership and no late handoff. No Task, paint delay, opacity, animation, guessed numeric offset or UIKit introspection is added.
+ 
+@@ -26,6 +26,6 @@ A separate capture correction uses upperBound > offset +0.5pt (shared minimumVis
+ 
+ ## Proof and stop
+ 
+-Before any build, QA reviews the cumulative implementation, test diff, source hashes and exact fresh manifest. Fresh guarded build/deinit/policy; three recorded opening methods cover all four routes, Show-earlier expansion and short content; N; original H15/19 and S2; identical additive main/head CPU overlays (16 scroll steps,100 paused chunks and two fresh deep-bookmark openings per side); original ordered C23/C50; cold R0; Reading SE; D/current-main combined coverage with overlap/conflict review. Device acceptance remains deferred.
++Before any build, QA reviews the cumulative implementation, test diff, source hashes and exact fresh manifest. Fresh guarded build/deinit/policy; three recorded opening methods cover all four routes, Show-earlier expansion and short content; N; original H15/19 and S2; identical additive main/head CPU test overlays (16 scroll steps,100 paused chunks and two fresh 600-row/bookmark-60 openings per side), with paired DEBUG-only hooks observing the actual rendered window’s preparedRowCount. Counts (including deep-open prepared rows and body/timeline) must be no greater than main; process CPU is supporting evidence, flagged non-blocking if more than20% higher with equal counts; original ordered C23/C50; cold R0; Reading SE; D/current-main combined coverage with overlap/conflict review. Device acceptance remains deferred.
+ 
+ The opening/performance/restore gates are independent of eventual AX readiness. Original videos, unaltered full frames with actual presentation timestamps, complete stdout and cleanup receipts are retained on evidence/ux-582. No first-paint claim comes from a screenshot queried after readiness. Every unexpected count/outcome or wrong first content is a STOP, with no assertion retry or timing iteration. The parent owns landing.

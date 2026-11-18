@@ -1,6 +1,8 @@
-# #582 / draft #584 — user-approved bookmark-first proposal, before code
+# #582 / draft #584 — bookmark-first implementation, pending static/runtime proof
 
-The user selected option A: a paused remount begins with its canonical saved entry as the first loaded row; earlier history is behind Show earlier. [New proposal for QA](proposal-and-proof/bookmark-start/proposal.md) covers every route, widening/history preservation and the explicit contract-test changes. No implementation or build of this new design exists yet. The stopped7c12e00df head remains unmergeable; PR584 stays draft.
+The user approved paused remounts starting WITH the canonical saved entry, with earlier history behind Show earlier. The implementation is pushed at `a971c9343`. [Cumulative review packet](proposal-and-proof/bookmark-start/implementation/bookmark-start-review-notes.md) records QA's required mounted-replacement correction, its new hosted control, the nil-predecessor edge, exact source/test/config hashes and paired CPU count instrumentation. The capture epsilon correction is a separate commit.
+
+**No build, test or simulator ticket has run on this new design.** Exact conditional-fix static acceptance is pending. Then fresh build → first-frame video first → N/H/S/CPU → broad suites → current-main combined coverage. No runtime, CPU, device or merge-ready claim. PR584 stays draft.
 
 # Prior experiment: hard stop (preserved evidence)
 
