@@ -185,7 +185,7 @@ struct CompanionChatActivityTests {
         .approval(.init(id: id, toolName: "Bash", summary: "", title: title, deadline: deadline, resolution: resolution))
     }
 
-    @Test func workingShowsElapsedAndCurrentTool() {
+    @Test func workingMirrorsDesktopElapsedAndToolExceptPhoneGapFallback() {
         let items: [CompanionTimelineItem] = [
             .tool(.init(id: "old", name: "Old tool", summary: "", state: .running)),
             .message(.init(id: "u", role: .user, text: "Go")),
