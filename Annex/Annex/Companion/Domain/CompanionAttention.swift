@@ -406,7 +406,11 @@ extension CompanionStore {
 
     /// The approval to pin above the composer: the oldest pending, unexpired one the agent can answer from here.
     func pinnedApproval(for target: CompanionTarget, now: Date = Date()) -> CompanionApproval? {
-        conversation(for: target).items.lazy.compactMap { item -> CompanionApproval? in
+        Self.pinnedApproval(in: conversation(for: target).items, now: now)
+    }
+
+    private static func pinnedApproval(in items: [CompanionTimelineItem], now: Date) -> CompanionApproval? {
+        items.lazy.compactMap { item -> CompanionApproval? in
             guard case .approval(let approval) = item, approval.resolution == .pending, !approval.isExpired(at: now),
                   approval.options.contains(where: { $0.kind == .allowOnce || $0.kind == .rejectOnce }) else { return nil }
             return approval
@@ -417,6 +421,15 @@ extension CompanionStore {
     /// connected desktops, and helper and Clubhouse grant requests from desktops that send them, oldest first. An
     /// approval about to time out goes first. An offline desktop's agents are left to its reconnect card.
     func attentionItems(now: Date = Date()) -> [CompanionAttentionItem] {
+        attentionItems(now: now, decisions: nil)
+    }
+
+    /// Same attention semantics, observing only decision changes instead of all chat chunks.
+    func homeAttentionItems(now: Date = Date()) -> [CompanionAttentionItem] {
+        attentionItems(now: now, decisions: homeDecisionItems)
+    }
+
+    private func attentionItems(now: Date, decisions: [CompanionTarget: [CompanionTimelineItem]]?) -> [CompanionAttentionItem] {
         var items: [CompanionAttentionItem] = []
         for host in hosts where host.connection.canOperate {
             for request in helperRequests(on: host, now: now) {
@@ -431,12 +444,12 @@ extension CompanionStore {
             let places = host.projects.map { ($0.name, $0.agents) } + (host.dispatcherAgent.map { [(CompanionDispatcher.name, [$0])] } ?? [])
             for (place, agents) in places {
                 for agent in agents where agent.status.needsYou {
-                    let conversation = conversation(for: agent.id)
-                    let pendingQuestion = conversation.items.lazy.compactMap { item -> CompanionQuestion? in
+                    let conversationItems = decisions.map { $0[agent.id] ?? [] } ?? conversation(for: agent.id).items
+                    let pendingQuestion = conversationItems.lazy.compactMap { item -> CompanionQuestion? in
                         if case .question(let question) = item, question.resolution == .pending { return question }; return nil
                     }.first
                     let kind: CompanionAttentionItem.Kind
-                    if let approval = pinnedApproval(for: agent.id, now: now) { kind = .approval(approval) }
+                    if let approval = Self.pinnedApproval(in: conversationItems, now: now) { kind = .approval(approval) }
                     else if let pendingQuestion { kind = .question(pendingQuestion) }
                     else if agent.status == .failed { kind = .failure }
                     else { kind = .unreviewed }

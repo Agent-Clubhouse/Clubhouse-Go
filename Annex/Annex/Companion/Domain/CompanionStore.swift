@@ -36,6 +36,9 @@ import Observation
     /// Images picked for each agent's next message. Kept for this session only, not across launches.
     var attachmentDrafts: [CompanionTarget: [CompanionImageAttachment]] = [:]
     private(set) var conversations: [CompanionTarget: CompanionConversation] = [:]
+    /// Home needs only decision values, not transcript text/sequence revisions. Update this
+    /// projection at decision replacement/upsert/removal boundaries, never for stream chunks.
+    private(set) var homeDecisionItems: [CompanionTarget: [CompanionTimelineItem]] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
     /// A stop receipt only acknowledges the request. Keep mutations blocked until the desktop confirms sleep.
     private(set) var sleepRequests: Set<CompanionTarget> = []
@@ -390,6 +393,7 @@ import Observation
             }
             current.historyRevision = UUID()
             conversations[target] = current
+            refreshHomeDecisionItems(current.items, for: target)
             reconcileDecisionNotices(authoritativeTarget: replacesHistory ? target : nil)
         } catch {
             guard historyGenerations[target] == generation else { return }
@@ -1708,6 +1712,7 @@ import Observation
                 return item
             }
             conversations[target, default: .init()].items = merged + local
+            refreshHomeDecisionItems(merged + local, for: target)
             conversations[target, default: .init()].historyRevision = UUID()
             conversations[target, default: .init()].lastSequence = sequence
             conversations[target, default: .init()].sessionID = sessionID
@@ -1811,6 +1816,7 @@ import Observation
         }
         for target in gone {
             conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
+            if homeDecisionItems[target] != nil { homeDecisionItems[target] = nil }
             sleepRequests.remove(target); sleepRefreshes.remove(target)
             confirmedSleepCommands[target] = nil; providerFlows[target] = nil
             settingsRevisions[target] = nil
@@ -1891,6 +1897,21 @@ import Observation
         if let index = items.firstIndex(where: { $0.id == item.id }) { items[index] = item }
         else { items.append(item) }
         conversations[target, default: .init()].items = items
+        switch incoming {
+        case .approval, .question: refreshHomeDecisionItems(items, for: target)
+        default: break
+        }
+    }
+
+    private func refreshHomeDecisionItems(_ items: [CompanionTimelineItem], for target: CompanionTarget) {
+        let decisions = items.filter { item in
+            switch item { case .approval, .question: true; default: false }
+        }
+        if decisions.isEmpty {
+            if homeDecisionItems[target] != nil { homeDecisionItems[target] = nil }
+        } else if homeDecisionItems[target] != decisions {
+            homeDecisionItems[target] = decisions
+        }
     }
 
     private func updateDelivery(_ commandID: String, target: CompanionTarget, delivery: CompanionMessage.Delivery) {

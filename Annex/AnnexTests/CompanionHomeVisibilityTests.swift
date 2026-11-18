@@ -353,6 +353,91 @@ import ClubhouseTransport
         XCTAssertEqual(fixture.counts[.layout], fixture.counts[.content])
     }
 
+    func testVisibleHomeDecisionProjectionStaysFreshWithoutFollowingTranscriptChunks() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        fixture.dynamicTypeSize = .accessibility1 // Full decision lines must be pixel-visible, not truncated.
+        let target = fixture.hosts[0].projects[0].agents[1].id
+        fixture.hosts[0].projects[0].agents[1].status = .approval
+        fixture.store.apply(.hosts(fixture.hosts))
+        var approval = CompanionApproval(id: "home-projection", toolName: "Edit", summary: "Generated pending decision",
+            options: [.init(id: "deny", label: "Deny", kind: .rejectOnce)])
+        fixture.service.histories[target] = .init(items: [.approval(approval)], lastSequence: 0, sessionID: "pending-session")
+        await fixture.store.load(target)
+        func assertSeedRetained() {
+            XCTAssertTrue(fixture.store.conversation(for: target).isLoaded)
+            XCTAssertEqual(fixture.store.conversation(for: target).items, [.approval(approval)])
+            XCTAssertEqual(fixture.store.homeDecisionItems[target], [.approval(approval)])
+        }
+        assertSeedRetained()
+        try await fixture.mount()
+        let initialText = try await fixture.waitForRenderedText("Needs permission to use Edit")
+        XCTAssertTrue(initialText.contains("Needs permission to use Edit"), "Home must show the actual pending approval")
+        assertSeedRetained()
+        try await fixture.waitForVisibleWorkToSettle()
+        let kinds: Set<CompanionHomeBuildProbe.Kind> = [.owner, .contentInputs, .content, .layout, .header]
+        let before = fixture.counts.filter { kinds.contains($0.key) }
+        XCTAssertGreaterThan(before[.owner, default: 0], 0)
+        XCTAssertGreaterThan(before[.layout, default: 0], 0)
+        XCTAssertGreaterThan(before[.header, default: 0], 0)
+        let headerCount = try XCTUnwrap(fixture.projection).projects.count
+        var afterFirstMutation = before
+        for batch in 0..<10 {
+            for chunk in 0..<10 {
+                fixture.store.apply(.textDelta(fixture.dispatcher, messageID: "perf-stream", text: " visible", sequence: batch * 10 + chunk + 1))
+            }
+            try await fixture.waitForVisibleWorkToSettle()
+            XCTAssertTrue(fixture.homeVisible)
+            XCTAssertEqual(fixture.navigation?.wrappedValue.tab, .home)
+            let current = fixture.counts.filter { kinds.contains($0.key) }
+            if batch == 0 {
+                // #572: main also retains one initial unheld-Recent observation. The approved
+                // contract allows ONE first-mutation pass, never steady per-chunk rebuilding.
+                for kind in kinds {
+                    let delta = current[kind, default: 0] - before[kind, default: 0]
+                    XCTAssertGreaterThanOrEqual(delta, 0)
+                    XCTAssertLessThanOrEqual(delta, kind == .header ? headerCount : 1,
+                        "#572 permits at most one existing first-mutation pass; pending attention must not add another")
+                }
+                afterFirstMutation = current
+            } else {
+                XCTAssertEqual(current, afterFirstMutation,
+                    "After the explicitly bounded #572 first mutation, pending attention must not rebuild Home for batch \(batch)")
+            }
+        }
+        XCTAssertEqual(fixture.store.conversation(for: fixture.dispatcher).lastSequence, 100)
+        XCTAssertEqual(fixture.store.conversation(for: fixture.dispatcher).items.compactMap { item -> String? in
+            if case .message(let value) = item, value.id == "perf-stream" { return value.text }; return nil
+        }.first, "start" + String(repeating: " visible", count: 100))
+
+        approval.toolName = "Shell"
+        fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
+        let changedText = try await fixture.waitForRenderedText("Needs permission to use Shell")
+        XCTAssertTrue(changedText.contains("Needs permission to use Shell"), "Decision metadata must refresh without a host report")
+        approval.resolution = .denied
+        fixture.store.apply(.upsert(target, .approval(approval), sequence: nil))
+        let question = CompanionQuestion(id: "home-question", prompts: [.init(id: "prompt", text: "Generated question",
+            options: [], allowsMultiple: false, allowsFreeText: true)])
+        fixture.store.apply(.upsert(target, .question(question), sequence: nil))
+        XCTAssertEqual(fixture.store.homeAttentionItems().first { $0.agent.id == target }?.kind, .question(question))
+        let retainedRowText = try await fixture.waitForRenderedText("Synthetic agent 1", excluding: "use Shell")
+        XCTAssertTrue(retainedRowText.contains("Synthetic agent 1"), "Resolving an approval must keep the pending question's row")
+        XCTAssertFalse(retainedRowText.contains("use Shell"), "The resolved approval must not remain rendered")
+        // Home's status label follows the desktop report, not the question event alone.
+        fixture.hosts[0].projects[0].agents[1].status = .waiting
+        fixture.hosts[0].projects[0].agents[1].detail = .init(state: "needs_input", message: "Generated question")
+        fixture.store.apply(.hosts(fixture.hosts))
+        let questionText = try await fixture.waitForRenderedText("Has a question")
+        XCTAssertTrue(questionText.contains("Has a question"))
+        XCTAssertTrue(questionText.contains("Generated question"))
+        XCTAssertFalse(questionText.contains("use Shell"), "The resolved approval must not reappear after the waiting report")
+        fixture.hosts[0].projects[0].agents[1].status = .working
+        fixture.store.apply(.hosts(fixture.hosts))
+        let emptyText = try await fixture.waitForRenderedText("Nothing needs you right now")
+        XCTAssertTrue(emptyText.contains("Nothing needs you right now"))
+        fixture.capture("Visible Home decisions remain fresh after isolated stream updates")
+    }
+
     @MainActor private final class Fixture {
         let service: HomeVisibilityService
         let store: CompanionStore
@@ -379,6 +464,7 @@ import ClubhouseTransport
         var homeVisible = false
         var phase: Binding<ScenePhase>?
         var observedPhase: ScenePhase?
+        var dynamicTypeSize: DynamicTypeSize? = nil
         var snapshotAgentCounts: [Int] = []
         var lastPush: (snapshots: Int, content: Int)?
         var expensiveCounts: [CompanionHomeBuildProbe.Kind: Int] { counts.filter { $0.key != .owner } }
@@ -425,8 +511,13 @@ import ClubhouseTransport
                 self?.chatBodies += 1
             }
             let root = CompanionRootView(store: store, preferences: preferences, onPair: {}, onSettings: {})
-            window.rootViewController = UIHostingController(rootView: HomeVisibilitySceneHost(root: root) { [weak self] in self?.phase = $0 }
-                .companionTheme(.clubhouse))
+            if let dynamicTypeSize {
+                window.rootViewController = UIHostingController(rootView: HomeVisibilitySceneHost(root: root) { [weak self] in self?.phase = $0 }
+                    .companionTheme(.clubhouse).environment(\.dynamicTypeSize, dynamicTypeSize))
+            } else {
+                window.rootViewController = UIHostingController(rootView: HomeVisibilitySceneHost(root: root) { [weak self] in self?.phase = $0 }
+                    .companionTheme(.clubhouse))
+            }
             window.makeKeyAndVisible()
             try await wait { self.navigation != nil && self.scope != nil && self.phase != nil && self.counts[.header, default: 0] > 0 && self.counts[.quiet, default: 0] > 0 }
             try await turn()
@@ -521,6 +612,21 @@ import ClubhouseTransport
             window.layoutIfNeeded()
         }
 
+        /// Bounded rendering readiness, never a stream retry or a work allowance.
+        func waitForVisibleWorkToSettle() async throws {
+            let deadline = ProcessInfo.processInfo.systemUptime + 3
+            var sample = counts, sampledAt = ProcessInfo.processInfo.systemUptime
+            while ProcessInfo.processInfo.systemUptime < deadline {
+                try await turn()
+                let now = ProcessInfo.processInfo.systemUptime
+                if counts != sample { sample = counts; sampledAt = now }
+                else if now - sampledAt >= 0.15 { return }
+                try await Task.sleep(for: .milliseconds(20)) // Condition polling only.
+            }
+            XCTFail("Visible Home did not settle between measured batches")
+            throw NSError(domain: "HomeVisibleReadiness", code: 1)
+        }
+
         func wait(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
             let deadline = Date().addingTimeInterval(15)
             while !condition(), Date() < deadline {
@@ -534,17 +640,17 @@ import ClubhouseTransport
             (view as? UICollectionView) ?? view.subviews.lazy.compactMap { self.list(in: $0) }.first
         }
 
-        func waitForRenderedText(_ expected: String) async throws -> String {
+        func waitForRenderedText(_ expected: String, excluding excluded: String? = nil) async throws -> String {
             let deadline = Date().addingTimeInterval(5)
             var text = ""
             var lastImage: UIImage?
             repeat {
                 (text, lastImage) = try renderedFrame()
-                if text.contains(expected) { break }
+                if text.contains(expected), excluded.map({ !text.contains($0) }) ?? true { break }
                 try await turn()
                 try await Task.sleep(for: .milliseconds(20)) // Pixel readiness only; never repeats an action.
             } while Date() < deadline
-            let attachment = XCTAttachment(string: "Expected: \(expected)\nRecognized: \(text)")
+            let attachment = XCTAttachment(string: "Expected: \(expected)\nExcluded: \(excluded ?? "none")\nRecognized: \(text)")
             attachment.name = "Home bounded OCR readiness"
             attachment.lifetime = .keepAlways
             XCTContext.runActivity(named: "Home bounded OCR readiness") { activity in
@@ -610,9 +716,11 @@ import ClubhouseTransport
 
 @MainActor private final class HomeVisibilityService: CompanionService {
     var historyReads = 0
+    var histories: [CompanionTarget: CompanionHistory] = [:]
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         historyReads += 1
+        if let history = histories[target] { return history }
         return .init(items: [.message(.init(id: "perf-stream", role: .assistant, text: "start", timestamp: Date(timeIntervalSince1970: 1_800_000_000), isStreaming: true))],
               lastSequence: 0, sessionID: "synthetic-session")
     }
