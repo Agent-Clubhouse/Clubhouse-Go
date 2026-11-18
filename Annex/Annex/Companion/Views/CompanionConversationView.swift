@@ -13,6 +13,8 @@ struct CompanionConversationView: View {
     #if DEBUG
     /// Initial value only for the recovery component's private State; normal callers leave it false.
     var initiallyShowsRecoveryDetails = false
+    /// Hosted routing proof only; delivered into the same parent-owned request State as the real action.
+    var debugReadingJump: CompanionDecisionChatJump? = nil
     #endif
     @State private var confirmCancel = false
     @State private var confirmSleep = false
@@ -95,6 +97,11 @@ struct CompanionConversationView: View {
                 readingViewport.clearGeometry()
             }
         }
+        #if DEBUG
+        .onChange(of: debugReadingJump, initial: true) { _, request in
+            if let request { decisionChatJump = request }
+        }
+        #endif
     }
 
     private var content: some View {
@@ -551,7 +558,7 @@ struct CompanionConversationView: View {
 }
 
 
-private struct CompanionDecisionChatJump: Equatable {
+struct CompanionDecisionChatJump: Equatable {
     let id = UUID()
     let itemID: String
 }
@@ -573,6 +580,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     #if DEBUG
+    @State private var openingID = UUID()
     @State private var followPauseCount = 0
     @State private var followSawDeceleration = false
     #endif
@@ -586,6 +594,29 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         return CompanionTimelineWindow.pageSize
     }
 
+    init(store: CompanionStore, target: CompanionTarget, isVisibilityManaged: Bool,
+         decisionChatJump: CompanionDecisionChatJump?, dismissComposer: @escaping () -> Void,
+         @ViewBuilder header: @escaping () -> Header,
+         @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
+        self.store = store
+        self.target = target
+        self.isVisibilityManaged = isVisibilityManaged
+        self.decisionChatJump = decisionChatJump
+        self.dismissComposer = dismissComposer
+        self.header = header
+        self.entry = entry
+        // The Store owns this bookmark already. These discarded initial values are pure values, not dependencies.
+        // SwiftUI keeps the original State across parent re-evaluations; hiding the transcript destroys this scope.
+        let bookmark = store.readingBookmark(for: target)
+        let opening = CompanionReadingOpening(position: bookmark.position, hasMounted: bookmark.hasMounted,
+            initialLimit: Self.initialEntryLimit, rows: store.timelineRows(for: target))
+        _followLatest = State(initialValue: opening.followsLatest)
+        _atLatest = State(initialValue: opening.followsLatest)
+        _shownEntries = State(initialValue: opening.shownEntries)
+        _readingScrollPosition = State(initialValue: opening.entryID.map { ScrollPosition(id: $0, anchor: .top) }
+            ?? ScrollPosition(edge: .bottom))
+    }
+
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
     private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
     private var conversation: CompanionConversation { store.conversation(for: target) }
@@ -593,9 +624,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
 
     private var showsLatestControl: Bool {
-        !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(
-            readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)
-        ) && !conversation.items.isEmpty
+        guard !conversation.items.isEmpty else { return false }
+        // The paused semantic choice can present Latest before layout, without saving or cancelling restoration.
+        guard let metrics = readingViewport.metrics else { return !followLatest }
+        return !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(metrics)
     }
 
     var body: some View {
@@ -607,6 +639,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
+        #if DEBUG
+        let _ = traceOpening(.body, firstEntryID: entries.first?.id)
+        #endif
         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
         return ScrollViewReader { proxy in
             ScrollView {
@@ -650,6 +685,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                     }
                     .id("latest")
                 }
+                .scrollTargetLayout()
                 .padding(.horizontal, horizontalPadding)
                 .padding(.top, 24)
                 .coordinateSpace(name: "companion-transcript-content")
@@ -668,7 +704,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 .frame(maxWidth: .infinity)
             }
             .scrollPosition($readingScrollPosition)
-            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .initialOffset)
+            .defaultScrollAnchor(readingScrollPosition.edge == .bottom ? .bottom : .top, for: .initialOffset)
             .defaultScrollAnchor(.bottom, for: .alignment)
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
@@ -689,6 +725,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
+                    #if DEBUG
+                    traceOpening(.geometry, firstEntryID: entries.first?.id)
+                    #endif
                     updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
@@ -784,6 +823,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
             // Full history can also reset the offset with unchanged estimated dimensions. Reject that preceding
             // generation's geometry/bookmark writes until this task restores the saved choice and issues its anchor.
             .task(id: conversation.historyRevision) {
+                #if DEBUG
+                traceOpening(.historyTask, firstEntryID: entries.first?.id)
+                #endif
                 let revision = conversation.historyRevision
                 readingViewport.finishRestoration(.generation)
                 readingViewport.preserveBookmarkUntilUserAction = false
@@ -829,6 +871,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                 let allEntries = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: .max).entries
                 guard let entry = CompanionTimelineEntry.jumpTarget(for: request.itemID, in: allEntries),
                       let index = allEntries.firstIndex(where: { $0.id == entry.id }) else { return }
+                #if DEBUG
+                traceOpening(.jump, firstEntryID: entries.first?.id)
+                #endif
                 setFollowing(false, reason: .messageJump)
                 shownEntries = max(shownEntries, allEntries.count - index)
                 let saved = CompanionReadingPosition(followsLatest: false, entryID: entry.id,
@@ -930,7 +975,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
                     if let metrics = readingViewport.metrics { readingScrollPhaseChanged(from: priorPhase, to: phase, metrics: metrics) }
                     priorPhase = phase
                 }) ?? true
-                if deliver { readingScrollPosition.scrollTo(y: offset) }
+                if deliver {
+                    readingScrollPosition.scrollTo(y: offset)
+                    traceOpening(.scroll, firstEntryID: nil)
+                }
                 #else
                 readingScrollPosition.scrollTo(y: offset)
                 #endif
@@ -999,6 +1047,19 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         followLatest = follows
         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
     }
+
+    #if DEBUG
+    private func traceOpening(_ phase: CompanionReadingOpeningProbe.Phase, firstEntryID: String?) {
+        guard let record = CompanionReadingOpeningProbe.record else { return }
+        record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, followsLatest: followLatest,
+            shownEntries: shownEntries, requestedEntryID: readingScrollPosition.viewID(type: String.self),
+            requestedBottom: readingScrollPosition.edge == .bottom,
+            pointY: readingScrollPosition.point.map { Double($0.y) }, windowFirstID: firstEntryID,
+            historyRevision: conversation.historyRevision, offset: readingViewport.metrics?.normalizedOffset,
+            entryLowerBound: readingBookmark.position.entryID.flatMap { readingViewport.frames[$0]?.lowerBound },
+            latestVisible: showsLatestControl))
+    }
+    #endif
 
     /// Opt-in preview diagnostics for CI. Closed reasons and numbers only; never draft or transcript text.
     #if DEBUG

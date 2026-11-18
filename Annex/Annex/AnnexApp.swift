@@ -23,6 +23,8 @@ struct ClubhouseGoApp: App {
                 Color.clear
             } else if ProcessInfo.processInfo.arguments.contains("--deinit-probe") {
                 CompanionDeinitProbe()
+            } else if ProcessInfo.processInfo.arguments.contains("--reading-opening-ui-testing") {
+                CompanionReadingOpeningFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--reading-restore-ui-testing") {
                 CompanionReadingRestoreFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--reading-prefix-trim-ui-testing") {

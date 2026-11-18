@@ -1155,6 +1155,20 @@
           }
         }
       ]
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) ) }",
+          "producers": {}
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) )",
+          "producers": {}
+        }
+      ]
     }
   }
 }

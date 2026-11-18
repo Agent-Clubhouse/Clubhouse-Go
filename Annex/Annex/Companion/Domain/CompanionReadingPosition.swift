@@ -94,6 +94,24 @@ struct CompanionReadingPosition: Equatable, Sendable {
     }
 }
 
+/// Value-only initial transcript choice. Pixel alignment still belongs to the bounded restore.
+struct CompanionReadingOpening: Equatable, Sendable {
+    let followsLatest: Bool
+    let shownEntries: Int
+    let entryID: String?
+
+    init(position: CompanionReadingPosition, hasMounted: Bool, initialLimit: Int, rows: [CompanionTimelineRow]) {
+        followsLatest = position.followsLatest
+        // Match the existing history task: only an already mounted bookmark owns an expanded window.
+        shownEntries = hasMounted ? max(initialLimit, position.shownEntries) : initialLimit
+        guard !position.followsLatest, let id = position.entryID,
+              let row = rows.first(where: { $0.contains(entryID: id) }) else { entryID = nil; return }
+        // A paused window already retains this row. Resolve only its entries; do not prepare hidden Markdown.
+        // Reuse the existing grouped-question alias rule, while keeping the original semantic bookmark intact.
+        entryID = CompanionTimelineEntry.jumpTarget(for: id, in: CompanionTimelineEntry.entries(for: [row]))?.id
+    }
+}
+
 enum CompanionAssistantNavigation {
     static func targets(in entries: [CompanionTimelineEntry]) -> [String] {
         var seen: Set<String> = []
