@@ -47,25 +47,26 @@ struct CompanionReadingOpeningFixture: View {
                 Tab("Home", systemImage: "house", value: 1) { Text("Recording fixture Home") }
             }
             Text(status).font(.caption2).lineLimit(3).frame(height: 48).accessibilityIdentifier("reading-opening-state")
-            ScrollView(.horizontal) {
-                HStack {
-                    Button("Open latest") { scenario = "latest"; mounted = true }
+            // DEBUG controls only: two visible rows replace the unreliable offscreen strip.
+            // Their offered height is disclosed in the recording; the real chat uses the remaining viewport.
+            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 6), spacing: 4) {
+                    recordingControl("Latest") { scenario = "latest"; mounted = true }
                         .accessibilityIdentifier("reading-opening-latest")
-                    Button("Open paused") { Task { await openPaused() } }
+                    recordingControl("Paused") { Task { await openPaused() } }
                         .accessibilityIdentifier("reading-opening-paused")
-                    Button("Hide tab") { scenario = "hidden"; tab = 1 }
+                    recordingControl("Hide") { scenario = "hidden"; tab = 1 }
                         .accessibilityIdentifier("reading-opening-hide")
-                    Button("Show tab") { scenario = "tab-return"; tab = 0 }
+                    recordingControl("Show") { scenario = "tab-return"; tab = 0 }
                         .accessibilityIdentifier("reading-opening-show")
-                    Button("Close chat") {
+                    recordingControl("Close") {
                         Task { if await closeCurrentMount() { scenario = "closed" } }
                     }
                         .accessibilityIdentifier("reading-opening-close")
-                    Button("Reopen chat") { scenario = "reopen"; presentsDestination = true }
+                    recordingControl("Reopen") { scenario = "reopen"; presentsDestination = true }
                         .accessibilityIdentifier("reading-opening-reopen")
-                    Button("Other chat") { scenario = "target-switch"; selected = selected == 0 ? 1 : 0 }
+                    recordingControl("Other") { scenario = "target-switch"; selected = selected == 0 ? 1 : 0 }
                         .accessibilityIdentifier("reading-opening-other")
-                    Button("Reload history") {
+                    recordingControl("Reload") {
                         guard let target else { return }
                         let wasHidden = !visible
                         scenario = "loading-history"
@@ -74,23 +75,24 @@ struct CompanionReadingOpeningFixture: View {
                             scenario = wasHidden ? "hidden-reload" : "open-reload"
                         }
                     }.accessibilityIdentifier("reading-opening-reload")
-                    Button("Stream reply") {
+                    recordingControl("Stream") {
                         guard let target else { return }
                         store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed after drag", sequence: nil))
                         scenario = "streamed"
                     }.accessibilityIdentifier("reading-opening-stream")
-                    Button("Append reply") {
+                    recordingControl("Append") {
                         guard let target else { return }
                         store.apply(.upsert(target, .message(.init(id: "opening-earlier-tail", role: .assistant,
                             text: "A new tail reply arrives while earlier history is visible.")), sequence: nil))
                         scenario = "tail-arrived"
                     }.accessibilityIdentifier("reading-opening-append")
-                    Button("Short paused") { Task { await openShortPaused() } }
+                    recordingControl("Short") { Task { await openShortPaused() } }
                         .accessibilityIdentifier("reading-opening-short")
-                    Button("Replace session") { replaceSession() }
+                    recordingControl("Replace") { replaceSession() }
                         .accessibilityIdentifier("reading-opening-session")
-                }.buttonStyle(.bordered).font(.caption)
-            }.accessibilityIdentifier("reading-opening-actions")
+            }
+            .buttonStyle(.bordered).font(.system(size: 12))
+            .accessibilityIdentifier("reading-opening-actions")
         }
         .companionTheme(theme)
         .preferredColorScheme(colorScheme)
@@ -129,6 +131,10 @@ struct CompanionReadingOpeningFixture: View {
                 do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
             }
         }
+    }
+
+    private func recordingControl(_ title: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) { Text(title).frame(maxWidth: .infinity, minHeight: 44) }
     }
 
     /// Observe the actual outgoing lifecycle, including a native pop, before starting a different recording case.

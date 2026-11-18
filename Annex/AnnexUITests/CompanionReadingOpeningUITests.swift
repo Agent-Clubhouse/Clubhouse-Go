@@ -7,35 +7,18 @@ import UIKit
     private func state(_ app: XCUIApplication) -> XCUIElement { app.staticTexts["reading-opening-state"] }
     private func control(_ id: String, in app: XCUIApplication) {
         let oldTarget = state(app).label.split(separator: " ").first { $0.hasPrefix("target=") }.map(String.init)
-        func tap(_ button: XCUIElement) {
-            button.tap()
-            if id == "other", let oldTarget {
-                XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
-                    !self.state(app).label.split(separator: " ").map(String.init).contains(oldTarget)
-                }, timeout: 8), "The other chat must actually be selected before its controls are assessed")
-            }
-        }
         let button = app.buttons["reading-opening-" + id]
-        let strip = app.scrollViews["reading-opening-actions"]
-        func canTap() -> Bool {
-            guard button.exists else { return false }
-            let frame = button.frame
-            guard !frame.isEmpty, !frame.isNull, !frame.isInfinite,
-                  frame.minX.isFinite, frame.minY.isFinite,
-                  frame.maxX.isFinite, frame.maxY.isFinite,
-                  strip.frame.intersects(frame) else { return false }
-            return button.isHittable
+        XCTAssertTrue(button.waitForExistence(timeout: 5))
+        let frame = button.frame
+        XCTAssertTrue(!frame.isEmpty && !frame.isNull && !frame.isInfinite && app.frame.contains(frame),
+                      "Every DEBUG grid action must be physically on screen: \(id), \(frame)")
+        XCTAssertTrue(button.isHittable, "Every DEBUG grid action must be natively hittable: \(id)")
+        button.tap() // One real tap, no scrolling/retry can rescue an unreachable fixture action.
+        if id == "other", let oldTarget {
+            XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
+                !self.state(app).label.split(separator: " ").map(String.init).contains(oldTarget)
+            }, timeout: 8), "The other chat must actually be selected before its controls are assessed")
         }
-        for _ in 0..<8 {
-            checkTimeLeft("revealing recording-fixture control")
-            if canTap() { tap(button); return }
-            strip.swipeLeft()
-        }
-        for _ in 0..<8 {
-            if canTap() { tap(button); return }
-            strip.swipeRight()
-        }
-        XCTFail("The recording-fixture control must be reachable: \(id)")
     }
     private func waitState(_ fragment: String, in app: XCUIApplication) {
         XCTAssertTrue(waitFor(state(app), NSPredicate(format: "label CONTAINS %@", fragment), timeout: 8), state(app).label)
@@ -65,8 +48,39 @@ import UIKit
         XCTFail("The bookmark's public frame must settle independently of its expected position")
         return anchor.frame.minY
     }
-    private func launchFixture() -> XCUIApplication {
-        let app = launchApp(["--reading-opening-ui-testing", "--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"])
+    private func assertEarlierIsClearOfThePinnedBanner(in app: XCUIApplication) {
+        let earlier = app.buttons["companion-show-earlier"]
+        let banner = app.buttons["View River"]
+        let track = app.scrollViews["companion-transcript"].otherElements
+            .matching(NSPredicate(format: "label BEGINSWITH %@", "Vertical scroll bar")).firstMatch
+        XCTAssertTrue(banner.waitForExistence(timeout: 5), "This proof requires the real pinned other-agent banner")
+        XCTAssertTrue(track.waitForExistence(timeout: 5), "The public native track measures the unobscured scroll region")
+        XCTAssertTrue(waitFor(earlier, NSPredicate { _, _ in
+            let frame = earlier.frame, native = track.frame
+            return earlier.exists && earlier.isHittable && !frame.isEmpty && !native.isEmpty
+                && frame.minY >= native.minY && frame.maxY <= native.maxY
+                && native.minY >= banner.frame.maxY
+        }, timeout: 5), "Show earlier must be completely below the pinned banner, not merely AX-hittable")
+        XCTAssertEqual(earlier.label, "Show earlier messages", "The spoken action label is unchanged")
+        XCTAssertEqual(earlier.identifier, "companion-show-earlier", "The existing public identifier is unchanged")
+        let note = XCTAttachment(string: "earlier=\(earlier.frame) nativeTrack=\(track.frame) bannerAction=\(banner.frame) label=\(earlier.label) identifier=\(earlier.identifier)")
+        note.name = "Native content-top clearance and unchanged action semantics"; note.lifetime = .keepAlways; add(note)
+    }
+
+    private func openSoftwareKeyboard(_ composer: XCUIElement, in app: XCUIApplication) {
+        composer.tap()
+        let keyboard = app.keyboards.firstMatch
+        if !keyboard.waitForExistence(timeout: 2), app.buttons["Keyboard"].exists {
+            app.buttons["Keyboard"].tap()
+            let show = app.buttons["Show Keyboard"]
+            XCTAssertTrue(show.waitForExistence(timeout: 3))
+            show.tap()
+        }
+        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
+    }
+
+    private func launchFixture(extra: [String] = []) -> XCUIApplication {
+        let app = launchApp(["--reading-opening-ui-testing", "--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"] + extra, attempts: 1)
         XCTAssertTrue(state(app).waitForExistence(timeout: 10))
         waitState("case=ready", in: app)
         return app
@@ -153,18 +167,17 @@ import UIKit
         let anchor = app.staticTexts["Reading marker 90."]
         let earlier = app.buttons["companion-show-earlier"]
         let transcript = app.scrollViews["companion-transcript"]
-        // Reach the inline control through an ordinary native scroll, then save that real reading position.
-        for _ in 0..<8 {
-            if earlier.exists, earlier.frame.intersects(viewport(app)), earlier.isHittable { break }
-            transcript.swipeDown()
-        }
-        XCTAssertTrue(earlier.exists && earlier.isHittable)
+        // A intentionally aligns the saved entry after first paint. Reach the inline control like a reader:
+        // one native status-bar scroll to content top, not a tap through the pinned banner's hit region.
+        tapChatStatusBar(in: app)
+        assertEarlierIsClearOfThePinnedBanner(in: app)
         let before = settledY(anchor, in: app)
         var expansions = 0
         while earlier.exists, expansions < 8 {
             let previousStart = state(app).label.split(separator: " ").first { $0.hasPrefix("start=") }.map(String.init)
             XCTAssertNotNil(previousStart)
             observation("Before earlier expansion \(expansions)", in: app, anchor: anchor)
+            assertEarlierIsClearOfThePinnedBanner(in: app)
             earlier.tap()
             XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
                 !self.state(app).label.split(separator: " ").map(String.init).contains(previousStart ?? "missing")
@@ -198,9 +211,10 @@ import UIKit
         control("paused", in: app)
         waitState("outcome=arrived", in: app)
         let anchor = app.staticTexts["Reading marker 90."]
-        let composer = app.textViews["companion-composer"]
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 5))
-        composer.tap(); composer.typeText("First paint draft")
+        openSoftwareKeyboard(composer, in: app)
+        composer.typeText("First paint draft")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         let savedY = settledY(anchor, in: app)
         control("reload", in: app)
@@ -230,4 +244,40 @@ import UIKit
         XCTAssertTrue(newSession.waitForExistence(timeout: 5))
         XCTAssertEqual(composer.value as? String, "First paint draft")
     }
+    /// Run on SE portrait. Encoded first paused frame must show this unchanged label fully below the banner.
+    /// Eventual AX checks establish semantics/real access only; they cannot rescue a bad first encoded frame.
+    func testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
+        let app = launchFixture()
+        control("paused", in: app)
+        waitState("outcome=arrived", in: app)
+        observation("SE portrait paused first-frame recording; later AX sample", in: app,
+                    anchor: app.staticTexts["Reading marker 90."])
+        tapChatStatusBar(in: app)
+        assertEarlierIsClearOfThePinnedBanner(in: app)
+    }
+
+    /// Run on Pro Max at XXXL portrait; first-frame visibility and canonical-first content are video gates.
+    func testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
+        let app = launchFixture(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        control("paused", in: app)
+        waitState("outcome=arrived", in: app)
+        observation("XXXL portrait paused first-frame recording; later AX sample", in: app,
+                    anchor: app.staticTexts["Reading marker 90."])
+        tapChatStatusBar(in: app)
+        assertEarlierIsClearOfThePinnedBanner(in: app)
+    }
+
+    /// Diagnostic recording ONLY: #483 excludes landscape tight-room visibility from this acceptance contract.
+    /// No passing portrait/landscape containment claim may be inferred from this method's eventual completion.
+    func testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit() {
+        let app = launchFixture()
+        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
+        XCUIDevice.shared.orientation = .landscapeLeft
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
+        control("paused", in: app)
+        waitState("case=paused-expanded", in: app)
+        observation("Landscape diagnostic only; #483 visibility exclusion", in: app,
+                    anchor: app.staticTexts["Reading marker 90."])
+    }
+
 }
