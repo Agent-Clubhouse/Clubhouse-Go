@@ -17,7 +17,7 @@ import XCTest
         XCTAssertTrue(waitFor(state, NSPredicate(format: "label CONTAINS %@", "follow=0"), timeout: 5))
         XCTAssertTrue(app.pausedChatNavigation.exists)
         let top = app.navigationBars.firstMatch.frame.maxY + 30
-        let bottom = element(app, "companion-composer").frame.minY - 30
+        let bottom = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch.frame.minY - 30
         let markers = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Reading marker ")).allElementsBoundByIndex
         guard let marker = markers.first(where: { $0.isHittable && $0.frame.minY > top && $0.frame.maxY < bottom }) else {
             XCTFail("A real reading marker must be visible before the fixture is armed"); return
