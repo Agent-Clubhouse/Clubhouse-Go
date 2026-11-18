@@ -110,6 +110,9 @@ struct CompanionConversationView: View {
         }
         .onChange(of: isVisible) { _, visible in
             if visible == false {
+                #if DEBUG
+                traceReading("visibility-hidden")
+                #endif
                 readingViewport.clearGeometry()
             }
         }
@@ -475,6 +478,9 @@ struct CompanionConversationView: View {
         let viewport = readingViewport
         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
+        #if DEBUG
+        let _ = traceReading("window", details: "hidden=\(window.hiddenCount) first=\(entries.first?.id ?? "nil") retaining=\(followLatest ? "nil" : readingBookmark.position.entryID ?? "nil") shown=\(shownEntries) follow=\(followLatest)")
+        #endif
         let stops = CompanionAssistantNavigation.targets(in: entries)
         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
         return ScrollViewReader { proxy in
@@ -581,6 +587,9 @@ struct CompanionConversationView: View {
                         let desired = min(restoreOffset, metrics.maximumOffset)
                         guard abs(metrics.normalizedOffset - desired) <= 1 else { return }
                         readingViewport.isRestoring = false
+                        #if DEBUG
+                        traceReading("save-attempt", details: "caller=geometry-arrived")
+                        #endif
                         saveReadingPosition(metrics)
                     }
                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
@@ -588,6 +597,9 @@ struct CompanionConversationView: View {
                     // A native upward animation keeps its current bookmark even if a chunk's height preference lags.
                     // Otherwise restoration can undo the jump. Layout changes still restore the existing entry first.
                     if readingViewport.isInteracting || scrolledUp || abs((readingViewport.frameContentHeight ?? -1) - metrics.contentHeight) < 1 {
+                        #if DEBUG
+                        traceReading("save-attempt", details: "caller=geometry")
+                        #endif
                         saveReadingPosition(metrics)
                     }
                 }
@@ -597,6 +609,9 @@ struct CompanionConversationView: View {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    #if DEBUG
+                    traceReading("frames")
+                    #endif
                     updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
@@ -610,6 +625,9 @@ struct CompanionConversationView: View {
                        abs(metrics.contentHeight - (readingViewport.frameContentHeight ?? -1)) < 1,
                        abs(metrics.normalizedOffset - min(offset, metrics.maximumOffset)) <= 1 {
                         readingViewport.isRestoring = false
+                        #if DEBUG
+                        traceReading("save-attempt", details: "caller=preference-arrived")
+                        #endif
                         saveReadingPosition(metrics)
                     } else if readingViewport.isRestoring || abs(offset - (readingViewport.metrics?.normalizedOffset ?? offset)) > 1 {
                         readingViewport.isRestoring = true
@@ -668,6 +686,9 @@ struct CompanionConversationView: View {
                     readingBookmark.position.entryID = nil
                 }
                 let saved = readingBookmark.position
+                #if DEBUG
+                traceReading("mount-saved", details: "saved=\(saved)")
+                #endif
                 setFollowing(saved.followsLatest, reason: .restore)
                 traceFollow(reason: .mount, previous: followLatest, next: followLatest)
                 readingViewport.isRestoring = !saved.followsLatest && conversation.isLoaded
@@ -684,6 +705,9 @@ struct CompanionConversationView: View {
                 readingViewport.historyRevision = revision
                 readingViewport.hasInitialized = true
                 if readingViewport.restoration?.outcome != nil, let metrics = readingViewport.metrics {
+                    #if DEBUG
+                    traceReading("save-attempt", details: "caller=history-task")
+                    #endif
                     saveReadingPosition(metrics)
                 }
                 if saved.followsLatest && followLatest && !readingViewport.isScrollingToTop {
@@ -711,6 +735,9 @@ struct CompanionConversationView: View {
                 await restoreReadingPosition(saved, id: restoration.id)
             }
             .onDisappear {
+                #if DEBUG
+                traceReading("disappear")
+                #endif
                 // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
                 // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
                 if isVisible == nil { viewport.clearGeometry() }
@@ -763,6 +790,9 @@ struct CompanionConversationView: View {
             if readingViewport.gesture.movedUp(to: metrics.normalizedOffset) { setFollowing(false, reason: .gesture) }
             atLatest = metrics.isAtTrueBottom
             if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+            #if DEBUG
+            traceReading("save-attempt", details: "caller=scroll-idle")
+            #endif
             saveReadingPosition(metrics)
         }
     }
@@ -771,8 +801,14 @@ struct CompanionConversationView: View {
         guard canRecordReadingPosition, !readingViewport.preserveBookmarkUntilUserAction,
               !readingViewport.isScrollingToTop,
               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
+        #if DEBUG
+        let previous = readingBookmark.position
+        #endif
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
+        #if DEBUG
+        traceReading("saved", details: "old=\(previous)")
+        #endif
     }
     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
         guard readingViewport.preserveBookmarkUntilUserAction || readingViewport.isRestoring
@@ -782,6 +818,9 @@ struct CompanionConversationView: View {
         // A touch owns the current position immediately; a later frame preference must
         // not resurrect the old bookmark while the user's gesture is getting started.
         // Navigation cancels delivery, but its pre-arrival geometry is not a new bookmark.
+        #if DEBUG
+        traceReading("save-attempt", details: "caller=cancel")
+        #endif
         if (outcome == .touch || outcome == .scrollPhase), let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
@@ -795,11 +834,17 @@ struct CompanionConversationView: View {
                 followsLatest: followLatest, metrics: readingViewport.metrics, frameContentHeight: readingViewport.frameContentHeight,
                 proposedOffset: hasEntry ? saved.restoredOffset(frames: readingViewport.frames, rows: store.timelineRows(for: target)) : nil)
             readingViewport.restoration = attempt
+            #if DEBUG
+            traceReading("restore-step", details: "saved=\(saved) step=\(step) pinned=\(String(describing: attempt.offset)) attempts=\(attempt.attempts) savedFrame=\(String(describing: saved.entryID.flatMap { readingViewport.frames[$0] }))")
+            #endif
             switch step {
             case .finish(let outcome):
                 readingViewport.finishRestoration(outcome)
                 if outcome == .arrived, let metrics = readingViewport.metrics {
                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+                    #if DEBUG
+                    traceReading("save-attempt", details: "caller=restore-arrived")
+                    #endif
                     saveReadingPosition(metrics)
                 }
                 return
@@ -864,6 +909,9 @@ struct CompanionConversationView: View {
     private func cancelNativeScrollToTop() {
         guard readingViewport.isScrollingToTop else { return }
         readingViewport.isScrollingToTop = false
+        #if DEBUG
+        traceReading("save-attempt", details: "caller=native-top-cancel")
+        #endif
         if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
     }
 
@@ -887,6 +935,24 @@ struct CompanionConversationView: View {
     private var tracesFollow: Bool {
         let arguments = ProcessInfo.processInfo.arguments
         return arguments.contains("--companion-preview") && arguments.contains("--companion-preview-follow-trace")
+    }
+    #endif
+
+    #if DEBUG
+    /// Uncredited #569 diagnostic overlay: values/identities only, no transcript text.
+    private func traceReading(_ event: String, details: String = "") {
+        guard tracesFollow, ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") else { return }
+        let saved = readingBookmark.position
+        let frame = saved.entryID.flatMap { readingViewport.frames[$0] }
+        if event == "window" || event == "frames" || event == "save-attempt" {
+            let key = "\(target):\(event):\(event == "save-attempt" ? details : "")"
+            let values = "\(details) \(saved) frame=\(String(describing: frame)) metrics=\(String(describing: readingViewport.metrics)) height=\(String(describing: readingViewport.frameContentHeight)) follow=\(followLatest)"
+            guard CompanionReading569Trace.previous[key] != values else { return }
+            CompanionReading569Trace.previous[key] = values
+        }
+        let nearby = readingViewport.frames.filter { $0.key.hasPrefix("message:reading-") && abs($0.value.lowerBound - saved.offset) < 600 }
+            .sorted { $0.key < $1.key }.map { "\($0.key):\($0.value.lowerBound)" }.joined(separator: ",")
+        NSLog("%@", "READING569 t=\(ProcessInfo.processInfo.systemUptime) event=\(event) entry=\(saved.entryID ?? "nil") distance=\(saved.distanceFromEntry) offset=\(saved.offset) entryFrame=\(String(describing: frame)) metrics=\(String(describing: readingViewport.metrics)) frameHeight=\(String(describing: readingViewport.frameContentHeight)) restoring=\(readingViewport.isRestoring) outcome=\(String(describing: readingViewport.restoration?.outcome)) follow=\(followLatest) nearby=\(nearby) \(details)")
     }
     #endif
 
@@ -1104,5 +1170,12 @@ private struct CompanionReadingFrames: PreferenceKey {
 @MainActor enum CompanionReadingRestoreProbe {
     /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
     static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
+}
+#endif
+
+#if DEBUG
+/// Diagnostic cache only; no Observable or View State writes and no product lifetime changes.
+@MainActor private enum CompanionReading569Trace {
+    static var previous: [String: String] = [:]
 }
 #endif

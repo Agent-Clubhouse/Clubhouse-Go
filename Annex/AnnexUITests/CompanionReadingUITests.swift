@@ -37,6 +37,7 @@ import UIKit
     private func waitForReadingRestoration(_ anchor: XCUIElement, in app: XCUIApplication, context: String,
                                            file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let start = ProcessInfo.processInfo.systemUptime
+        NSLog("READING569_UI context=%@ startUptime=%f wallEpoch=%f", context, start, Date().timeIntervalSince1970)
         let timeout: TimeInterval = 8
         let stableInterval: TimeInterval = 2.25
         var stableSince: TimeInterval?
@@ -333,6 +334,7 @@ import UIKit
         }
         // A bound-by-index query changes identity when history is prepended. Re-query the same marker by label.
         let anchor = app.staticTexts[candidate.label]
+        NSLog("READING569_UI chosenMarker=%@", candidate.label)
         let before = anchor.frame.minY
         earlier.tap()
         XCTAssertTrue(waitFor(anchor, NSPredicate(format: "exists == true"), timeout: 5))
