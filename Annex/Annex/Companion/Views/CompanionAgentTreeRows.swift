@@ -25,14 +25,8 @@ struct CompanionAgentStatusLine: Equatable {
         // the catalog's stale tool: keep that requested tool, without a second state.
         // Matching catalog sentences still defer to the existing descriptive task.
         let suppliedTask: String?
-        let permissionPrefix = "Needs permission to use "
-        if agent.status == .approval, let supplied, supplied != permissionLine,
-           supplied.hasPrefix(permissionPrefix) {
-            let tool = String(supplied.dropFirst(permissionPrefix.count))
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            suppliedTask = tool.isEmpty ? nil : tool
-        } else if agent.status == .approval, supplied == "Needs permission to use" {
-            suppliedTask = nil
+        if agent.status == .approval, let supplied, supplied != permissionLine {
+            suppliedTask = CompanionAttentionItem.taskFromPermissionLine(supplied)
         } else {
             suppliedTask = supplied
         }
