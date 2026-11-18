@@ -1,0 +1,4 @@
+t=1.3762568752281368 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=0.0
+t=2.718201875220984 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=1.3419449999928474
+t=4.0863051251508296 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=2.7100482499226928
+settled t=4.0863051251508296

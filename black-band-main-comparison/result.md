@@ -1,0 +1,7 @@
+# Nonblocking timeout/drag screenshot comparison
+
+The same unchanged timeout/real-drag method passed once on the retained historical-main build (f89bb9ee product plus test-only overlay1f719268), with a fresh private ProMax. Its screenshot also shows the large black band below the upper transcript. This pattern therefore predates both#555 and#569; this comparison does not establish its rendering cause. No differential regression is shown, so the parent’s condition for filing a new issue against this change was not met.
+
+Left: historical main after final `.arrived`, offset=saved32363, held0/restoring0/mounted1. Right: #569 head3db11ac3 after final `.arrived`, offset=saved32309, held0/restoring0/mounted1. Both tests passed their unchanged position checks. The gesture settles54pt apart, so the images are the same protocol state, not identical pixel positions. The broad blank band exists in both. The screenshot includes the viewport/chrome and status line; the retained build exposes no content-height/frame-height diagnostic for this fixture, so end-of-content versus drawing/contrast is unresolved.
+
+The historical main is before#555 and the candidate’s base is1797d21f; that version gap is disclosed. No code is changed for this side observation. Main restore outcomes: exhausted after20 attempts (1195ms), then arrived after the real drag in1attempt (76ms). Exact one execution/no skip/E/F; owned070C6CBC shutdown/deleted, system0Booted, swap0.

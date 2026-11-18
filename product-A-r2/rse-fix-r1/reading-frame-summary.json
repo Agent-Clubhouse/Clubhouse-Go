@@ -1,0 +1,129 @@
+{
+  "case": "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "classification": "Awaiting source/artifact review; no automatic PASS credit",
+  "timelines": [
+    {
+      "name": "Chat reopen restoration frame timeline_0_36B34AE2-D64B-4FD1-8E19-CB0B55B372B2.txt",
+      "path": "/tmp/ux-569-fix-proof/tickets/rse-fix-r1/attachments/EA64C983-BF05-4A5A-A37E-200FFA36E83F.txt",
+      "sha256": "209cf7a3e9fc2b52031038c988d045700c2834c20441557ae4c17ddaf0774643",
+      "raw": "t=1.2658322914503515 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=0.0\nt=2.6336072497069836 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=1.367774958256632\nt=3.9838145412504673 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=2.717982249800116\nsettled t=3.9838145412504673",
+      "samples": [
+        {
+          "elapsed_seconds": 1.2658322914503515,
+          "exists": true,
+          "anchor": [
+            22.0,
+            168.0,
+            156.0,
+            20.5
+          ],
+          "viewport": [
+            0.0,
+            74.0,
+            375.0,
+            483.0
+          ],
+          "stable_for_seconds": 0.0
+        },
+        {
+          "elapsed_seconds": 2.6336072497069836,
+          "exists": true,
+          "anchor": [
+            22.0,
+            168.0,
+            156.0,
+            20.5
+          ],
+          "viewport": [
+            0.0,
+            74.0,
+            375.0,
+            483.0
+          ],
+          "stable_for_seconds": 1.367774958256632
+        },
+        {
+          "elapsed_seconds": 3.9838145412504673,
+          "exists": true,
+          "anchor": [
+            22.0,
+            168.0,
+            156.0,
+            20.5
+          ],
+          "viewport": [
+            0.0,
+            74.0,
+            375.0,
+            483.0
+          ],
+          "stable_for_seconds": 2.717982249800116
+        }
+      ],
+      "settled": true,
+      "timeout": false
+    },
+    {
+      "name": "Tab return restoration frame timeline_0_D138567E-12AD-45F0-B733-B3D6EAE6D1D9.txt",
+      "path": "/tmp/ux-569-fix-proof/tickets/rse-fix-r1/attachments/449FCB4F-0FCE-4D5C-B9B8-D0C56C973717.txt",
+      "sha256": "d090d183fee4d79467d677c090ea4915aef40849ebbb05c9f5a6b0793a2500dd",
+      "raw": "t=1.3762568752281368 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=0.0\nt=2.718201875220984 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=1.3419449999928474\nt=4.0863051251508296 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=2.7100482499226928\nsettled t=4.0863051251508296",
+      "samples": [
+        {
+          "elapsed_seconds": 1.3762568752281368,
+          "exists": true,
+          "anchor": [
+            22.0,
+            168.0,
+            156.0,
+            20.5
+          ],
+          "viewport": [
+            0.0,
+            74.0,
+            375.0,
+            483.0
+          ],
+          "stable_for_seconds": 0.0
+        },
+        {
+          "elapsed_seconds": 2.718201875220984,
+          "exists": true,
+          "anchor": [
+            22.0,
+            168.0,
+            156.0,
+            20.5
+          ],
+          "viewport": [
+            0.0,
+            74.0,
+            375.0,
+            483.0
+          ],
+          "stable_for_seconds": 1.3419449999928474
+        },
+        {
+          "elapsed_seconds": 4.0863051251508296,
+          "exists": true,
+          "anchor": [
+            22.0,
+            168.0,
+            156.0,
+            20.5
+          ],
+          "viewport": [
+            0.0,
+            74.0,
+            375.0,
+            483.0
+          ],
+          "stable_for_seconds": 2.7100482499226928
+        }
+      ],
+      "settled": true,
+      "timeout": false
+    }
+  ],
+  "failures": []
+}

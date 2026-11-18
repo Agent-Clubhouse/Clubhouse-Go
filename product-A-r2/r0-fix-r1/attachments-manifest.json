@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5057A20F-E273-4DB2-B379-9C5BCA52D057",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "C9DE5955-1CB6-446B-9CD2-412EED3CF063.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Reading controls above the composer_0_0591DE83-6C5B-4E4A-B0EB-66DE5C3595DB.png",
+        "timestamp" : 1794996272.383
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5057A20F-E273-4DB2-B379-9C5BCA52D057",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "1C3420E6-1AD4-4ADB-A6D4-31F76E1111BB.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Chat reopen restoration readiness_0_010BAE0B-6A86-4F8B-B36B-B53C65C191D4.png",
+        "timestamp" : 1794996265.388
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5057A20F-E273-4DB2-B379-9C5BCA52D057",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "4A051848-0648-42A4-8952-16BA67307EDD.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Chat reopen restoration frame timeline_0_C01B64F0-57A5-468B-8644-36C4052054BB.txt",
+        "timestamp" : 1794996265.09
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5057A20F-E273-4DB2-B379-9C5BCA52D057",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "FFBDE29F-6A22-4DBD-9355-DF4FB9BE22E5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Tab return restoration readiness_0_E7009CC8-BB0D-44DC-A005-E9E45888F00E.png",
+        "timestamp" : 1794996256.213
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "5057A20F-E273-4DB2-B379-9C5BCA52D057",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "7A854EF4-E046-4A34-8B41-4EDDD3D073CE.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Tab return restoration frame timeline_0_AD269119-E81D-40A8-8F45-5D89503451DB.txt",
+        "timestamp" : 1794996255.932
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry"
+  }
+]

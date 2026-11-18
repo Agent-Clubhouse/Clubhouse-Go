@@ -1,0 +1,32 @@
+{
+  "source": "/tmp/ux-569-prefix-trim",
+  "head": "1f7192686e9773470fc81c6ccaf9a7ad3ce6cf80",
+  "base": "f89bb9eed316a9af2f75ab5e97f1f6bc2ec0cf8d",
+  "full_diff_sha256": "e965322492b480d2fecae0065206b70ba90cb393eebcc9ec211a9f6b56066bec",
+  "source_sha256": {
+    "Annex/Annex/AnnexApp.swift": "8932d561cd69e1b916345ce8d5c87c996d6f661b409a8f8b37430aa598602eaf",
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "a78f1d878680734c02c9aa9de119de704280e3820af069e133cf3f82deb0124a",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "504bab84115833f566d93c829651ff3c0c48f7f18f0b803b2d21b53d623e7f44",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "4d8208c5b19f813fe43d5210bb2a23da0baf1b7785b051bbd518a0283cf50821",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+    "docs/reading-prefix-trim-characterization.md": "562f185d8d0751fc8dec129bd81810e89d964c0caf00e68053661d9aeac9d2bf",
+    "scripts/isolated-deinit-policy.json": "0c26dd03ca9085861e4860c5432c230574422bcc220cd99ecea98b00150e7c3d",
+    "docs/isolated-deinit.md": "660997aa5f14c04957bb0fa0bf6e86c066b0673a4d1948d2915c807c2e9618e9"
+  },
+  "private_simulator": {
+    "name": "ux-569-main-band-control"
+  },
+  "known_native_outcomes": {},
+  "phases": {
+    "MB": {
+      "kind": "UI",
+      "bound": 480,
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition"
+      ],
+      "count": 1
+    }
+  },
+  "scope": "Parent-authorized nonblocking main screenshot comparison ONLY, after main #569 proof chain. Historical main f89 product plus approved DEBUG fixture; no product restoration changes. Reuse prior source/artifact-pinned build, no compile. Compare state+offset and same fixture, disclose version gap to candidate base1797; no product causal claim from version difference."
+}

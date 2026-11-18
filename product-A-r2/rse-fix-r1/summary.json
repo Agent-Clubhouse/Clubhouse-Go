@@ -1,0 +1,46 @@
+{
+  "devicesAndConfigurations" : [
+    {
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "modelName" : "iPhone SE (3rd generation)",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "expectedFailures" : 0,
+      "failedTests" : 0,
+      "passedTests" : 14,
+      "skippedTests" : 1,
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ],
+  "environmentDescription" : "ClubhouseGo · Built with macOS 26.5.2",
+  "expectedFailures" : 0,
+  "failedTests" : 0,
+  "finishTime" : 1794996609.874,
+  "passedTests" : 14,
+  "result" : "Passed",
+  "skippedTests" : 1,
+  "startTime" : 1794996321.886,
+  "statistics" : [
+
+  ],
+  "testFailures" : [
+
+  ],
+  "title" : "Test - ClubhouseGo",
+  "topInsights" : [
+    {
+      "category" : "Longest Test Runs",
+      "impact" : "21% of duration",
+      "text" : "1 longest test run with outlier durations exceeding 59.24s (three standard deviations)"
+    }
+  ],
+  "totalTestCount" : 15
+}

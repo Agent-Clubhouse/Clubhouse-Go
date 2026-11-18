@@ -1,0 +1,83 @@
+{
+  "head": "3db11ac3234a47a4ba3420acdef8799d3e5c0309",
+  "phase": "D",
+  "started_at": "2026-11-18T10:10:56.541010+00:00",
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 839 total, 2 running, 837 sleeping, 5718 threads \n2026/11/18 02:10:57\nLoad Avg: 23.15, 14.90, 10.40 \nCPU usage: 5.93% user, 8.89% sys, 85.17% idle \nSharedLibs: 1115M resident, 194M data, 174M linkedit.\nMemRegions: 1220773 total, 13G resident, 535M private, 4634M shared.\nPhysMem: 50G used (7101M wired, 6161M compressor), 13G unused.\nVM: 438T vsize, 6144M framework vsize, 9860391(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1365892320/1591G in, 562223142/419G out.\nDisks: 2163136717/26T read, 2975680873/34T written.\n\n\nProcesses: 849 total, 3 running, 846 sleeping, 5801 threads \n2026/11/18 02:11:07\nLoad Avg: 19.75, 14.44, 10.29 \nCPU usage: 4.19% user, 3.42% sys, 92.37% idle \nSharedLibs: 1115M resident, 194M data, 174M linkedit.\nMemRegions: 655 total, 16M resident, 535M private, 4634M shared.\nPhysMem: 50G used (7104M wired, 6161M compressor), 13G unused.\nVM: 442T vsize, 6144M framework vsize, 9860391(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1365894745/1591G in, 562226152/419G out.\nDisks: 2163137690/26T read, 2975692635/34T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   833136.\nPages active:                                1226089.\nPages inactive:                              1220692.\nPages speculative:                              4882.\nPages throttled:                                   0.\nPages wired down:                             454452.\nPages purgeable:                               24439.\n\"Translation faults\":                   111825858480.\nPages copy-on-write:                     10733964435.\nPages zero filled:                       56582807821.\nPages reactivated:                       11744957105.\nPages purged:                              290042439.\nFile-backed pages:                           1128024.\nAnonymous pages:                             1323639.\nPages stored in compressor:                  1089725.\nPages occupied by compressor:                 394285.\nDecompressions:                           6116349248.\nCompressions:                             6817074243.\nPageins:                                  1524492336.\nPageouts:                                   12336391.\nSwapins:                                     9860391.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   823283.\nPages active:                                1228125.\nPages inactive:                              1229009.\nPages speculative:                              4850.\nPages throttled:                                   0.\nPages wired down:                             454648.\nPages purgeable:                               29665.\n\"Translation faults\":                   111825946236.\nPages copy-on-write:                     10733972144.\nPages zero filled:                       56582856642.\nPages reactivated:                       11744957118.\nPages purged:                              290042439.\nFile-backed pages:                           1128329.\nAnonymous pages:                             1333655.\nPages stored in compressor:                  1089725.\nPages occupied by compressor:                 394285.\nDecompressions:                           6116349248.\nCompressions:                             6817074243.\nPageins:                                  1524492736.\nPageouts:                                   12336391.\nSwapins:                                     9860391.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 13650100224,
+      "inactive_bytes": 19999817728,
+      "free_plus_inactive_bytes": 33649917952
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 13488668672,
+      "inactive_bytes": 20136083456,
+      "free_plus_inactive_bytes": 33624752128
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 1996.25M  free = 1075.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 1996.25M  free = 1075.75M  (encrypted)\n",
+    "cpu_idle_percent": 92.37,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source_provenance": {
+    "head": "3db11ac3234a47a4ba3420acdef8799d3e5c0309",
+    "base": "1797d21f91c25f7c6e8fd2baba0db64a6f1c9fdd",
+    "source_sha256": {
+      "Annex/Annex/AnnexApp.swift": "8932d561cd69e1b916345ce8d5c87c996d6f661b409a8f8b37430aa598602eaf",
+      "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "573c51da26d7b711331663db8cd0d9caadc4e65410a05b0d553bbb6d25ad65a5",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "a45e2a86e5ced96d7aefaae6d3528a8a4edb39f506ddc1ba6efb7d662747989a",
+      "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "a78f1d878680734c02c9aa9de119de704280e3820af069e133cf3f82deb0124a",
+      "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+      "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+      "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift": "eb32f4c56abdc037e563d9eea52907420829412ced4a858839d0882935e618a5",
+      "docs/isolated-deinit.md": "660997aa5f14c04957bb0fa0bf6e86c066b0673a4d1948d2915c807c2e9618e9",
+      "docs/reading-prefix-trim-characterization.md": "ba7686ca639e837993dba2eca802e568731a14d2307bcaf8051d74df1988aff1",
+      "scripts/isolated-deinit-policy.json": "0c26dd03ca9085861e4860c5432c230574422bcc220cd99ecea98b00150e7c3d"
+    },
+    "full_diff_sha256": "8bbb21543527fc920fe38baa25f33241aee826a659524a15cc5d06ac0a076e51"
+  },
+  "main_at_runtime": "1797d21f91c25f7c6e8fd2baba0db64a6f1c9fdd",
+  "merge_rc": 0,
+  "combined_source": "/tmp/ux-569-fix-proof/tickets/d-fix-r1/source",
+  "combined_head": "3db11ac3234a47a4ba3420acdef8799d3e5c0309",
+  "combined_tree": "ba0277e70739bc288dc460dac78546ec54a04985",
+  "fresh_merge_tree": "ba0277e70739bc288dc460dac78546ec54a04985",
+  "main_product_overlap": [],
+  "swift_jobs": 2,
+  "swift_shim_sha256": "100c27b8c6281a8b57898fddc0e80f1a59cbf946cd43c6812efb7f9dc20f0587",
+  "coverage_rc": 0,
+  "rc": 0,
+  "admitted_at": "2026-11-18T10:10:56.520286+00:00",
+  "closed_at": "2026-11-18T10:13:13.736480+00:00",
+  "duration_seconds": 137.2146521662362,
+  "hard_bound_seconds": 1200,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 10,
+    "growth_bytes": 0,
+    "start_bytes": 2093219840.0,
+    "max_bytes": 2093219840.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-569-fix-proof/d-fix-r1-receipt.json",
+  "booted_after": [],
+  "owned_processes": [],
+  "system_booted": [],
+  "owned_simulator_absent": true,
+  "process_snapshot": "/tmp/ux-569-fix-proof/d-fix-r1-ps.txt"
+}

@@ -1,0 +1,759 @@
+{
+  "CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 10 seconds",
+    "durationInSeconds": 10.408346056938171,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996328.229,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible",
+    "testName": "testFailedOutputFoldsButErrorStatusStaysVisible()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "10s",
+            "durationInSeconds": 10.408346056938171,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "10s",
+        "durationInSeconds": 10.408346056938171,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 9.2 seconds",
+    "durationInSeconds": 9.207786917686462,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996338.637,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+    "testName": "testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "9s",
+            "durationInSeconds": 9.207786917686462,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "9s",
+        "durationInSeconds": 9.207786917686462,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 1 minute, 1 second",
+    "durationInSeconds": 61.11480891704559,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996347.845,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+    "testName": "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "1m 1s",
+            "durationInSeconds": 61.11480891704559,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "1m 1s",
+        "durationInSeconds": 61.11480891704559,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 25 seconds",
+    "durationInSeconds": 25.23522198200226,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996408.961,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction",
+    "testName": "testLastReplyLabelMatchesTheActualStationaryAction()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "25s",
+            "durationInSeconds": 25.23522198200226,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "25s",
+        "durationInSeconds": 25.23522198200226,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 14 seconds",
+    "durationInSeconds": 14.592213034629822,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996434.196,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+    "testName": "testLatestArrivesGeometricallyWithoutAnIncomingUpdate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "14s",
+            "durationInSeconds": 14.592213034629822,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "14s",
+        "durationInSeconds": 14.592213034629822,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 16 seconds",
+    "durationInSeconds": 16.461939930915833,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996448.79,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+    "testName": "testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "16s",
+            "durationInSeconds": 16.461939930915833,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "16s",
+        "durationInSeconds": 16.461939930915833,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 7.3 seconds",
+    "durationInSeconds": 7.2728590965271,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996465.253,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+    "testName": "testLatestIsAbsentAtActualBottomWithoutPausingFollowing()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "7s",
+            "durationInSeconds": 7.2728590965271,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "7s",
+        "durationInSeconds": 7.2728590965271,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 15 seconds",
+    "durationInSeconds": 15.598428010940552,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996472.526,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail",
+    "testName": "testLatestIsOneCenteredActionAndReachesStreamingTail()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "15s",
+            "durationInSeconds": 15.598428010940552,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "15s",
+        "durationInSeconds": 15.598428010940552,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 12 seconds",
+    "durationInSeconds": 12.207008957862854,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996488.125,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+    "testName": "testMomentumAfterAShortUpwardPanKeepsFollowingPaused()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "12s",
+            "durationInSeconds": 12.207008957862854,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "12s",
+        "durationInSeconds": 12.207008957862854,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 28 seconds",
+    "durationInSeconds": 28.601137042045593,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996500.333,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming",
+    "testName": "testNativeScrollToTopSticksWithAndWithoutStreaming()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "28s",
+            "durationInSeconds": 28.601137042045593,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "28s",
+        "durationInSeconds": 28.601137042045593,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.045 seconds",
+    "durationInSeconds": 0.045426011085510254,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996528.935,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming",
+    "testName": "testPointerWheelScrollPausesFollowingWhileStreaming()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Skipped",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "name": "Test skipped - Pointer events require iPadOS",
+                "nodeType": "Test Case Run",
+                "result": "Skipped"
+              }
+            ],
+            "duration": "0.045s",
+            "durationInSeconds": 0.045426011085510254,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Skipped"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.045s",
+        "durationInSeconds": 0.045426011085510254,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Skipped"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 20 seconds",
+    "durationInSeconds": 20.664780020713806,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996528.98,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing",
+    "testName": "testRotationKeepsNewestLineInsideViewportWhileFollowing()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "20s",
+            "durationInSeconds": 20.664780020713806,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "20s",
+        "durationInSeconds": 20.664780020713806,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testRotationPreservesAScrolledUpReader()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 16 seconds",
+    "durationInSeconds": 16.36660599708557,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996549.645,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testRotationPreservesAScrolledUpReader()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader",
+    "testName": "testRotationPreservesAScrolledUpReader()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "16s",
+            "durationInSeconds": 16.36660599708557,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "16s",
+        "durationInSeconds": 16.36660599708557,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 16 seconds",
+    "durationInSeconds": 16.488456964492798,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996566.012,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
+    "testName": "testStreamingKeepsFollowingWhenNobodyScrolls()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "16s",
+            "durationInSeconds": 16.488456964492798,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "16s",
+        "durationInSeconds": 16.488456964492798,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName": "ux-569-semantic-restore",
+        "modelName": "iPhone SE (3rd generation)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 26 seconds",
+    "durationInSeconds": 26.950379967689514,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1794996582.502,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming",
+    "testName": "testUserPositionedReplyStaysWhileStreaming()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "26s",
+            "durationInSeconds": 26.950379967689514,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "26s",
+        "durationInSeconds": 26.950379967689514,
+        "name": "iPhone SE (3rd generation)",
+        "nodeIdentifier": "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  }
+}

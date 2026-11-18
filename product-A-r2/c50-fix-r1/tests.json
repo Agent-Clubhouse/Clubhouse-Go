@@ -1,0 +1,540 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "C4CCBAD2-0EAF-4A1C-A049-FD96DB7EEC34",
+      "deviceName" : "ux-569-semantic-restore",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "10s",
+                  "durationInSeconds" : 10.522876024246216,
+                  "name" : "testCircleMenuAccessibilityXXXL()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testCircleMenuAccessibilityXXXL()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testCircleMenuAccessibilityXXXL",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "10s",
+                  "durationInSeconds" : 10.508059978485107,
+                  "name" : "testCircleMenuDark()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testCircleMenuDark()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testCircleMenuDark",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "10s",
+                  "durationInSeconds" : 10.481440901756287,
+                  "name" : "testCircleMenuLight()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testCircleMenuLight()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testCircleMenuLight",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.55187201499939,
+                  "name" : "testDarkModeDraftTextAndKeyboardStayDark()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testDarkModeDraftTextAndKeyboardStayDark()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testDarkModeDraftTextAndKeyboardStayDark",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "children" : [
+                    {
+                      "name" : "A wrongly collapsed tray must fail the invariant",
+                      "nodeType" : "Failure Message"
+                    },
+                    {
+                      "name" : "A wrongly full tray must fail the invariant",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "0.057s",
+                  "durationInSeconds" : 0.056864023208618164,
+                  "name" : "testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays",
+                  "nodeType" : "Test Case",
+                  "result" : "Expected Failure"
+                },
+                {
+                  "children" : [
+                    {
+                      "name" : "Test skipped - Measured fit is inside the hysteresis band; no forced state contradicts it on this device: forced --companion-ui-test-force-full-rows: natural=117.33 offered=138.00 caption=51.33 measured=true; forced --companion-ui-test-force-review-only: natural=117.33 offered=138.00 caption=51.33 measured=true",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "47s",
+                  "durationInSeconds" : 47.325079917907715,
+                  "name" : "testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry",
+                  "nodeType" : "Test Case",
+                  "result" : "Skipped"
+                },
+                {
+                  "duration" : "17s",
+                  "durationInSeconds" : 17.87374496459961,
+                  "name" : "testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "14s",
+                  "durationInSeconds" : 14.647101998329163,
+                  "name" : "testIdleControlsStayCollapsedBeforeAndAfterTyping()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testIdleControlsStayCollapsedBeforeAndAfterTyping()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testIdleControlsStayCollapsedBeforeAndAfterTyping",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "51s",
+                  "durationInSeconds" : 51.257166028022766,
+                  "name" : "testLargestTextWorkingAttachmentRowFits()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testLargestTextWorkingAttachmentRowFits()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testLargestTextWorkingAttachmentRowFits",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "14s",
+                  "durationInSeconds" : 14.761551976203918,
+                  "name" : "testLightModeDraftPromptAndTextStayReadable()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testLightModeDraftPromptAndTextStayReadable()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testLightModeDraftPromptAndTextStayReadable",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "38s",
+                  "durationInSeconds" : 38.455474972724915,
+                  "name" : "testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "37s",
+                  "durationInSeconds" : 37.36899697780609,
+                  "name" : "testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "19s",
+                  "durationInSeconds" : 19.27902901172638,
+                  "name" : "testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "26s",
+                  "durationInSeconds" : 26.756525993347168,
+                  "name" : "testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation()",
+                  "nodeIdentifier" : "CompanionCompactComposerUITests/testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests/testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionCompactComposerUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionCompactComposerUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "35s",
+                  "durationInSeconds" : 35.97983396053314,
+                  "name" : "testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt()",
+                  "nodeIdentifier" : "CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "36s",
+                  "durationInSeconds" : 36.14918792247772,
+                  "name" : "testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt()",
+                  "nodeIdentifier" : "CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "45s",
+                  "durationInSeconds" : 45.80114805698395,
+                  "name" : "testOverflowFooterWithKeyboardUpEvidenceInLightAndDark()",
+                  "nodeIdentifier" : "CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "34s",
+                  "durationInSeconds" : 34.92729902267456,
+                  "name" : "testPendingTrayFooterMatchesChatSurfaceInLightAndDark()",
+                  "nodeIdentifier" : "CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionComposerFooterSurfaceUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionComposerFooterSurfaceUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "18s",
+                  "durationInSeconds" : 18.987828969955444,
+                  "name" : "testAccessibilityDecisionBar()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testAccessibilityDecisionBar()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testAccessibilityDecisionBar",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "28s",
+                  "durationInSeconds" : 28.612568020820618,
+                  "name" : "testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "20s",
+                  "durationInSeconds" : 20.684107065200806,
+                  "name" : "testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.942567944526672,
+                  "name" : "testDarkDecisionBar()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testDarkDecisionBar()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testDarkDecisionBar",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "17s",
+                  "durationInSeconds" : 17.14518892765045,
+                  "name" : "testIncompleteRequestDisablesAllowButKeepsDenyAvailable()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testIncompleteRequestDisablesAllowButKeepsDenyAvailable()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testIncompleteRequestDisablesAllowButKeepsDenyAvailable",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "29s",
+                  "durationInSeconds" : 29.84859597682953,
+                  "name" : "testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "32s",
+                  "durationInSeconds" : 32.62784397602081,
+                  "name" : "testLandscapeAndAX5KeepReviewContextAndDecisionsReachable()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testLandscapeAndAX5KeepReviewContextAndDecisionsReachable()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLandscapeAndAX5KeepReviewContextAndDecisionsReachable",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.7119380235672,
+                  "name" : "testLatteDecisionBar()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testLatteDecisionBar()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLatteDecisionBar",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.839835047721863,
+                  "name" : "testLightDecisionBar()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testLightDecisionBar()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLightDecisionBar",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.906779050827026,
+                  "name" : "testMochaDecisionBar()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testMochaDecisionBar()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testMochaDecisionBar",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "38s",
+                  "durationInSeconds" : 38.07412803173065,
+                  "name" : "testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "30s",
+                  "durationInSeconds" : 30.160346031188965,
+                  "name" : "testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "1m 3s",
+                  "durationInSeconds" : 63.49497604370117,
+                  "name" : "testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "1m 3s",
+                  "durationInSeconds" : 63.825860023498535,
+                  "name" : "testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "54s",
+                  "durationInSeconds" : 54.14609503746033,
+                  "name" : "testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "31s",
+                  "durationInSeconds" : 31.0872859954834,
+                  "name" : "testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "40s",
+                  "durationInSeconds" : 40.104215025901794,
+                  "name" : "testSwipesAndTitleTapsNeverSendADecision()",
+                  "nodeIdentifier" : "CompanionPinnedDecisionUITests/testSwipesAndTitleTapsNeverSendADecision()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests/testSwipesAndTitleTapsNeverSendADecision",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionPinnedDecisionUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionPinnedDecisionUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "10s",
+                  "durationInSeconds" : 10.170634984970093,
+                  "name" : "testFailedOutputFoldsButErrorStatusStaysVisible()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "9s",
+                  "durationInSeconds" : 9.21298098564148,
+                  "name" : "testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "58s",
+                  "durationInSeconds" : 58.940045952796936,
+                  "name" : "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "23s",
+                  "durationInSeconds" : 23.302222967147827,
+                  "name" : "testLastReplyLabelMatchesTheActualStationaryAction()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "14s",
+                  "durationInSeconds" : 14.738211035728455,
+                  "name" : "testLatestArrivesGeometricallyWithoutAnIncomingUpdate()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.902063012123108,
+                  "name" : "testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "7s",
+                  "durationInSeconds" : 7.461279988288879,
+                  "name" : "testLatestIsAbsentAtActualBottomWithoutPausingFollowing()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.494518995285034,
+                  "name" : "testLatestIsOneCenteredActionAndReachesStreamingTail()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "12s",
+                  "durationInSeconds" : 12.39994502067566,
+                  "name" : "testMomentumAfterAShortUpwardPanKeepsFollowingPaused()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "29s",
+                  "durationInSeconds" : 29.0813649892807,
+                  "name" : "testNativeScrollToTopSticksWithAndWithoutStreaming()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "children" : [
+                    {
+                      "name" : "Test skipped - Pointer events require iPadOS",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "0.05s",
+                  "durationInSeconds" : 0.05027198791503906,
+                  "name" : "testPointerWheelScrollPausesFollowingWhileStreaming()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming",
+                  "nodeType" : "Test Case",
+                  "result" : "Skipped"
+                },
+                {
+                  "duration" : "21s",
+                  "durationInSeconds" : 21.373554944992065,
+                  "name" : "testRotationKeepsNewestLineInsideViewportWhileFollowing()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.72290003299713,
+                  "name" : "testRotationPreservesAScrolledUpReader()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testRotationPreservesAScrolledUpReader()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "16s",
+                  "durationInSeconds" : 16.612779021263123,
+                  "name" : "testStreamingKeepsFollowingWhenNobodyScrolls()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "20s",
+                  "durationInSeconds" : 20.82214891910553,
+                  "name" : "testUserPositionedReplyStaysWhileStreaming()",
+                  "nodeIdentifier" : "CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionReadingUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

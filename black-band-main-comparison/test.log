@@ -1,0 +1,134 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-569-prefix-proof/tickets/a-prefix-r1/DD -destination "platform=iOS Simulator,id=070C6CBC-B155-460A-901C-8E53A1EE9749" -resultBundlePath /tmp/ux-569-black-band-proof/tickets/mb-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Framebriar: /tmp/ux-569-prefix-proof/tickets/a-prefix-r1/source/Vendor/Framebriar @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  ClubhouseTransport: /tmp/ux-569-prefix-proof/tickets/a-prefix-r1/source @ local
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+
+Writing result bundle at path:
+	/tmp/ux-569-black-band-proof/tickets/mb-r1/tests.xcresult
+
+2026-11-18 02:14:11.154332-0800 ClubhouseGoUITests-Runner[44750:455700271] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 02:14:14.636.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 02:14:14.636.
+Test Suite 'CompanionReadingRestoreUITests' started at 2026-11-18 02:14:14.636.
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition]' started.
+    t =     0.00s Start Test at 2026-11-18 02:14:14.637
+    t =     0.09s Set Up
+    t =     0.09s Getting device orientation
+    t =     0.09s Setting device orientation to Portrait
+    t =     0.09s     Device orientation changed to Portrait
+    t =     0.10s     Wait for com.apple.springboard to idle
+    t =     0.13s Open com.Agent-Clubhouse.Go
+    t =     0.13s     Launch com.Agent-Clubhouse.Go
+    t =     0.97s         Setting up automation session
+    t =     1.64s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.61s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.61s Waiting 10.0s for "reading-restore-fixture" StaticText to exist
+    t =     4.68s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-restore-fixture" StaticText`
+    t =     4.68s         Checking existence of `"reading-restore-fixture" StaticText`
+    t =     5.95s Checking `Expect predicate `label CONTAINS "outcome=exhausted"` for object "reading-restore-fixture" StaticText`
+    t =     5.95s     Find the "reading-restore-fixture" StaticText
+    t =     6.06s Find the "reading-restore-fixture" StaticText
+    t =     6.17s Find the "reading-restore-fixture" StaticText
+    t =     6.28s Find the "reading-restore-fixture" StaticText
+    t =     6.39s Find the "reading-restore-fixture" StaticText
+    t =     6.50s Checking existence of `"companion-transcript" ScrollView`
+    t =     6.60s Press "companion-transcript" ScrollView[0.50, 0.25] for 0.1 seconds, then drag to "companion-transcript" ScrollView[0.50, 0.75] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =     6.60s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.60s     Find the "companion-transcript" ScrollView
+    t =     6.71s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =     6.80s         Wait for com.apple.springboard to idle
+    t =     6.84s     Found 1 interrupting element:
+    t =     6.84s         Find the "NotificationShortLookView" BannerNotification
+    t =     6.86s "NotificationShortLookView" BannerNotification from Application 'com.apple.springboard'
+    t =     6.86s     Invoking UI interruption monitors for "NotificationShortLookView" BannerNotification from Application 'com.apple.springboard'
+    t =     6.86s         Find the "NotificationShortLookView" BannerNotification
+    t =     6.88s Default interruption handler ignoring non-alert type element "NotificationShortLookView" BannerNotification.
+    t =     6.88s         Find the "NotificationShortLookView" BannerNotification
+    t =     6.89s         Default interruption handler waiting for banner notification to expire/automatically dismiss
+    t =     6.89s             Waiting 15.0s for "NotificationShortLookView" BannerNotification to not exist
+    t =     7.96s                 Checking `Expect predicate `existsNoRetry == 0` for object "NotificationShortLookView" BannerNotification`
+    t =     7.96s                     Checking existence of `"NotificationShortLookView" BannerNotification`
+    t =     7.98s                     Capturing element debug description
+    t =     7.98s                         Requesting snapshot of accessibility hierarchy for app with pid 44309
+    t =     8.02s                         Find: Descendants matching type BannerNotification
+    t =     8.02s                         Find: Identity Binding
+    t =     8.02s                         Requesting snapshot of accessibility hierarchy for app with pid 44309
+    t =     8.04s                         Find: Descendants matching type BannerNotification
+    t =     8.05s                         Requesting snapshot of accessibility hierarchy for app with pid 44309
+    t =     8.94s                 Checking `Expect predicate `existsNoRetry == 0` for object "NotificationShortLookView" BannerNotification`
+    t =     8.94s                     Checking existence of `"NotificationShortLookView" BannerNotification`
+    t =     8.95s                     Capturing element debug description
+    t =     8.95s                         Requesting snapshot of accessibility hierarchy for app with pid 44309
+    t =     8.98s                         Find: Descendants matching type BannerNotification
+    t =     8.98s                         Find: Identity Binding
+    t =     8.98s                         Requesting snapshot of accessibility hierarchy for app with pid 44309
+    t =     9.00s                         Find: Descendants matching type BannerNotification
+    t =     9.01s                         Requesting snapshot of accessibility hierarchy for app with pid 44309
+    t =     9.90s                 Checking `Expect predicate `existsNoRetry == 0` for object "NotificationShortLookView" BannerNotification`
+    t =     9.90s                     Checking existence of `"NotificationShortLookView" BannerNotification`
+    t =     9.92s         Verifying handling...
+    t =    10.01s             Wait for com.apple.springboard to idle
+    t =    10.65s Confirmed successful handling of interrupting element
+    t =    10.65s     Synthesize event
+    t =    10.65s         Find the "companion-transcript" ScrollView
+    t =    10.75s         Find the "companion-transcript" ScrollView
+    t =    10.86s         Find the "companion-transcript" ScrollView
+    t =    10.97s         Find the "companion-transcript" ScrollView
+    t =    11.07s         Find the "companion-transcript" ScrollView
+    t =    12.50s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    15.06s Checking `Expect predicate `BLOCKPREDICATE(0x600000d396e0)` for object "reading-restore-fixture" StaticText`
+    t =    15.06s     Find the "reading-restore-fixture" StaticText
+    t =    15.17s     Find the "reading-restore-fixture" StaticText
+    t =    15.28s     Find the "reading-restore-fixture" StaticText
+    t =    15.39s     Find the "reading-restore-fixture" StaticText
+    t =    15.49s     Find the "reading-restore-fixture" StaticText
+    t =    15.61s Find the "reading-restore-fixture" StaticText
+    t =    15.82s Find the "reading-restore-fixture" StaticText
+    t =    16.05s Find the "reading-restore-fixture" StaticText
+    t =    16.27s Find the "reading-restore-fixture" StaticText
+    t =    16.38s Find the "reading-restore-fixture" StaticText
+    t =    16.49s Find the "reading-restore-fixture" StaticText
+    t =    16.60s Tap "reading-restore-remount" Button
+    t =    16.60s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    16.61s     Find the "reading-restore-remount" Button
+    t =    16.71s     Check for interrupting elements affecting "reading-restore-remount" Button
+    t =    16.80s     Synthesize event
+    t =    17.09s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    18.34s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-restore-fixture" StaticText`
+    t =    18.34s     Find the "reading-restore-fixture" StaticText
+    t =    18.47s Find the "reading-restore-fixture" StaticText
+    t =    18.57s Find the "reading-restore-fixture" StaticText
+    t =    18.69s Find the "reading-restore-fixture" StaticText
+    t =    18.80s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    18.99s Added attachment named 'Real drag after timeout restores its new bookmark'
+    t =    18.99s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition]' passed (19.246 seconds).
+Test Suite 'CompanionReadingRestoreUITests' passed at 2026-11-18 02:14:33.883.
+	 Executed 1 test, with 0 failures (0 unexpected) in 19.246 (19.246) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 02:14:33.883.
+	 Executed 1 test, with 0 failures (0 unexpected) in 19.246 (19.247) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 02:14:33.883.
+	 Executed 1 test, with 0 failures (0 unexpected) in 19.246 (19.247) seconds
+2026-11-18 02:14:34.193 xcodebuild[44613:455699127] [MT] IDETestOperationsObserverDebug: 25.778 elapsed -- Testing started completed.
+2026-11-18 02:14:34.193 xcodebuild[44613:455699127] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 02:14:34.193 xcodebuild[44613:455699127] [MT] IDETestOperationsObserverDebug: 25.778 sec, +25.778 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-569-black-band-proof/tickets/mb-r1/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

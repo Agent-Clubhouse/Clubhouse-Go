@@ -1,0 +1,377 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "92FBDBCE-FA40-4109-8B32-B571C7111CB2.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Failed tool status remains visible with folded output_0_C0232842-989B-4A77-BBA9-3E4BF6FE3C23.png",
+        "timestamp" : 1794996338.415
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "4D0994FE-FD77-4DAA-AB13-DCB48E59A895.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Inline helper reply with compact Clubhouse statuses_0_9BABE59D-A512-4A77-8548-EAA8D5889E00.png",
+        "timestamp" : 1794996347.62
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "A5BE0960-A641-4606-A281-8DDDBA4EE761.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Reading controls above the composer_0_474028BE-0C42-4E11-BEFF-6179169A567A.png",
+        "timestamp" : 1794996408.692
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "8EB034C4-CFD7-4CE3-99CB-3E0C9B0A3566.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Chat reopen restoration readiness_0_35224E71-B323-4758-967F-82752E900BE0.png",
+        "timestamp" : 1794996401.568
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "EA64C983-BF05-4A5A-A37E-200FFA36E83F.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Chat reopen restoration frame timeline_0_36B34AE2-D64B-4FD1-8E19-CB0B55B372B2.txt",
+        "timestamp" : 1794996401.343
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "34836D9D-7B90-417C-9704-9293186CE802.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Tab return restoration readiness_0_1A2A239C-8AAC-469D-A6A3-588717EC6668.png",
+        "timestamp" : 1794996392.62
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "449FCB4F-0FCE-4D5C-B9B8-D0C56C973717.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Tab return restoration frame timeline_0_D138567E-12AD-45F0-B733-B3D6EAE6D1D9.txt",
+        "timestamp" : 1794996392.394
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "EBFC80E3-F7AC-4BD3-841B-BD3E0045D37B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Last reply Latest action arrives_0_F2CC8A92-F30B-47EE-B0E6-200228C51098.png",
+        "timestamp" : 1794996433.952
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "9A69D72A-BA58-488B-B99D-CD3AACB83397.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Last reply announces Latest before tap_0_BC58C5F9-5AE5-4691-9603-379A361C1524.png",
+        "timestamp" : 1794996431.781
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "05FBC66C-016D-476A-8D6C-8B0E10888B77.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Latest follows explicitly released update_0_B065B126-4A82-4027-9CBB-33EA8F03BDF9.png",
+        "timestamp" : 1794996448.568
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "5C2C5390-1D19-4E3A-8F14-6BD0B43C6E75.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Latest immediate stationary arrival_0_3A88D4E0-2489-4C58-BEAB-4E5706CABB44.png",
+        "timestamp" : 1794996445.012
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "ADB55FC5-A247-4294-B9B4-5755636AF7AC.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Latest before stationary tap_0_F98506A7-9714-42B2-96FE-60A24E29C3B6.png",
+        "timestamp" : 1794996443.151
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "1AEE3029-5291-47D1-A2FA-02CA58D4F023.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Latest hidden at the actual bottom with keyboard open_0_93396838-EAE8-4C93-85CB-FF6FD33D80E0.png",
+        "timestamp" : 1794996465.018
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "58414A19-B498-49CF-B72C-949B806BAFAC.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Latest offered after a slow tiny upscroll_0_728CC035-9AD8-4953-BBE6-0DFB9E0328C7.png",
+        "timestamp" : 1794996459.059
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "7DF946A6-4FCE-49F2-8BED-47165B8A2BA5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "At actual bottom remains stationary and following_0_67282708-D029-4CB7-85E7-0FD5A49E9685.png",
+        "timestamp" : 1794996472.3
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "F3901BC4-9C59-4A27-9D72-CD1C73146059.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "At actual bottom without a floating control_0_4553362E-E4EB-4128-940A-D2DA188A952B.png",
+        "timestamp" : 1794996470.089
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "0E841BFC-5347-4A53-BA58-74F587245443.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Latest follows the streaming tail_0_F92CC7F4-2A09-44A0-A321-63EBB28049DD.png",
+        "timestamp" : 1794996487.873
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "E270D118-5099-4203-8877-3D6D537648A6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Streaming reader has one centered Latest pill_0_3082A0C6-165B-4E00-8678-795FBC9763B9.png",
+        "timestamp" : 1794996484.17
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "DD2D5FA5-06D8-45EC-87FF-16BECCFF2A03.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native top remains with streaming true_0_97A25AED-6DC2-48D1-A61A-B842038B54AB.png",
+        "timestamp" : 1794996528.695
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "FD3E691E-52CB-45B3-8690-0E9E859D24B9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native top remains with streaming false_0_628DF7CB-D19D-4AEA-BC06-E3A72AB53BC1.png",
+        "timestamp" : 1794996513.399
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "EB716830-EC35-4CC7-AD7D-BAC4BE539927.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated landscape with keyboard already open hierarchy_0_7DAD1A98-CBBD-418B-82D4-3D08DD029248.txt",
+        "timestamp" : 1794996548.323
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "768D454A-C463-4BE1-9D7E-E85ADFC76583.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated landscape with keyboard already open_0_32CBD48A-0FD7-4E7D-84A3-DBF2E393A618.png",
+        "timestamp" : 1794996547.829
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "1343E248-F29F-414C-B2C2-851D0FE94D54.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated portrait editing tail hierarchy_0_719F07A1-573D-4048-88BC-DEB4F85690A6.txt",
+        "timestamp" : 1794996545.389
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "FEA46833-8C5D-4AA7-B5A2-6893AED308D4.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated portrait editing tail_0_569F0786-4E5B-412D-804C-55A2A78A6143.png",
+        "timestamp" : 1794996544.901
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "459FB905-B01C-4A07-B5BF-DB291B2B0A8D.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated landscape editing tail hierarchy_0_92BB48B5-BBB4-493C-A496-3FDA6267B999.txt",
+        "timestamp" : 1794996542.463
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "30B97540-1D36-439F-8D6B-0546C2FF4034.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated landscape editing tail_0_0A19128D-278D-4FE0-BAC9-08602B84D102.png",
+        "timestamp" : 1794996541.963
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "CDB8E685-C778-4E93-94CC-3E3AF1F0FAE6.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated landscape tail hierarchy_0_F5CA519A-6D8C-4E8B-9C40-AFD06EF333F1.txt",
+        "timestamp" : 1794996537.156
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "6CEC5CE9-B917-4A89-8B23-8603E4B2E77A.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Rotated landscape tail_0_D230BC9B-15E0-41E8-84FF-185C58124959.png",
+        "timestamp" : 1794996536.751
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "5664E32E-28C5-4E0D-B57C-215C1FE3D479.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Portrait tail hierarchy_0_C61EEE00-D19C-436D-9AB8-055D3E4F4293.txt",
+        "timestamp" : 1794996534.547
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "51A5CCFA-3563-4018-AAA7-926FEAD462DA.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Portrait tail_0_8A10470D-F832-49EB-B4E3-097FA419D8AC.png",
+        "timestamp" : 1794996534.125
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "D238D855-AB47-43F1-890A-544F0DE3D5D6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Scrolled-up reader after landscape rotation_0_CAD02041-484D-48C3-834D-95BFBCDE900E.png",
+        "timestamp" : 1794996565.238
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testRotationPreservesAScrolledUpReader()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testRotationPreservesAScrolledUpReader"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "99FCEB40-8C3F-4B52-B7F2-35EB18E0DF89.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Streaming continues following with no scroll_0_A95EEFB9-A62B-4481-A914-73F9975A490B.png",
+        "timestamp" : 1794996582.284
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "D55B0F81-1194-4B0B-BABF-052362872F42",
+        "deviceName" : "ux-569-semantic-restore",
+        "exportedFileName" : "46FD9E29-3D9B-4E30-AD3C-392CF0003DA5.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "User-positioned reply stays under streaming_0_D6EE6AA1-8D2F-40FA-AF81-0B70BFCE663A.png",
+        "timestamp" : 1794996609.197
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming"
+  }
+]
