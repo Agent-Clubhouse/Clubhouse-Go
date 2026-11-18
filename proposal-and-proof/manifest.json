@@ -1,17 +1,18 @@
 {
   "base": "77b24899170c6da76067f205a93f2b06bf9aede8",
   "source": "/tmp/ux-582-first-paint",
-  "status": "Cumulative static review requested; NO heavy ticket admitted. Beta.3 A/B priority until exact cleanup.",
+  "status": "Import-only compile correction after static-PASS head: awaiting beta harness cleanup before incremental A-r2. Zero tests run.",
   "guard": "normal FIFO; vm_stat free+inactive>=8GiB, idle>=40%, swap growth<=64MiB/10s, mid-run record-only",
   "phases": {
     "A": {
       "kind": "fresh-build-for-testing",
-      "bound": 900,
+      "bound": 600,
       "jobs": 2,
       "parallel_testing": false,
       "code_signing": false,
       "policy_tests": true,
-      "compiled_deinit_gate": true
+      "compiled_deinit_gate": true,
+      "incremental_from": "/tmp/ux-582-proof/a-r1-receipt.json"
     },
     "H": {
       "bound": 600,
@@ -261,11 +262,12 @@
       "paused_stream_method_sha256": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb",
       "paused_stream_rule": "Identical actual paused transcript fixture on main77b/head, 100chunks/10batches; body/timeline counts <=main per batch; head seed counter proof is in N. No new runtime assertion allowance.",
       "overlay_preparer": "/tmp/ux-582-proof/prepare-cpu-overlays.py",
-      "overlay_preparer_sha256": "74b42764a7bcada44fe9da8b26784319eb94bd431966debb0f4689d9a9667a03",
+      "overlay_preparer_sha256": "51434c48089df0f54ef4198a1fa5f2981fd4cbe40512ed549f197641bc206e5d",
       "build_bounds_each": 900,
       "run_bound_each": 480,
       "per_side_methods": 2,
-      "additive_proof": "Two product bases, identical full test patch SHA, zero removed lines; source-only preparer before measured build tickets; generated exact overlay manifest sent to QA before admission."
+      "additive_proof": "Two product bases, identical full test patch SHA, zero removed lines; source-only preparer before measured build tickets; generated exact overlay manifest sent to QA before admission.",
+      "status": "Prior generated head251e5bbb is STALE after import-only compile fix; regenerate/review after green build. Main858398b8 still valid. No CPU ticket admitted."
     }
   },
   "order": [
@@ -281,15 +283,15 @@
     "RSE",
     "D"
   ],
-  "head": "fbb7a7ee66bf83635fbe9a600d85b651e0cc07b4",
-  "full_diff_sha256": "16b9a00185d1e3ce35d71ca1c9cfbe8f0c2a1ab8d0338b8f15c39918c396f4cf",
+  "head": "b0824045012992ec9b00b526da93153459c8efda",
+  "full_diff_sha256": "dd9f0f79e452dd18e21e95919b863ebc316fdaf7c457da0bdd5bdf07320ccb22",
   "private_simulator": {
     "name": "ux-582-first-paint"
   },
   "source_sha256": {
     "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
     "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "7af29c7ec1e1928d9a4313bf76fa9f9c6a9080b7461dd037ea664423d2a5d345",
-    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "b90e8d87fd20152e61f6208f6bcf065cd8eebad1ea52b901658efa63213d0143",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "c816597852f4312028f2821887955d69ec19238091b34a80bdd51fe826e95cc4",
     "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "390ea50bbff5007c67a87f69edbdcf7337697aeffd20dfc8732f9909c988a3f4",
     "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "d97195ea34fff98d60d25265a5d11fc0865cb9083f82c25394f7085f49b2c7a2",
     "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",

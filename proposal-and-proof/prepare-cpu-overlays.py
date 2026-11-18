@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Source-only setup. Never builds, tests, creates simulators or admits FIFO work."""
-import hashlib,json,os,subprocess
+import hashlib,json,os,subprocess,sys
 from pathlib import Path
 R=Path('/tmp/ux-582-proof');M=json.loads((R/'manifest.json').read_text());REPO=Path(M['source'])
 P=['env','-u','COPILOT_CONNECTION_TOKEN','GIT_CONFIG_COUNT=1','GIT_CONFIG_KEY_0=safe.bareRepository','GIT_CONFIG_VALUE_0=all']
@@ -12,9 +12,11 @@ assert sha(paused)==M['phases']['CPU']['paused_stream_method_sha256']
 path='Annex/AnnexTests/CompanionHomeVisibilityTests.swift';new='Annex/AnnexTests/CompanionReadingPausedCostTests.swift'
 # Only additive common test inputs: no product instrumentation or anchor code.
 assert git('show',M['base']+':'+path)==git('show',M['head']+':'+path)
+generation=sys.argv[1] if len(sys.argv)>1 else ''
+assert not generation or generation.isalnum()
 reports={}
 for side,head in [('main',M['base']),('head',M['head'])]:
- root=R/('cpu-'+side);root.mkdir();source=root/'overlay-source'
+ root=R/('cpu-'+side+('-'+generation if generation else ''));root.mkdir();source=root/'overlay-source'
  git('worktree','add','--detach',str(source),head)
  original=(source/path).read_text();marker='@MainActor final class CompanionHomeVisibilityTests: XCTestCase {\n';assert original.count(marker)==1
  (source/path).write_text(original.replace(marker,marker+scroll.decode(),1));(source/new).write_bytes(paused)
@@ -27,6 +29,8 @@ for side,head in [('main',M['base']),('head',M['head'])]:
  m={**M,'base':head,'head':overlay_head,'source':str(source),'full_diff_sha256':sha(all_patch)}
  m['source_sha256']={p:sha((source/p).read_bytes()) for p in [path,new]}
  m['phases']={'A':M['phases']['A'],'P':{'kind':'hosted','bound':480,'device':'iPhone-17-Pro-Max','selectors':['ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork','ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork'],'methods':2,'count':2,'method_names':{'CompanionHomeVisibilityTests':['testDiagnosticHomeScrollStepsReportExpensiveWork'],'CompanionReadingPausedCostTests':['testPausedStreamingReportsPerBatchConversationWork']}}}
+ m['phases']['A']=dict(M['phases']['A'])
+ m['phases']['A'].pop('incremental_from',None);m['phases']['A']['bound']=900
  m['private_simulator']={'name':'ux-582-cpu-'+side}
  (root/'manifest.json').write_text(json.dumps(m,indent=2)+'\n');(root/'overlay.diff').write_bytes(all_patch)
  runner=(R/'run-ticket.py').read_text().replace("R=Path('/tmp/ux-582-proof')",'R=Path('+repr(str(root))+')')
