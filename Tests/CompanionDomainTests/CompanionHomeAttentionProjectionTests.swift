@@ -58,7 +58,7 @@ import Testing
     /// Exhaustive small matrix: both target identities × all three command outcomes.
     /// Check after every event/load/command AND inside the submitting service boundary.
     @Test(arguments: [0, 1], HomeAttentionService.Outcome.allCases)
-    func mixedSequencesNeverDrift(targetIndex: Int, outcome: HomeAttentionService.Outcome) async throws {
+    fileprivate func mixedSequencesNeverDrift(targetIndex: Int, outcome: HomeAttentionService.Outcome) async throws {
         let now = Date(), service = HomeAttentionService()
         let store = CompanionStore(service: service)
         defer { service.checkpoint = nil; store.shutdown() }
