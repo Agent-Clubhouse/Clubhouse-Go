@@ -1,0 +1,162 @@
+{
+  "head": "10da2bec918aa21f8b7f3a710c1429f0f8c8d57b",
+  "phase": "anchor-diagnostic",
+  "started_at": "2026-11-18T04:45:19.125946+00:00",
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 834 total, 2 running, 832 sleeping, 5816 threads \n2026/11/17 20:45:19\nLoad Avg: 3.27, 3.73, 5.50 \nCPU usage: 3.97% user, 7.29% sys, 88.73% idle \nSharedLibs: 1067M resident, 189M data, 172M linkedit.\nMemRegions: 1237975 total, 12G resident, 522M private, 4180M shared.\nPhysMem: 55G used (7125M wired, 6285M compressor), 8178M unused.\nVM: 439T vsize, 6144M framework vsize, 9858216(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1344651922/1566G in, 555795058/415G out.\nDisks: 2146850697/26T read, 2938084520/34T written.\n\n\nProcesses: 834 total, 2 running, 832 sleeping, 5819 threads \n2026/11/17 20:45:30\nLoad Avg: 2.92, 3.64, 5.45 \nCPU usage: 3.21% user, 2.36% sys, 94.41% idle \nSharedLibs: 1067M resident, 189M data, 172M linkedit.\nMemRegions: 0 total, 0B resident, 522M private, 4180M shared.\nPhysMem: 55G used (7125M wired, 6285M compressor), 8173M unused.\nVM: 439T vsize, 6144M framework vsize, 9858216(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1344654374/1566G in, 555797042/415G out.\nDisks: 2146850707/26T read, 2938095897/34T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   329861.\nPages active:                                1353436.\nPages inactive:                              1398608.\nPages speculative:                            193631.\nPages throttled:                                   0.\nPages wired down:                             456022.\nPages purgeable:                               25394.\n\"Translation faults\":                   111355686440.\nPages copy-on-write:                     10698612866.\nPages zero filled:                       56335835971.\nPages reactivated:                       11743756906.\nPages purged:                              289469429.\nFile-backed pages:                           1597289.\nAnonymous pages:                             1348386.\nPages stored in compressor:                  1088880.\nPages occupied by compressor:                 402269.\nDecompressions:                           6115915772.\nCompressions:                             6815915562.\nPageins:                                  1515275736.\nPageouts:                                   12244814.\nSwapins:                                     9858216.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   329705.\nPages active:                                1353841.\nPages inactive:                              1398609.\nPages speculative:                            193627.\nPages throttled:                                   0.\nPages wired down:                             456023.\nPages purgeable:                               25389.\n\"Translation faults\":                   111355709992.\nPages copy-on-write:                     10698614584.\nPages zero filled:                       56335847514.\nPages reactivated:                       11743756953.\nPages purged:                              289469429.\nFile-backed pages:                           1597290.\nAnonymous pages:                             1348787.\nPages stored in compressor:                  1088880.\nPages occupied by compressor:                 402269.\nDecompressions:                           6115915772.\nCompressions:                             6815915562.\nPageins:                                  1515275746.\nPageouts:                                   12244814.\nSwapins:                                     9858216.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 5404442624,
+      "inactive_bytes": 22914793472,
+      "free_plus_inactive_bytes": 28319236096
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 5401886720,
+      "inactive_bytes": 22914809856,
+      "free_plus_inactive_bytes": 28316696576
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 2028.25M  free = 1043.75M  (encrypted)\n",
+    "cpu_idle_percent": 94.41,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "side_provenance": {
+    "before": {
+      "head": "ffcf13e80a769c90cc86dd9b7d0ef9688fe93af4",
+      "source": "/tmp/ux-567-proof/tickets/before-build-r1/source",
+      "DD": "/tmp/ux-567-proof/tickets/before-build-r1/DD",
+      "build_receipt": "/tmp/ux-567-proof/before-build-r2-receipt.json",
+      "artifact_sha256": {
+        "/tmp/ux-567-proof/tickets/before-build-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "e960de2a87e11b6d8f72e7411d0a4c0a1949155ddac90814b61112a3b9f88dbb",
+        "/tmp/ux-567-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "5c365de07fd9210ef128bf5d4b04a4b3b86c55871f1c3ee06b59d3bc16c09609",
+        "/tmp/ux-567-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "ce0d7570e9fd0aacca9a442f520e06998e1ca825efd9336697fb312b845a4c47",
+        "/tmp/ux-567-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+        "/tmp/ux-567-proof/tickets/before-build-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "1c8536519916b10094a598b272f9824d5dd1781e887deb08babd0bacbeb225eb"
+      },
+      "overlay": {
+        "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+        "file_sha256": "4b1c05431ca1cc18d1062888f2b450b519581207e910c741e9ae65fc627510d0",
+        "base_file_sha256": "d206ebe597fdb09f0881d26078229be46a13de66804d7548259dd09b3f417a35",
+        "patch_sha256": "55c5710647e95848835af147bee803501681d8f4601198fb59d64db9b410bf60",
+        "additive_inverse_verified": true,
+        "step_fixture_inverse_verified": true
+      },
+      "instrumentation_proof": {
+        "Annex/Annex/Companion/Views/CompanionRootView.swift": {
+          "before_sha256": "8b2436b8b779e8cea6b00614bf9f734298892c99849c6ee12bc7c4c72ac6ea73",
+          "after_sha256": "2dd2985e32353cc033fe48ac3822f311245f91bcd29fbbc4a617f3958ac75ee2"
+        }
+      },
+      "source_overlay_fingerprints": {
+        "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "4b1c05431ca1cc18d1062888f2b450b519581207e910c741e9ae65fc627510d0",
+        "Annex/Annex/Companion/Views/CompanionRootView.swift": "2dd2985e32353cc033fe48ac3822f311245f91bcd29fbbc4a617f3958ac75ee2"
+      }
+    },
+    "after": {
+      "head": "10da2bec918aa21f8b7f3a710c1429f0f8c8d57b",
+      "source": "/tmp/ux-567-proof/tickets/after-build-r3/source",
+      "DD": "/tmp/ux-567-proof/tickets/after-build-r3/DD",
+      "build_receipt": "/tmp/ux-567-proof/after-build-r3-receipt.json",
+      "artifact_sha256": {
+        "/tmp/ux-567-proof/tickets/after-build-r3/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "ca28bd26cc2708bbdee0f9fce508f22742cdbbebf50ff3e608fd771d4f1cd585",
+        "/tmp/ux-567-proof/tickets/after-build-r3/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "e296ecf309f90b031611fc39f6d90702f7d1f7aee6ff78b51549f86d8a12c75c",
+        "/tmp/ux-567-proof/tickets/after-build-r3/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "8d6c4ebca180dbe2df03f41bbaf55598321114e5b283e63abb2d0e2aac9b7890",
+        "/tmp/ux-567-proof/tickets/after-build-r3/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+        "/tmp/ux-567-proof/tickets/after-build-r3/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "55c33055d3fa9f937629a7435b83bf6bd320ce10d7b16d0f4be0981d31b33510"
+      },
+      "overlay": {
+        "method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+        "file_sha256": "d14021393a89052dd3fec8eeee848d184469f28895f85faed0087f99fb83e64f",
+        "base_file_sha256": "dcd76c13ff875d84004fc0e06b49c3394a51eafae1b971ac4f699fb8dd64523f",
+        "patch_sha256": "c3cae94a0b42b3ade33b95ee7e0373bcdf6a47d9961e755a39eab4858fa35384",
+        "additive_inverse_verified": true
+      },
+      "instrumentation_proof": {
+        "Annex/Annex/Companion/Views/CompanionHomeScrollAnchor.swift": {
+          "before_sha256": "5c855bf74b820268f682643a3b89539fdd81dd85b9ad5b4dd6368d6303584bb4",
+          "after_sha256": "332fdbeb053506931ca55a38f46c8ce7431536f544496bf6d67c78c118a9ce7d"
+        },
+        "Annex/Annex/Companion/Views/CompanionHomeBuildProbe.swift": {
+          "before_sha256": "1cbe9814e731d0bd1aea2222c36c421e7d6f701fefbeca7ae88b5ab4b5f787b0",
+          "after_sha256": "6323646501ca4ef111cdef1be62679ec8ceb4f9f3a5b2ba7c54c6e2869b5da24"
+        },
+        "Annex/Annex/Companion/Views/CompanionRootView.swift": {
+          "before_sha256": "24deceabc5de0bc5b01e9bce8db6836573ceddce2ef843582e52fc618814cc36",
+          "after_sha256": "6cbe05c39cd63130a3fadc0967f01ea0845c844b88df3066fda9e9c320617fa2"
+        }
+      },
+      "source_overlay_fingerprints": {
+        "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "d14021393a89052dd3fec8eeee848d184469f28895f85faed0087f99fb83e64f",
+        "Annex/Annex/Companion/Views/CompanionHomeScrollAnchor.swift": "332fdbeb053506931ca55a38f46c8ce7431536f544496bf6d67c78c118a9ce7d",
+        "Annex/Annex/Companion/Views/CompanionHomeBuildProbe.swift": "6323646501ca4ef111cdef1be62679ec8ceb4f9f3a5b2ba7c54c6e2869b5da24",
+        "Annex/Annex/Companion/Views/CompanionRootView.swift": "6cbe05c39cd63130a3fadc0967f01ea0845c844b88df3066fda9e9c320617fa2"
+      }
+    }
+  },
+  "uncredited": true,
+  "simulator_uuid": "695314C8-C88A-4C63-BC9B-5A761943E342",
+  "postboot_resources_record_only": "Processes: 1002 total, 31 running, 971 sleeping, 7327 threads \n2026/11/17 20:45:36\nLoad Avg: 19.43, 7.05, 6.64 \nCPU usage: 44.30% user, 32.77% sys, 22.91% idle \nSharedLibs: 1064M resident, 189M data, 172M linkedit.\nMemRegions: 1263638 total, 15G resident, 1833M private, 4726M shared.\nPhysMem: 62G used (9204M wired, 6285M compressor), 1411M unused.\nVM: 503T vsize, 6144M framework vsize, 9858216(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1344656361/1566G in, 555798779/415G out.\nDisks: 2146866415/26T read, 2938140995/34T written.\n\n\n",
+  "runs": [
+    {
+      "side": "before",
+      "head": "ffcf13e80a769c90cc86dd9b7d0ef9688fe93af4",
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+      ],
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-567-proof/tickets/anchor-diagnostic-r3/before/tests.xcresult",
+      "test_rc": 0,
+      "strict_rc": 0,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    },
+    {
+      "side": "after",
+      "head": "10da2bec918aa21f8b7f3a710c1429f0f8c8d57b",
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testZZDiagnosticNativeListStandardAnchors"
+      ],
+      "uninstall_rc": 0,
+      "result_bundle": "/tmp/ux-567-proof/tickets/anchor-diagnostic-r3/after/tests.xcresult",
+      "test_rc": 65,
+      "strict_rc": 1,
+      "summary_rc": 0,
+      "tests_rc": 0,
+      "attachments_rc": 0,
+      "exact_count_ok": true
+    }
+  ],
+  "rc": 1,
+  "admitted_at": "2026-11-18T04:45:19.101761+00:00",
+  "closed_at": "2026-11-18T04:46:16.454058+00:00",
+  "duration_seconds": 57.351735792,
+  "hard_bound_seconds": 480,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 4,
+    "growth_bytes": 0,
+    "start_bytes": 2126774272.0,
+    "max_bytes": 2126774272.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-567-proof/anchor-diagnostic-r3-receipt.json",
+  "simulator_final_state": "Shutdown",
+  "booted_after": []
+}

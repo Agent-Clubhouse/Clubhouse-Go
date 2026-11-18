@@ -1,0 +1,62 @@
+{
+  "head": "10da2bec918aa21f8b7f3a710c1429f0f8c8d57b",
+  "base": "ffcf13e8",
+  "source": "/tmp/ux-567-home-scroll",
+  "r2_method_sha256": "a0c944a66cf661c7af377a62f5657b106a3f36a76ec5aafc46552a83771ed9e9",
+  "step_method_sha256": "ef57d69a7a7b80d591341bdb0770d607f645b1252ce7fdac8cff68a37fd1192f",
+  "instrumentation_sha256": "0d7f2e93378c81284d6742f387989d46bbf920a589b8e2bb55ed096e63968e94",
+  "anchor_method_sha256": "15183912a37241c4340c60f458aaaeae53991010b37aa3c483a21c8dc653db42",
+  "simulator": {
+    "name": "ux-567-scroll-private",
+    "device": "iPhone 17 Pro Max",
+    "runtime": "iOS 26.0"
+  },
+  "phases": {
+    "A-after": {
+      "bound": 720,
+      "diagnostic_overlay": true
+    },
+    "anchor-diagnostic": {
+      "bound": 480,
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork",
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testZZDiagnosticNativeListStandardAnchors"
+      ],
+      "main_selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+      ]
+    },
+    "A-before": {
+      "bound": 720,
+      "diagnostic_overlay": true
+    },
+    "I-before": {
+      "bound": 600,
+      "diagnostic_overlay": true,
+      "incremental_from": "before-build-r1"
+    },
+    "I-after": {
+      "bound": 600,
+      "diagnostic_overlay": true,
+      "incremental_from": "after-build-r1"
+    }
+  },
+  "step_comparison": {
+    "steps_each_side": 16,
+    "identical_method": true,
+    "decisive_sites": [
+      "owner",
+      "contentInputs",
+      "content",
+      "layout",
+      "header"
+    ],
+    "row_and_rowMenu": "informational lazy realisation on both trees",
+    "no_native_gesture_claim": true,
+    "warmup": "One200pt pre-baseline scroll to collapse native large title; every16 measured raw offset\u00b11pt assertion unchanged",
+    "title_inset_invariant": "Top inset before first measured step equals final inset, exact"
+  },
+  "native_probe_method_sha256": "15082d6652734090b12b07ab8ce8ee0725f6c3172dc1bfbaea126ab4f47744f9",
+  "characterization": "Initial fractional identity plus ONE adjusted-anchor correction; separate last ZZ method probes same saved row top/bottom after original strict checks; original29line method byte-intact. Existingmainr2stepoverlaybuild reused with verifiedsource/artifact fingerprints. HeadfreshDD."
+}

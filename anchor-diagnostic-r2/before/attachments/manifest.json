@@ -1,0 +1,26 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "F056AEB7-33A1-4A11-A8FA-908B4CEDC720.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home after measured step-scroll diagnostic_0_C2D421B5-F088-4FBD-94D6-8E66DE662FF7.png",
+        "timestamp" : 1794976209.258
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "9C75CBA2-ECB1-4875-94AD-2EF96F4E9013.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home step-scroll redraw measurement JSON_0_B450F6B0-D8D4-49F6-8B76-59464527F881.json",
+        "timestamp" : 1794976209.202
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+  }
+]

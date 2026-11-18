@@ -1,0 +1,45 @@
+{
+  "samples" : [
+    {
+      "actualOffset" : 981,
+      "adjustedInsets" : "UIEdgeInsets(top: 116.0, left: 0.0, bottom: 83.0, right: 0.0)",
+      "error" : 15,
+      "expectedY" : 116,
+      "id" : "agent(ClubhouseGo.CompanionTarget(hostID: \"synthetic-host-0\", projectID: \"project-0\", agentID: \"agent-8\"))",
+      "mode" : "top",
+      "row" : {
+        "height" : 61.666666666666657,
+        "width" : 329,
+        "x" : 32,
+        "y" : 131
+      },
+      "viewport" : {
+        "height" : 653,
+        "width" : 393,
+        "x" : 0,
+        "y" : 116
+      }
+    },
+    {
+      "actualOffset" : 499,
+      "adjustedInsets" : "UIEdgeInsets(top: 116.0, left: 0.0, bottom: 83.0, right: 0.0)",
+      "error" : -15.000000000000114,
+      "expectedY" : 707.33333333333337,
+      "id" : "agent(ClubhouseGo.CompanionTarget(hostID: \"synthetic-host-0\", projectID: \"project-0\", agentID: \"agent-8\"))",
+      "mode" : "bottom",
+      "row" : {
+        "height" : 61.666666666666629,
+        "width" : 329,
+        "x" : 32,
+        "y" : 692.33333333333326
+      },
+      "viewport" : {
+        "height" : 653,
+        "width" : 393,
+        "x" : 0,
+        "y" : 116
+      }
+    }
+  ],
+  "uncredited" : true
+}

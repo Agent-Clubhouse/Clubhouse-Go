@@ -1,0 +1,29 @@
+--- /tmp/ux-567-proof/scroll-step-method-r1.swift	2026-11-17 20:10:56
++++ /tmp/ux-567-proof/scroll-step-method.swift	2026-11-17 20:12:27
+@@ -11,9 +11,16 @@
+         XCTAssertGreaterThan(list.contentSize.height, list.bounds.height * 2)
+         XCTAssertGreaterThan(fixture.counts[.layout, default: 0], 0)
+         try await fixture.waitForVisibleWorkToSettle()
++        // Warm the native large-title collapse before measuring; main adjusts the first
++        // raw offset by 52pt as its top inset changes. Every measured offset stays exact.
++        list.setContentOffset(CGPoint(x: 0, y: 200), animated: false)
++        try await fixture.waitForVisibleWorkToSettle()
++        let warmup: [String: Any] = ["requestedOffset": 200, "actualOffset": list.contentOffset.y,
++            "adjustedInsets": String(describing: list.adjustedContentInset)]
+         @MainActor func counts() -> [String: Int] {
+             Dictionary(fixture.counts.map { (String(describing: $0.key), $0.value) }, uniquingKeysWith: { _, last in last })
+         }
++        let measuredTopInset = list.adjustedContentInset.top
+         let offsets = (0..<8).map { CGFloat(300 + $0 * 160) }
+         var samples: [[String: Any]] = []
+         for (step, offset) in (offsets + Array(offsets.reversed())).enumerated() {
+@@ -30,7 +37,8 @@
+                 "listBounds": String(describing: list.bounds),
+                 "adjustedInsets": String(describing: list.adjustedContentInset)])
+         }
+-        let report: [String: Any] = ["uncredited": true, "samples": samples,
++        XCTAssertEqual(list.adjustedContentInset.top, measuredTopInset, "Native title bar must remain collapsed throughout the measured steps")
++        let report: [String: Any] = ["uncredited": true, "warmup": warmup, "samples": samples,
+             "notes": "Real hosted List programmatic offsets, not finger gestures. Lazy row realisation is distinguished from owner/content/layout/header reconstruction. No Store traffic, counter allowance or new body-time State reads."]
+         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+         let attachment = XCTAttachment(data: data, uniformTypeIdentifier: "public.json")

@@ -1,0 +1,59 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-567-proof/tickets/before-build-r1/DD -destination "platform=iOS Simulator,id=695314C8-C88A-4C63-BC9B-5A761943E342" -resultBundlePath /tmp/ux-567-proof/tickets/anchor-diagnostic-r3/before/tests.xcresult "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  ClubhouseTransport: /tmp/ux-567-proof/tickets/before-build-r1/source @ local
+  Framebriar: /tmp/ux-567-proof/tickets/before-build-r1/source/Vendor/Framebriar @ local
+
+Writing result bundle at path:
+	/tmp/ux-567-proof/tickets/anchor-diagnostic-r3/before/tests.xcresult
+
+Test Suite 'Selected tests' started at 2026-11-17 20:45:44.885.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-17 20:45:44.885.
+Test Suite 'CompanionHomeVisibilityTests' started at 2026-11-17 20:45:44.885.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testDiagnosticHomeScrollStepsReportExpensiveWork]' started.
+CompanionHomeView: @self, @identity, _arranging, _desktopSelection, _expandedOfflineHosts, _observedConnectedAt, _infoProject, _choosingProjectAction, _pendingProjectChoice, _wakingProject, _pendingProjectWake, _finishedActionError, _hold, _heldScope, _heldSort, _holdGeneration, _renderSession, _arrangingEntries, _palette, _reduceMotion, _dynamicTypeSize, _terminal, _agentSettings, _agentWake, _openAgent, _openReview, _scenePhase changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: @self, _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: _hold changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: \CompanionStore.projectCatalogRevision, _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: @self, _terminal, _agentSettings, _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+CompanionHomeView: _openAgent, _openReview changed.
+CompanionHomeContent: @self changed.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testDiagnosticHomeScrollStepsReportExpensiveWork]' passed (4.261 seconds).
+Test Suite 'CompanionHomeVisibilityTests' passed at 2026-11-17 20:45:49.146.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.261 (4.261) seconds
+Test Suite 'ClubhouseGoTests.xctest' passed at 2026-11-17 20:45:49.147.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.261 (4.262) seconds
+Test Suite 'Selected tests' passed at 2026-11-17 20:45:49.147.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.261 (4.262) seconds
+2026-11-17 20:45:49.449 xcodebuild[37224:454297708] [MT] IDETestOperationsObserverDebug: 8.958 elapsed -- Testing started completed.
+2026-11-17 20:45:49.449 xcodebuild[37224:454297708] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-17 20:45:49.449 xcodebuild[37224:454297708] [MT] IDETestOperationsObserverDebug: 8.958 sec, +8.958 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-567-proof/tickets/anchor-diagnostic-r3/before/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -1,0 +1,41 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "EC64B1EC-5B0C-4624-82B9-F4060C21DEB1.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home after measured step-scroll diagnostic_0_A04D5075-7295-4685-A5B6-BBEC99EA4A53.png",
+        "timestamp" : 1794976218.174
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "5D00DFD3-A6A5-4C13-8F7A-047614D6A5D2.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home step-scroll redraw measurement JSON_0_9B18D258-62B8-406A-8DFB-8319575E2A55.json",
+        "timestamp" : 1794976218.116
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "2622E12B-6F5C-401A-877B-8D2872CDBA0B.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home restores an explicit row anchor_0_CB269233-C89E-4344-8937-E0DE6F5ECEC2.png",
+        "timestamp" : 1794976223.71
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope"
+  }
+]

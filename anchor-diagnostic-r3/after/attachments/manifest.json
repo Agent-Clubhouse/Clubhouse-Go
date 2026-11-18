@@ -1,0 +1,74 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "0512517D-CF8D-49D6-812B-8E0C6F209CC3.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home after measured step-scroll diagnostic_0_7DEA0FB0-83E4-4BD9-938D-D7D4187FE503.png",
+        "timestamp" : 1794977157.661
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "F5FDB854-EBD5-4134-B226-32F2D6B2AA87.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home step-scroll redraw measurement JSON_0_97C58AC6-9DBD-4D52-80A2-9811C71FB734.json",
+        "timestamp" : 1794977157.591
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "6EB8FF73-63DB-4435-A7D8-4F0AEE86B59D.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home restores an explicit row anchor_0_DC749C69-0689-44D6-85F4-4A704940248D.png",
+        "timestamp" : 1794977162.638
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "C05D2216-F3A1-4F24-A89E-A60621B8D401.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home native standard-anchor characterisation JSON_0_98874CBC-C673-4780-A83D-EAAA9C6C4FCF.json",
+        "timestamp" : 1794977164.541
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "A47F512E-DF5C-42FE-9ACA-F53C0AD3FAA9.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native List diagnostic bottom anchor_0_AFF2D2A9-90B6-4C14-8604-DFF4B66A318B.png",
+        "timestamp" : 1794977164.54
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "695314C8-C88A-4C63-BC9B-5A761943E342",
+        "deviceName" : "ux-567-scroll-private",
+        "exportedFileName" : "2D2D0214-E093-4B21-84A3-A4114F3CE1BC.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Native List diagnostic top anchor_0_57861ED6-9487-4489-BD3C-C56683FF19F2.png",
+        "timestamp" : 1794977164.163
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testZZDiagnosticNativeListStandardAnchors()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testZZDiagnosticNativeListStandardAnchors"
+  }
+]
