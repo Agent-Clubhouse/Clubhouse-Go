@@ -438,6 +438,36 @@ import ClubhouseTransport
         fixture.capture("Visible Home decisions remain fresh after isolated stream updates")
     }
 
+    func testRealListScrollAnchorRestoresAfterDispatchWithoutResettingScope() async throws {
+        let fixture = try Fixture()
+        defer { fixture.close() }
+        try await fixture.mount()
+        let anchor = try XCTUnwrap(fixture.anchor)
+        let list = try XCTUnwrap(fixture.list(in: fixture.window))
+        XCTAssertGreaterThan(list.contentSize.height, list.bounds.height * 2)
+        list.setContentOffset(CGPoint(x: 0, y: 900), animated: false)
+        try await fixture.wait { anchor.bookmark?.id != nil && anchor.bookmark?.id != .summary && anchor.bookmark?.id != .desktops }
+        let saved = try XCTUnwrap(anchor.bookmark)
+        let frame = try XCTUnwrap(anchor.testFrames[saved.id])
+        XCTAssertTrue(frame.intersects(anchor.testViewport), "The saved anchor is a real visible List row")
+        fixture.select(.dispatcher)
+        try await fixture.wait { fixture.store.selection == fixture.dispatcher }
+        fixture.select(.home)
+        try await fixture.wait { !anchor.testRestoring && anchor.testFrames[saved.id]?.intersects(anchor.testViewport) == true }
+        XCTAssertEqual(fixture.issuedAnchors.last, saved.id, "Restore must target the saved row")
+        fixture.assertAlignment(saved)
+        fixture.push(.agent(fixture.hosts[2].projects[0].agents[1].id))
+        try await fixture.wait { fixture.isFrozen }
+        fixture.assertPushCost()
+        fixture.pop()
+        try await fixture.wait { !fixture.isFrozen && !anchor.testRestoring && anchor.testFrames[saved.id]?.intersects(anchor.testViewport) == true }
+        XCTAssertEqual(fixture.issuedAnchors.last, saved.id, "Restore must target the saved row")
+        fixture.assertAlignment(saved)
+        XCTAssertTrue(fixture.anchor === anchor, "The Home state owner survives the hidden subtree")
+        XCTAssertGreaterThan(try XCTUnwrap(fixture.list(in: fixture.window)).contentOffset.y, 0, "Return cannot silently reset to the top")
+        fixture.capture("Home restores an explicit row anchor")
+    }
+
     @MainActor private final class Fixture {
         let service: HomeVisibilityService
         let store: CompanionStore
@@ -450,7 +480,9 @@ import ClubhouseTransport
         var hosts = CompanionLargeCatalogFixture.hosts(hostCount: 4, projectsPerHost: 24, agentsPerProject: 12)
         var navigation: Binding<CompanionNavigation>?
         var scope: Binding<CompanionDesktopSelection>?
+        var anchor: CompanionHomeScrollAnchorState?
         var renderedSort: CompanionProjectSort?
+        var issuedAnchors: [CompanionHomeAnchor] = []
         var projection: CompanionHomeLayout?
         var counts: [CompanionHomeBuildProbe.Kind: Int] = [:]
         var chatBodies = 0
@@ -491,6 +523,7 @@ import ClubhouseTransport
         func mount() async throws {
             await store.load(dispatcher)
             CompanionHomeBuildProbe.renderedSort = { [weak self] in self?.renderedSort = $0 }
+            CompanionHomeBuildProbe.scrollToIssued = { [weak self] in self?.issuedAnchors.append($0) }
             CompanionHomeBuildProbe.phase = { [weak self] in self?.observedPhase = $0 }
             CompanionHomeBuildProbe.snapshotAgents = { [weak self] in self?.snapshotAgentCounts.append($0) }
             CompanionHomeBuildProbe.visibility = { [weak self] in self?.homeVisible = $0 }
@@ -505,7 +538,7 @@ import ClubhouseTransport
             CompanionHomeBuildProbe.frozenActions = { [weak self] settings, wake, terminal in
                 self?.frozenSettings = settings; self?.frozenWake = wake; self?.frozenTerminal = terminal
             }
-            CompanionHomeBuildProbe.state = { [weak self] in self?.scope = $0 }
+            CompanionHomeBuildProbe.state = { [weak self] anchor, scope in self?.anchor = anchor; self?.scope = scope }
             CompanionConversationBuildProbe.record = { [weak self] kind, target in
                 guard case .body = kind, target == (self?.streamTarget ?? self?.dispatcher) else { return }
                 self?.chatBodies += 1
@@ -519,7 +552,7 @@ import ClubhouseTransport
                     .companionTheme(.clubhouse))
             }
             window.makeKeyAndVisible()
-            try await wait { self.navigation != nil && self.scope != nil && self.phase != nil && self.counts[.header, default: 0] > 0 && self.counts[.quiet, default: 0] > 0 }
+            try await wait { self.navigation != nil && self.anchor != nil && self.phase != nil && self.counts[.header, default: 0] > 0 && self.counts[.quiet, default: 0] > 0 }
             try await turn()
         }
 
@@ -598,6 +631,12 @@ import ClubhouseTransport
             var next = navigation.wrappedValue
             next.setPath([], for: .home, hosts: store.hosts)
             navigation.wrappedValue = next
+        }
+
+        func assertAlignment(_ saved: CompanionHomeScrollAnchorState.Bookmark, file: StaticString = #filePath, line: UInt = #line) {
+            guard let anchor, let row = anchor.testFrames[saved.id] else { XCTFail("Saved row must exist", file: file, line: line); return }
+            let expected = anchor.testViewport.minY + saved.alignment.y * (anchor.testViewport.height - row.height)
+            XCTAssertEqual(row.minY, expected, accuracy: 8, "Public scrollTo must restore the saved row alignment within 8pt", file: file, line: line)
         }
 
         func select(_ tab: CompanionTab) {
@@ -683,7 +722,7 @@ import ClubhouseTransport
         }
 
         func close() {
-            CompanionHomeBuildProbe.renderedSort = nil
+            CompanionHomeBuildProbe.renderedSort = nil; CompanionHomeBuildProbe.scrollToIssued = nil
             CompanionHomeBuildProbe.phase = nil; CompanionHomeBuildProbe.snapshotAgents = nil; phase = nil
             CompanionHomeBuildProbe.visibility = nil
             CompanionHomeBuildProbe.record = nil; CompanionHomeBuildProbe.projection = nil
@@ -692,7 +731,7 @@ import ClubhouseTransport
             frozenSettings = nil; frozenWake = nil; frozenTerminal = nil
             CompanionHomeBuildProbe.navigation = nil; CompanionHomeBuildProbe.state = nil
             CompanionConversationBuildProbe.record = nil
-            navigation = nil; scope = nil; projection = nil
+            navigation = nil; scope = nil; anchor = nil; projection = nil
             window.isHidden = true; window.rootViewController = nil; previous?.makeKey()
             store.shutdown(); defaults.removePersistentDomain(forName: suite)
         }

@@ -66,3 +66,49 @@ LargeCatalog's test is unchanged. Its explicit DEBUG observer constructs the sam
 linked-state menu value factory inside real Home, once per header when the hook is set,
 without history/Wake/Terminal work. This covers menu VALUE/authority behavior, not native
 popup presentation. #564 remains an unimplemented popup-coverage gap; normal hooks are nil.
+
+
+#567 / Draft #568 — unvalidated scroll restoration
+
+Rebased onto main `ffcf13e8`, which includes #551/#558/#570. The installed/merged
+behavior still starts at the top on tab return. This Draft restores the preserved
+public ScrollGeometry experiment; no restoration PASS is claimed.
+
+Source diagnosis A is fixed provisionally: resume enables capture but returns
+immediately when there is no valid bookmark. A fresh List already starts at the top;
+it must not schedule the old delayed summary scroll that can undo a user's scroll.
+If a saved target disappears during a pushed route, the retained List stays at its
+current position rather than scheduling a jump to summary; a fresh remount starts
+at its normal top.
+The original 29-line anchor method remains byte-intact, including its 8pt tolerance,
+real-row containment, same-owner/scope and no-silent-top-reset checks. All eight main
+HomeVisibility method bodies are also unchanged. Its shared fixture waits for the
+anchor probe instead of only the scope binding; this setup change is disclosed.
+
+With a saved bookmark, full Home-specific ForEach data identities allow lazy row
+realisation. One public scroll geometry source and row frames in `.scrollView` space
+feed the viewport. After stable geometry, identity scrolling realises the row; one
+measured identity-anchor correction finishes or cancels within a bounded generation-checked
+handshake. Point-based ScrollPosition and its binding are removed: the diagnostic
+proved that writes changed Home State without moving the native List. Departure and user interaction cancel it. No UIKit introspection or fixed
+pixel compensation ships. The anchor owns only value state; bookkeeping is not
+observable and does not notify Home for every scrolling pixel.
+
+Historical evidence: the old generic-frame implementation double-subtracted safe
+areas and returned 160pt/202pt away while bars changed. The public two-phase version
+then failed before restoration because the delayed nil-bookmark scroll prevented a
+non-summary capture. The nil fix addresses that starting defect only; pixel accuracy
+and correctness across different saved/restored bar states remain unproven. A bounded
+logging-only anchor diagnostic comes before the clean strict/live/broad proof. The
+original test is the contract, with no retry or tolerance change. The live measurement
+must remain at or below current main's per-batch cost, twice per side.
+
+The paired uncredited 16-step diagnostic records zero owner/content-input/content/
+layout/header work on both main and this branch during programmatic scrolling;
+native finger-gesture behavior remains unproven. Fractional identity requests landed
+exactly at the visible row centre, 251.667pt/293.333pt from the saved y160. The final
+characterization tries one adjusted fractional identity request and DEBUG-only standard
+`.top`/`.bottom` probes. If `.top` is precise, the approved follow-on contract is to
+restore the first fully visible saved row at the viewport top (within 8pt, containment,
+no reset to the first project, and removed-row fallback), with an explicitly reviewed
+test change. If `.top` also misses, #567 is parked. No further tuning loop is authorized.
