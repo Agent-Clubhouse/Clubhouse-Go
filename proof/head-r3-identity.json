@@ -1,0 +1,21 @@
+{
+  "prior_head": "e1c6fcf1c2c87f3e757542d047bb84c7eca5505c",
+  "head": "882f2d1b9308efc97173a82240dc45580cd0a1d6",
+  "full_diff_sha256": "35d392cf95389b8ecb8c82ed16951c8eec2c9563503905a713eacc70e2d10328",
+  "manifest_sha256": "b888faea8b988d1f70f80c86e1f8765bfbc0dad28adfb1d046bb93323d84ec7f",
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "package_all_input_tree_sha256": "1d5b54c41130a8961a8d6c66b925a98d02e2991e164b600a07116374fbcbef0e",
+  "package_inputs_byte_identical": true,
+  "package_paths": [
+    "Package.swift",
+    "Package.resolved",
+    "Annex/Annex/Transport",
+    "Annex/Annex/Companion/Domain",
+    "Annex/Annex/Companion/Adapters",
+    "Tests"
+  ],
+  "T0_unchanged_prefix_through_first_assert_sha256": "608b545d173af6f391d279ec56889ff3069947b13adc7945d8521999ac948c89",
+  "T0_body_not_claimed_identical": true,
+  "prior_native": "5P3Fonce/6preview3Apply0replay0Start; noSE/D; original STOP immutable",
+  "review_before_build": true
+}

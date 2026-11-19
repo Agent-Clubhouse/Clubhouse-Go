@@ -1,0 +1,174 @@
+{
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "private_simulator": {
+    "name": "ux-610-provider-apply"
+  },
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {},
+  "head": "882f2d1b9308efc97173a82240dc45580cd0a1d6",
+  "source": "/Users/masonallen/source/Clubhouse-Annex/.clubhouse/agents/ux-root",
+  "source_sha256": {
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "2eebd11929aa1eed300d7a8b2db6470da4bd3d9a5ab0bf04837ac75443ca5449",
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "c46e0ea1995b34818a78f7ca93b69c87a71ae8c118213b09b33f1d6302451cef",
+    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": "0dc21c9e0534ab83aeb4976e3229ed6c396785e03b19ffe2e19c8cecf5e02cd6",
+    "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift": "0580e14b3796219b52d1cafbe5e5daee5783b9639d6a5ba3f52916df7f607e2a",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "6d1b80c3119f2824862fdb58ac2ce8fb4e64befd528989d0686fb99b8e9928e9",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "f08c43fc9db298410e6051dc2d477b382551e1547b2566072d61cab907edf4a4",
+    "scripts/isolated-deinit-policy.json": "acf67b2b194b57d4c92fb4f19798e066871d7df3b03d83ea8be325318bc12a6a",
+    "docs/isolated-deinit.md": "8ea3af82c9004d902d0ef970094b8cbc860c92e6022538707ee21a27562a8ca1"
+  },
+  "full_diff_sha256": "35d392cf95389b8ecb8c82ed16951c8eec2c9563503905a713eacc70e2d10328",
+  "phases": {
+    "A": {
+      "kind": "build",
+      "bound": 900
+    },
+    "P1": {
+      "kind": "package",
+      "bound": 900,
+      "filter": "CompanionProviderFlowTests|CompanionProviderBoundaryTests|ProviderControlTests|CompanionSettingsContractLiveTests|AnnexContractDispatcherMCPOffTests",
+      "method_names": [
+        "openingAndSelectingNeverSaveOrStartAndStartNewIsSeparate",
+        "staleAndUnknownRefusalsClearPreviewWithoutStarting",
+        "lostSaveRetainsLockAcrossReopeningAndReplaysSameCommand",
+        "unknownWriteNeverReplaysAcrossRestartOrExpiredWindow",
+        "lostStartReplaysOnlyItsOriginalExplicitStart",
+        "strictStopRequestedAloneStaysPendingAndReplaysForAcknowledgment",
+        "strictSleepWaitsForAcknowledgmentEvenWhenCatalogIsAlreadySleeping",
+        "unsupportedDesktopCannotSendGuidedCommands",
+        "lastReportedSavedProviderSurvivesAProposalAndFailedReadWithoutClaimingApply",
+        "matchingApplyReceiptNeedsAFreshMatchingReadBeforeStart",
+        "wrongTargetOrProposalCannotPopulateLastReportedSavedProvider",
+        "strictWakeRefusalNeverFallsBackToAnUncheckedStart",
+        "applyResetReceiptIsRetainedAcrossFreshPreviewAndClearedForAnotherProposal",
+        "genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport",
+        "sameProviderNoOpIsStrippedWhileUnrelatedSettingKeepsItsAuthority",
+        "canonicalPreviewAndChangeResultsDecodeWithTheirDistinctTokenShapes",
+        "canonicalStoppedAcknowledgmentRequiresTheOptInReceipt",
+        "legacyStartAndStopOmitAllNewFields",
+        "previewSaveAndStartAreSeparateEnvelopes",
+        "strictResumeNeedsBothProviderAndNativePointer",
+        "preconditionIsOpaqueAndChangedResultDoesNotRequireIt",
+        "anyBlockedCodePreventsSave",
+        "unknownScopeOrContradictoryReadinessDoesNotGrantSave",
+        "stopRequestedAloneDoesNotConfirmExitOrCapture",
+        "capabilityRequiresExactVersionPromisesAndCommands",
+        "desktopResultWinsWhenAHelperCannotConnect",
+        "snapshotAfterSessionResetRemovesResumeWithoutNewStateCode",
+        "staleReportOnlySettingsShowTheServersRefusal",
+        "reportOnlyRefusesEnableWithoutSavingAndAcceptsClearing",
+        "createAndUpdateShowTheMcpOffSentence",
+        "legacyFixturesMatchTheirPinnedBytes",
+        "advertisedProviderControlCannotBypassMCPOffDispatcherRestrictions",
+        "recordedStatesAgreeAcrossAllSurfacesAndRoutesDecode",
+        "knownNonMCPReasonsStillRemoveTheAgent",
+        "aColdOffReportCarriesItsOwnAgentRecord",
+        "offChangeReadsAgentAndKeepsTheCachedTranscriptWithLegacyNullID",
+        "eachMetadataPathRetainsOpenChatNavigationAndApproval",
+        "sleepRequestWaitsForStoppedMetadataAndNeverEnablesDispatcherSettings",
+        "stoppedUnderMCPOffKeepsHistoryAndReturningMCPDoesNotStartIt",
+        "runningMCPReturnRestoresCapabilitiesWithoutLosingChat",
+        "unknownReasonsAndOldDesktopsStillDropDisabledRecords",
+        "userSwitchOffWinsAfterMCPOff",
+        "reconnectRetainsRunningOrStoppedMCPOff",
+        "eachCommandRequiresItsOffAllowlistEntry",
+        "allowlistedSendNeverFallsBackToStartingAStoppedSession",
+        "anOffAllowlistCannotGrantAMissingSessionCapability",
+        "aRetainedRecordWithoutFlagsCannotTurnItselfOn",
+        "aSessionEndingDuringSendRestoresDraftAndShowsTheDesktopMessage",
+        "anEndedSessionKeepsAnUnsubmittedDraftAndCannotWakeFromSend",
+        "uncertainDeliveryDoesNotRestoreADraftForAccidentalResending",
+        "anAllowedPermissionStillShowsItsOwnDesktopValidationError",
+        "onlyUserSwitchedOffWithMCPOnOffersEnableAndKeepsLegacyReceiptShape",
+        "enableRefusalCodesKeepTheirDistinctDesktopMessages",
+        "otherOffReasonsDoNotKeepHistoryRoutes",
+        "desktopMCPOffRefusalIsShownThroughTheMessagePath"
+      ],
+      "parameter_cases": {
+        "openingAndSelectingNeverSaveOrStartAndStartNewIsSeparate": 2,
+        "unknownWriteNeverReplaysAcrossRestartOrExpiredWindow": 2,
+        "matchingApplyReceiptNeedsAFreshMatchingReadBeforeStart": 2,
+        "wrongTargetOrProposalCannotPopulateLastReportedSavedProvider": 2,
+        "genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport": 2,
+        "anyBlockedCodePreventsSave": 3,
+        "knownNonMCPReasonsStillRemoveTheAgent": 3,
+        "aColdOffReportCarriesItsOwnAgentRecord": 3,
+        "eachMetadataPathRetainsOpenChatNavigationAndApproval": 3,
+        "stoppedUnderMCPOffKeepsHistoryAndReturningMCPDoesNotStartIt": 3,
+        "unknownReasonsAndOldDesktopsStillDropDisabledRecords": 2,
+        "reconnectRetainsRunningOrStoppedMCPOff": 2,
+        "eachCommandRequiresItsOffAllowlistEntry": 12,
+        "otherOffReasonsDoNotKeepHistoryRoutes": 2
+      },
+      "method_count": 55,
+      "argument_execution_count": 84
+    },
+    "TPHONE": {
+      "kind": "UI",
+      "bound": 1800,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderFlowAtLargeText",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyAtAccessibilitySizeKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyCannotSilentlyReplaceAnExplicitRuntime",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu"
+      ],
+      "count": 8,
+      "fixture_counts": {
+        "preview": 7,
+        "change": 3,
+        "replay": 1,
+        "start": 3
+      },
+      "postboot_stabilization_seconds": 20
+    },
+    "TSE": {
+      "kind": "UI",
+      "bound": 1800,
+      "device": "iPhone-SE-3rd-generation",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderFlowAtLargeText",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyAtAccessibilitySizeKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyCannotSilentlyReplaceAnExplicitRuntime",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu"
+      ],
+      "count": 8,
+      "fixture_counts": {
+        "preview": 7,
+        "change": 3,
+        "replay": 1,
+        "start": 3
+      },
+      "postboot_stabilization_seconds": 20
+    },
+    "D": {
+      "kind": "coverage",
+      "bound": 1200
+    }
+  },
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "independent_p0_gate": {
+    "manifest_path": "/tmp/ux-610-proof/baseline/manifest.json",
+    "receipt_path": "/tmp/ux-610-proof/baseline/p0-r1-receipt.json",
+    "review_path": "/tmp/ux-610-proof/baseline/independent-P0-review.json",
+    "package_log": "/tmp/ux-610-proof/baseline/tickets/p0-r1/package.log"
+  }
+}
