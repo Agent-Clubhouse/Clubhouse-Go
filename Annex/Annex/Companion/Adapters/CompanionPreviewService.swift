@@ -699,6 +699,10 @@ import ClubhouseTransport
                     .message(.init(id: "reading-helper", role: .assistant, text: "Preview helper streamed update.", isStreaming: true, subagentID: "preview-helper"))
                 ])
             #if DEBUG
+            // Separate archive-activation proof only; recording fixtures and normal preview keep their original history.
+            if ProcessInfo.processInfo.arguments.contains("--companion-reading-equality-archive") {
+                history.hasEarlierMessages = true
+            }
             if Self.showsPinnedDecisions, target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-pinned-incomplete") {
                 // Live incomplete requests belong to a session; nil/nil review admission is tracked in #512.
                 history.sessionID = "preview-pinned-incomplete"

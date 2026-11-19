@@ -237,6 +237,42 @@ struct CompanionTimelineWindow: Equatable, Sendable {
     /// Number of rows expanded into entries; useful for a deterministic bound independent of timing.
     private(set) var preparedRowCount = 0
 
+    /// A paused opening starts at its canonical saved entry. Older rows are not prepared until requested.
+    /// Unlike the normal tail window, this opt-in boundary can begin at an existing slice within a reply.
+    init?(rows: [CompanionTimelineRow], startingAt entryID: String) {
+        let result: Self? = AnnexTelemetry.shared.measurePerformance(.timelineBuild, messageCount: rows.count) {
+            guard let rowIndex = rows.lastIndex(where: { $0.contains(entryID: entryID) }) else { return nil }
+            let firstGroup = CompanionTimelineEntry.entries(for: [rows[rowIndex]])
+            guard let canonical = CompanionTimelineEntry.jumpTarget(for: entryID, in: firstGroup),
+                  let entryIndex = firstGroup.firstIndex(where: { $0.id == canonical.id }) else { return nil }
+            var window = Self([], limit: 0)
+            window.entries = Array(firstGroup[entryIndex...])
+            for row in rows.dropFirst(rowIndex + 1) { window.entries += CompanionTimelineEntry.entries(for: [row]) }
+            window.hiddenCount = rowIndex + entryIndex
+            window.preparedRowCount = rows.count - rowIndex
+            return window
+        }
+        guard let result else { return nil }
+        self = result
+    }
+
+    /// Explicit user expansion only. Include the first reply's earlier slices and at least one page of entries.
+    static func precedingStart(in rows: [CompanionTimelineRow], before entryID: String, count: Int = pageSize) -> String? {
+        guard var rowIndex = rows.lastIndex(where: { $0.contains(entryID: entryID) }) else { return nil }
+        let group = CompanionTimelineEntry.entries(for: [rows[rowIndex]])
+        guard let canonical = CompanionTimelineEntry.jumpTarget(for: entryID, in: group),
+              let entryIndex = group.firstIndex(where: { $0.id == canonical.id }) else { return nil }
+        var first = entryIndex > 0 ? group.first?.id : nil
+        var added = entryIndex
+        while rowIndex > 0 && added < max(1, count) {
+            rowIndex -= 1
+            let earlier = CompanionTimelineEntry.entries(for: [rows[rowIndex]])
+            if let id = earlier.first?.id { first = id }
+            added += earlier.count
+        }
+        return first
+    }
+
     /// Build newest rows first, stopping before parsing Markdown for hidden history. A whole reply still crosses
     /// the window edge intact. `hiddenCount` here counts omitted rows (only its nonzero state is presented).
     init(rows: [CompanionTimelineRow], limit: Int, retaining entryID: String? = nil) {
