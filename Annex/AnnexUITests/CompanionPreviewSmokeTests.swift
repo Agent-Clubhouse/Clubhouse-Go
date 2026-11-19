@@ -130,7 +130,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     func testProviderV2CaptureAccessibilityLargeReviewRows() {
         let app = openProviderV2Capture(largeText: true, unsupportedStart: false)
         XCTAssertTrue(captureReadableProviderRow("provider-session-unverified", in: app, containing: ["Not verified"], name: "V2 Large initial runtime uncertainty readable"))
-        selectProviderV2ForCapture(app)
+        selectProviderV2ForCapture(app, slowNativePan: true)
         app.buttons["provider-review-change"].tap()
         XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-model", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed model and source readable BEFORE Apply"))
         XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-effort", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed effort and source readable BEFORE Apply"))
@@ -145,6 +145,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         selectProviderV2ForCapture(app)
         tapVisibleProviderControl(app.buttons["provider-save"], in: app)
         app.buttons["provider-review-change"].tap()
+        XCTAssertTrue(captureReadableProviderRow("provider-saved", in: app,
+            containing: ["historical", "started no session", "Current runtime unverified"], name: "V2 revised historical Apply receipt readable with Start unsupported"))
         XCTAssertTrue(captureReadableProviderRow("provider-start-reason", in: app, containing: ["does not separately support"], name: "V2 independently unsupported Start reason readable"))
         XCTAssertTrue(app.buttons["provider-start-new"].exists)
         XCTAssertFalse(app.buttons["provider-start-new"].isEnabled)
@@ -166,8 +168,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         return app
     }
 
-    private func selectProviderV2ForCapture(_ app: XCUIApplication) {
-        tapVisibleProviderControl(app.buttons["provider-choice-codex-cli"], in: app)
+    private func selectProviderV2ForCapture(_ app: XCUIApplication, slowNativePan: Bool = false) {
+        tapVisibleProviderControl(app.buttons["provider-choice-codex-cli"], in: app, slowNativePan: slowNativePan)
         let apply = app.buttons["provider-save"], reason = app.staticTexts["provider-apply-reason"]
         XCTAssertTrue(waitFor(apply, NSPredicate(format: "enabled == true"), timeout: 5))
         // Check the actual selection path before any search/review navigation.
