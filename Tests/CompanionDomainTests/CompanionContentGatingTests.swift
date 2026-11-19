@@ -172,7 +172,7 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
                 #expect(!message.lowercased().contains("mobile control") && !message.lowercased().contains("pair"))
             }
         }
-        #expect(CompanionLiveService.readableError(.forbidden).contains("mobile control"))
+        #expect(CompanionLiveService.readableError(AnnexTransportError.forbidden).contains("mobile control"))
     }
 }
 
