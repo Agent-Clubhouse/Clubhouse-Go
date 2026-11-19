@@ -1,0 +1,13 @@
+871d5f800c3a04b4a36408782ba5a1248a174791
+100644 a80820d49d6bccf6139f5fcce37e7cb1b4615bdc 1	docs/isolated-deinit.md
+100644 b423d288e6ffc0cbe51c3076b4c87202c7825eea 2	docs/isolated-deinit.md
+100644 9ae2f205f3bfbbc27fc61030fb6379139d54b8f5 3	docs/isolated-deinit.md
+100644 536241a1d0d580397cd49399314a629e2f2a2109 1	scripts/isolated-deinit-policy.json
+100644 af881f6bb07c09b378c2e4bc9dbfcef6775f5dfd 2	scripts/isolated-deinit-policy.json
+100644 eb082393eceb31e7cf32014980dde58fca55219d 3	scripts/isolated-deinit-policy.json
+
+Auto-merging Annex/Annex/Companion/Adapters/CompanionPreviewService.swift
+Auto-merging docs/isolated-deinit.md
+CONFLICT (content): Merge conflict in docs/isolated-deinit.md
+Auto-merging scripts/isolated-deinit-policy.json
+CONFLICT (content): Merge conflict in scripts/isolated-deinit-policy.json

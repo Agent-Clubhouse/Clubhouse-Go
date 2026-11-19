@@ -1,0 +1,36 @@
+{
+  "TSE3": [
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable()",
+      "mode": "success"
+    },
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead()",
+      "mode": "lost-apply"
+    },
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2LostStartNeverRequestsAnotherStart()",
+      "mode": "lost-start"
+    }
+  ],
+  "VPHONE": [
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureAccessibilityLargeReviewRows()",
+      "mode": "preview-only"
+    },
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureUnsupportedStartReason()",
+      "mode": "no-start"
+    }
+  ],
+  "VSE": [
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureAccessibilityLargeReviewRows()",
+      "mode": "preview-only"
+    },
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureUnsupportedStartReason()",
+      "mode": "no-start"
+    }
+  ]
+}
