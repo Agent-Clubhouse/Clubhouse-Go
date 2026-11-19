@@ -79,10 +79,6 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
         #expect(CompanionContentReference.hintRowID(in: [rows[0], absolute], richContentAvailable: false) == rows[0].id)
     }
 
-    @Test func hintNamesTheDesktopSetting() {
-        #expect(CompanionContentReference.richContentOffHint.contains("Rich chat content"))
-        #expect(CompanionContentReference.richContentOffHint.contains("Experimental settings"))
-    }
 }
 
 @Suite @MainActor struct CompanionContentStoreTests {
@@ -136,13 +132,30 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 @Suite @MainActor struct CompanionContentErrorMessageTests {
     @Test func desktopRefusalsBecomeSpecificMessages() {
         let missingFile = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .file("a.txt"), hostName: "Studio Mac")
-        #expect(missingFile.contains("Studio Mac") && missingFile.contains("missing, unreadable, or a folder"))
+        #expect(missingFile.contains("Studio Mac") && missingFile.contains("missing, unreadable, a folder, or unavailable for sharing"))
         let missingImage = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .image(mediaRef), hostName: "Studio Mac")
         #expect(missingImage.contains("image") && missingImage.contains("Studio Mac"))
         let agentGone = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "agent_not_found"), reference: .file("a.txt"), hostName: "Studio Mac")
         #expect(agentGone.contains("agent"))
         #expect(CompanionLiveService.contentErrorMessage(AnnexTransportError.responseTooLarge, reference: .file("a.txt"), hostName: "Studio Mac").contains("too large"))
-        #expect(CompanionLiveService.contentErrorMessage(AnnexTransportError.forbidden, reference: .file("a.txt"), hostName: "Studio Mac").contains("Pair"))
+    }
+
+    @Test func previewAuthorizationRefusalsNeverPrescribeMobileControlOrRepairing() {
+        let errors: [AnnexTransportError] = [
+            .forbidden, .rejected(status: 403, code: "forbidden"),
+            .rejected(status: 403, code: "forbidden", message: "Mobile control is not granted.")
+        ]
+        for error in errors {
+            let messages = [
+                CompanionLiveService.contentErrorMessage(error, reference: .file("a.txt"), hostName: "Studio Mac"),
+                CompanionLiveService.linkErrorMessage(error, hostName: "Studio Mac")
+            ]
+            for message in messages {
+                #expect(message.contains("Studio Mac") && message.contains("didn't authorize this preview"))
+                #expect(!message.lowercased().contains("mobile control") && !message.lowercased().contains("pair"))
+            }
+        }
+        #expect(CompanionLiveService.readableError(.forbidden).contains("mobile control"))
     }
 }
 
