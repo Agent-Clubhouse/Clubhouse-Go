@@ -1926,6 +1926,10 @@ import ClubhouseTransport
             throw CompanionServiceError.uncertain("The provider action's reply could not be verified. Its outcome stays unknown. This app will not send it again; check the desktop.")
         }
     }
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview) -> Bool {
+        guard let (caps, generation) = try? providerV2Context(witness.target, starting: true) else { return false }
+        return witness.epoch == caps.epoch && witness.generation == generation
+    }
     func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview {
         let (caps, generation) = try providerV2Context(target)
         let command = AnnexCommand(epoch: caps.epoch, kind: .providerPreviewV2(agentID: target.agentID, provider: provider, selection: .init()))

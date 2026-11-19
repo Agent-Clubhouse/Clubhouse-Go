@@ -222,4 +222,49 @@ private actor ProviderV2Transport: AnnexTransporting {
         #expect(await io.mutations().count == 1)
     }
 
+    @Test(arguments: ["refused", "changed-token", "contradictory-saved"])
+    func applyReceiptCannotEnableStartBeforeAFreshMatchingWitness(failure: String) async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let fixture = try providerV2Fixtures()
+        var body = try #require(fixture["savedDefaultsPreview"]?["body"])
+        if failure == "refused" {
+            body = .object(["version": .integer(1), "status": .string("rejected"), "error": .object(["code": .string("stale_state"), "message": .string("synthetic read refusal")])])
+        } else {
+            var result = try #require(body["result"])
+            if failure == "changed-token" {
+                result = try changed(result, "expectedState", .string("different-from-Apply-token"))
+            } else {
+                let contract = try #require(result["contract"])
+                let old = try #require(fixture["preview"]?["body"]?["result"]?["contract"]?["current"])
+                result = try changed(result, "contract", changed(contract, "saved", old))
+            }
+            body = try changed(body, "result", result)
+        }
+        await io.override("agent.providerPreview", body: body)
+        await flow.apply()
+        #expect(flow.lastApply != nil && !flow.canStart && !flow.blocksMutations)
+        await flow.startNew()
+        #expect(await io.mutations().count == 1 && flow.lastStart == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func reconnectCannotRestoreStartReadinessWithoutANewMatchingWitness(changedEpoch: Bool) async throws {
+        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        #expect(flow.canStart)
+        let nextEpoch = changedEpoch ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000001"
+        try await io.setEpoch(nextEpoch); await catalog.setRead("capabilities", try providerV2Caps(nextEpoch))
+        await service.reconnect(hostID: target.hostID)
+        try await wait { store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == nextEpoch }
+        #expect(!flow.canStart, "A witness from the previous connection cannot enable Start")
+        await flow.refresh()
+        #expect(flow.canStart == !changedEpoch, "Only a new matching witness and the original Apply epoch may restore readiness")
+        #expect(await io.mutations().count == 1)
+    }
+
 }

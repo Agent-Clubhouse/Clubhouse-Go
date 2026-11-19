@@ -1030,6 +1030,7 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview
     func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview) -> Bool
     func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome
     func startProviderV2(_ target: CompanionTarget, applied: CompanionProviderV2Applied, witness: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2StartOutcome
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult
@@ -1047,6 +1048,7 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
 
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Update the desktop to confirm Sleep.") }
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview { throw CompanionServiceError.unavailable("Update the desktop to preview a provider change.") }
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview) -> Bool { false }
     func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview { throw CompanionServiceError.unavailable("This desktop does not offer verified provider Apply v2.") }
     func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome { throw CompanionServiceError.unavailable("This desktop does not offer verified provider Apply v2.") }
     func startProviderV2(_ target: CompanionTarget, applied: CompanionProviderV2Applied, witness: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2StartOutcome { throw CompanionServiceError.unavailable("This desktop does not separately offer verified provider Start v2.") }

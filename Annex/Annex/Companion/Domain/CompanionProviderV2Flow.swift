@@ -34,6 +34,7 @@ enum CompanionProviderV2StartOutcome: Sendable {
     private let startAdvertised: () -> Bool
     private var requestedRuntime: String
     private var startEligibleApply: CompanionProviderV2Applied?
+    private var startWitness: CompanionProviderV2Preview?
     private(set) var selectedProvider: String?
     private(set) var preview: CompanionProviderV2Preview?
     private(set) var reportedSaved: AnnexProviderNextWakeV2?
@@ -59,36 +60,50 @@ enum CompanionProviderV2StartOutcome: Sendable {
             && preview.map { $0.value.permitsApply(capability: $0.capability) } == true
     }
     var canStart: Bool {
-        canChoose && startAdvertised() && startEligibleApply?.value.nextWake?.readyToken != nil
+        guard canChoose, startAdvertised(), let applied = startEligibleApply, let witness = startWitness else { return false }
+        return matchesStartWitness(witness, applied: applied) && service.providerV2WitnessIsCurrent(witness)
     }
     func updateRequestedRuntime(_ value: String) {
         guard !busy, requestedRuntime != value else { return }
-        requestedRuntime = value; preview = nil; startEligibleApply = nil
+        requestedRuntime = value; preview = nil; startEligibleApply = nil; startWitness = nil
     }
     func select(_ provider: String) async {
         guard canChoose else { return }
-        selectedProvider = provider; preview = nil; startEligibleApply = nil
+        selectedProvider = provider; preview = nil; startEligibleApply = nil; startWitness = nil
         await refresh()
     }
     /// Read-only even when an operation is unknown. Equal configuration NEVER unlocks it.
     func refresh() async {
         guard canRequest(), !busy, let selectedProvider else { return }
-        busy = true; error = nil; preview = nil
+        busy = true; error = nil; preview = nil; startWitness = nil
         defer { busy = false }
         do {
             let value = try await service.providerPreviewV2(target, provider: selectedProvider)
             preview = value; reportedSaved = value.value.contract.saved
+            if !blocksMutations, let applied = startEligibleApply, matchesStartWitness(value, applied: applied) {
+                startWitness = value
+            }
         } catch { self.error = error.localizedDescription }
     }
     func apply() async {
         guard canApply, let preview else { return }
-        busy = true; blocksMutations = true; error = nil
+        busy = true; blocksMutations = true; error = nil; startWitness = nil
         defer { busy = false }
         do {
             switch try await service.applyProviderV2(target, preview: preview, clientCommandID: UUID().uuidString) {
             case .saved(let receipt):
                 lastApply = receipt; reportedSaved = receipt.value.contract.saved
-                startEligibleApply = receipt; blocksMutations = false; self.preview = nil
+                startEligibleApply = receipt; startWitness = nil; blocksMutations = false; self.preview = nil
+                // A saved receipt alone never enables Start, even briefly.
+                if startAdvertised(), receipt.value.nextWake?.readyToken != nil {
+                    do {
+                        let witness = try await service.providerPreviewV2(target, provider: receipt.value.contract.saved.provider)
+                        reportedSaved = witness.value.contract.saved
+                        if matchesStartWitness(witness, applied: receipt), service.providerV2WitnessIsCurrent(witness) {
+                            startWitness = witness
+                        } else { error = "Apply was confirmed, but the fresh saved-state check differs. Start is unavailable; review a new proposal." }
+                    } catch { self.error = "Apply was confirmed, but a fresh state check failed. Start is unavailable. Refresh reported settings before continuing." }
+                }
             case .refused(let reason):
                 error = reason; blocksMutations = false; self.preview = nil; startEligibleApply = nil
             case .conflict(let evidence):
@@ -111,16 +126,12 @@ enum CompanionProviderV2StartOutcome: Sendable {
             let witness = try await service.providerPreviewV2(target, provider: applied.value.contract.saved.provider)
             reportedSaved = witness.value.contract.saved
             // Start uses the Apply-issued token, NEVER the original proposal token or a new token.
-            guard witness.epoch == applied.epoch, witness.value.contract.saved == applied.value.contract.saved,
-                  witness.value.contract.proposed == applied.value.contract.saved,
-                  witness.value.preview.expectedState == applied.value.nextWake?.readyToken,
-                  witness.value.permitsApply(capability: witness.capability),
-                  requestedRuntime == "default" || requestedRuntime == witness.value.preview.outcome.targetRuntime.rawValue else {
-                startEligibleApply = nil; preview = nil
+            guard matchesStartWitness(witness, applied: applied), service.providerV2WitnessIsCurrent(witness) else {
+                startEligibleApply = nil; startWitness = nil; preview = nil
                 error = "The current desktop state no longer matches the Apply receipt. Review a fresh proposal; no Start was sent."
                 return
             }
-            blocksMutations = true
+            blocksMutations = true; startWitness = nil
             switch try await service.startProviderV2(target, applied: applied, witness: witness, clientCommandID: UUID().uuidString) {
             case .evidence(let value, let completed):
                 lastStart = value; startEligibleApply = nil; preview = nil; blocksMutations = false
@@ -133,6 +144,15 @@ enum CompanionProviderV2StartOutcome: Sendable {
             if case CompanionServiceError.unavailable = error { blocksMutations = false }
             if case CompanionServiceError.rejected = error { blocksMutations = false }
         }
+    }
+    private func matchesStartWitness(_ witness: CompanionProviderV2Preview, applied: CompanionProviderV2Applied) -> Bool {
+        witness.target == target && applied.target == target && witness.epoch == applied.epoch
+            && witness.value.matches(agent: target.agentID, provider: applied.value.contract.saved.provider, selection: .init())
+            && witness.value.contract.saved == applied.value.contract.saved
+            && witness.value.contract.proposed == applied.value.contract.saved
+            && witness.value.preview.expectedState == applied.value.nextWake?.readyToken
+            && witness.value.permitsApply(capability: witness.capability)
+            && (requestedRuntime == "default" || requestedRuntime == witness.value.preview.outcome.targetRuntime.rawValue)
     }
     /// Reviewing held evidence is entirely local; never calls execute or dispatches a command.
     func reviewHeldResult() {
