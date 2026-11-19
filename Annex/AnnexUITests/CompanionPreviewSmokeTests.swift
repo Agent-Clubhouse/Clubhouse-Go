@@ -245,6 +245,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
         let apply = app.buttons["provider-save"], reason = app.staticTexts["provider-apply-reason"]
         let session = app.descendants(matching: .any).matching(identifier: "provider-session-unverified").firstMatch
+        if largeText { XCTAssertTrue(scrollTo(session, in: app, maxSwipes: 12)) }
         XCTAssertTrue(session.waitForExistence(timeout: 5) && session.label.contains("Not verified"))
         XCTAssertTrue(apply.waitForExistence(timeout: 5))
         captureProvider(app, largeText ? "V2 Accessibility Large first session report" : "V2 standard first session report")
@@ -330,7 +331,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(link.waitForExistence(timeout: 5))
         waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
         XCTAssertTrue(scrollTo(choice, in: app, maxSwipes: 12)); XCTAssertFalse(choice.isEnabled)
-        XCTAssertTrue(scrollTo(review, in: app, maxSwipes: 12)); review.tap()
+        tapVisibleProviderControl(review, in: app)
         let error = app.staticTexts["provider-flow-error"]
         XCTAssertTrue(scrollTo(error, in: app, up: false, maxSwipes: 12))
         XCTAssertTrue(error.label.contains("will not send it again"))
