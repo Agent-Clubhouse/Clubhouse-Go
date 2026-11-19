@@ -38,6 +38,7 @@ private struct CompanionContentPreviews: ViewModifier {
     let target: CompanionTarget
     /// Nil for live content; an archive always supplies a value, even before its first page.
     let archiveRoots: CompanionContentRoots?
+    @Environment(\.openURL) private var openExternalURL
     @State private var selected: CompanionContentReference?
     @State private var fullEvent: CompanionEventReference?
     func body(content: Content) -> some View {
@@ -54,7 +55,9 @@ private struct CompanionContentPreviews: ViewModifier {
                 }
                 // External web/mail links keep their system behavior. Anchors,
                 // network/device paths and other schemes never navigate on iOS.
-                return ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") ? .systemAction : .discarded
+                guard ["http", "https", "mailto"].contains(url.scheme?.lowercased() ?? "") else { return .discarded }
+                openExternalURL(url)
+                return .handled
             })
             .environment(\.companionContentPresenter, .init(richContentAvailable: store.richContentAvailable(for: target),
                                                              contentRoots: archiveRoots ?? store.contentRoots(for: target), open: { selected = $0 },

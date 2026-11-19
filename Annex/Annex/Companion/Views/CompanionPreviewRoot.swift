@@ -46,7 +46,9 @@ struct CompanionPreviewRoot: View {
     @State private var settingsCapture: CompanionFeedbackSettingsCapture?
     @State private var desktopToForget: CompanionHost?
     var body: some View {
-        if CompanionConversationHeaderFixture.isEnabled {
+        if ProcessInfo.processInfo.arguments.contains("--mobile-links-ui-testing") {
+            CompanionLinkTapFixture(store: store)
+        } else if CompanionConversationHeaderFixture.isEnabled {
             CompanionConversationHeaderFixture()
         } else if CompanionRecoveryFixture.isEnabled {
             CompanionRecoveryFixture().preferredColorScheme(Self.forcedColorScheme)
