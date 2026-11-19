@@ -10,6 +10,7 @@ struct CompanionFeedbackRenewalFixture: View {
     @State private var fixture: Fixture?
     @State private var failure: String?
     @State private var evidence = ""
+    @Environment(\.dynamicTypeSize) private var textSize
 
     var body: some View {
         Group {
@@ -19,7 +20,8 @@ struct CompanionFeedbackRenewalFixture: View {
                     .overlay(alignment: .topLeading) {
                         Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
                             .accessibilityElement().accessibilityLabel("Synthetic renewal state")
-                            .accessibilityValue(evidence).accessibilityIdentifier("feedback-renewal-evidence")
+                            .accessibilityValue("\(evidence);accessibilityXXXL=\(textSize == .accessibility5)")
+                            .accessibilityIdentifier("feedback-renewal-evidence")
                     }
             } else if let failure {
                 Text("Renewal fixture failed: \(failure)").accessibilityIdentifier("feedback-renewal-failure")

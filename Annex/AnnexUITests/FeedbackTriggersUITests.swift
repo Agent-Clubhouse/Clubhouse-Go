@@ -58,6 +58,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         }, timeout: 5))
         let original = try XCTUnwrap(evidence.value as? String)
         XCTAssertTrue(original.contains("preferences=[false, false, false]"))
+        XCTAssertTrue(original.hasSuffix("accessibilityXXXL=\(largeText)"), "The requested AX category must actually reach the fixture")
         let refresh = flags.contains("--feedback-renewal-offline") || flags.contains("--feedback-renewal-registered")
         XCTAssertTrue(original.hasPrefix(refresh ? "requests=1;" : "requests=0;"),
                       "Only the offline/registered fixture's preparatory refresh may reach the non-socket transport")
