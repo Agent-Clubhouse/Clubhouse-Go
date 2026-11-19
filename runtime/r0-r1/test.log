@@ -1,0 +1,366 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r9/DD -destination "platform=iOS Simulator,id=710BC94A-6D0B-4D88-BE39-6E3C30A1E23B" -resultBundlePath /tmp/ux-582-proof/tickets/r0-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  Framebriar: /tmp/ux-582-proof/tickets/a-r9/source/Vendor/Framebriar @ local
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r9/source @ local
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/r0-r1/tests.xcresult
+
+2026-11-18 19:38:55.705120-0800 ClubhouseGoUITests-Runner[12857:463166241] [Default] Running tests...
+2026-11-18 19:38:55.783830-0800 ClubhouseGoUITests-Runner[12857:463166373] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-18 19:38:55.824984-0800 ClubhouseGoUITests-Runner[12857:463166370] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+Test Suite 'Selected tests' started at 2026-11-18 19:38:59.234.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 19:38:59.234.
+Test Suite 'CompanionReadingUITests' started at 2026-11-18 19:38:59.234.
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry]' started.
+    t =     0.00s Start Test at 2026-11-18 19:38:59.235
+    t =     0.11s Set Up
+    t =     0.11s Getting device orientation
+    t =     0.11s Setting device orientation to Portrait
+    t =     0.11s     Device orientation changed to Portrait
+    t =     0.13s     Wait for com.apple.springboard to idle
+    t =     0.16s Open com.Agent-Clubhouse.Go
+    t =     0.16s     Launch com.Agent-Clubhouse.Go
+    t =     1.00s         Setting up automation session
+    t =     1.69s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.12s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.12s Checking existence of `Button (First Match)`
+    t =     3.17s Find the Button (First Match)
+    t =     3.20s Waiting 2.0s for "agent-preview-studio-river" Any to exist
+    t =     4.27s     Checking `Expect predicate `existsNoRetry == 1` for object "agent-preview-studio-river" Any`
+    t =     4.27s         Checking existence of `"agent-preview-studio-river" Any`
+    t =     4.52s Checking existence of `"agent-preview-studio-river" Any`
+    t =     4.69s Find the "agent-preview-studio-river" Any
+    t =     4.85s Checking existence of `"companion-composer" Any`
+    t =     5.03s Checking existence of `"agent-preview-studio-river" Button`
+    t =     5.14s Find the "agent-preview-studio-river" Button
+    t =     5.27s Tap "agent-preview-studio-river" Button
+    t =     5.27s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     5.27s     Find the "agent-preview-studio-river" Button
+    t =     5.39s     Check for interrupting elements affecting "agent-preview-studio-river" Button
+    t =     5.45s     Synthesize event
+    t =     5.85s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.07s Waiting 10.0s for "companion-composer" Any to exist
+    t =     7.14s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-composer" Any`
+    t =     7.14s         Checking existence of `"companion-composer" Any`
+    t =     8.36s Checking `Expect predicate `exists == 0` for object Button (First Match)`
+    t =     8.36s     Checking existence of `Button (First Match)`
+    t =     8.43s Get number of matches for: Elements matching predicate 'label BEGINSWITH "Reading marker "'
+    t =     8.48s Waiting 10.0s for "companion-show-earlier" Button to exist
+    t =     9.55s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-show-earlier" Button`
+    t =     9.55s         Checking existence of `"companion-show-earlier" Button`
+    t =     9.60s Find the "companion-show-earlier" Button
+    t =     9.64s Find the "companion-chat-header" Any
+    t =     9.68s Find the "companion-composer" Any
+    t =     9.80s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.85s Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds 
+    t =     9.85s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     9.86s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.89s     Check for interrupting elements affecting "Clubhouse Go" Application
+    t =     9.93s     Synthesize event
+    t =     9.93s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.96s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    10.00s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    10.03s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    10.06s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.17s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    12.18s Find the "companion-show-earlier" Button
+    t =    12.22s Find the "companion-chat-header" Button
+    t =    12.26s Find the "companion-composer" TextField
+    t =    12.40s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.43s Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds 
+    t =    12.43s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    12.43s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.47s     Check for interrupting elements affecting "Clubhouse Go" Application
+    t =    12.51s     Synthesize event
+    t =    12.51s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.54s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.57s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.61s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.64s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    14.78s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    14.78s Find the "companion-show-earlier" Button
+    t =    14.83s Find the "companion-chat-header" Button
+    t =    14.86s Find the "companion-composer" TextField
+    t =    14.99s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.02s Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds 
+    t =    15.02s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    15.02s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.06s     Check for interrupting elements affecting "Clubhouse Go" Application
+    t =    15.09s     Synthesize event
+    t =    15.09s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.13s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.16s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.20s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.25s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.36s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    17.36s Find the "companion-show-earlier" Button
+    t =    17.41s Find the "companion-chat-header" Button
+    t =    17.46s Find the "companion-composer" TextField
+    t =    17.59s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.62s Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 155.2) -> (0.0, 420.0) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds 
+    t =    17.62s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    17.63s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.66s     Check for interrupting elements affecting "Clubhouse Go" Application
+    t =    17.71s     Synthesize event
+    t =    17.71s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.75s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.78s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.82s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    17.85s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    19.96s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    20.27s Find the "companion-show-earlier" Button
+    t =    20.32s Find the "companion-show-earlier" Button
+    t =    20.36s Find the "companion-chat-header" Button
+    t =    20.40s Find the "companion-show-earlier" Button
+    t =    20.45s Find the "companion-composer" TextField
+    t =    20.58s Find the "companion-show-earlier" Button
+    t =    20.64s Find the "companion-show-earlier" Button
+    t =    20.69s Find the "companion-chat-header" Button
+    t =    20.72s Find the "companion-show-earlier" Button
+    t =    20.77s Find the "companion-composer" TextField
+    t =    20.89s Get all elements bound by index for: Elements matching predicate 'label BEGINSWITH "Reading marker "'
+    t =    20.93s Find the StaticText (Element at index 0)
+    t =    20.98s Find the "Reading marker 165." StaticText
+    t =    21.02s Find the "Reading marker 165." StaticText
+    t =    21.07s Find the "Reading marker 165." StaticText
+    t =    21.13s Tap "companion-show-earlier" Button
+    t =    21.13s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    21.13s     Find the "companion-show-earlier" Button
+    t =    21.17s     Check for interrupting elements affecting "companion-show-earlier" Button
+    t =    21.21s     Synthesize event
+    t =    21.50s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    22.63s Checking `Expect predicate `exists == 1` for object "Reading marker 165." StaticText`
+    t =    22.63s     Checking existence of `"Reading marker 165." StaticText`
+    t =    24.84s Find the "Reading marker 165." StaticText
+    t =    28.06s Find the "Reading marker 165." StaticText
+    t =    28.24s Tap "companion-composer" TextField
+    t =    28.24s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    28.24s     Find the "companion-composer" TextField
+    t =    28.70s     Check for interrupting elements affecting "companion-composer" TextField
+    t =    28.92s     Synthesize event
+    t =    29.21s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    29.54s Waiting 2.0s for Keyboard (First Match) to exist
+    t =    30.59s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    30.59s         Checking existence of `Keyboard (First Match)`
+    t =    30.60s Waiting 5.0s for Keyboard (First Match) to exist
+    t =    31.67s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    31.67s         Checking existence of `Keyboard (First Match)`
+    t =    31.68s Find the "Reading marker 165." StaticText
+    t =    31.86s Find the "Reading marker 165." StaticText
+    t =    32.06s Tap Button (Element at index 0)
+    t =    32.06s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    32.11s     Find the Button (Element at index 0)
+    t =    32.26s     Check for interrupting elements affecting "BackButton" Button
+    t =    32.44s     Synthesize event
+    t =    32.77s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    32.81s Tap Button (First Match)
+    t =    32.81s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    33.27s     Find the Button (First Match)
+    t =    33.29s     Check for interrupting elements affecting "magnifyingglass" Button
+    t =    33.33s     Synthesize event
+    t =    33.63s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    34.32s Tap Button (First Match)
+    t =    34.32s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    34.32s     Find the Button (First Match)
+    t =    34.35s     Check for interrupting elements affecting "Home" Button
+    t =    34.39s     Synthesize event
+    t =    34.68s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    34.68s Checking existence of `Button (First Match)`
+    t =    34.69s Find the Button (First Match)
+    t =    34.71s Waiting 2.0s for "agent-preview-studio-river" Any to exist
+    t =    35.74s     Checking `Expect predicate `existsNoRetry == 1` for object "agent-preview-studio-river" Any`
+    t =    35.74s         Checking existence of `"agent-preview-studio-river" Any`
+    t =    35.87s Checking existence of `"agent-preview-studio-river" Any`
+    t =    35.99s Find the "agent-preview-studio-river" Any
+    t =    36.10s Checking existence of `"companion-composer" Any`
+    t =    36.27s Checking existence of `"agent-preview-studio-river" Button`
+    t =    36.38s Find the "agent-preview-studio-river" Button
+    t =    36.51s Tap "agent-preview-studio-river" Button
+    t =    36.51s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    36.51s     Find the "agent-preview-studio-river" Button
+    t =    36.62s     Check for interrupting elements affecting "agent-preview-studio-river" Button
+    t =    36.67s     Synthesize event
+    t =    36.96s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    36.96s Waiting 10.0s for "companion-composer" Any to exist
+    t =    38.03s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-composer" Any`
+    t =    38.03s         Checking existence of `"companion-composer" Any`
+    t =    38.17s Checking existence of `"Reading marker 165." StaticText`
+    t =    38.22s Find the "Reading marker 165." StaticText
+    t =    38.29s Find the NavigationBar (First Match)
+    t =    38.30s Find the "companion-composer-region" Any
+    t =    38.38s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    38.42s Checking existence of `Keyboard (First Match)`
+    t =    38.60s Checking existence of `"Reading marker 165." StaticText`
+    t =    38.65s Find the "Reading marker 165." StaticText
+    t =    38.70s Find the NavigationBar (First Match)
+    t =    38.72s Find the "companion-composer-region" Any
+    t =    38.80s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    38.84s Checking existence of `Keyboard (First Match)`
+    t =    39.01s Checking existence of `"Reading marker 165." StaticText`
+    t =    39.06s Find the "Reading marker 165." StaticText
+    t =    39.12s Find the NavigationBar (First Match)
+    t =    39.14s Find the "companion-composer-region" Any
+    t =    39.22s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    39.25s Checking existence of `Keyboard (First Match)`
+    t =    39.42s Checking existence of `"Reading marker 165." StaticText`
+    t =    39.47s Find the "Reading marker 165." StaticText
+    t =    39.52s Find the NavigationBar (First Match)
+    t =    39.54s Find the "companion-composer-region" Any
+    t =    39.63s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    39.67s Checking existence of `Keyboard (First Match)`
+    t =    39.84s Checking existence of `"Reading marker 165." StaticText`
+    t =    39.88s Find the "Reading marker 165." StaticText
+    t =    39.94s Find the NavigationBar (First Match)
+    t =    39.96s Find the "companion-composer-region" Any
+    t =    40.04s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    40.08s Checking existence of `Keyboard (First Match)`
+    t =    40.25s Checking existence of `"Reading marker 165." StaticText`
+    t =    40.30s Find the "Reading marker 165." StaticText
+    t =    40.35s Find the NavigationBar (First Match)
+    t =    40.38s Find the "companion-composer-region" Any
+    t =    40.48s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    40.51s Checking existence of `Keyboard (First Match)`
+    t =    40.69s Checking existence of `"Reading marker 165." StaticText`
+    t =    40.73s Find the "Reading marker 165." StaticText
+    t =    40.78s Find the NavigationBar (First Match)
+    t =    40.80s Find the "companion-composer-region" Any
+    t =    40.91s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    40.94s Checking existence of `Keyboard (First Match)`
+    t =    41.02s Added attachment named 'Tab return restoration frame timeline'
+    t =    41.02s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    41.17s Added attachment named 'Tab return restoration readiness'
+    t =    41.17s Find the "Reading marker 165." StaticText
+    t =    41.23s Tap Button (Element at index 0)
+    t =    41.23s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    41.23s     Find the Button (Element at index 0)
+    t =    41.27s     Check for interrupting elements affecting "BackButton" Button
+    t =    41.31s     Synthesize event
+    t =    41.61s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    41.61s Checking existence of `Button (First Match)`
+    t =    41.63s Find the Button (First Match)
+    t =    41.64s Waiting 2.0s for "agent-preview-studio-river" Any to exist
+    t =    42.69s     Checking `Expect predicate `existsNoRetry == 1` for object "agent-preview-studio-river" Any`
+    t =    42.69s         Checking existence of `"agent-preview-studio-river" Any`
+    t =    42.81s Checking existence of `"agent-preview-studio-river" Any`
+    t =    42.92s Find the "agent-preview-studio-river" Any
+    t =    43.04s Checking existence of `"companion-composer" Any`
+    t =    43.20s Checking existence of `"agent-preview-studio-river" Button`
+    t =    43.31s Find the "agent-preview-studio-river" Button
+    t =    43.41s Tap "agent-preview-studio-river" Button
+    t =    43.41s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    43.42s     Find the "agent-preview-studio-river" Button
+    t =    43.53s     Check for interrupting elements affecting "agent-preview-studio-river" Button
+    t =    43.58s     Synthesize event
+    t =    43.86s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    43.87s Waiting 10.0s for "companion-composer" Any to exist
+    t =    44.93s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-composer" Any`
+    t =    44.93s         Checking existence of `"companion-composer" Any`
+    t =    45.08s Checking existence of `"Reading marker 165." StaticText`
+    t =    45.14s Find the "Reading marker 165." StaticText
+    t =    45.20s Find the NavigationBar (First Match)
+    t =    45.22s Find the "companion-composer-region" Any
+    t =    45.30s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    45.33s Checking existence of `Keyboard (First Match)`
+    t =    45.51s Checking existence of `"Reading marker 165." StaticText`
+    t =    45.57s Find the "Reading marker 165." StaticText
+    t =    45.62s Find the NavigationBar (First Match)
+    t =    45.64s Find the "companion-composer-region" Any
+    t =    45.73s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    45.76s Checking existence of `Keyboard (First Match)`
+    t =    45.94s Checking existence of `"Reading marker 165." StaticText`
+    t =    46.00s Find the "Reading marker 165." StaticText
+    t =    46.06s Find the NavigationBar (First Match)
+    t =    46.07s Find the "companion-composer-region" Any
+    t =    46.16s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    46.20s Checking existence of `Keyboard (First Match)`
+    t =    46.37s Checking existence of `"Reading marker 165." StaticText`
+    t =    46.43s Find the "Reading marker 165." StaticText
+    t =    46.50s Find the NavigationBar (First Match)
+    t =    46.51s Find the "companion-composer-region" Any
+    t =    46.59s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    46.62s Checking existence of `Keyboard (First Match)`
+    t =    46.82s Checking existence of `"Reading marker 165." StaticText`
+    t =    46.87s Find the "Reading marker 165." StaticText
+    t =    46.92s Find the NavigationBar (First Match)
+    t =    46.93s Find the "companion-composer-region" Any
+    t =    47.02s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    47.06s Checking existence of `Keyboard (First Match)`
+    t =    47.22s Checking existence of `"Reading marker 165." StaticText`
+    t =    47.28s Find the "Reading marker 165." StaticText
+    t =    47.34s Find the NavigationBar (First Match)
+    t =    47.35s Find the "companion-composer-region" Any
+    t =    47.43s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    47.47s Checking existence of `Keyboard (First Match)`
+    t =    47.65s Checking existence of `"Reading marker 165." StaticText`
+    t =    47.70s Find the "Reading marker 165." StaticText
+    t =    47.77s Find the NavigationBar (First Match)
+    t =    47.78s Find the "companion-composer-region" Any
+    t =    47.87s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    47.90s Checking existence of `Keyboard (First Match)`
+    t =    47.98s Added attachment named 'Chat reopen restoration frame timeline'
+    t =    47.98s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    48.12s Added attachment named 'Chat reopen restoration readiness'
+    t =    48.13s Find the "Reading marker 165." StaticText
+    t =    48.19s Checking existence of `Button (First Match)`
+    t =    48.21s Find the Button (First Match)
+    t =    48.24s Find the "companion-latest" Button
+    t =    48.27s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    48.31s Tap Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (220.0, 757.7)
+    t =    48.31s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    48.31s     Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    48.34s     Check for interrupting elements affecting "Clubhouse Go" Application
+    t =    48.38s     Synthesize event
+    t =    48.38s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    48.41s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    48.45s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    48.77s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    48.77s Waiting 10.0s for "companion-latest" Button to not exist
+    t =    49.84s     Checking `Expect predicate `existsNoRetry == 0` for object "companion-latest" Button`
+    t =    49.84s         Checking existence of `"companion-latest" Button`
+    t =    50.13s Checking existence of `Button (First Match)`
+    t =    50.41s Tap "companion-composer" TextField
+    t =    50.41s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    50.45s     Find the "companion-composer" TextField
+    t =    50.93s     Check for interrupting elements affecting "companion-composer" TextField
+    t =    51.15s     Synthesize event
+    t =    51.44s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    51.44s Waiting 2.0s for Keyboard (First Match) to exist
+    t =    52.49s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    52.49s         Checking existence of `Keyboard (First Match)`
+    t =    52.51s Waiting 5.0s for Keyboard (First Match) to exist
+    t =    53.58s     Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`
+    t =    53.58s         Checking existence of `Keyboard (First Match)`
+    t =    53.59s Checking existence of `Button (First Match)`
+    t =    53.90s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    54.20s Added attachment named 'Reading controls above the composer'
+    t =    54.20s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingUITests testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry]' passed (54.629 seconds).
+Test Suite 'CompanionReadingUITests' passed at 2026-11-18 19:39:53.864.
+	 Executed 1 test, with 0 failures (0 unexpected) in 54.629 (54.630) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 19:39:53.866.
+	 Executed 1 test, with 0 failures (0 unexpected) in 54.629 (54.631) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 19:39:53.867.
+	 Executed 1 test, with 0 failures (0 unexpected) in 54.629 (54.633) seconds
+2026-11-18 19:39:54.209 xcodebuild[12746:463165201] [MT] IDETestOperationsObserverDebug: 60.944 elapsed -- Testing started completed.
+2026-11-18 19:39:54.209 xcodebuild[12746:463165201] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 19:39:54.209 xcodebuild[12746:463165201] [MT] IDETestOperationsObserverDebug: 60.944 sec, +60.944 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/r0-r1/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

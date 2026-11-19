@@ -1,0 +1,64 @@
+Exported 1 attachment for: CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible():
+File: 2B8119A4-99BC-4E83-901E-6B37EDA8A74D.png, suggested name: "Failed tool status remains visible with folded output_0_3691DFCE-40EB-4DBB-A99C-93BF5233EBA2.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact():
+File: 8DEA91ED-DDC9-427D-ADD1-8658DDCBD567.png, suggested name: "Inline helper reply with compact Clubhouse statuses_0_4B40F1AB-2995-4BCF-AC01-E9A4D432ADF3.png"
+
+Exported 5 attachments for: CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry():
+File: D194A11E-0A91-49B0-B6F1-B4A77C925136.png, suggested name: "Reading controls above the composer_0_DEF5F610-645B-4176-9E12-C51A40E84C69.png"
+File: 1BB39DBB-1BCE-4118-8B03-5C01D1331AB3.png, suggested name: "Chat reopen restoration readiness_0_05C70CFF-BEE4-42B0-AF5A-D5DA5D32C1FE.png"
+File: E047CE7B-23A9-4655-A43A-F7FC436C0597.txt, suggested name: "Chat reopen restoration frame timeline_0_FBED7B0F-C9EA-4BC7-B5DA-C65132DC7162.txt"
+File: 20779221-C763-4C7B-9C52-7B3086344052.png, suggested name: "Tab return restoration readiness_0_7C1A2DF8-1AAA-4B81-BE85-FB8196BB5C9E.png"
+File: 542F596B-C790-4A85-AD2F-44728303DB93.txt, suggested name: "Tab return restoration frame timeline_0_C822FC0E-F0B4-4783-8EC9-B045163992F6.txt"
+
+Exported 2 attachments for: CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction():
+File: 79706F9A-7185-4F27-B0C0-223F6F9448D4.png, suggested name: "Last reply Latest action arrives_0_12836870-9390-4FD7-94AD-AA8E65A91039.png"
+File: A8C4BFBD-96D6-451D-9A7D-80D048714F11.png, suggested name: "Last reply announces Latest before tap_0_3C0BEA23-91B6-4913-82B2-960BB71481AB.png"
+
+Exported 3 attachments for: CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate():
+File: 61A84A45-BC47-4057-AD2D-C5EBC0BD8A57.png, suggested name: "Latest follows explicitly released update_0_E645E2ED-D01E-4533-8BEF-62C329AC5641.png"
+File: 291FB573-B5B3-4DF3-88B4-B26EFF424E3E.png, suggested name: "Latest immediate stationary arrival_0_35EEB998-7D40-40A9-9C39-BE4844C8376B.png"
+File: 9D988EDA-BC3F-4903-80D8-A2C26C5B0E86.png, suggested name: "Latest before stationary tap_0_D118E217-A4EB-4D57-B935-13BADBB3C977.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout():
+File: 090AEFB8-DC6C-4340-8384-04946C2B139C.png, suggested name: "Latest hidden at the actual bottom with keyboard open_0_61A6FFEC-DAD1-4950-AF23-9C4CCFD453B7.png"
+File: F8CA5C2D-F960-4E80-8705-2251867447B3.png, suggested name: "Latest offered after a slow tiny upscroll_0_482C63A1-0CF2-47BF-81C7-B6627B537262.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing():
+File: 35C81095-D42B-4FCF-B828-73759891E010.png, suggested name: "At actual bottom remains stationary and following_0_71264CB6-A185-47A4-843F-C1CF35926822.png"
+File: C52E086E-B410-4514-A5D8-899A2723B4B9.png, suggested name: "At actual bottom without a floating control_0_EF3932EC-3E5E-401C-BBBF-9A42EB0098EF.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail():
+File: 535A6666-B5E1-4CF0-A4F0-2BFE35B7E3AE.png, suggested name: "Latest follows the streaming tail_0_13CCED55-8277-47EB-A9B6-8E7653DBC4EB.png"
+File: D394B5BE-01A3-4188-A6C3-333F8F76F7FB.png, suggested name: "Streaming reader has one centered Latest pill_0_7EA49F27-A4B8-4EEE-9085-AF5DBB26C0A3.png"
+
+Skipped export for CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused(): no matching attachments
+
+Exported 2 attachments for: CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming():
+File: 2BDBE657-F576-4C37-A73A-AA06A45CDD99.png, suggested name: "Native top remains with streaming true_0_F4F4DD8E-A1A9-468E-A210-2DAE9DD781F3.png"
+File: 26490DEF-ED1F-4981-8EE4-FA9D4FF44700.png, suggested name: "Native top remains with streaming false_0_355DCE7C-814F-44EE-B5B1-EFBB1845C256.png"
+
+Skipped export for CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming(): no matching attachments
+
+Exported 10 attachments for: CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing():
+File: 4D198909-A8AC-4976-B7B6-E7FC04E8C79C.txt, suggested name: "Rotated landscape with keyboard already open hierarchy_0_B2D60EDE-89A6-42F4-B5E7-6C04EB7C621A.txt"
+File: 42D76CC9-8E67-444C-BDCA-5EC80AFCB5FA.png, suggested name: "Rotated landscape with keyboard already open_0_A3D3F6C8-1941-4DE5-881D-9CE7EB9DE3E3.png"
+File: 49F2A91D-D205-419A-92D6-A59A28F65F8F.txt, suggested name: "Rotated portrait editing tail hierarchy_0_CCFAD717-6C70-4DE0-B5D0-D5B83C9C2447.txt"
+File: FD385ABC-C072-4E7C-8157-91F20C0EB1E4.png, suggested name: "Rotated portrait editing tail_0_47805509-E52A-4E5F-B639-03EA76F8FBBA.png"
+File: 9C095E5A-D652-4519-8EBA-C2272D79D23C.txt, suggested name: "Rotated landscape editing tail hierarchy_0_F2E116F0-78B6-4B21-933F-B9AE6C956353.txt"
+File: EA39E670-BE4E-47DB-859C-936AC3D04F14.png, suggested name: "Rotated landscape editing tail_0_62DB35CA-C720-4187-B012-2B4BFD17897F.png"
+File: 42C55877-A0CD-4C69-948B-84056EDBD98E.txt, suggested name: "Rotated landscape tail hierarchy_0_8A0C06C3-4070-4152-90F1-15A547B6EAA2.txt"
+File: 10995B57-4D84-4C0D-B621-DD378D785F9F.png, suggested name: "Rotated landscape tail_0_2F522818-6E5A-450C-B98A-54C3D4D3664D.png"
+File: F2DFB683-217B-435C-ABF5-A312ADD9EDB8.txt, suggested name: "Portrait tail hierarchy_0_1F92F8DA-3C93-468D-BC8A-C6FC99F340C3.txt"
+File: CD4A7F15-C1D4-4A78-963E-B73DA4152CC7.png, suggested name: "Portrait tail_0_F1A95F62-396E-44FA-8F73-10BA7A728902.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testRotationPreservesAScrolledUpReader():
+File: A1176D10-F9D0-412F-AA79-1116FC29EA81.png, suggested name: "Scrolled-up reader after landscape rotation_0_D2F3A187-89D7-4049-8357-497162746DC5.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls():
+File: 5BAC3B5D-50B2-4189-A975-8500FCA64BB0.png, suggested name: "Streaming continues following with no scroll_0_E500EE67-882A-47EE-959C-30EBFAF72EF6.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming():
+File: D7A07235-E400-4597-A498-E6D6F7AE4D9D.png, suggested name: "User-positioned reply stays under streaming_0_8FDEA9D9-4E19-4E01-9CE1-5EFCC3ACFE48.png"
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/rse-r1/attachments/manifest.json

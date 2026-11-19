@@ -1,0 +1,53 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "12B40DF9-8E82-44DC-9803-08B17977CCA6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Reading controls above the composer_0_E80336AB-0DC8-46DF-B675-C481A354AE6E.png",
+        "timestamp" : 1795059593.434
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "A30C4A06-19C2-4173-B90F-53A260829808.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Chat reopen restoration readiness_0_DA0DE8FE-1AB7-448B-9548-172C649E9387.png",
+        "timestamp" : 1795059587.353
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "0909BC2D-F629-4608-940D-ECA0CF118B8D.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Chat reopen restoration frame timeline_0_4F7CF369-0E84-440B-A340-DCB02C69B440.txt",
+        "timestamp" : 1795059587.21
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "D13DE003-CE0D-4075-94CA-12C88304A4ED.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Tab return restoration readiness_0_B5641214-E7E6-4622-871F-1E642B61E174.png",
+        "timestamp" : 1795059580.4
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "15ECC789-3FE5-431E-A51C-044E3749F1D4.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Tab return restoration frame timeline_0_DC780C88-F3E5-432E-952A-F97131565B71.txt",
+        "timestamp" : 1795059580.253
+      }
+    ],
+    "testIdentifier" : "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry"
+  }
+]

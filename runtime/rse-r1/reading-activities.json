@@ -1,0 +1,1884 @@
+{
+  "testIdentifier" : "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+  "testName" : "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "testRuns" : [
+    {
+      "activities" : [
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059665.405,
+          "title" : "Start Test at 2026-11-18 19:41:05.405"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059665.418,
+          "title" : "Set Up"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059665.419,
+          "title" : "Getting device orientation"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059665.42,
+          "title" : "Terminate com.Agent-Clubhouse.Go:13973"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059666.505,
+          "title" : "Wait for com.Agent-Clubhouse.Go to become Not Running"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059666.719,
+                  "title" : "Setting up automation session"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059667.318,
+                  "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059666.506,
+              "title" : "Launch com.Agent-Clubhouse.Go"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059666.505,
+          "title" : "Open com.Agent-Clubhouse.Go"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059668.689,
+          "title" : "Wait for com.Agent-Clubhouse.Go to become Running Foreground"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059668.69,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059668.742,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059669.838,
+                  "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059669.837,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agent-preview-studio-river\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059668.764,
+          "title" : "Waiting 2.0s for \"agent-preview-studio-river\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059669.995,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059670.102,
+          "title" : "Find the \"agent-preview-studio-river\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059670.217,
+          "title" : "Checking existence of `\"companion-composer\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059670.351,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Button`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059670.457,
+          "title" : "Find the \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059670.556,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059670.558,
+              "title" : "Find the \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059670.666,
+              "title" : "Check for interrupting elements affecting \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059670.715,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059671.001,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059670.556,
+          "title" : "Tap \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059672.221,
+                  "title" : "Checking existence of `\"companion-composer\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059672.22,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-composer\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059671.151,
+          "title" : "Waiting 10.0s for \"companion-composer\" Any to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059673.429,
+              "title" : "Checking existence of `Button (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059673.429,
+          "title" : "Checking `Expect predicate `exists == 0` for object Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059673.5,
+          "title" : "Get number of matches for: Elements matching predicate 'label BEGINSWITH \"Reading marker \"'"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059674.612,
+                  "title" : "Checking existence of `\"companion-show-earlier\" Button`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059674.612,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-show-earlier\" Button`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059673.543,
+          "title" : "Waiting 10.0s for \"companion-show-earlier\" Button to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059674.653,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059674.694,
+          "title" : "Find the \"companion-chat-header\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059674.728,
+          "title" : "Find the \"companion-composer\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059674.867,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059674.917,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059674.927,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059674.962,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059674.999,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059675.03,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059675.063,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059675.096,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059675.129,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059674.998,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059677.148,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059674.917,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) -> (0.0, 395.8) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059677.153,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059677.221,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059677.261,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059677.39,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059677.429,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059677.431,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059677.468,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059677.508,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059677.54,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059677.573,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059677.605,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059677.64,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059677.507,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059679.655,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059677.429,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) -> (0.0, 395.8) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059679.658,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059679.703,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059679.738,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059679.877,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059679.924,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059679.932,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059679.965,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059680.003,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059680.035,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059680.068,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059680.101,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059680.136,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059680.002,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059682.153,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059679.923,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) -> (0.0, 395.8) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059682.156,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059682.2,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059682.233,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059682.354,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059682.396,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059682.41,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059682.446,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059682.488,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059682.52,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059682.555,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059682.586,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059682.619,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059682.484,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059684.635,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059682.396,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) -> (0.0, 395.8) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059684.638,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059684.684,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059684.727,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059684.845,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059684.887,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059684.897,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059684.931,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059684.971,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059685.003,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059685.036,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059685.067,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059685.101,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059684.97,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059687.116,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059684.887,
+          "title" : "Press Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) for 0.1 seconds, then drag to Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 113.2) -> (0.0, 395.8) with velocity of 250.00 pixels per second, and then hold for 0.1 seconds "
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.435,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.489,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.534,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.57,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.613,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.729,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.778,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.831,
+          "title" : "Find the \"companion-chat-header\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.873,
+          "title" : "Find the \"companion-show-earlier\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059687.916,
+          "title" : "Find the \"companion-composer\" TextField"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059688.036,
+          "title" : "Get all elements bound by index for: Elements matching predicate 'label BEGINSWITH \"Reading marker \"'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059688.083,
+          "title" : "Find the StaticText (Element at index 0)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059688.128,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059688.173,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059688.219,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059688.276,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059688.278,
+              "title" : "Find the \"companion-show-earlier\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059688.32,
+              "title" : "Check for interrupting elements affecting \"companion-show-earlier\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059688.358,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059688.647,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059688.276,
+          "title" : "Tap \"companion-show-earlier\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059689.762,
+              "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059689.762,
+          "title" : "Checking `Expect predicate `exists == 1` for object \"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059691.968,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059695.176,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059695.342,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059695.344,
+              "title" : "Find the \"companion-composer\" TextField"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059695.804,
+              "title" : "Check for interrupting elements affecting \"companion-composer\" TextField"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059696.036,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059696.326,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059695.342,
+          "title" : "Tap \"companion-composer\" TextField"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059697.721,
+                  "title" : "Checking existence of `Keyboard (First Match)`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059697.721,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059696.653,
+          "title" : "Waiting 2.0s for Keyboard (First Match) to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059698.813,
+                  "title" : "Checking existence of `Keyboard (First Match)`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059698.812,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059697.739,
+          "title" : "Waiting 5.0s for Keyboard (First Match) to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059698.826,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059699.008,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059699.204,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059699.205,
+              "title" : "Find the Button (Element at index 0)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059699.357,
+              "title" : "Check for interrupting elements affecting \"BackButton\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059699.51,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059699.805,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059699.204,
+          "title" : "Tap Button (Element at index 0)"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059699.843,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059700.304,
+              "title" : "Find the Button (First Match)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059700.337,
+              "title" : "Check for interrupting elements affecting \"magnifyingglass\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059700.375,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059700.664,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059699.843,
+          "title" : "Tap Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059701.341,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059701.343,
+              "title" : "Find the Button (First Match)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059701.366,
+              "title" : "Check for interrupting elements affecting \"Home\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059701.401,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059701.688,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059701.341,
+          "title" : "Tap Button (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059701.69,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059701.703,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059702.797,
+                  "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059702.796,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agent-preview-studio-river\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059701.719,
+          "title" : "Waiting 2.0s for \"agent-preview-studio-river\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059702.924,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059703.022,
+          "title" : "Find the \"agent-preview-studio-river\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059703.13,
+          "title" : "Checking existence of `\"companion-composer\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059703.264,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Button`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059703.366,
+          "title" : "Find the \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059703.478,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059703.479,
+              "title" : "Find the \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059703.581,
+              "title" : "Check for interrupting elements affecting \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059703.628,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059703.916,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059703.477,
+          "title" : "Tap \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059704.979,
+                  "title" : "Checking existence of `\"companion-composer\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059704.979,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-composer\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059703.918,
+          "title" : "Waiting 10.0s for \"companion-composer\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.123,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.18,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.234,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.249,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.328,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.361,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.543,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.591,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.653,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.674,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.752,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.788,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059705.967,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.024,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.082,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.099,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.177,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.21,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.385,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.442,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.497,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.509,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.594,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.627,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.805,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.853,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.909,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059706.921,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.005,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.038,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.213,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.263,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.326,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.338,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.418,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.452,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.622,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.671,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.715,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.742,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.832,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.87,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "keepAlways",
+              "name" : "Tab return restoration frame timeline_0_C822FC0E-F0B4-4783-8EC9-B045163992F6.txt",
+              "payloadId" : "0~sVZ-kJFPIICbsUVVXJghPKToyHbh_ExKD9EP57vXDWYkjg8wGMEhOprEzDDNfJXIVH8o0X3V5mcfLUK9AEZ1WQ==",
+              "timestamp" : 1795059707.938,
+              "uuid" : "542F596B-C790-4A85-AD2F-44728303DB93"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059707.938,
+              "title" : "Tab return restoration frame timeline"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.938,
+          "title" : "Added attachment named 'Tab return restoration frame timeline'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059707.938,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "keepAlways",
+              "name" : "Tab return restoration readiness_0_7C1A2DF8-1AAA-4B81-BE85-FB8196BB5C9E.png",
+              "payloadId" : "0~7rblmKsA8nCRxlJ_MD8z_WUAYnz9kZLEClb8I7yELM195rHVeH36i43BQIDh1dsDY5-GcOqA6I9UsX6dPwTcwg==",
+              "timestamp" : 1795059708.014,
+              "uuid" : "20779221-C763-4C7B-9C52-7B3086344052"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059708.014,
+              "title" : "Tab return restoration readiness"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059708.014,
+          "title" : "Added attachment named 'Tab return restoration readiness'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059708.016,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059708.061,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059708.063,
+              "title" : "Find the Button (Element at index 0)"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059708.099,
+              "title" : "Check for interrupting elements affecting \"BackButton\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059708.14,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059708.472,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059708.061,
+          "title" : "Tap Button (Element at index 0)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059708.474,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059708.484,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059709.571,
+                  "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059709.571,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"agent-preview-studio-river\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059708.496,
+          "title" : "Waiting 2.0s for \"agent-preview-studio-river\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059709.686,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059709.789,
+          "title" : "Find the \"agent-preview-studio-river\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059709.894,
+          "title" : "Checking existence of `\"companion-composer\" Any`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059710.023,
+          "title" : "Checking existence of `\"agent-preview-studio-river\" Button`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059710.124,
+          "title" : "Find the \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059710.231,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059710.233,
+              "title" : "Find the \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059710.331,
+              "title" : "Check for interrupting elements affecting \"agent-preview-studio-river\" Button"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059710.375,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059710.664,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059710.231,
+          "title" : "Tap \"agent-preview-studio-river\" Button"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059711.713,
+                  "title" : "Checking existence of `\"companion-composer\" Any`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059711.712,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object \"companion-composer\" Any`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059710.666,
+          "title" : "Waiting 10.0s for \"companion-composer\" Any to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059711.875,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059711.921,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059711.965,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059711.977,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.074,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.125,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.306,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.351,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.399,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.411,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.504,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.555,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.729,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.778,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.826,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.841,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.931,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059712.978,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.164,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.216,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.262,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.274,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.369,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.419,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.602,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.649,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.694,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.705,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.802,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059713.853,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.039,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.091,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.138,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.15,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.243,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.297,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.484,
+          "title" : "Checking existence of `\"Reading marker 165.\" StaticText`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.529,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.575,
+          "title" : "Find the NavigationBar (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.587,
+          "title" : "Find the \"companion-composer-region\" Any"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.691,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.746,
+          "title" : "Checking existence of `Keyboard (First Match)`"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "keepAlways",
+              "name" : "Chat reopen restoration frame timeline_0_FBED7B0F-C9EA-4BC7-B5DA-C65132DC7162.txt",
+              "payloadId" : "0~yVrqkLJF61BBA96W80Px0L1SLe1eje0qZ7nS2A_ZyjrqcviGsjuh6nRlcVhzGBiD9Fq0m8mmxX3cQ1AwIgpU7w==",
+              "timestamp" : 1795059714.819,
+              "uuid" : "E047CE7B-23A9-4655-A43A-F7FC436C0597"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059714.819,
+              "title" : "Chat reopen restoration frame timeline"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.819,
+          "title" : "Added attachment named 'Chat reopen restoration frame timeline'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.819,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "keepAlways",
+              "name" : "Chat reopen restoration readiness_0_05C70CFF-BEE4-42B0-AF5A-D5DA5D32C1FE.png",
+              "payloadId" : "0~7rblmKsA8nCRxlJ_MD8z_WUAYnz9kZLEClb8I7yELM195rHVeH36i43BQIDh1dsDY5-GcOqA6I9UsX6dPwTcwg==",
+              "timestamp" : 1795059714.901,
+              "uuid" : "1BB39DBB-1BCE-4118-8B03-5C01D1331AB3"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059714.901,
+              "title" : "Chat reopen restoration readiness"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.901,
+          "title" : "Added attachment named 'Chat reopen restoration readiness'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.903,
+          "title" : "Find the \"Reading marker 165.\" StaticText"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.953,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059714.984,
+          "title" : "Find the Button (First Match)"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059715.014,
+          "title" : "Find the \"companion-latest\" Button"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059715.042,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059715.075,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059715.077,
+              "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059715.134,
+              "title" : "Check for interrupting elements affecting \"Clubhouse Go\" Application"
+            },
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059715.175,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059715.209,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                },
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059715.244,
+                  "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059715.174,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059715.558,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059715.075,
+          "title" : "Tap Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (187.5, 502.5)"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059716.671,
+                  "title" : "Checking existence of `\"companion-latest\" Button`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059716.67,
+              "title" : "Checking `Expect predicate `existsNoRetry == 0` for object \"companion-latest\" Button`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059715.608,
+          "title" : "Waiting 10.0s for \"companion-latest\" Button to not exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059716.946,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059717.228,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059717.27,
+              "title" : "Find the \"companion-composer\" TextField"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059717.73,
+              "title" : "Check for interrupting elements affecting \"companion-composer\" TextField"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059717.963,
+              "title" : "Synthesize event"
+            },
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059718.255,
+              "title" : "Wait for com.Agent-Clubhouse.Go to idle"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059717.228,
+          "title" : "Tap \"companion-composer\" TextField"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059719.287,
+                  "title" : "Checking existence of `Keyboard (First Match)`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059719.287,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059718.257,
+          "title" : "Waiting 2.0s for Keyboard (First Match) to exist"
+        },
+        {
+          "childActivities" : [
+            {
+              "childActivities" : [
+                {
+                  "isAssociatedWithFailure" : false,
+                  "startTime" : 1795059720.337,
+                  "title" : "Checking existence of `Keyboard (First Match)`"
+                }
+              ],
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059720.337,
+              "title" : "Checking `Expect predicate `existsNoRetry == 1` for object Keyboard (First Match)`"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059719.295,
+          "title" : "Waiting 5.0s for Keyboard (First Match) to exist"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059720.351,
+          "title" : "Checking existence of `Button (First Match)`"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059720.656,
+          "title" : "Find the Target Application 'com.Agent-Clubhouse.Go'"
+        },
+        {
+          "attachments" : [
+            {
+              "lifetime" : "keepAlways",
+              "name" : "Reading controls above the composer_0_DEF5F610-645B-4176-9E12-C51A40E84C69.png",
+              "payloadId" : "0~sr3fbsGhl96DOB4XeINVTpvG8mMdhqjfC-SoYrqXlJL2aNHDNnMfiC0rA43urMF6shik1czu0V15aBCUW_vomQ==",
+              "timestamp" : 1795059720.86,
+              "uuid" : "D194A11E-0A91-49B0-B6F1-B4A77C925136"
+            }
+          ],
+          "childActivities" : [
+            {
+              "isAssociatedWithFailure" : false,
+              "startTime" : 1795059720.86,
+              "title" : "Reading controls above the composer"
+            }
+          ],
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059720.86,
+          "title" : "Added attachment named 'Reading controls above the composer'"
+        },
+        {
+          "isAssociatedWithFailure" : false,
+          "startTime" : 1795059720.863,
+          "title" : "Tear Down"
+        }
+      ],
+      "device" : {
+        "architecture" : "arm64",
+        "deviceId" : "5E8DC73E-F893-4F51-B1EE-B452697FDED4",
+        "deviceName" : "ux-582-first-paint",
+        "modelName" : "iPhone SE (3rd generation)",
+        "osBuildNumber" : "23A343",
+        "osVersion" : "26.0",
+        "platform" : "iOS Simulator"
+      },
+      "testPlanConfiguration" : {
+        "configurationId" : "1",
+        "configurationName" : "Test Scheme Action"
+      }
+    }
+  ]
+}

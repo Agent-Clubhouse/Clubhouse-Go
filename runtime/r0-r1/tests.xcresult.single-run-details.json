@@ -1,0 +1,52 @@
+{
+  "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 54 seconds",
+    "durationInSeconds": 54.62859892845154,
+    "hasMediaAttachments": true,
+    "hasPerformanceMetrics": false,
+    "startTime": 1795059539.235,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+    "testName": "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "54s",
+            "durationInSeconds": 54.62859892845154,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "54s",
+        "durationInSeconds": 54.62859892845154,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "710BC94A-6D0B-4D88-BE39-6E3C30A1E23B",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  }
+}

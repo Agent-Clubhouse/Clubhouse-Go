@@ -1,0 +1,8 @@
+{
+  "tested_head": "fab40073358820b4fcd75d73819ccb04fb096111",
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "main_before_D": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "incoming_files": [],
+  "all_file_overlap": [],
+  "note": "Light preflight only. D fetches/rechecks current main immediately before its fresh compile."
+}

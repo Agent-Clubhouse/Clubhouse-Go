@@ -1,0 +1,17 @@
+[
+  "CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible()",
+  "CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact()",
+  "CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry()",
+  "CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction()",
+  "CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate()",
+  "CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout()",
+  "CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing()",
+  "CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail()",
+  "CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused()",
+  "CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming()",
+  "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()",
+  "CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing()",
+  "CompanionReadingUITests/testRotationPreservesAScrolledUpReader()",
+  "CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls()",
+  "CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming()"
+]

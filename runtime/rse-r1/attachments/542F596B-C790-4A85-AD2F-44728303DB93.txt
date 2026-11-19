@@ -1,0 +1,8 @@
+t=0.318381916731596 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=0.0
+t=0.7362671247683465 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=0.41788520803675056
+t=1.1538508334197104 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=0.8354689166881144
+t=1.5750995832495391 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=1.2567176665179431
+t=1.9909452083520591 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=1.6725632916204631
+t=2.3933477913960814 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=2.0749658746644855
+t=2.817747333087027 exists=true anchor=(22.0, 168.0, 156.0, 20.5) viewport=(0.0, 74.0, 375.0, 483.0) keyboard=nil stableFor=2.499365416355431
+settled t=2.817747333087027
