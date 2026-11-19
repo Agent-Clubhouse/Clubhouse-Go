@@ -8,7 +8,7 @@
   "review_required_before_execution": true,
   "originals_private": true,
   "known_native_outcomes": {},
-  "head": "937e6061cc50bf9b43f44554501bc531d1b4fb81",
+  "head": "d5285e7105a41da80f24492ee45c5771135ad16d",
   "source": "/Users/masonallen/source/Clubhouse-Annex/.clubhouse/agents/ux-root",
   "source_sha256": {
     "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "89b024ccc1ad07963fd32aff7c541f5d2ddd09b204a7352113abe334673878bf",
@@ -20,9 +20,9 @@
     "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
     "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
     "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
-    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "4af6070ee08c37e97c821914c544542fc9dfd5a2f6887d17fcd68521b0fa0141"
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "bd08f4233b04734cbba97309b0bbbe442bf1384b7762da4fd5d43bb80be888ed"
   },
-  "full_diff_sha256": "cdea1478cf2448aa012df80b0d5befc289e140619124de50629d1912338be8cc",
+  "full_diff_sha256": "0ce2387dfecdd57dee49d04a8f18c3a5fb8021870602aa1bbe7766d81403801c",
   "phases": {
     "A": {
       "kind": "build",

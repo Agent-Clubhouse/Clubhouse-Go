@@ -12,13 +12,13 @@
       "Failed"
     ]
   },
-  "head": "ecd041582d90d05d41140688b34afe1cbf986764",
+  "head": "4deda61265ab373c7a7a4eed5ec7407cf946b221",
   "source": "/tmp/ux-610-proof/baseline-source",
   "source_sha256": {
     "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
-    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "4af6070ee08c37e97c821914c544542fc9dfd5a2f6887d17fcd68521b0fa0141"
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "bd08f4233b04734cbba97309b0bbbe442bf1384b7762da4fd5d43bb80be888ed"
   },
-  "full_diff_sha256": "fa7082a920088201b749ed887d28cc39bbcb6779a0cf2f27a4867e1e720047a1",
+  "full_diff_sha256": "0bf71127d26bfc7a1747180f2ab70a5c0bad9f047f0e935907aab47310efe741",
   "phases": {
     "A": {
       "kind": "build",
