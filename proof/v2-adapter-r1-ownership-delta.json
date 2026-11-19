@@ -1,0 +1,22 @@
+{
+  "cached_parser_sha256": "e2606ff681d2102e2a266d9c925bc92cd89610e1c5f3394031f423ed4cb151a5",
+  "no_compile": true,
+  "review_required": true,
+  "explicit_property_deltas": {
+    "CompanionStore": {
+      "providerV2Flows": "[ CompanionTarget : CompanionProviderV2Flow ]"
+    },
+    "CompanionLiveService": {
+      "providerV2Attempted": "Set < CompanionCommandKey >",
+      "providerV2Unresolved": "Set < CompanionTarget >",
+      "providerV2Applied": "[ CompanionTarget : CompanionProviderV2Applied ]"
+    },
+    "CompanionPreviewService": {
+      "providerV2FixtureSaved": "Bool",
+      "providerV2FixtureUnknown": "Bool",
+      "providerV2FixtureApplied": "CompanionProviderV2Applied ?",
+      "providerV2FixtureAttempts": "Set < String >",
+      "providerV2FixtureStarts": "Set < String >"
+    }
+  }
+}

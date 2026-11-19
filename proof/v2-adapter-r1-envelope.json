@@ -1,0 +1,10 @@
+{
+  "outer_sha256": "4ad2705f6289db80b71896485cc89e4e7961f9afd92a94342ad2be3ab5db8de0",
+  "core_runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "manifest_sha256": "a8de619cc2ecbca2ca6263bf047336f32f540d994aeb6c3414d1832b535c388a",
+  "mock_test_sha256": "596d1de13eff63b6285edd0d47ea6288f6f6988282c8980c78c7bb812e6fa7d8",
+  "mock_cases": 7,
+  "not_executed": true,
+  "deadline": "phase bound includes monitoring and final process inspection; reserve60s forcleanup; timeout/error/unknown strictFAIL",
+  "external_close_required": "launcher records monotonic after FIFO exit minus wrapper admission-start to corroborate actual end-to-end closure; worker receipt alone never used"
+}
