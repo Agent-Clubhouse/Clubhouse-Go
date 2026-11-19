@@ -1,0 +1,18 @@
+{
+  "from_head": "7e97563d575d0271e6ab6565437a0191d4f23348",
+  "to_head": "37d5b595fef266131b71f00fed92c3a4ca59401a",
+  "from_tree": "6bb3d2b0eada11b92a4ec9269bf69315a4eff330",
+  "to_tree": "93ff9ca9cc542dfbc5f9fec8cdd5ebee6f4113d5",
+  "original_native_audit_sha256": "81b16e44c654df17b3adfb64a75086dd223140063b2190359be6abca82bd8948",
+  "original_build_audit_sha256": "e29aedc470edaf058af4d5f63d60e42100916e703eeb4833f3c989e5d85865ed",
+  "prior_whole_closure_sha256": "a98b46b162c1bc42b021f2ee0a01a85c44f510335faca24dcbd613f8a8b5c1f5",
+  "total_paths": 767,
+  "unchanged_paths": 765,
+  "only_changed_paths": [
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift",
+    "docs/provider-v2-610.md"
+  ],
+  "UI_remove_exact_added_block": "        // Saved then proposed: at most 16 pans across both reveals (eight each).\n        // Five readable targets allow 40 pans, plus the unchanged four-pan selection cap.\n        XCTAssertTrue(captureReadableProviderRow(\"provider-v2-saved-model\", in: app, containing: [\"fixture-current-model\", \"saved agent override\"], name: \"V2 Large saved override readable before proposed defaults\"))\n",
+  "UI_normalized_sha256": "8d60cc404e7c3a931a3dc4ddabb633177f5aa6557ac35800271c835a822c2c0d",
+  "basis": "Removing exact new readonly-capture block reconstructs ENTIRE old UI file, retaining all semantic methods/complete shared helper call closures. Every765other tracked entry equal: all product/build/resource/package/reading bytes unchanged. ActualLarge accepted at7e carries by identity; NOT new Large/freshfive/current changedcapture results."
+}
