@@ -1033,7 +1033,15 @@ release-held, clear or Send action is invoked. SDK enrollment, consent, queue an
 code is unchanged; the fixture is not a real enrollment, provider, device-install or release test.
 Local XCTest stdout records both state values and each reopen cycle's status/renewal target frames;
 a retained text attachment also includes both state values for independent runtime inspection.
-Row navigation requires one hittable native List, logs its frame, navigation/keyboard/tab limits,
+Row navigation requires one named navigation bar, its unique immediate native navigation context,
+and exactly one descendant List in that context. A background List outside that ownership scope
+cannot be selected, and duplicate bars, contexts or owned Lists fail rather than choosing an index.
+The named navigation bar must have a hittable native control, and native alerts, popovers and
+confirmation sheets block revealing rows; the helper cannot scroll through a consent surface.
+The List itself need not report hittable: the original `d4c45d8d` hosted failures retained visible
+Settings/enrollment Lists whose whole-container hit tests were false. The helper logs ownership
+and container hittability separately from the required full target visibility and hittability.
+It logs the List frame, navigation/keyboard/tab limits,
 the fully contained target and a cell's before/after geometry, and pans within that viewport rather
 than using the last collection view or a whole-window swipe over Home's horizontal desktop chips.
 An absent/unrealized target, a stalled pan and a row larger than or blocked within its viewport

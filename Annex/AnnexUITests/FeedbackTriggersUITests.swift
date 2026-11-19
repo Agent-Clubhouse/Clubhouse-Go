@@ -25,10 +25,8 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
     }
 
     @MainActor private func revealFeedbackRow(_ row: XCUIElement, in app: XCUIApplication, title: String) throws {
-        let navigation = app.navigationBars[title]
-        XCTAssertTrue(navigation.waitForExistence(timeout: 5))
-        let lists = app.collectionViews.allElementsBoundByIndex
-        let active = lists.filter(\.isHittable)
+        let navigations = app.navigationBars.matching(identifier: title)
+        XCTAssertTrue(navigations.firstMatch.waitForExistence(timeout: 5))
         func fail(_ reason: String) {
             let hierarchy = XCTAttachment(string: app.debugDescription)
             hierarchy.name = "Feedback reveal failure: \(title)"; hierarchy.lifetime = .keepAlways; add(hierarchy)
@@ -36,12 +34,35 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             image.name = "Feedback reveal failure: \(title)"; image.lifetime = .keepAlways; add(image)
             XCTFail("\(reason): \(row)")
         }
-        guard active.count == 1 else {
-            print("FEEDBACK_REVEAL containers=\(lists.map { "id=\($0.identifier) frame=\($0.frame) hittable=\($0.isHittable)" })")
-            fail("Expected one active native list beneath \(title), found \(active.count)")
+        guard navigations.count == 1 else {
+            fail("Expected one named native navigation bar for \(title), found \(navigations.count)")
             return
         }
-        let form = try XCTUnwrap(active.first)
+        let navigation = try XCTUnwrap(navigations.allElementsBoundByIndex.first)
+        guard navigation.buttons.allElementsBoundByIndex.contains(where: \.isHittable) else {
+            fail("The named navigation context for \(title) has no hittable native navigation control")
+            return
+        }
+        guard app.alerts.count == 0 && app.popovers.count == 0 && app.sheets.count == 0 else {
+            fail("A native alert, popover or confirmation sheet blocks the \(title) list")
+            return
+        }
+        let contexts = app.otherElements.containing(.navigationBar, identifier: title).allElementsBoundByIndex.filter {
+            $0.children(matching: .navigationBar).matching(identifier: title).count == 1
+        }
+        guard contexts.count == 1 else {
+            fail("Expected one immediate native navigation context for \(title), found \(contexts.count)")
+            return
+        }
+        let context = try XCTUnwrap(contexts.first)
+        let lists = context.descendants(matching: .collectionView).allElementsBoundByIndex
+        guard lists.count == 1 else {
+            print("FEEDBACK_REVEAL containers=\(lists.map { "id=\($0.identifier) frame=\($0.frame) hittable=\($0.isHittable)" })")
+            fail("Expected one native list owned by \(title), found \(lists.count)")
+            return
+        }
+        let form = try XCTUnwrap(lists.first)
+        print("FEEDBACK_REVEAL ownership title=\(title) context=\(context.frame) navigation=\(navigation.frame) list=\(form.frame) containerHittable=\(form.isHittable)")
         let anchor = form.cells.firstMatch
         func state() -> RevealState {
             let bounds = form.frame.intersection(app.frame)
