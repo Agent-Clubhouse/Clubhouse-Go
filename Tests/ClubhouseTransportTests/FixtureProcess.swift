@@ -27,7 +27,10 @@ final class FixtureProcess {
     }
 
     func waitForExit(timeout: DispatchTimeInterval) -> Bool {
-        termination.wait(timeout: .now() + timeout) == .success
+        let id = UUID().uuidString
+        PackageStallTrace.record("termination_wait_enter", id: id, detail: String(process.processIdentifier))
+        defer { PackageStallTrace.record("termination_wait_exit", id: id) }
+        return termination.wait(timeout: .now() + timeout) == .success
     }
 
     func stop(gracePeriod: DispatchTimeInterval = .seconds(2), killTimeout: DispatchTimeInterval = .seconds(2)) {

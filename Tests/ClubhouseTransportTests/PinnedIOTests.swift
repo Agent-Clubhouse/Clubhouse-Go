@@ -9,11 +9,14 @@ import Foundation
     ])
     defer { process.stop() }
     var line = Data()
+    let readinessTrace = UUID().uuidString
+    PackageStallTrace.record("readiness_read_enter", id: readinessTrace, detail: String(process.process.processIdentifier))
     while let byte = try process.output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
         line.append(byte)
         guard line.count < 4096 else { throw AnnexTransportError.malformedResponse }
     }
     struct Fixture: Decodable { let port: UInt16; let pin: String }
+    PackageStallTrace.record("readiness_read_exit", id: readinessTrace)
     let fixture = try JSONDecoder().decode(Fixture.self, from: line)
     let endpoint = try AnnexEndpoint(host: "127.0.0.1", port: fixture.port)
     let hostID = "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef"

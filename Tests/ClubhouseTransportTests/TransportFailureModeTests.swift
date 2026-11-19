@@ -481,17 +481,36 @@ private struct ScheduledConditionTimeout: Error {}
 /// Wait for scheduled work's actual condition, giving other executors a chance to run.
 /// A yield count can expire in milliseconds while the actor we await has not been scheduled.
 /// On timeout, the poll count separates a starved waiter (few polls) from a condition that never held (many).
-private func settle(_ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
+private func settle(_ done: () async -> Bool, state: (() async -> String)? = nil, caller: String = #function) async throws {
+    let trace = UUID().uuidString
+    PackageStallTrace.record("settle_begin", id: trace, detail: caller)
+    defer { PackageStallTrace.record("settle_end", id: trace) }
     let deadline = ContinuousClock.now.advanced(by: .seconds(10))
     var polls = 0
     repeat {
         polls += 1
-        if await done() { return }
+        if polls <= 2 { PackageStallTrace.record("condition_enter_\(polls)", id: trace) }
+        let ready = await done()
+        if polls <= 2 { PackageStallTrace.record("condition_exit_\(polls)", id: trace, detail: String(ready)) }
+        if ready { return }
+        if polls == 1 { PackageStallTrace.record("sleep_requested", id: trace) }
         try await Task.sleep(for: .milliseconds(1))
+        if polls == 1 { PackageStallTrace.record("sleep_resumed", id: trace) }
     } while ContinuousClock.now < deadline
     let observed = await state?() ?? ""
     Issue.record("Scheduled condition did not become true within 10 seconds (\(polls) polls)\(observed.isEmpty ? "" : "; " + observed)")
     throw ScheduledConditionTimeout()
+}
+
+/// Tags entry/exit of ping/grace clock calls; actual registration is still the unchanged ManualClock.
+private func tracedClock(_ manual: AnnexManualClock, caller: String = #function) -> AnnexClock {
+    let clock = manual.clock
+    return AnnexClock(now: clock.now, sleep: { duration in
+        let id = UUID().uuidString
+        PackageStallTrace.record("clock_call", id: id, detail: "\(caller):\(duration)")
+        defer { PackageStallTrace.record("clock_return", id: id) }
+        try await clock.sleep(duration)
+    })
 }
 
 /// The live socket and clock state the snapshot-grace tests wait on.
@@ -590,7 +609,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 @Test(.timeLimit(.minutes(1))) func snapshotFailureKeepsCommandsUsableDuringGraceThenRecoversThroughBackoff() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
-    let transport = try await liveTransport(io, clock: clock.clock)
+    let transport = try await liveTransport(io, clock: tracedClock(clock))
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
@@ -622,7 +641,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 @Test(.timeLimit(.minutes(1))) func aSameSocketSnapshotCancelsSnapshotFailureGrace() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
-    let transport = try await liveTransport(io, clock: clock.clock)
+    let transport = try await liveTransport(io, clock: tracedClock(clock))
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
@@ -647,7 +666,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 @Test(.timeLimit(.minutes(1))) func silenceAloneDoesNotPutASlowInitialSnapshotOnADeadline() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [])
-    let transport = try await liveTransport(io, clock: clock.clock)
+    let transport = try await liveTransport(io, clock: tracedClock(clock))
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
