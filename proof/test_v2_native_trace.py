@@ -26,10 +26,12 @@ def events():
 class V2TraceTests(unittest.TestCase):
     def test_actual_pinned_packet_order_and_selectors_match_classifier(self):
         proof = Path(__file__).parent
-        order = json.loads((proof / 'v2-native-r2-order.json').read_text())
-        manifest = json.loads((proof / 'v2-native-r2-manifest.json').read_text())
+        order = json.loads((proof / 'v2-native-r3-order.json').read_text())
+        manifest = json.loads((proof / 'v2-native-r3-manifest.json').read_text())
         self.assertEqual(order, ORDER)
         for phase in ['TPHONE', 'TSE']:
+            self.assertNotIn('fixture_counts', manifest['phases'][phase])
+            self.assertEqual(manifest['phases'][phase]['expected_v2_counts'], {'preview': 13, 'apply': 5, 'start': 3, 'replay': 0})
             selectors = manifest['phases'][phase]['selectors']
             self.assertEqual([name.split('/', 1)[1] + '()' for name in selectors], order)
         self.assertEqual(v.verify(events(), order)['counts'], {'preview': 13, 'apply': 5, 'start': 3, 'replay': 0})
