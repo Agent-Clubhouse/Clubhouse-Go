@@ -1,0 +1,349 @@
+diff --git a/Annex/Annex/Companion/Adapters/CompanionPreviewService.swift b/Annex/Annex/Companion/Adapters/CompanionPreviewService.swift
+index 866e5eace..731d30fbb 100644
+--- a/Annex/Annex/Companion/Adapters/CompanionPreviewService.swift
++++ b/Annex/Annex/Companion/Adapters/CompanionPreviewService.swift
+@@ -699,6 +699,10 @@ import ClubhouseTransport
+                     .message(.init(id: "reading-helper", role: .assistant, text: "Preview helper streamed update.", isStreaming: true, subagentID: "preview-helper"))
+                 ])
+             #if DEBUG
++            // Separate archive-activation proof only; recording fixtures and normal preview keep their original history.
++            if ProcessInfo.processInfo.arguments.contains("--companion-reading-equality-archive") {
++                history.hasEarlierMessages = true
++            }
+             if Self.showsPinnedDecisions, target == Self.target, ProcessInfo.processInfo.arguments.contains("--companion-preview-pinned-incomplete") {
+                 // Live incomplete requests belong to a session; nil/nil review admission is tracked in #512.
+                 history.sessionID = "preview-pinned-incomplete"
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+index 8a6eb4905..a6f0c410c 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+@@ -5,6 +5,16 @@
+     static var record: ((Kind, CompanionTarget) -> Void)?
+ }
+ 
++/// Opt-in, read-only evidence of the exact values passed to actual transcript row constructors.
++/// It provides no alternative activation path and is nil outside the serialized hosted proof.
++@MainActor enum CompanionTranscriptActionProbe {
++    enum Availability: Equatable {
++        case approval(canRespond: Bool)
++        case queued(canRemove: Bool, hasAction: Bool)
++    }
++    static var record: ((CompanionTarget, String, Availability) -> Void)?
++}
++
+ /// Optional lifecycle evidence for hosted focus regressions. No draft/selection observation or focus mutation.
+ @MainActor enum CompanionComposerFocusProbe {
+     enum Event: String {
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index eccfef47f..db98a5656 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -465,8 +465,9 @@ struct CompanionConversationView: View {
+     private var timeline: some View {
+         CompanionReadingSeedScope(store: store, target: target) { opening in
+             CompanionConversationTranscript(store: store, target: target, opening: opening,
+-                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump, dismissComposer: dismissComposer,
+-                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) })
++                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump,
++                entryCapabilities: agent.capabilities, dismissComposer: dismissComposer,
++                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) }).equatable()
+         }
+         .id(target)
+     }
+@@ -494,10 +495,16 @@ struct CompanionConversationView: View {
+     }
+ 
+     private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
+-        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
++        let canRemoveQueued = store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target)
++        let hasRemoveQueuedAction = agent.capabilities.contains(.removeQueued)
++        #if DEBUG
++        CompanionTranscriptActionProbe.record?(target, message.id,
++            .queued(canRemove: canRemoveQueued, hasAction: hasRemoveQueuedAction))
++        #endif
++        return CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
+             Task { await store.retry(messageID: message.id, target: target) }
+-        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
+-           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
++        }, canRemoveQueued: canRemoveQueued,
++           removeQueued: hasRemoveQueuedAction ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
+            slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
+     }
+ 
+@@ -524,8 +531,12 @@ struct CompanionConversationView: View {
+             CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
+             CompanionContentLinks(references: CompanionContentReference.references(in: item))
+         case .approval(let approval):
++            let rowCanRespond = canRespond
++            #if DEBUG
++            let _ = CompanionTranscriptActionProbe.record?(target, approval.id, .approval(canRespond: rowCanRespond))
++            #endif
+             CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
+-                                  canRespond: canRespond, actionsArePinned: true,
++                                  canRespond: rowCanRespond, actionsArePinned: true,
+                                   persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
+                 Task { await store.respond(approval, option: option, target: target) }
+             }
+@@ -603,9 +614,12 @@ private struct CompanionReadingSeedScope<Content: View>: View {
+ }
+ 
+ /// Only the transcript unmounts when a retained chat is hidden. Composer/header State stays above this boundary.
+-private struct CompanionConversationTranscript<Header: View, Entry: View>: View {
++private struct CompanionConversationTranscript<Header: View, Entry: View>: View, Equatable {
+     @Bindable var store: CompanionStore
+     let target: CompanionTarget
++    let opening: CompanionReadingOpening
++    // The entry builder captures the parent's Agent value; capability changes must replace that closure.
++    let entryCapabilities: CompanionCapabilities
+     let isVisibilityManaged: Bool
+     let decisionChatJump: CompanionDecisionChatJump?
+     let dismissComposer: () -> Void
+@@ -628,11 +642,14 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+     @State private var shownEntries = CompanionTimelineWindow.pageSize
+ 
+     init(store: CompanionStore, target: CompanionTarget, opening: CompanionReadingOpening, isVisibilityManaged: Bool,
+-         decisionChatJump: CompanionDecisionChatJump?, dismissComposer: @escaping () -> Void,
++         decisionChatJump: CompanionDecisionChatJump?, entryCapabilities: CompanionCapabilities,
++         dismissComposer: @escaping () -> Void,
+          @ViewBuilder header: @escaping () -> Header,
+          @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
+         self.store = store
+         self.target = target
++        self.opening = opening
++        self.entryCapabilities = entryCapabilities
+         self.isVisibilityManaged = isVisibilityManaged
+         self.decisionChatJump = decisionChatJump
+         self.dismissComposer = dismissComposer
+@@ -646,6 +663,16 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+         _readingScrollPosition = State(initialValue: ScrollPosition(edge: opening.entryID == nil ? .bottom : .top))
+     }
+ 
++    // Ignore generated closures, not their display inputs. Builders resolve Store values when invoked,
++    // and their parent State wrappers keep the same storage. Own Observation/State/environment updates
++    // still invalidate this view; only identical parent-to-child values skip the duplicate projection.
++    static func == (lhs: Self, rhs: Self) -> Bool {
++        lhs.store === rhs.store && lhs.target == rhs.target && lhs.opening == rhs.opening
++            && lhs.isVisibilityManaged == rhs.isVisibilityManaged
++            && lhs.decisionChatJump?.id == rhs.decisionChatJump?.id
++            && lhs.entryCapabilities == rhs.entryCapabilities
++    }
++
+     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
+     private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
+     private var conversation: CompanionConversation { store.conversation(for: target) }
+diff --git a/Annex/AnnexTests/CompanionReadingOpeningTests.swift b/Annex/AnnexTests/CompanionReadingOpeningTests.swift
+index e31d43f86..3e84535ed 100644
+--- a/Annex/AnnexTests/CompanionReadingOpeningTests.swift
++++ b/Annex/AnnexTests/CompanionReadingOpeningTests.swift
+@@ -310,6 +310,10 @@ import UIKit
+         f.navigation.jump = second
+         try await f.wait { samples.filter { $0.phase == .jump }.count == 2 }
+         #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
++        // Equality excludes the action closures, but a new request id must propagate and the same id must not replay.
++        f.navigation.jump = second
++        for _ in 0..<3 { f.navigation.revision += 1; try await f.settle() }
++        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
+         f.navigation.visible = false
+         try await f.settle()
+         #expect(samples.filter { $0.phase == .jump }.count == 2)
+diff --git a/Annex/AnnexTests/CompanionTranscriptEqualityTests.swift b/Annex/AnnexTests/CompanionTranscriptEqualityTests.swift
+new file mode 100644
+index 000000000..9c629ad0d
+--- /dev/null
++++ b/Annex/AnnexTests/CompanionTranscriptEqualityTests.swift
+@@ -0,0 +1,146 @@
++import Testing
++import SwiftUI
++import UIKit
++@testable import ClubhouseGo
++
++/// Exercise the real paused transcript boundary; availability samples are the actual row constructor inputs,
++/// not native button activation. Native archive activation and Show-in-chat are proved separately.
++@MainActor @Suite(.serialized) struct CompanionTranscriptEqualityTests {
++    private struct CatalogHost: View {
++        let store: CompanionStore
++        let target: CompanionTarget
++        var body: some View {
++            NavigationStack {
++                if let agent = store.agent(for: target) {
++                    CompanionConversationView(store: store, agent: agent, isVisible: true)
++                }
++            }
++        }
++    }
++
++    @MainActor private struct Fixture {
++        let store: CompanionStore
++        let target: CompanionTarget
++        let window: UIWindow
++        init() async throws {
++            let service = CompanionPreviewService(showsReadingScenario: true)
++            store = CompanionStore(service: service)
++            var events = service.events().makeAsyncIterator()
++            store.apply(try #require(await events.next()))
++            target = CompanionPreviewService.target
++            _ = try #require(store.agent(for: target))
++            await store.load(target)
++            #expect(store.conversation(for: target).isLoaded)
++            let bookmark = store.readingBookmark(for: target)
++            bookmark.hasMounted = true
++            bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: 0,
++                                      shownEntries: 300)
++            let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
++            window = UIWindow(windowScene: scene)
++            window.frame = CGRect(x: 0, y: 0, width: 800, height: 1000)
++        }
++        func mount() {
++            window.rootViewController = UIHostingController(rootView: CatalogHost(store: store, target: target))
++            window.makeKeyAndVisible()
++        }
++        func close() {
++            CompanionTranscriptActionProbe.record = nil
++            CompanionConversationBuildProbe.record = nil
++            CompanionReadingOpeningProbe.didComputeSeed = nil
++            window.isHidden = true
++            window.rootViewController = nil
++            store.shutdown()
++        }
++        func wait(_ condition: () -> Bool) async throws {
++            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
++            while !condition(), ContinuousClock.now < deadline {
++                window.layoutIfNeeded()
++                try await Task.sleep(for: .milliseconds(20))
++            }
++            #expect(condition(), "A bounded product-state wait must fail, never manufacture success")
++        }
++        func settle() async throws {
++            window.layoutIfNeeded()
++            try await Task.sleep(for: .milliseconds(250))
++            window.layoutIfNeeded()
++        }
++        func capability(_ capability: CompanionCapabilities, allowed: Bool) throws {
++            var hosts = store.hosts
++            let h = try #require(hosts.firstIndex { $0.id == target.hostID })
++            let p = try #require(hosts[h].projects.firstIndex { $0.id == target.projectID })
++            let a = try #require(hosts[h].projects[p].agents.firstIndex { $0.id == target })
++            if allowed { hosts[h].projects[p].agents[a].capabilities.formUnion(capability) }
++            else { hosts[h].projects[p].agents[a].capabilities.subtract(capability) }
++            store.apply(.hosts(hosts))
++            #expect(store.agent(for: target)?.capabilities.contains(capability) == allowed)
++        }
++    }
++
++    @Test func pausedApprovalRowAvailabilityTracksCatalogCapabilityWithoutRemount() async throws {
++        try await capabilityChanges(.approve, itemID: "equality-approval", initialItem:
++            .approval(.init(id: "equality-approval", toolName: "Edit", summary: "Real transcript availability proof"))) {
++                .approval(canRespond: $0)
++            }
++    }
++
++    @Test func pausedQueuedRowAvailabilityTracksCatalogCapabilityWithoutRemount() async throws {
++        try await capabilityChanges(.removeQueued, itemID: "equality-queued", initialItem:
++            .message(.init(id: "equality-queued", role: .user, text: "Queued availability proof", queueState: .queued))) {
++                .queued(canRemove: $0, hasAction: $0)
++            }
++    }
++
++    private func capabilityChanges(_ capability: CompanionCapabilities, itemID: String, initialItem: CompanionTimelineItem,
++                                   expected: (Bool) -> CompanionTranscriptActionProbe.Availability) async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.store.apply(.upsert(f.target, initialItem, sequence: nil))
++        try f.capability(capability, allowed: false)
++        #expect(f.store.canOperate(f.target) && !f.store.pendingCommands.contains(f.target))
++        var availability: CompanionTranscriptActionProbe.Availability?
++        var timeline = 0, seeds = 0
++        CompanionTranscriptActionProbe.record = { target, observedID, value in
++            if target == f.target && observedID == itemID { availability = value }
++        }
++        CompanionConversationBuildProbe.record = { kind, target in
++            if target == f.target, case .timeline = kind { timeline += 1 }
++        }
++        CompanionReadingOpeningProbe.didComputeSeed = { if $0 == f.target { seeds += 1 } }
++        f.mount()
++        let bookmark = f.store.readingBookmark(for: f.target)
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived && availability == expected(false) }
++        try await f.settle()
++        #expect(!bookmark.position.followsLatest && seeds == 1)
++        for allowed in [true, false] {
++            let before = timeline
++            try f.capability(capability, allowed: allowed)
++            try await f.wait { availability == expected(allowed) }
++            try await f.settle()
++            #expect(availability == expected(allowed), "Actual row inputs must follow both grant and revocation")
++            #expect(timeline - before == 1, "One catalog change must not duplicate the paused transcript projection")
++            #expect(seeds == 1 && !bookmark.position.followsLatest, "Capability changes are not a mount or a Latest action")
++        }
++    }
++
++    @Test func pausedStreamingProjectsTheTranscriptExactlyOncePerRenderedBatch() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        var timeline = 0
++        CompanionConversationBuildProbe.record = { kind, target in
++            if target == f.target, case .timeline = kind { timeline += 1 }
++        }
++        f.mount()
++        let bookmark = f.store.readingBookmark(for: f.target)
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        try await f.settle()
++        for batch in 0..<10 {
++            let before = timeline
++            for _ in 0..<10 { f.store.apply(.textDelta(f.target, messageID: "reading-helper", text: " streamed", sequence: nil)) }
++            f.window.layoutIfNeeded()
++            try await Task.sleep(for: .milliseconds(150))
++            f.window.layoutIfNeeded()
++            #expect(timeline - before == 1, "Exactly one real observed projection for streamed batch \(batch)")
++            #expect(!bookmark.position.followsLatest)
++        }
++    }
++}
+diff --git a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+index eee5e3105..0404941ed 100644
+--- a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+@@ -86,6 +86,30 @@ import UIKit
+         return app
+     }
+ 
++    /// A real header action retained across equivalent parent values must still write the parent's live State storage.
++    func testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming() {
++        let app = launchFixture(extra: ["--companion-reading-equality-archive"])
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        control("stream", in: app)
++        waitState("case=streamed", in: app)
++        let transcript = app.scrollViews["companion-transcript"]
++        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
++        // Native movement reaches the inline header after the accepted numeric restore, without an action seam.
++        transcript.swipeDown()
++        let archive = app.buttons["Read earlier messages in archive"]
++        XCTAssertTrue(archive.waitForExistence(timeout: 5) && archive.isHittable)
++        archive.tap()
++        let navigation = app.navigationBars["Conversation archive"]
++        XCTAssertTrue(navigation.waitForExistence(timeout: 5))
++        let pixels = XCTAttachment(screenshot: app.screenshot())
++        pixels.name = "Actual paused transcript header opened parent archive sheet"; pixels.lifetime = .keepAlways; add(pixels)
++        navigation.buttons["Done"].tap()
++        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
++        XCTAssertFalse(navigation.exists)
++        XCTAssertTrue(state(app).label.contains("follow=0"), "Opening the archive must not make the chat follow latest")
++    }
++
+     func testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats() {
+         let app = launchFixture()
+         control("latest", in: app)
+diff --git a/docs/reading-first-paint-plan.md b/docs/reading-first-paint-plan.md
+index dc708be7d..cecfaf28a 100644
+--- a/docs/reading-first-paint-plan.md
++++ b/docs/reading-first-paint-plan.md
+@@ -51,3 +51,9 @@ After H-r2 proved the changed origin, review found the same raw-origin assumptio
+ The timeout fixture now exposes the original measured entry ID, frame and relative position through its DEBUG AX value only, preserving its existing visible text and offered viewport. The test retains its initial1200 timeout, real-drag chosen>1300, chosen==actual, completion and held checks. After remount it requires the same measured entry to intersect the viewport, entry-relative position within the unchanged2pt tolerance, and saved bookmark==new actual offset within2pt. It logs both origin shift and relative delta. This deliberately replaces only the two incompatible old-origin equalities; no pixel or six-point reading assertion changes.
+ 
+ The source sweep covers all52 unique selected S/C23/C50/R0/RSE methods across five full files and their helpers, plus the three additive CPU methods. Only the two timeout/remount equalities needed this further adaptation. Reading's rotation/stream/prepend/tab/reopen checks compare public screen frames; CPU paused-stream checks stay within one mount, and deep-open checks are already entry-relative. Exact classified hits and source hashes are stored with the manifest before any new build. All previous runtime evidence remains separate; no S result is credited from the interrupted attempt.
++
++### CPU r8 correction: transcript equality boundary
++
++The r8 comparative CPU gate stopped on a real regression: the extracted transcript projected twice per streamed batch (main once), and deep openings prepared2700 rows versus main2070. An uncredited DEBUG attribution run identified the extra `@self` pass from unchanged parent/header inputs separately from the required `CompanionStore.conversations` pass. The transcript now compares Store identity, target, immutable opening, managed visibility, Show-in-chat request id and captured agent capabilities. Generated builders/actions are excluded only after a transitive capture audit: they read current Store values or persistent parent State storage; the one copied Agent capability set is an equality input. Own Observation, environment, State and restore updates remain live.
++
++Fresh proof repeats the first-frame videos, N16 (including live paused capability grant/revocation, exact once-per-batch projection and same-id Show-in-chat non-replay), H15/19, S2 and actual native archive-header activation before the unchanged main/head CPU bar and broad suites. DEBUG availability samples are the actual row constructor inputs, not a claim of hosted native button activation. The transient attribution instrumentation is excluded from credited builds. No CPU allowance is applied by this change.
