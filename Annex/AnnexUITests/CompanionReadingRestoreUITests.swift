@@ -1,7 +1,9 @@
 import XCTest
 
 @MainActor final class CompanionReadingRestoreUITests: ReliableUITestCase {
-    /// A real prefix trim after the restore pin must preserve both semantic and visible reading alignment.
+    /// A same-session reload grows an earlier measured message on the open normal window, then a real
+    /// prefix trim after the pin must preserve both semantic and visible reading alignment. #582's
+    /// bookmark-first remount no longer exposes this race; all pixel and six-point checks stay unchanged.
     func testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry() {
         let app = launchApp(["--reading-prefix-trim-ui-testing", "--companion-preview-reading"])
         let state = app.staticTexts["reading-prefix-trim-state"]
@@ -51,12 +53,16 @@ import XCTest
                 .flatMap { Double($0.dropFirst(key.count + 1)) }
         }
         guard let shift = number("shift"), let miss = number("miss"),
+              let reloadShift = number("reloadShift"), let pin = number("pin"), let beforeOffset = number("beforeOffset"),
               let attempts = number("attempts"), let elapsed = number("elapsed") else {
             XCTFail("The diagnostic state must contain its measured gate and displacement"); return
         }
         XCTAssertLessThanOrEqual(attempts, 10)
         XCTAssertLessThan(elapsed, 1)
         XCTAssertGreaterThan(abs(shift), 8)
+        XCTAssertGreaterThan(abs(reloadShift), 1)
+        XCTAssertEqual(pin, beforeOffset + reloadShift, accuracy: 2,
+                       "The first pin must reflect the real reload displacement before tail arrival")
         XCTAssertEqual(miss, 0, accuracy: 2, "The numeric target must follow the saved entry across a prefix shift")
         XCTAssertEqual(beforeY - anchor.frame.minY, 0, accuracy: 2, "The real pixels must preserve the same reading entry")
         XCTAssertTrue(app.pausedChatNavigation.exists)

@@ -39,7 +39,9 @@ import UIKit
         }
     }
 
-    /// A real tail event trims the rendered prefix between the first pin and delivery.
+    /// A same-session reload grows a measured preceding message, requiring a nonzero restore on the
+    /// open normal window; a real tail event then trims its prefix between the first pin and delivery.
+    /// Bookmark-first remounts deliberately no longer expose that trimming route (#582).
     /// Public geometry must still match the saved semantic entry after final arrival.
     @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
         var observed: CompanionReadingPrefixTrimFixture.Sample?
@@ -79,6 +81,7 @@ import UIKit
         let shift = try #require(result.shift)
         let miss = try #require(result.miss)
         let pin = try #require(result.pinnedOffset)
+        let reloadShift = try #require(result.reloadShift)
         let beforeOffset = try #require(result.beforeOffset)
         let beforeLower = try #require(result.beforeLowerBound)
         let afterOffset = try #require(result.offset)
@@ -86,7 +89,9 @@ import UIKit
         #expect(result.attempts <= 10)
         #expect((result.gateElapsed ?? .infinity) < 1)
         #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
-        #expect(abs(pin - beforeOffset) <= 2)
+        #expect(abs(reloadShift) > 1, "The real reload must move the bookmarked entry before the first pin")
+        #expect(abs(pin - (beforeOffset + reloadShift)) <= 2,
+                "The first pin includes only the measured reload displacement, before the tail trim")
         #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
         print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
         #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
