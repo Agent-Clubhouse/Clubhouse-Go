@@ -1,0 +1,19 @@
+{
+  "head": "b1b9c419d63bb68e8658d697924b655b80b120ec",
+  "ticket": "se-large-r6",
+  "disposition": "STRICT0P1F122.350s FAIL220 creation child-ID nil attempts0..8; entire method/classifier remains FAIL",
+  "receipt_sha256": "253734301910165561e5672028e4da507b8d65fa4ef75f4d66b5da5cf0d2fae0",
+  "stdout_sha256": "af1b3159d3d35fe0089454a9a2ce2494bf21629df1792eccb67d565ff0b49dab",
+  "independent_narrow_subfinding_sha256": "8aa56ba099ee0ab084367707cc145f280043f291c921f4434bfed6046b1c7a50",
+  "subfinding": "SAME original tree has distinct heading and creation StaticTexts, both identifier provider-v2-start-evidence despite source child ID provider-v2-start-creation. Observed in this run only. Exact tree slice fab457fc retained privately.",
+  "pixel_scope": "Original movie actual119.493333 has entire creation sentence/no-handshake disclaimer readable. Heading partly clipped; no measured child-native-frame/fullrow helper assertion reached.",
+  "observed_fixture_counts": {
+    "preview": 3,
+    "apply": 1,
+    "start": 1,
+    "replay": 0
+  },
+  "after_FIFO_seconds": 216.57598366588354,
+  "cleanup": "Originalgroups empty/ownedUUID deleted/original0Booted; no new heavy ticket",
+  "full_originals_audit": "PENDING separately. Narrow identity/pixel finding only accepted; old all-failure scope stays retained."
+}

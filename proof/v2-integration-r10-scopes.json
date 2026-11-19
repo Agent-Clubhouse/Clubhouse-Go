@@ -1,0 +1,28 @@
+{
+  "VPHONE": [
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureAccessibilityLargeReviewRows()",
+      "mode": "preview-only"
+    },
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureUnsupportedStartReason()",
+      "mode": "no-start"
+    }
+  ],
+  "VSE": [
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureAccessibilityLargeReviewRows()",
+      "mode": "preview-only"
+    },
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2CaptureUnsupportedStartReason()",
+      "mode": "no-start"
+    }
+  ],
+  "TSELARGE": [
+    {
+      "method": "CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable()",
+      "mode": "success"
+    }
+  ]
+}

@@ -1,0 +1,32 @@
+{
+  "current_head": "7e97563d575d0271e6ab6565437a0191d4f23348",
+  "never_claim": "No fresh-five SE run or repaired prior batch",
+  "individual_controls": [
+    {
+      "method": "testProviderV2ApplyAndStartStaySeparate",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2ApplyDoesNotImplyStartCapability",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    },
+    {
+      "method": "testProviderV2LostStartNeverRequestsAnotherStart",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    }
+  ],
+  "basis": "Four prior individual control methods and their falseLarge/default navigation remain byte-identical. Domain/adapter/flow/package inputs unchanged. Current View keeps the relocated historical section and revised receipt, scoping the Section identifier to its explicit heading so it does not override creation-child metadata. Prior af/2b640 outcomes remain historical functional observations ONLY, not current-placement/copy navigation, geometry, pixels, fresh-five or a repaired batch. Current fresh Large plus two capture cases per device exercise the bounded UX delta; independent reviewer dispositions scope.",
+  "originals_reports": [
+    "2dad856bbe891b2719dc436c4d0e3e4540f3d9f85269964c8396dcdf3248daa6",
+    "3c3a2775bc56b3d36e75f3a40b97ae4bdb74d7f3cac1d0d77c1e2e2ddedee7fe"
+  ],
+  "current_copy_geometry": "Prior5b receipt fit/pixels accepted; b1b9 failed child-ID lookup despite independently readable creation pixels under inherited Section ID. No current child-native-frame/method acceptance inferred from metadata correction."
+}
