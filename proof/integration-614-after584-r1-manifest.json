@@ -1,0 +1,83 @@
+{
+  "base": "cc1abcea17c53aff36869a9b04e0f7fc5c10db3e",
+  "private_simulator": {
+    "name": "ux-614-integration-main584"
+  },
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {},
+  "head": "4601d1c97dc44637262d9ce98df1651ed2095447",
+  "source": "/tmp/ux-614-integration-proof/source-root",
+  "source_sha256": {
+    "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "685ad623001ee44b5068243899094bdb407221aa7d67ef8cca1e26ba64425cc7",
+    "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift": "0580e14b3796219b52d1cafbe5e5daee5783b9639d6a5ba3f52916df7f607e2a",
+    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": "0dc21c9e0534ab83aeb4976e3229ed6c396785e03b19ffe2e19c8cecf5e02cd6",
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "c46e0ea1995b34818a78f7ca93b69c87a71ae8c118213b09b33f1d6302451cef",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "89b48b6374b1cdb86e863b2d847fcc8525ede1fdd2b182c65f89d0e11b774df6",
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "2eebd11929aa1eed300d7a8b2db6470da4bd3d9a5ab0bf04837ac75443ca5449",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "2c62cb35be43e7dc97d6cd58270b58c42d0a09083fb5f07012f734960b286f4f",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "aa3989b820852e63e7657a31a5b854484243f83423ba5bcd459728fa32a7cddc",
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "ffc7eb416ebba587ceb774d1b2e5a7b4eee7355f901753ec50a5bbde5dff17a7",
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
+    "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
+    "docs/isolated-deinit.md": "01395a2492232b125fb1fd89ecc8b1ba401207871726a7a95df2d9dc9e50bb2b",
+    "scripts/deinit_surface.py": "488ac0e32bff49e6b925b601c8a7af7c0084fc43a742875cf2bdbdf914ad43b9",
+    "scripts/isolated-deinit-policy.json": "ce63921ba37f469511a0d780d4b4ce6ba9ef5f67605a1afdf4f8c83044ff6b56",
+    "scripts/isolated-deinit-surface.swift": "1a47afc98daf49d785d7788f4c0004540fb97a3db424e55f2d71275fba8236bb"
+  },
+  "full_diff_sha256": "fd50db251da18c9f3d16e849cde4a75f315e418f65314d75da9c611756f2e5a5",
+  "phases": {
+    "A": {
+      "kind": "build",
+      "bound": 900
+    },
+    "T": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked",
+        "ClubhouseGoUITests/CompanionReadingOpeningUITests/testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming"
+      ],
+      "count": 2,
+      "fixture_counts": {
+        "preview": 2,
+        "change": 1,
+        "replay": 1,
+        "start": 1
+      },
+      "postboot_stabilization_seconds": 20
+    }
+  },
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "independent_p0_gate": {
+    "manifest_path": "/tmp/ux-610-proof/baseline/manifest.json",
+    "receipt_path": "/tmp/ux-610-proof/baseline/p0-r1-receipt.json",
+    "review_path": "/tmp/ux-610-proof/baseline/independent-P0-review.json",
+    "package_log": "/tmp/ux-610-proof/baseline/tickets/p0-r1/package.log"
+  },
+  "integration": {
+    "PR614_head": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+    "main": "cc1abcea17c53aff36869a9b04e0f7fc5c10db3e",
+    "tree": "f9c9e532ca60ed76977a364269043c4eff8eb77a",
+    "parents": [
+      "cc1abcea17c53aff36869a9b04e0f7fc5c10db3e",
+      "f76e1cc5aa95bef77c76f15536d8457a24802b8b"
+    ],
+    "overlap": [
+      "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift",
+      "scripts/isolated-deinit-policy.json",
+      "docs/isolated-deinit.md"
+    ],
+    "not_PR_branch_change": true,
+    "source_only_surface_check": "185Swiftfiles allstoredsurfaces/captureSites matchmergedpolicy usingcachedidenticalparser; no compiledacceptance yet"
+  }
+}
