@@ -51,7 +51,8 @@ private actor ProviderV2IO: AnnexIO {
         if type == lost { throw URLError(.networkConnectionLost) }
         var body = try #require(overrides[type] ?? fixtures[key]?["body"])
         body = try changed(changed(body, "commandId", try #require(command["commandId"])), "epoch", try #require(command["epoch"]))
-        if type == "agent.start" {
+        // A plain prewrite refusal has no creation contract to echo or invent.
+        if type == "agent.start", body["result"]?["contract"] != nil || body["contract"] != nil {
             let completed = body["status"] == .string("completed")
             var contract = try #require(completed ? body["result"]?["contract"] : body["contract"])
             var target = try #require(contract["target"])
@@ -411,6 +412,72 @@ private actor ProviderV2Transport: AnnexTransporting {
         await flow.select("claude-code")
         #expect(flow.preview?.value.preview.outcome.instructionScope == "native_primary_only" && flow.canApply)
         #expect(await io.mutations() == before)
+    }
+
+    @Test func prewriteApplyRefusalAllowsFreshReviewWithoutAuthorizingStart() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.providerChange", body: try #require(fixture["authorityDenied"]?["body"]))
+        await flow.apply()
+        let refused = await io.mutations()
+        #expect(refused.count == 1 && refused.first?["type"] == .string("agent.providerChange"))
+        #expect(flow.error != nil && !flow.blocksMutations && flow.canChoose)
+        #expect(flow.preview == nil && flow.lastApply == nil && !flow.canApply && !flow.canStart)
+        await flow.startNew()
+        await flow.refresh()
+        #expect(flow.canApply && !flow.canStart, "A refusal permits a new review, never an automatic Apply or Start")
+        #expect(await io.mutations() == refused)
+    }
+
+    @Test func acknowledgedContextConflictStaysLockedDespiteEqualSavedProvider() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let fixture = try providerV2Fixtures()
+        let body = try #require(fixture["acknowledgedIntentConflicts"]?["context_reset"]?["apply"]?["body"])
+        await io.override("agent.providerChange", body: body)
+        await flow.apply()
+        let conflict = try #require(flow.conflict), before = await io.mutations()
+        #expect(conflict.isAcknowledgedConflict && conflict.conflicts == ["contextWindow"])
+        #expect(conflict.saved == conflict.proposed && flow.reportedSaved == conflict.saved)
+        #expect(flow.blocksMutations && !flow.canChoose && !flow.canApply && !flow.canStart)
+        #expect(flow.lastApply == nil && flow.lastStart == nil && !store.mayWake(target))
+        #expect(flow.error?.contains("acknowledged a write") == true && before.count == 1)
+        let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(reopened === flow)
+        await reopened.refresh()
+        #expect(reopened.reportedSaved == conflict.saved && reopened.blocksMutations)
+        await reopened.apply(); await reopened.startNew()
+        let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
+        do {
+            _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "conflict-is-not-another-Apply")
+            Issue.record("Acknowledged conflict must retain the service target lock")
+        } catch {}
+        #expect(await io.mutations() == before && reopened.conflict == conflict && reopened.blocksMutations)
+    }
+
+    @Test(arguments: ["authorityDenied", "refusedBeforeCreation"])
+    func precreationStartRefusalRequiresANewReviewWithoutCreationCredit(reply: String) async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        #expect(flow.canStart)
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.start", body: try #require(fixture[reply]?["body"]))
+        await flow.startNew()
+        let refused = await io.mutations()
+        #expect(refused.count == 2 && refused.last?["type"] == .string("agent.start"))
+        #expect(refused.first?["commandId"] != refused.last?["commandId"])
+        #expect(flow.error != nil && !flow.blocksMutations && flow.canChoose)
+        #expect(flow.lastApply != nil && flow.lastStart == nil && !flow.canStart && !flow.canApply)
+        await flow.startNew(); await flow.refresh()
+        #expect(!flow.canStart && flow.canApply, "Refused creation cannot reuse the old Apply as Start authority")
+        #expect(await io.mutations() == refused)
     }
 
     @Test func failedAfterCreationStaysLockedWhileKeepingHistoricalEvidence() async throws {
