@@ -1,0 +1,48 @@
+{
+  "head": "7e97563d575d0271e6ab6565437a0191d4f23348",
+  "manifest_sha256": "d0658f1bd9462988300f7f9371198ff900787f5e0adc070fc89e9128a638fe93",
+  "A10": {
+    "receipt_sha256": "085684939ea893eaa546251b33cb15a980362fea45f1c96040f8543800cc0d7a",
+    "build": 0,
+    "deinit": 0,
+    "policy": 0,
+    "independent_build_audit_sha256": "e29aedc470edaf058af4d5f63d60e42100916e703eeb4833f3c989e5d85865ed",
+    "after_FIFO_seconds": 232.20867666602135
+  },
+  "Large": {
+    "ticket": "se-large-r7",
+    "actual_methods": 1,
+    "actual_passed": 1,
+    "actual_failed": 0,
+    "actual_skips": 0,
+    "actual_retries": 0,
+    "duration_seconds": 122.149,
+    "receipt_sha256": "82dc87777cfbc4147658369518d41dea443b58ef6db350c8272659ff8ada5292",
+    "classification_sha256": "5ca1c684c97db420e7a43263fda5f166c5da78f6421c9fffa687f1cdb355af7c",
+    "classification": "One exclusive strict scoped verifier execution PASS;3preview/1Apply/1Start/0replay, exact identity/order",
+    "apply_id": "C400D2CA-E73A-4D5A-8FCA-D422E94F8F61",
+    "start_id": "1B9B6327-E6E5-4E62-A616-92479638B746",
+    "own_creation_id": "provider-v2-start-creation",
+    "creation_final_native_frame": [
+      16,
+      171.5,
+      343,
+      189.5
+    ],
+    "receipt_final_native_frame": [
+      16,
+      154,
+      343,
+      229.5
+    ],
+    "clear_band": [
+      112,
+      414
+    ],
+    "author_pixels": "Original creation and receipt sentences fully readable; creation heading firstword partly blurred, no wholeheading/page claim",
+    "after_FIFO_seconds": 201.40104212518781,
+    "cleanup": "Original owned workerPG6911/supervisor6909empty;UUID94EBA1C3 deleted/absent;original0Booted",
+    "independent_native_audit": "PENDING; capture/reading stay HELD"
+  },
+  "limits": "Synthetic native fixture trace, not production wire/backend/PTY/provider/VoiceOver/device proof;416packageD identitycarry/fourpriorhistoricalcontrols only; all earlierfailedruns retain originalscope/rc/classifier. Runtimewatch record_only256MiBflag observed0, not active64MiB enforcement."
+}
