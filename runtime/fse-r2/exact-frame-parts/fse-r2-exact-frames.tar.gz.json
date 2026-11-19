@@ -1,0 +1,18 @@
+{
+  "original": "fse-r2-exact-frames.tar.gz",
+  "bytes": 51714692,
+  "sha256": "45c1b36a64a31dc252a26b9d3dbd31caaa0314f4936d6c0d4b30c99709c4c104",
+  "parts": [
+    {
+      "file": "fse-r2-exact-frames.tar.gz.part-000",
+      "bytes": 41943040,
+      "sha256": "aece7df9a36b17775184301b445b600f418a56cc5bbb7d386f89011ef72a97a3"
+    },
+    {
+      "file": "fse-r2-exact-frames.tar.gz.part-001",
+      "bytes": 9771652,
+      "sha256": "baf990dd1524cf035f930d5014c83fc241fa408c6f42bf5f884de75ee58cea5d"
+    }
+  ],
+  "reassemble": "cat fse-r2-exact-frames.tar.gz.part-* > fse-r2-exact-frames.tar.gz"
+}

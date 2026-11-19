@@ -1,0 +1,1 @@
+time=1795052044.715673 case=short-paused mounted=1 visible=1 target=cedar start=message:short-bookmark follow=1 entry=message:short-bookmark outcome=arrived mount=ED1ED38E-FFA5-4B59-9888-79C56A5F70B0 user=0 handoffs=0 anchor=(22.0, 240.66666666666666, 127.0, 20.333333333333343) viewport=(0.0, 116.0, 440.0, 445.0) distanceFromTop=124.66666666666666 Latest=false keyboard=false

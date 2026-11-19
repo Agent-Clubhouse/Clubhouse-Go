@@ -1,0 +1,47 @@
+Packaged complete immutable F-r3 evidence, raw byte video parts and full actual-PTS frame archives.
+{
+  "kind": "immutable evidence packaging, no product/test/simulator action",
+  "hard_seconds": 300,
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 871 total, 4 running, 867 sleeping, 6014 threads \n2026/11/18 17:48:18\nLoad Avg: 3.91, 12.70, 15.97 \nCPU usage: 12.83% user, 13.81% sys, 73.34% idle \nSharedLibs: 1155M resident, 201M data, 147M linkedit.\nMemRegions: 1267113 total, 14G resident, 492M private, 4918M shared.\nPhysMem: 50G used (7200M wired, 7073M compressor), 14G unused.\nVM: 454T vsize, 6144M framework vsize, 9861200(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1405754816/1648G in, 580097517/444G out.\nDisks: 2189047129/26T read, 3053699715/35T written.\n\n\nProcesses: 871 total, 3 running, 868 sleeping, 6029 threads \n2026/11/18 17:48:28\nLoad Avg: 3.98, 12.43, 15.84 \nCPU usage: 11.52% user, 5.86% sys, 82.61% idle \nSharedLibs: 1155M resident, 201M data, 147M linkedit.\nMemRegions: 427 total, 107M resident, 492M private, 4920M shared.\nPhysMem: 49G used (7183M wired, 7072M compressor), 14G unused.\nVM: 454T vsize, 6144M framework vsize, 9861200(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1405759030/1648G in, 580103145/444G out.\nDisks: 2189047655/26T read, 3053752397/35T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   748974.\nPages active:                                1218472.\nPages inactive:                              1113407.\nPages speculative:                            140006.\nPages throttled:                                   0.\nPages wired down:                             460716.\nPages purgeable:                               22329.\n\"Translation faults\":                   112704818769.\nPages copy-on-write:                     10781807927.\nPages zero filled:                       57027483189.\nPages reactivated:                       11748699866.\nPages purged:                              291036798.\nFile-backed pages:                           1046095.\nAnonymous pages:                             1425790.\nPages stored in compressor:                  1171349.\nPages occupied by compressor:                 452675.\nDecompressions:                           6117586393.\nCompressions:                             6819607733.\nPageins:                                  1539096475.\nPageouts:                                   12472199.\nSwapins:                                     9861200.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   759381.\nPages active:                                1207273.\nPages inactive:                              1114772.\nPages speculative:                            140412.\nPages throttled:                                   0.\nPages wired down:                             459737.\nPages purgeable:                               22320.\n\"Translation faults\":                   112704951481.\nPages copy-on-write:                     10781814876.\nPages zero filled:                       57027535799.\nPages reactivated:                       11748699939.\nPages purged:                              291036800.\nFile-backed pages:                           1047324.\nAnonymous pages:                             1415133.\nPages stored in compressor:                  1171277.\nPages occupied by compressor:                 452615.\nDecompressions:                           6117586464.\nCompressions:                             6819607733.\nPageins:                                  1539097124.\nPageouts:                                   12472199.\nSwapins:                                     9861200.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 12271190016,
+      "inactive_bytes": 18242060288,
+      "free_plus_inactive_bytes": 30513250304
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 12441698304,
+      "inactive_bytes": 18264424448,
+      "free_plus_inactive_bytes": 30706122752
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 1988.25M  free = 1083.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 1988.25M  free = 1083.75M  (encrypted)\n",
+    "cpu_idle_percent": 82.61,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "rc": 0,
+  "duration_seconds": 12.899615374859422,
+  "owned_process_group": 24044,
+  "owned_processes_after": [],
+  "swap_watch": {
+    "record_only": true,
+    "start_bytes": 2084831232.0,
+    "max_bytes": 2084831232.0,
+    "growth_bytes": 0.0,
+    "exceeded_256MiB": false
+  }
+}

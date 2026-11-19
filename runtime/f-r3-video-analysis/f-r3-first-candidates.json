@@ -1,0 +1,168 @@
+[
+  {
+    "label": "f-r3",
+    "range": "initial",
+    "first_90_OCR_PTS": 23.47,
+    "file": "initial/frame-000638-23.470000.png",
+    "preceding_sample": {
+      "file": "initial/frame-000637-23.425000.png",
+      "height": 2868,
+      "index": 637,
+      "pts": 23.425,
+      "range": "initial",
+      "width": 1320
+    },
+    "showEarlier_OCR": [
+      {
+        "confidence": 1,
+        "height": 33.470930099487234,
+        "text": "Show earlier messages",
+        "width": 387.25552368164057,
+        "x": 499.684544038044,
+        "y": 620.9999993576355
+      }
+    ],
+    "row90": [
+      {
+        "confidence": 1,
+        "height": 54.32558059692411,
+        "text": "Reading marker 90.",
+        "width": 449.71606445312506,
+        "x": 66.62462323715977,
+        "y": 733.6744187898294
+      }
+    ],
+    "note": "OCR candidate for manual first-frame verification, not an inferred first-frame verdict"
+  },
+  {
+    "label": "f-r3",
+    "range": "tab",
+    "first_90_OCR_PTS": 32.27,
+    "file": "tab/frame-000739-32.270000.png",
+    "preceding_sample": {
+      "file": "tab/frame-000738-32.040000.png",
+      "height": 2868,
+      "index": 738,
+      "pts": 32.04,
+      "range": "tab",
+      "width": 1320
+    },
+    "showEarlier_OCR": [
+      {
+        "confidence": 1,
+        "height": 33.470930099487234,
+        "text": "Show earlier messages",
+        "width": 387.25552368164057,
+        "x": 499.684544038044,
+        "y": 620.9999993576355
+      }
+    ],
+    "row90": [
+      {
+        "confidence": 1,
+        "height": 54.32558059692411,
+        "text": "Reading marker 90.",
+        "width": 449.71606445312506,
+        "x": 66.62462323715977,
+        "y": 733.6744187898294
+      }
+    ],
+    "note": "OCR candidate for manual first-frame verification, not an inferred first-frame verdict"
+  },
+  {
+    "label": "f-r3",
+    "range": "destination",
+    "first_90_OCR_PTS": 40.69,
+    "file": "destination/frame-000841-40.690000.png",
+    "preceding_sample": {
+      "file": "destination/frame-000840-40.483333.png",
+      "height": 2868,
+      "index": 840,
+      "pts": 40.483333333333334,
+      "range": "destination",
+      "width": 1320
+    },
+    "showEarlier_OCR": [
+      {
+        "confidence": 1,
+        "height": 33.470930099487234,
+        "text": "Show earlier messages",
+        "width": 387.25552368164057,
+        "x": 499.684544038044,
+        "y": 620.9999993576355
+      }
+    ],
+    "row90": [
+      {
+        "confidence": 1,
+        "height": 54.32558059692379,
+        "text": "Reading marker 90.",
+        "width": 449.71606445312494,
+        "x": 66.62462211286959,
+        "y": 733.6744187794081
+      }
+    ],
+    "note": "OCR candidate for manual first-frame verification, not an inferred first-frame verdict"
+  },
+  {
+    "label": "f-r3",
+    "range": "switch",
+    "first_90_OCR_PTS": 54.25,
+    "file": "switch/frame-001136-54.250000.png",
+    "preceding_sample": {
+      "file": "switch/frame-001135-54.135000.png",
+      "height": 2868,
+      "index": 1135,
+      "pts": 54.135,
+      "range": "switch",
+      "width": 1320
+    },
+    "showEarlier_OCR": [],
+    "row90": [
+      {
+        "confidence": 1,
+        "height": 54.1918601989746,
+        "text": "Reading marker 90.",
+        "width": 449.71606445312506,
+        "x": 62.46057751223873,
+        "y": 616.9534879632452
+      }
+    ],
+    "note": "First Maple-header frame with row90 after Cedar; both chats were paused, so row90 OCR alone cannot identify this route. Manually viewed full uncropped frame; visible Show earlier below banner."
+  },
+  {
+    "label": "fse-r2",
+    "range": "initial",
+    "first_90_OCR_PTS": 18.038333333333334,
+    "file": "initial/frame-000178-18.038333.png",
+    "preceding_sample": {
+      "file": "initial/frame-000177-18.006667.png",
+      "height": 1334,
+      "index": 177,
+      "pts": 18.006666666666668,
+      "range": "initial",
+      "width": 750
+    },
+    "showEarlier_OCR": [
+      {
+        "confidence": 1,
+        "height": 24.000000000000036,
+        "text": "Show earlier messages",
+        "width": 259.99999999999994,
+        "x": 266.0000014857143,
+        "y": 330.00000017142855
+      }
+    ],
+    "row90": [
+      {
+        "confidence": 1,
+        "height": 34.00000000000007,
+        "text": "Reading marker 90.",
+        "width": 300,
+        "x": 43.99999957142859,
+        "y": 404.0000002428572
+      }
+    ],
+    "note": "OCR candidate for manual first-frame verification, not an inferred first-frame verdict"
+  }
+]

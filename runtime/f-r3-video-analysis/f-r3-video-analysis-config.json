@@ -1,0 +1,28 @@
+{
+  "jobs": [
+    [
+      "f-r3",
+      [
+        "initial:23.0:24.7",
+        "tab:31.8:33.4",
+        "destination:40.2:41.8",
+        "switch:53.8:55.4",
+        "prepend:96.3:99.3",
+        "tail:103.3:108.4"
+      ]
+    ],
+    [
+      "fse-r2",
+      [
+        "initial:17.377926:19.227926"
+      ]
+    ],
+    [
+      "fax-r2",
+      [
+        "initial:17.445358:19.295358"
+      ]
+    ]
+  ],
+  "method": "actual finite sample PTS, full uncropped PNGs; wallclock only brackets selection; no first-frame inference from AX"
+}

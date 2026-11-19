@@ -1,0 +1,152 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r9/DD -destination "platform=iOS Simulator,id=F5D60502-2B20-4B99-BCC5-28E2304494EE" -resultBundlePath /tmp/ux-582-proof/tickets/fax-r2/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Framebriar: /tmp/ux-582-proof/tickets/a-r9/source/Vendor/Framebriar @ local
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r9/source @ local
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/fax-r2/tests.xcresult
+
+2026-11-18 17:38:34.658344-0800 ClubhouseGoUITests-Runner[98771:460215110] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 17:38:38.481.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 17:38:38.481.
+Test Suite 'CompanionReadingOpeningUITests' started at 2026-11-18 17:38:38.482.
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner]' started.
+    t =     0.00s Start Test at 2026-11-18 17:38:38.482
+    t =     0.10s Set Up
+    t =     0.10s Getting device orientation
+    t =     0.10s Setting device orientation to Portrait
+    t =     0.10s     Device orientation changed to Portrait
+    t =     0.11s     Wait for com.apple.springboard to idle
+    t =     0.15s Open com.Agent-Clubhouse.Go
+    t =     0.15s     Launch com.Agent-Clubhouse.Go
+    t =     0.99s         Setting up automation session
+    t =     1.74s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.02s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.02s Waiting 10.0s for "reading-opening-state" StaticText to exist
+    t =     4.10s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-state" StaticText`
+    t =     4.10s         Checking existence of `"reading-opening-state" StaticText`
+    t =     5.22s Checking `Expect predicate `label CONTAINS "case=ready"` for object "reading-opening-state" StaticText`
+    t =     5.22s     Find the "reading-opening-state" StaticText
+    t =     5.23s Find the "reading-opening-state" StaticText
+    t =     5.24s Waiting 5.0s for "reading-opening-paused" Button to exist
+    t =     6.32s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-opening-paused" Button`
+    t =     6.32s         Checking existence of `"reading-opening-paused" Button`
+    t =     6.33s Find the "reading-opening-paused" Button
+    t =     6.34s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     6.35s Find the "reading-opening-paused" Button
+    t =     6.38s Tap "reading-opening-paused" Button
+    t =     6.38s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.38s     Find the "reading-opening-paused" Button
+    t =     6.40s     Check for interrupting elements affecting "reading-opening-paused" Button
+    t =     6.41s         Wait for com.apple.springboard to idle
+    t =     6.44s     Synthesize event
+    t =     6.84s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     8.01s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-opening-state" StaticText`
+    t =     8.01s     Find the "reading-opening-state" StaticText
+    t =     8.11s Checking existence of `"Reading marker 90." StaticText`
+    t =     8.20s Find the "Reading marker 90." StaticText
+    t =     8.28s Find the NavigationBar (First Match)
+    t =     8.30s Find the "companion-composer-region" Any
+    t =     8.50s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     8.56s Find the "reading-opening-state" StaticText
+    t =     8.65s Checking existence of `Button (First Match)`
+    t =     8.68s Checking existence of `Keyboard (First Match)`
+    t =     8.88s Added attachment named 'XXXL portrait paused first-frame recording; later AX sample first public UI observation (not first paint)'
+    t =     8.88s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.04s Added attachment named 'XXXL portrait paused first-frame recording; later AX sample'
+    t =     9.04s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.11s Find the NavigationBar (First Match)
+    t =     9.14s Tap chat status bar at (44.0, 31.0), status band (0.0, 0.0, 440.0, 62.0), navigation (0.0, 62.0, 440.0, 54.0)
+    t =     9.14s     Tap Target Application 'com.Agent-Clubhouse.Go'[0.00, 0.00] -> (44.0, 31.0)
+    t =     9.14s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     9.14s         Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =     9.22s         Check for interrupting elements affecting "Clubhouse Go" Application
+    t =     9.29s             Wait for com.apple.springboard to idle
+    t =     9.31s         Found 1 interrupting element:
+    t =     9.31s             Find the "NotificationShortLookView" BannerNotification
+    t =     9.33s     "NotificationShortLookView" BannerNotification from Application 'com.apple.springboard'
+    t =     9.33s         Invoking UI interruption monitors for "NotificationShortLookView" BannerNotification from Application 'com.apple.springboard'
+    t =     9.33s             Find the "NotificationShortLookView" BannerNotification
+    t =     9.35s     Default interruption handler ignoring non-alert type element "NotificationShortLookView" BannerNotification.
+    t =     9.35s             Find the "NotificationShortLookView" BannerNotification
+    t =     9.36s             Default interruption handler waiting for banner notification to expire/automatically dismiss
+    t =     9.36s                 Waiting 15.0s for "NotificationShortLookView" BannerNotification to not exist
+    t =    10.44s                     Checking `Expect predicate `existsNoRetry == 0` for object "NotificationShortLookView" BannerNotification`
+    t =    10.44s                         Checking existence of `"NotificationShortLookView" BannerNotification`
+    t =    10.45s                         Capturing element debug description
+    t =    10.45s                             Requesting snapshot of accessibility hierarchy for app with pid 70961
+    t =    10.49s                             Find: Descendants matching type BannerNotification
+    t =    10.49s                             Find: Identity Binding
+    t =    10.49s                             Requesting snapshot of accessibility hierarchy for app with pid 70961
+    t =    10.52s                             Find: Descendants matching type BannerNotification
+    t =    10.52s                             Requesting snapshot of accessibility hierarchy for app with pid 70961
+    t =    11.40s                     Checking `Expect predicate `existsNoRetry == 0` for object "NotificationShortLookView" BannerNotification`
+    t =    11.40s                         Checking existence of `"NotificationShortLookView" BannerNotification`
+    t =    11.42s                         Capturing element debug description
+    t =    11.42s                             Requesting snapshot of accessibility hierarchy for app with pid 70961
+    t =    11.45s                             Find: Descendants matching type BannerNotification
+    t =    11.45s                             Find: Identity Binding
+    t =    11.45s                             Requesting snapshot of accessibility hierarchy for app with pid 70961
+    t =    11.48s                             Find: Descendants matching type BannerNotification
+    t =    11.48s                             Requesting snapshot of accessibility hierarchy for app with pid 70961
+    t =    12.38s                     Checking `Expect predicate `existsNoRetry == 0` for object "NotificationShortLookView" BannerNotification`
+    t =    12.38s                         Checking existence of `"NotificationShortLookView" BannerNotification`
+    t =    12.39s             Verifying handling...
+    t =    12.48s                 Wait for com.apple.springboard to idle
+    t =    12.78s     Confirmed successful handling of interrupting element
+    t =    12.78s         Synthesize event
+    t =    12.79s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.85s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    12.92s             Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    13.27s         Wait for com.Agent-Clubhouse.Go to idle
+    t =    13.28s Waiting 5.0s for "View River" Button to exist
+    t =    14.34s     Checking `Expect predicate `existsNoRetry == 1` for object "View River" Button`
+    t =    14.35s         Checking existence of `"View River" Button`
+    t =    14.43s Waiting 5.0s for Other (First Match) to exist
+    t =    15.50s     Checking `Expect predicate `existsNoRetry == 1` for object Other (First Match)`
+    t =    15.50s         Checking existence of `Other (First Match)`
+    t =    16.62s Checking `Expect predicate `BLOCKPREDICATE(0x600000d641e0)` for object "companion-show-earlier" Button`
+    t =    16.62s     Find the "companion-show-earlier" Button
+    t =    16.70s     Find the Other (First Match)
+    t =    16.74s     Checking existence of `"companion-show-earlier" Button`
+    t =    16.82s     Find the "companion-show-earlier" Button
+    t =    16.92s     Find the "View River" Button
+    t =    17.00s Find the "companion-show-earlier" Button
+    t =    17.08s Find the "companion-show-earlier" Button
+    t =    17.16s Find the "companion-show-earlier" Button
+    t =    17.25s Find the "Vertical scroll bar, 260 pages" Other
+    t =    17.28s Find the "View River" Button
+    t =    17.36s Find the "companion-show-earlier" Button
+    t =    17.44s Find the "companion-show-earlier" Button
+    t =    17.52s Added attachment named 'Native content-top clearance and unchanged action semantics'
+    t =    17.52s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingOpeningUITests testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner]' passed (17.748 seconds).
+Test Suite 'CompanionReadingOpeningUITests' passed at 2026-11-18 17:38:56.230.
+	 Executed 1 test, with 0 failures (0 unexpected) in 17.748 (17.748) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 17:38:56.230.
+	 Executed 1 test, with 0 failures (0 unexpected) in 17.748 (17.748) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 17:38:56.230.
+	 Executed 1 test, with 0 failures (0 unexpected) in 17.748 (17.749) seconds
+2026-11-18 17:38:56.532 xcodebuild[92298:460207365] [MT] IDETestOperationsObserverDebug: 24.438 elapsed -- Testing started completed.
+2026-11-18 17:38:56.532 xcodebuild[92298:460207365] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 17:38:56.532 xcodebuild[92298:460207365] [MT] IDETestOperationsObserverDebug: 24.438 sec, +24.438 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/fax-r2/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -1,0 +1,208 @@
+[
+  {
+    "label": "f-r3",
+    "mount": "E8335079-DBC4-4D62-BCCC-53C2972CF2C7",
+    "target": "maple",
+    "cases": [
+      "paused-expanded",
+      "hidden"
+    ],
+    "first_body_relative_to_record_command": 23.614139795303345,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 0.0,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.3333333333306,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "A66480B1-667B-49D6-8DCB-BB7D03C97C5F",
+    "target": "maple",
+    "cases": [
+      "tab-return"
+    ],
+    "first_body_relative_to_record_command": 32.391907930374146,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 2.7142732506035827e-12,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.333333333333314,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "4686B695-151D-4D4F-B6F1-1145B50777CB",
+    "target": "maple",
+    "cases": [
+      "reopen",
+      "target-switch"
+    ],
+    "first_body_relative_to_record_command": 40.81929898262024,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 2.7142732506035827e-12,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.333333333333314,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "4D1F4137-0A5D-4DFA-B1CF-99DE81AB5FB5",
+    "target": "cedar",
+    "cases": [
+      "paused-expanded",
+      "target-switch"
+    ],
+    "first_body_relative_to_record_command": 51.33794593811035,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 0.0,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.3333333333306,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "D0D6408C-282B-48AC-9D8E-20F65125C03F",
+    "target": "maple",
+    "cases": [
+      "target-switch"
+    ],
+    "first_body_relative_to_record_command": 54.416090965270996,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 2.7142732506035827e-12,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.333333333333314,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "7F424363-CCB8-4896-9A48-7D3CB5CCBB32",
+    "target": "cedar",
+    "cases": [
+      "target-switch",
+      "streamed"
+    ],
+    "first_body_relative_to_record_command": 62.768218994140625,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": -2.842170943040401e-14,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 2.7142732506035827e-12,
+    "seed_to_arrival_movement": 2.842170943040401e-14,
+    "cap": 44.333333333333314,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "833C2F94-A001-4A3B-8BED-2E2EF9D96D53",
+    "target": "maple",
+    "cases": [
+      "paused-expanded",
+      "tail-arrived"
+    ],
+    "first_body_relative_to_record_command": 84.42700099945068,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 0.0,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.3333333333306,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "CC53CEDA-617D-447A-B62C-EC37A8750BA9",
+    "target": "maple",
+    "cases": [
+      "paused-expanded",
+      "open-reload",
+      "hidden"
+    ],
+    "first_body_relative_to_record_command": 161.66709113121033,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 0.0,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.3333333333306,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "f-r3",
+    "mount": "86059A3A-66E4-4A4A-8F95-DE69ADEFA957",
+    "target": "maple",
+    "cases": [
+      "tab-return",
+      "session-replacement"
+    ],
+    "first_body_relative_to_record_command": 183.56490683555603,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.333333333333314,
+    "measuredHeaderPlusPadding": 38.3333333333306,
+    "savedDistance": 2.7142732506035827e-12,
+    "seed_to_arrival_movement": 38.333333333333314,
+    "cap": 44.333333333333314,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "fse-r2",
+    "mount": "224174C2-54DB-4CE3-B8C1-E4151AA7E3CB",
+    "target": "maple",
+    "cases": [
+      "paused-expanded"
+    ],
+    "first_body_relative_to_record_command": 18.027926206588745,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 38.5,
+    "measuredHeaderPlusPadding": 38.5,
+    "savedDistance": 0.0,
+    "seed_to_arrival_movement": 38.5,
+    "cap": 44.5,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  },
+  {
+    "label": "fax-r2",
+    "mount": "4748F7DE-AA4D-49F8-8EF2-110DD7065447",
+    "target": "maple",
+    "cases": [
+      "paused-expanded"
+    ],
+    "first_body_relative_to_record_command": 18.09535789489746,
+    "firstEntry": "message:reading-90",
+    "seedOffset": 0.0,
+    "arrivalOffset": 126.33333333333329,
+    "measuredHeaderPlusPadding": 126.33333333335514,
+    "savedDistance": 0.0,
+    "seed_to_arrival_movement": 126.33333333333329,
+    "cap": 132.33333333335514,
+    "within_cap": true,
+    "note": "Native seed-to-arrival bound; exact encoded first-frame PTS is independently decoded. Body callback case snapshot is loading; event callbacks/native driver establish route."
+  }
+]

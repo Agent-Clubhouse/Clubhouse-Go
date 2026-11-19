@@ -1,0 +1,71 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "85DF1EF6-ECB8-443E-8DB9-796BBFF0E15D",
+      "deviceName" : "ux-582-first-paint",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "1m 6s",
+                  "durationInSeconds" : 66.54517698287964,
+                  "name" : "testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "1m 17s",
+                  "durationInSeconds" : 77.23950600624084,
+                  "name" : "testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "39s",
+                  "durationInSeconds" : 39.32872200012207,
+                  "name" : "testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionReadingOpeningUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

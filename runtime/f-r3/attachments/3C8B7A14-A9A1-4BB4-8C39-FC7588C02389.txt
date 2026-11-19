@@ -1,0 +1,1 @@
+time=1795052121.386925 case=tail-arrived mounted=1 visible=1 target=maple start=message:reading-1 follow=0 entry=message:reading-1 outcome=arrived mount=833C2F94-A001-4A3B-8BED-2E2EF9D96D53 user=1 handoffs=0 anchor=(22.0, 204.3333333333479, 135.33333333333331, 20.333333333333314) viewport=(0.0, 116.0, 440.0, 445.0) distanceFromTop=88.3333333333479 Latest=true keyboard=false

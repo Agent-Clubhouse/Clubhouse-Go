@@ -1,0 +1,1 @@
+time=1795052141.750104 case=open-reload mounted=1 visible=1 target=maple start=message:reading-90 follow=0 entry=message:reading-90 outcome=arrived mount=CC53CEDA-617D-447A-B62C-EC37A8750BA9 user=0 handoffs=0 anchor=(22.0, 202.33333333333061, 148.33333333333331, 20.333333333333314) viewport=(0.0, 116.0, 440.0, 148.0) distanceFromTop=86.33333333333061 Latest=true keyboard=true

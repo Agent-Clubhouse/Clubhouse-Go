@@ -1,0 +1,53 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "0192C0AF-C810-44CA-AFAD-B5795E51886F",
+      "deviceName" : "ux-582-first-paint",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "11s",
+                  "durationInSeconds" : 11.13474190235138,
+                  "name" : "testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit()",
+                  "nodeIdentifier" : "CompanionReadingOpeningUITests/testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionReadingOpeningUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

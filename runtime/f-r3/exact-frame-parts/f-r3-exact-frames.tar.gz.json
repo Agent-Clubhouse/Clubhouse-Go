@@ -1,0 +1,53 @@
+{
+  "original": "f-r3-exact-frames.tar.gz",
+  "bytes": 338042787,
+  "sha256": "0835eb42c9aa6ecb8db0ae237eb23d7c3a2eeb1762343937f7af9ed642cf0e15",
+  "parts": [
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-000",
+      "bytes": 41943040,
+      "sha256": "239ad8567742de4f5f2903a2c8162ef5d66fe749043b973fe7c17265a9eca505"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-001",
+      "bytes": 41943040,
+      "sha256": "636643df26f9af1097ac38ce4c9e0dfbb809090322a0c433c6f0042bfa7c13a0"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-002",
+      "bytes": 41943040,
+      "sha256": "8e8da917d5a9d53b4d467dcccf0f796ac1676195c640ea84170363b5b1b7ce13"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-003",
+      "bytes": 41943040,
+      "sha256": "9b83f9d746b8f17bbff13953b3bde5f1487362f091157869266ba223d305dbc1"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-004",
+      "bytes": 41943040,
+      "sha256": "8d50270bae8fec757be1a6913cc5fe54037d5d554e954e06188e1373e0aa86be"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-005",
+      "bytes": 41943040,
+      "sha256": "6ab4b91e7e5fcaeac9ddb301a6b4cbba3459d0df9fe90b018b184e68db1f0a57"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-006",
+      "bytes": 41943040,
+      "sha256": "cdd8659853679dd59c78c9565fd6eba0f03e8dc987e4812333620040ff172546"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-007",
+      "bytes": 41943040,
+      "sha256": "e805cea8e88320212c9ed3ac1432e5b1f508862ccdfe9bd0a3de2ba12f0f37b8"
+    },
+    {
+      "file": "f-r3-exact-frames.tar.gz.part-008",
+      "bytes": 2498467,
+      "sha256": "8313320aeb71d72e843201de7d3b8c9377f8f9c238f51e0110e0dc08de485ab4"
+    }
+  ],
+  "reassemble": "cat f-r3-exact-frames.tar.gz.part-* > f-r3-exact-frames.tar.gz"
+}

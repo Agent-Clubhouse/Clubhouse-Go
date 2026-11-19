@@ -1,0 +1,522 @@
+{
+  "prepend": {
+    "frames": 60,
+    "firstPTS": 96.67833333333333,
+    "lastPTS": 97.655,
+    "samples": [
+      {
+        "pts": 96.67833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001761-96.678333.png"
+      },
+      {
+        "pts": 96.68,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001762-96.680000.png"
+      },
+      {
+        "pts": 96.685,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001763-96.685000.png"
+      },
+      {
+        "pts": 96.695,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001764-96.695000.png"
+      },
+      {
+        "pts": 96.7,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001765-96.700000.png"
+      },
+      {
+        "pts": 96.71166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001766-96.711667.png"
+      },
+      {
+        "pts": 96.72833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001767-96.728333.png"
+      },
+      {
+        "pts": 96.73166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001768-96.731667.png"
+      },
+      {
+        "pts": 96.74666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001769-96.746667.png"
+      },
+      {
+        "pts": 96.76166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001770-96.761667.png"
+      },
+      {
+        "pts": 96.76666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001771-96.766667.png"
+      },
+      {
+        "pts": 96.77833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001772-96.778333.png"
+      },
+      {
+        "pts": 96.79666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001773-96.796667.png"
+      },
+      {
+        "pts": 96.80166666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001774-96.801667.png"
+      },
+      {
+        "pts": 96.81333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001775-96.813333.png"
+      },
+      {
+        "pts": 96.83166666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001776-96.831667.png"
+      },
+      {
+        "pts": 96.83833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001777-96.838333.png"
+      },
+      {
+        "pts": 96.84833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001778-96.848333.png"
+      },
+      {
+        "pts": 96.86333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001779-96.863333.png"
+      },
+      {
+        "pts": 96.86833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001780-96.868333.png"
+      },
+      {
+        "pts": 96.88,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001781-96.880000.png"
+      },
+      {
+        "pts": 96.89833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001782-96.898333.png"
+      },
+      {
+        "pts": 96.905,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001783-96.905000.png"
+      },
+      {
+        "pts": 96.91166666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001784-96.911667.png"
+      },
+      {
+        "pts": 96.93,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001785-96.930000.png"
+      },
+      {
+        "pts": 96.955,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001786-96.955000.png"
+      },
+      {
+        "pts": 96.96333333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001787-96.963333.png"
+      },
+      {
+        "pts": 97,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001788-97.000000.png"
+      },
+      {
+        "pts": 97.005,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001789-97.005000.png"
+      },
+      {
+        "pts": 97.02833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001790-97.028333.png"
+      },
+      {
+        "pts": 97.04666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001791-97.046667.png"
+      },
+      {
+        "pts": 97.065,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001792-97.065000.png"
+      },
+      {
+        "pts": 97.06833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001793-97.068333.png"
+      },
+      {
+        "pts": 97.10166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001794-97.101667.png"
+      },
+      {
+        "pts": 97.115,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001795-97.115000.png"
+      },
+      {
+        "pts": 97.13333333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001796-97.133333.png"
+      },
+      {
+        "pts": 97.15,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001797-97.150000.png"
+      },
+      {
+        "pts": 97.16333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001798-97.163333.png"
+      },
+      {
+        "pts": 97.2,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001799-97.200000.png"
+      },
+      {
+        "pts": 97.20833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001800-97.208333.png"
+      },
+      {
+        "pts": 97.23,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001801-97.230000.png"
+      },
+      {
+        "pts": 97.25166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001802-97.251667.png"
+      },
+      {
+        "pts": 97.27333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001803-97.273333.png"
+      },
+      {
+        "pts": 97.295,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001804-97.295000.png"
+      },
+      {
+        "pts": 97.31333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001805-97.313333.png"
+      },
+      {
+        "pts": 97.33166666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001806-97.331667.png"
+      },
+      {
+        "pts": 97.34833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001807-97.348333.png"
+      },
+      {
+        "pts": 97.36666666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001808-97.366667.png"
+      },
+      {
+        "pts": 97.39833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001809-97.398333.png"
+      },
+      {
+        "pts": 97.41333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001810-97.413333.png"
+      },
+      {
+        "pts": 97.42833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001811-97.428333.png"
+      },
+      {
+        "pts": 97.45333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001812-97.453333.png"
+      },
+      {
+        "pts": 97.46166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001813-97.461667.png"
+      },
+      {
+        "pts": 97.5,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001814-97.500000.png"
+      },
+      {
+        "pts": 97.515,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001815-97.515000.png"
+      },
+      {
+        "pts": 97.53166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001816-97.531667.png"
+      },
+      {
+        "pts": 97.55166666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001817-97.551667.png"
+      },
+      {
+        "pts": 97.565,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001818-97.565000.png"
+      },
+      {
+        "pts": 97.60666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001819-97.606667.png"
+      },
+      {
+        "pts": 97.655,
+        "glyphYpoints": 244.55813959660978,
+        "file": "prepend/frame-001820-97.655000.png"
+      }
+    ],
+    "missingOCR": [],
+    "minGlyphYpoints": 244.55813959660978,
+    "maxGlyphYpoints": 244.55813959660978
+  },
+  "tail": {
+    "frames": 40,
+    "firstPTS": 103.37,
+    "lastPTS": 107.55,
+    "samples": [
+      {
+        "pts": 103.37,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001824-103.370000.png"
+      },
+      {
+        "pts": 103.39833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001825-103.398333.png"
+      },
+      {
+        "pts": 103.45,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001826-103.450000.png"
+      },
+      {
+        "pts": 103.48,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001827-103.480000.png"
+      },
+      {
+        "pts": 103.48333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001828-103.483333.png"
+      },
+      {
+        "pts": 103.49333333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001829-103.493333.png"
+      },
+      {
+        "pts": 103.50833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001830-103.508333.png"
+      },
+      {
+        "pts": 103.525,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001831-103.525000.png"
+      },
+      {
+        "pts": 103.54333333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001832-103.543333.png"
+      },
+      {
+        "pts": 103.56,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001833-103.560000.png"
+      },
+      {
+        "pts": 103.575,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001834-103.575000.png"
+      },
+      {
+        "pts": 103.59166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001835-103.591667.png"
+      },
+      {
+        "pts": 103.60833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001836-103.608333.png"
+      },
+      {
+        "pts": 103.625,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001837-103.625000.png"
+      },
+      {
+        "pts": 103.64333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001838-103.643333.png"
+      },
+      {
+        "pts": 103.66,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001839-103.660000.png"
+      },
+      {
+        "pts": 103.675,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001840-103.675000.png"
+      },
+      {
+        "pts": 103.69333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001841-103.693333.png"
+      },
+      {
+        "pts": 103.70833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001842-103.708333.png"
+      },
+      {
+        "pts": 103.725,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001843-103.725000.png"
+      },
+      {
+        "pts": 103.74166666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001844-103.741667.png"
+      },
+      {
+        "pts": 103.75833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001845-103.758333.png"
+      },
+      {
+        "pts": 103.775,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001846-103.775000.png"
+      },
+      {
+        "pts": 103.79166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001847-103.791667.png"
+      },
+      {
+        "pts": 103.80833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001848-103.808333.png"
+      },
+      {
+        "pts": 103.825,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001849-103.825000.png"
+      },
+      {
+        "pts": 103.84333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001850-103.843333.png"
+      },
+      {
+        "pts": 103.86,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001851-103.860000.png"
+      },
+      {
+        "pts": 103.87666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001852-103.876667.png"
+      },
+      {
+        "pts": 103.89333333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001853-103.893333.png"
+      },
+      {
+        "pts": 103.91,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001854-103.910000.png"
+      },
+      {
+        "pts": 103.92666666666666,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001855-103.926667.png"
+      },
+      {
+        "pts": 103.94666666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001856-103.946667.png"
+      },
+      {
+        "pts": 103.96166666666667,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001857-103.961667.png"
+      },
+      {
+        "pts": 103.97833333333334,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001858-103.978333.png"
+      },
+      {
+        "pts": 104,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001859-104.000000.png"
+      },
+      {
+        "pts": 104.05,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001860-104.050000.png"
+      },
+      {
+        "pts": 107.46833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001861-107.468333.png"
+      },
+      {
+        "pts": 107.49833333333333,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001862-107.498333.png"
+      },
+      {
+        "pts": 107.55,
+        "glyphYpoints": 244.55813959660978,
+        "file": "tail/frame-001863-107.550000.png"
+      }
+    ],
+    "missingOCR": [],
+    "minGlyphYpoints": 244.55813959660978,
+    "maxGlyphYpoints": 244.55813959660978
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "original": "first-paint-recording.mp4",
+  "bytes": 173672481,
+  "sha256": "c2a697482d158d69d227c3b865de48938c88bd6dd425fb766b4369378ac8762c",
+  "parts": [
+    {
+      "file": "first-paint-recording.mp4.part-000",
+      "bytes": 41943040,
+      "sha256": "997569f11edf5d07a2c73ab978a76563d6813b7aa03bf0f4ff360b7a980f0b84"
+    },
+    {
+      "file": "first-paint-recording.mp4.part-001",
+      "bytes": 41943040,
+      "sha256": "6cdd296f6910512d60eda047d376ad3d77ff29b36cb93c85efd5b47c9944bffd"
+    },
+    {
+      "file": "first-paint-recording.mp4.part-002",
+      "bytes": 41943040,
+      "sha256": "e7a73c3a902d09f35353883810c92af575f56292d018360a3fe41cd05b41148c"
+    },
+    {
+      "file": "first-paint-recording.mp4.part-003",
+      "bytes": 41943040,
+      "sha256": "353a7562aed1fb5359c01eae3663bb183712eb610681bdf10e4b9ab95b332517"
+    },
+    {
+      "file": "first-paint-recording.mp4.part-004",
+      "bytes": 5900321,
+      "sha256": "b1a948004f3804e0febb5468ef13fcecd9a26aeff198b8895a30d43d95267ecc"
+    }
+  ],
+  "reassemble": "cat first-paint-recording.mp4.part-* > first-paint-recording.mp4"
+}

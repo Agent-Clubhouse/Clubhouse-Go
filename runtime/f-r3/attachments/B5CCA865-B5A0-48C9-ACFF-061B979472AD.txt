@@ -1,0 +1,1 @@
+time=1795052159.5533671 case=session-replacement mounted=1 visible=1 target=maple start=nil follow=0 entry=message:new-session-1 outcome=arrived mount=86059A3A-66E4-4A4A-8F95-DE69ADEFA957 user=0 handoffs=0 anchor=(22.0, 3933.6666666666806, 182.33333333333334, 20.333333333333485) viewport=(0.0, 116.0, 440.0, 445.0) distanceFromTop=3817.6666666666806 Latest=true keyboard=false

@@ -1,0 +1,192 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r9/DD -destination "platform=iOS Simulator,id=D3CED781-CA8D-421E-A3BB-8886CFEA1FCB" -resultBundlePath /tmp/ux-582-proof/tickets/n-r4/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoTests/CompanionReadingOpeningTests" "-only-testing:ClubhouseGoTests/CompanionTranscriptEqualityTests"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r9/source @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  Framebriar: /tmp/ux-582-proof/tickets/a-r9/source/Vendor/Framebriar @ local
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/n-r4/tests.xcresult
+
+Test Suite 'Selected tests' started at 2026-11-18 17:50:05.280.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-18 17:50:05.280.
+Test Suite 'ClubhouseGoTests.xctest' passed at 2026-11-18 17:50:05.280.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 17:50:05.280.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: arm64-apple-ios13.0-simulator
+◇ Suite CompanionReadingOpeningTests started.
+◇ Test pausedFirstBodyStartsAtItsCanonicalBookmarkWithoutAnIdentityRequest() started.
+2026-11-18 17:50:05.586564-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:05.683390-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=86.34529169648886
+✔ Test pausedFirstBodyStartsAtItsCanonicalBookmarkWithoutAnIdentityRequest() passed after 0.662 seconds.
+◇ Test parentRecreationAndOpenReloadDoNotReseedOrShrinkTheReadersWindow() started.
+2026-11-18 17:50:06.057325-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:06.107479-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=67.47091701254249
+READING_OPENING_SEED chunks=20 before=1 after=1 parentBodyDelta=20
+READING_RESTORE outcome=arrived attempts=0 durationMs=0.08237501606345177
+✔ Test parentRecreationAndOpenReloadDoNotReseedOrShrinkTheReadersWindow() passed after 4.469 seconds.
+◇ Test mountedReplacementClearsTheBoundaryWithoutRequestingBottom() started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:10.568188-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=62.96445848420262
+READING_RESTORE outcome=arrived attempts=0 durationMs=20.870833657681942
+✔ Test mountedReplacementClearsTheBoundaryWithoutRequestingBottom() passed after 0.537 seconds.
+◇ Test followingStreamAndParentRecreationComputeOnlyOneOpeningSeed() started.
+2026-11-18 17:50:11.094311-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:11.151874-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_OPENING_SEED followingChunks=20 seeds=1
+✔ Test followingStreamAndParentRecreationComputeOnlyOneOpeningSeed() passed after 3.754 seconds.
+◇ Test hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState() started.
+2026-11-18 17:50:14.813716-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:14.860182-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=87.87700021639466
+2026-11-18 17:50:15.373550-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=889.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=889.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=65.62900030985475
+2026-11-18 17:50:15.579102-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+✔ Test hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState() passed after 0.956 seconds.
+◇ Test groupedQuestionAliasUsesTheVisibleGroupOnTheFirstBody() started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:15.767791-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=60.0 needed=60.0 measured=false shown=true
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=60.0 needed=194.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=0 durationMs=3.7944582290947437
+✔ Test groupedQuestionAliasUsesTheVisibleGroupOnTheFirstBody() passed after 0.158 seconds.
+◇ Test removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget() started.
+2026-11-18 17:50:15.841115-0800 ClubhouseGo[51892:460678909] Unbalanced calls to begin/end appearance transitions for <_TtGC7SwiftUI19UIHostingControllerVV16ClubhouseGoTests28CompanionReadingOpeningTestsP10$109260b184Host_: 0x103850200>.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:15.874841-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=0 durationMs=2.2332915104925632
+✔ Test removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget() passed after 0.102 seconds.
+◇ Test aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest() started.
+2026-11-18 17:50:16.173494-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=889.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=889.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=51.274416502565145
+READING_RESTORE outcome=arrived attempts=1 durationMs=50.31604180112481
+2026-11-18 17:50:17.496340-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=889.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=889.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=navigation attempts=0 durationMs=0.4514586180448532
+✔ Test aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest() passed after 1.653 seconds.
+◇ Test exactTopOpeningArrivesWithoutANumericCorrection() started.
+READING_RESTORE outcome=taskCancelled attempts=1 durationMs=46.4755417779088
+2026-11-18 17:50:17.673210-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:17.715797-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=67.73662520572543
+2026-11-18 17:50:17.940170-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=889.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=889.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=0 durationMs=0.2909582108259201
+✔ Test exactTopOpeningArrivesWithoutANumericCorrection() passed after 0.606 seconds.
+◇ Test reopenedPausedWindowKeepsItsFirstEntryWhenATailArrivesDuringRestore() started.
+2026-11-18 17:50:18.286212-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:18.330674-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=2 durationMs=113.25891688466072
+✔ Test reopenedPausedWindowKeepsItsFirstEntryWhenATailArrivesDuringRestore() passed after 0.333 seconds.
+◇ Test activeOpeningDragNeverWritesAnIdentityHandoff() started.
+2026-11-18 17:50:18.617893-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:18.660172-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=touch attempts=1 durationMs=36.79849999025464
+✔ Test activeOpeningDragNeverWritesAnIdentityHandoff() passed after 0.677 seconds.
+◇ Test lightOpeningTouchNeverInstallsAnIdentityHandoff() started.
+2026-11-18 17:50:19.292785-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:19.335802-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=touch attempts=1 durationMs=16.825083177536726
+✔ Test lightOpeningTouchNeverInstallsAnIdentityHandoff() passed after 0.543 seconds.
+◇ Test navigationAwayDuringTheOpeningHoldWritesNoIdentityHandoff() started.
+2026-11-18 17:50:19.840617-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=783.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:19.886546-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=835.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=unmounted attempts=1 durationMs=38.29116653650999
+✔ Test navigationAwayDuringTheOpeningHoldWritesNoIdentityHandoff() passed after 0.431 seconds.
+✔ Suite CompanionReadingOpeningTests passed after 14.889 seconds.
+◇ Suite CompanionTranscriptEqualityTests started.
+◇ Test pausedApprovalRowAvailabilityTracksCatalogCapabilityWithoutRemount() started.
+2026-11-18 17:50:20.276655-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:20.339483-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=60.0 needed=60.0 measured=false shown=true
+ACTIVITY_FIT available=850.0 editor=120.0 line=14.333333333333332 requests=60.0 needed=194.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=61.30441650748253
+✔ Test pausedApprovalRowAvailabilityTracksCatalogCapabilityWithoutRemount() passed after 1.140 seconds.
+◇ Test pausedQueuedRowAvailabilityTracksCatalogCapabilityWithoutRemount() started.
+2026-11-18 17:50:21.418345-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:21.470338-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=850.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=68.53662524372339
+✔ Test pausedQueuedRowAvailabilityTracksCatalogCapabilityWithoutRemount() passed after 1.158 seconds.
+◇ Test pausedStreamingProjectsTheTranscriptExactlyOncePerRenderedBatch() started.
+2026-11-18 17:50:22.581625-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 17:50:22.627950-0800 ClubhouseGo[51892:460678909] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=850.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=68.83979169651866
+✔ Test pausedStreamingProjectsTheTranscriptExactlyOncePerRenderedBatch() passed after 2.240 seconds.
+✔ Suite CompanionTranscriptEqualityTests passed after 4.539 seconds.
+✔ Test run with 16 tests in 2 suites passed after 19.429 seconds.
+2026-11-18 17:50:25.077 xcodebuild[50259:460674389] [MT] IDETestOperationsObserverDebug: 26.211 elapsed -- Testing started completed.
+2026-11-18 17:50:25.077 xcodebuild[50259:460674389] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 17:50:25.077 xcodebuild[50259:460674389] [MT] IDETestOperationsObserverDebug: 26.211 sec, +26.211 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/n-r4/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

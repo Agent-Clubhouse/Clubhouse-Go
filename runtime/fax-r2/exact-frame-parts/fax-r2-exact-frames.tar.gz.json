@@ -1,0 +1,18 @@
+{
+  "original": "fax-r2-exact-frames.tar.gz",
+  "bytes": 55391245,
+  "sha256": "352de13be7f40c408696c6cea8ad3041c393de5dd9e7a95edd72cd7aaa17e6a1",
+  "parts": [
+    {
+      "file": "fax-r2-exact-frames.tar.gz.part-000",
+      "bytes": 41943040,
+      "sha256": "e512879785433a4503f8760ae56d0e41f3e8ce7855635c01be0f3be0ed3d1c0b"
+    },
+    {
+      "file": "fax-r2-exact-frames.tar.gz.part-001",
+      "bytes": 13448205,
+      "sha256": "b893e35df57930231261b96997bacd8256d29f43f5b3148e545e6fc146330e99"
+    }
+  ],
+  "reassemble": "cat fax-r2-exact-frames.tar.gz.part-* > fax-r2-exact-frames.tar.gz"
+}

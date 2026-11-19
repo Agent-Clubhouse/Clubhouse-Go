@@ -1,0 +1,1 @@
+time=1795052226.867702 case=paused-expanded mounted=1 visible=1 target=maple start=message:reading-90 follow=0 entry=message:reading-90 outcome=arrived mount=224174C2-54DB-4CE3-B8C1-E4151AA7E3CB user=0 handoffs=0 anchor=(22.0, 160.5, 148.5, 20.5) viewport=(0.0, 74.0, 375.0, 246.0) distanceFromTop=86.5 Latest=true keyboard=false
