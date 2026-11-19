@@ -1,0 +1,35 @@
+{
+  "head": "7e97563d575d0271e6ab6565437a0191d4f23348",
+  "VPHONE": {
+    "ticket": "capture-phone-r1",
+    "actual": "2oncePASS0F/E/skip/retry; AXLarge readonly67.110s/standardunsupported37.621s",
+    "receipt_sha256": "986b2c215729ac20962fd1d2f54e81c147184c37c79594a85a6d2174636cec3e",
+    "classifier_sha256": "bd60aabae50f4cc60e2a707e6b5a124e8c6ec9aec4546b31d046e8d9523e5813",
+    "events": "strictPASS separate1previewreadonly +1preview/1Apply/0Start unsupported",
+    "author_pixels": "All6targetareasfullyreadable: initialNotverified/proposedmodel+source/proposedeffort+source/resets atAXLarge, revisedreceipt+unsupportedreason/disabledStart atstandard",
+    "after_FIFO_seconds": 184.7668194589205,
+    "independent_originals": "PENDING"
+  },
+  "VSE": {
+    "ticket": "capture-se-r1",
+    "actual": "STRICT1P1F once, AXLarge readonly57.149FAIL220; standardunsupported39.647PASS",
+    "receipt_sha256": "3be32c7489bb7e4bafb53c428f83e2fa7e27bc96b423b7c3c09a391d7679026e",
+    "classifier": "ONCE FALSEUnexpectednativeoutcomes; full3eventobservation nottraceacceptance",
+    "proposed_model_final_frame": [
+      16,
+      310,
+      343,
+      153
+    ],
+    "clear_band": [
+      112,
+      414
+    ],
+    "failure": "8pans exhausted withbottom463>414by49; rowfits302band, notoversize/globalunreachableproof. Effort/resetcaptures/finalreadonlyassertionsunreached.",
+    "author_pixels": "InitialNotverified and separateunsupportedreceipt/reason fullyreadable; no proposedmodelcontainment credit",
+    "after_FIFO_seconds": 187.30340787535533,
+    "independent_originals": "PENDING"
+  },
+  "cleanup": "Bothoriginalownedgroups empty/ownedUUIDsdeleted/original0Booted; same5A10artifacts; nofutureticket/hostreservation",
+  "next": "ReadingHELD. Savedmodelwaypoint proposal awaitsnarroworiginalclassification/exactreview; noedit/rerun. Oldresultsnotrepaired/mixed."
+}
