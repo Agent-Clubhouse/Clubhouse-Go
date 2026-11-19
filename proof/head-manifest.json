@@ -3,7 +3,7 @@
   "private_simulator": {
     "name": "ux-610-provider-apply"
   },
-  "runner_sha256": "6970c9258aed43b897cd54510fce7d3abdb64f0a44b6d056ef99f42e8b1c9420",
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
   "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
   "review_required_before_execution": true,
   "originals_private": true,
@@ -130,7 +130,8 @@
         "change": 3,
         "replay": 1,
         "start": 3
-      }
+      },
+      "postboot_stabilization_seconds": 20
     },
     "TSE": {
       "kind": "UI",
@@ -152,7 +153,8 @@
         "change": 3,
         "replay": 1,
         "start": 3
-      }
+      },
+      "postboot_stabilization_seconds": 20
     },
     "D": {
       "kind": "coverage",

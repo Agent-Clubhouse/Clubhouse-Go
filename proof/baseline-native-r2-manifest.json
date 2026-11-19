@@ -1,0 +1,56 @@
+{
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "private_simulator": {
+    "name": "ux-610-provider-apply"
+  },
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {
+    "CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate()": [
+      "Failed"
+    ]
+  },
+  "head": "4deda61265ab373c7a7a4eed5ec7407cf946b221",
+  "source": "/tmp/ux-610-proof/baseline-source",
+  "source_sha256": {
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "bd08f4233b04734cbba97309b0bbbe442bf1384b7762da4fd5d43bb80be888ed"
+  },
+  "full_diff_sha256": "0bf71127d26bfc7a1747180f2ab70a5c0bad9f047f0e935907aab47310efe741",
+  "phases": {
+    "A": {
+      "kind": "build",
+      "bound": 900
+    },
+    "P0": {
+      "kind": "package",
+      "bound": 900,
+      "filter": "CompanionProviderBoundaryTests/genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport",
+      "expected_fail_before": true
+    },
+    "T0": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate"
+      ],
+      "count": 1,
+      "expected_fail_before": true,
+      "postboot_stabilization_seconds": 20
+    }
+  },
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "independent_p0_gate": {
+    "manifest_path": "/tmp/ux-610-proof/baseline/manifest.json",
+    "receipt_path": "/tmp/ux-610-proof/baseline/p0-r1-receipt.json",
+    "review_path": "/tmp/ux-610-proof/baseline/independent-P0-review.json",
+    "package_log": "/tmp/ux-610-proof/baseline/tickets/p0-r1/package.log"
+  },
+  "build_reuse": "exact baseline A0 source/artifact hashes; no native test executed in admission1"
+}
