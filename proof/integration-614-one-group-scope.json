@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "head": "4601d1c97dc44637262d9ce98df1651ed2095447",
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "apply_id": "0BCEC526-32EB-4898-BF33-A17922AE69C8",
+  "start_id": "D645DDC0-27EA-46AF-8411-D86F1946A7E7",
+  "inputs": {
+    "manifest": {
+      "path": "manifest.json",
+      "sha256": "08dcf38a4af28a0343c1cda96985d07256fcb67a28be2a6af54bf0ae43e7db39"
+    },
+    "receipt": {
+      "path": "t-r1-receipt.json",
+      "sha256": "2f0bcfff2808c547a18d2186d3d2e7de6ef607b5bb48419c5b58761d2987c085"
+    },
+    "trace_index": {
+      "path": "tickets/t-r1/synthetic-command-traces.json",
+      "sha256": "138e19f04800a5f72322a7713f01d5df6c42c42b3f574e31e2a698fc99dbb1e6"
+    },
+    "actual_order": {
+      "path": "tickets/t-r1/actual-order.json",
+      "sha256": "1790b2d81525b2735329c050a1ff69eff85caa024befe58c257f3793e93a8c4e"
+    },
+    "summary": {
+      "path": "tickets/t-r1/summary.json",
+      "sha256": "30930f8cecc9e76ddfba3aac59ce51d3650b1130bfc47990b39a90db890c11de"
+    },
+    "diagnostic": {
+      "path": "tickets/t-r1/diagnostics/0_Test_ux-614-integration-main584_Diagnostics/ClubhouseGoUITests-92328ACE-8A41-4019-A223-00DB81966008-Configuration-Test Scheme Action-Iteration-1/ClubhouseGoUITests-28828279-86F0-4F92-BF26-DC3D02AF7081/StandardOutputAndStandardError-com.Agent-Clubhouse.Go.txt",
+      "sha256": "1d1c49f3c1d60c27cf11dae0ca043542d5ff61e96b6726d826ee262fdbd40f20"
+    }
+  }
+}
