@@ -1,0 +1,121 @@
+{
+  "base": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+  "private_simulator": {
+    "name": "ux-610-v2-native-r9"
+  },
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {},
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "head": "d9f1b41e61b6c461057255673a18706533f7af43",
+  "source": "/Users/masonallen/source/Clubhouse-Annex/.clubhouse/agents/ux-root",
+  "scope": "V2 native executable plan ONLY, unrun. Requires exact source approval, prior P2 independent acceptance, fresh A and per-device original containers/visuals/command traces. Core native rc0 is not V2 trace/final acceptance.",
+  "phases": {
+    "A": {
+      "kind": "build",
+      "bound": 900
+    },
+    "TPHONE": {
+      "kind": "UI",
+      "bound": 1200,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyAndStartStaySeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyDoesNotImplyStartCapability",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2LostStartNeverRequestsAnotherStart"
+      ],
+      "count": 5,
+      "order_file": "/tmp/ux-610-v2-proof/native-r9/order.json",
+      "postboot_stabilization_seconds": 20,
+      "independent_v2_trace_gate": true,
+      "expected_v2_counts": {
+        "preview": 13,
+        "apply": 5,
+        "start": 3,
+        "replay": 0
+      }
+    },
+    "TSE": {
+      "kind": "UI",
+      "bound": 1200,
+      "device": "iPhone-SE-3rd-generation",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyAndStartStaySeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyDoesNotImplyStartCapability",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2LostStartNeverRequestsAnotherStart"
+      ],
+      "count": 5,
+      "order_file": "/tmp/ux-610-v2-proof/native-r9/order.json",
+      "postboot_stabilization_seconds": 20,
+      "independent_v2_trace_gate": true,
+      "expected_v2_counts": {
+        "preview": 13,
+        "apply": 5,
+        "start": 3,
+        "replay": 0
+      }
+    }
+  },
+  "source_sha256": {
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "6584207f7621911d40c760418fe47de4d273ab72b16e2b4bdcb290ac98b7a6c8",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "50c68e3e3fc6cf29f1edb5c7d90d13c71f2e63b21a99f307eeb1e0b63b9fde9e",
+    "Annex/Annex/Companion/Domain/CompanionModels.swift": "0d1d44280b4696d4a6dd4ef88f642ba7b782a8538fe86c6f6a78effadbc73eca",
+    "Annex/Annex/Companion/Domain/CompanionProviderV2Flow.swift": "546c8a7c54e78b87499e1dec4a7cb829bbe2fa22dd822c006db0f2679e32e7e2",
+    "Annex/Annex/Companion/Domain/CompanionStore.swift": "357bca13718b11871fb2e276967f99b1b17ce31826236427599dcf7e29439aed",
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "3c7b2c463c4ec92f4c387609798c3966252e9adc1e8839f76f45fea509e266bc",
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "09e1a8b9776753da67d6a0fd9ba09ef441359f5c5138501371252cfad6005557",
+    "Annex/Annex/Companion/Views/CompanionProviderV2Fixture.swift": "8ba10bc0f9215c66dd43853e78f16cdcc1c5a9ffd4ba25fbedfe7377f2bf7336",
+    "Annex/Annex/Companion/Views/CompanionProviderV2Screen.swift": "5747538e504c38ad0f208a7a4de01d09d98a6acf102fc0bd072b27c2f88cd392",
+    "Annex/Annex/Transport/AnnexCommands.swift": "88ff91a4f5ff1553895262e8873ac436726f35fa95b194e34fc98dae712d0f6c",
+    "Annex/Annex/Transport/AnnexProviderControlV2.swift": "398a507c72159fdae5274b4c249e0d9e41b663a5cd05acfa9e644528f3411636",
+    "Annex/Annex/Transport/AnnexTelemetry.swift": "b89f176935467c762c998bc9cd2070b1381cd3b18cc340b275bff483dfcb35bc",
+    "Annex/Annex/Transport/AnnexTransport.swift": "7c292058c7471337f447bb1ed0c6738060ae30ecc0e62d95ddc864b4eaab6775",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "e61d45d33477adf76a68f577ce3cf2f0820ddeb3d88fc25073bfd23cd1c64970",
+    "Package.resolved": "829b8e1a4f8ff348a92fb98568fbd8481f0ac20c44b0e807c3ca6be228a3d3d3",
+    "Package.swift": "27b85de39a35b2aea5c1217278aad5e137246a68ba5c2a71f2f0bef6e37a6fe3",
+    "Tests/ClubhouseTransportTests/AnnexContractRobustnessTests.swift": "de901d8aa622310a2c0a7670a5fda480c051d6d989d805be037aea938353f72b",
+    "Tests/ClubhouseTransportTests/CommandRefusalTests.swift": "2d8384cc8cf2e973512670ac59f36d7817131dc0dfce004625dd69f397df584a",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/SOURCE.json": "d5311168156bb6fc5b9f1e47c62c0bfff5cc475e80f234add51fe185e65dc1f2",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/capabilities.json": "ef486b9c51eb4743c8e3c61f9b5335f5deae2e36d049a0e5dcc7f610942a360e",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/provider-control-v2.json": "5e2da9b877b3038066e25c7d54b866977657dedc3713f5b8a170f8daf1fbf44e",
+    "Tests/ClubhouseTransportTests/Fixtures/command-refusal-server.mjs": "432430c88fb6fc6388512205aa1352a698131aa082fdc2fb01294abf3edd483a",
+    "Tests/ClubhouseTransportTests/PinnedCommandRefusalTests.swift": "48fe753816fc6646ebe071482f304db00186dae8388bd0a22dd7a36c007b1716",
+    "Tests/ClubhouseTransportTests/ProviderControlTests.swift": "92b19f4ee7dc24166666b8cc6fef72da29155d6546d0a7294d63f79754dc427f",
+    "Tests/ClubhouseTransportTests/ProviderControlV2CommandTests.swift": "68cae97b8afc3b02709c950d99b06b382a17efb68154275dc7d639690918bf4e",
+    "Tests/ClubhouseTransportTests/ProviderControlV2ValueTests.swift": "099d137bb808b25369345632b3a675f31a58d0cfdcfdbee6d74d932eb779ada1",
+    "Tests/ClubhouseTransportTests/TransportFailureModeTests.swift": "ce07feb25701b325bef54fc3734b2bd2172688de38d3bf2e159ac55548dcb2a7",
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
+    "Tests/CompanionDomainTests/CompanionProviderV2TransportTests.swift": "71fcf69d21ebdc7412dd227375fa15664223742967c66c4ae21092e8df1119d9",
+    "Tests/CompanionDomainTests/ScriptedAnnexTransport.swift": "e74f779cdd5dba111e9dc9dfdec73e2e94d5a6540ee2f4462805113dcfe1ef97",
+    "docs/contracts/provider-control-v2-c4cdbacc.md": "824e24375c8f3ba2a552f74ff2e776e483d82dc88eea60aa11cf9a37d080f9e9",
+    "docs/isolated-deinit.md": "316f23a994bba5e40dc9bc47f536edba8fcd882fc1b716fa3a4bb307bdf12509",
+    "docs/provider-v2-610.md": "c5cacd13d9c43bc1bf579efc99776201fceb8db4d67cbe5599b38f2e960c17e5",
+    "scripts/isolated-deinit-policy.json": "311e150812cf15fa43e3bbfbc8bc4f729149baa272469084f9689a488c01238e",
+    "Annex/Annex.xcodeproj/project.pbxproj": "be84daed357675b75675627fda7f99b9be0cc35eaea01094dcbfe969f2a43a7a"
+  },
+  "full_diff_sha256": "abeeb309f6eb72ea7c159277f258182e2e5b51dea89f7836027c3da8dda572a6",
+  "inventory_basis": "All Tests/**/*.swift path/hash closure retained for independent filter/suite/extension/global-function scan; no reliance on filename alone.",
+  "v2_trace_verifier_sha256": "c83d4ed4cdfd1a7775d6c9c6fdab03bd411a846595a0dae91a651443d6cf0f37",
+  "v2_trace_mock_sha256": "91da551599dcf94340bf6c6ea0ac571cbcffaa3fd3195e7affe7f99112eb8c64",
+  "required_prior_P2": {
+    "manifest_sha256": "9dfbf8be86b7307126667e4d99feaf9412ab155d88475f9ee6cfac03d115c925",
+    "expected_methods": 40,
+    "expected_expanded": 58,
+    "independent_originals_required": true,
+    "unrun": false,
+    "source_head": "435315a860b63906be1ecd2e332fa11f04f07599",
+    "independent_audit_sha256": "0028f72b1c7874d0b612da3b2969f9f3d4e08ebfd2458aa88a8af6677f54532d",
+    "carry_basis": "Only project.pbxproj transport source exclusion changed; complete Package.swift/resolved/Transport/Domain/Adapters/Tests closure is byte-identical to accepted435. Not a new P2 run."
+  },
+  "native_order_sha256": "949b0c0b73d82b927f789da46c757e287c3f125b2ec8440fdffd9a49bffcb9f4"
+}
