@@ -78,7 +78,7 @@ private struct CompanionProviderV2Form: View {
                 }
                 .id("provider-v2-review")
                 if let start = flow.lastStart {
-                    Section("Historical Start evidence") {
+                    Section {
                         Text(start.start.wasObserved ? "The host observed PTY creation with \(name(start.start.providerSelection ?? "unknown")). This is not a provider handshake." : "Runtime creation is unknown.")
                             .accessibilityIdentifier("provider-v2-start-creation")
                         LabeledContent("Command outcome", value: start.result.status)
@@ -87,8 +87,10 @@ private struct CompanionProviderV2Form: View {
                         LabeledContent("App session ID", value: start.running.appSessionId ?? "Not reported")
                         LabeledContent("Native provider session ID", value: start.running.nativeProviderSessionId ?? "Not reported")
                         Text("Current running provider, model and effort remain unverified. The observation above is historical.")
+                    } header: {
+                        Text("Historical Start evidence")
+                            .accessibilityIdentifier("provider-v2-start-evidence")
                     }
-                    .accessibilityIdentifier("provider-v2-start-evidence")
                 }
                 Section("Choose a provider") {
                     ForEach(settings.options.orchestrators, id: \.id) { provider in
