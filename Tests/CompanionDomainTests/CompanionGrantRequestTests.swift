@@ -463,7 +463,7 @@ private final class GrantTransport: AnnexTransporting, @unchecked Sendable {
                   case .object(var project) = projects[index] else {
                 throw AnnexTransportError.malformedResponse
             }
-            project["name"] = .string(projectName)
+            project["displayName"] = .string(projectName)
             projects[index] = .object(project)
             payload["projects"] = .array(projects)
         }
