@@ -919,7 +919,7 @@ import ClubhouseTransport
             let value = try CompanionProviderV2Fixture.value(key, target: target).decode(AnnexProviderPreviewV2.self)
             let capability = try CompanionProviderV2Fixture.value("applyCapability", target: target).decode(AnnexProviderApplyV2Capability.self)
             print("PROVIDER_V2_FIXTURE preview provider=\(provider) saved=\(value.contract.saved.provider) unknown=\(providerV2FixtureUnknown) starts=\(providerV2FixtureStarts.count)")
-            return .init(value: value, target: target, epoch: "synthetic-v2", generation: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!, capability: capability)
+            return .init(value: value, target: target, epoch: "synthetic-v2", generation: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!, capabilityRevision: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!, capability: capability)
         }
         #endif
         throw previewError

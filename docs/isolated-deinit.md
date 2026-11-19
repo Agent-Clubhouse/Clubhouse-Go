@@ -190,3 +190,5 @@ Hosted entrypoint review: `Self.unitTestHost` is the unchanged Bool producer for
 
 
 Provider v2 client ownership delta: LiveService stores only Set<CompanionCommandKey>, Set<CompanionTarget> and [CompanionTarget: CompanionProviderV2Applied]. The applied value contains a target, epoch/command Strings and AnnexProviderApplyReceiptV2, whose entire transitive graph is Sendable structs/enums, Strings, Bools and arrays. PreviewService’s opt-in DEBUG/UIKit fixture adds two Bools, two Set<String> values and the same optional applied value. These owners add no callbacks, UI handles, processes, sessions or cleanup effects. CompanionProviderV2Flow is explicitly main_actor, never ARC-only; Store’s explicit shutdown clears its flow cache before an await. Ownership surfaces were inspected with the existing cached parser; compiled deinit and policy acceptance remain required on the reviewed implementation head.
+
+Provider capability read revisions add only [String: UUID] to LiveService’s existing value state, without callbacks, reference owners or teardown work. The generation is separate from connection review and advances on relevant same-epoch capability changes.

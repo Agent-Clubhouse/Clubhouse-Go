@@ -53,6 +53,7 @@ import ClubhouseTransport
     private var savedCommands: [CompanionCommandKey: AnnexCommand] = [:]
     private var expiredCommandIDs: Set<CompanionCommandKey> = []
     /// Value-only v2 receipts and mutation tombstones survive reconnect; never a retry queue.
+    private var providerV2CapabilityRevisions: [String: UUID] = [:]
     private var providerV2Attempted: Set<CompanionCommandKey> = []
     private var providerV2Unresolved: Set<CompanionTarget> = []
     private var providerV2Applied: [CompanionTarget: CompanionProviderV2Applied] = [:]
@@ -1379,6 +1380,13 @@ import ClubhouseTransport
                         }
                     }
                 }
+                if capabilities[hostID]?.providerControlV2 != newCapabilities?.providerControlV2
+                    || capabilities[hostID]?.providerStartV2 != newCapabilities?.providerStartV2
+                    || capabilities[hostID]?.providerControlV2Advertised != newCapabilities?.providerControlV2Advertised {
+                    // Separate from connection generation: even withdraw→restore on the same
+                    // epoch cannot revive an old witness without a new host read.
+                    providerV2CapabilityRevisions[hostID] = UUID()
+                }
                 capabilities[hostID] = newCapabilities
                 if let epoch = newCapabilities?.epoch { hosts[hostID]?.controlEpoch = epoch }
                 hosts[hostID]?.canUpdateApp = newCapabilities?.supportsAppUpdate == true
@@ -1930,14 +1938,19 @@ import ClubhouseTransport
         guard let (caps, generation) = try? providerV2Context(witness.target, starting: starting) else { return false }
         return witness.epoch == caps.epoch && witness.generation == generation
             && caps.providerControlV2 == witness.capability
+            && providerV2CapabilityRevisions[witness.target.hostID] == witness.capabilityRevision
     }
     func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview {
         let (caps, generation) = try providerV2Context(target)
+        guard let capabilityRevision = providerV2CapabilityRevisions[target.hostID] else {
+            throw CompanionServiceError.unavailable("Refresh this desktop's provider capabilities before previewing.")
+        }
         let command = AnnexCommand(epoch: caps.epoch, kind: .providerPreviewV2(agentID: target.agentID, provider: provider, selection: .init()))
         try validateDispatcherCommand(command.kind, hostID: target.hostID)
         let receipt = try await transport(for: target.hostID).execute(command)
         let (current, currentGeneration) = try providerV2Context(target)
         guard current.epoch == caps.epoch, currentGeneration == generation,
+              providerV2CapabilityRevisions[target.hostID] == capabilityRevision,
               receipt.version == 1, receipt.commandId == command.commandID, receipt.epoch == command.epoch,
               wrongMachineError(receipt, command: command, hostID: target.hostID) == nil else {
             throw CompanionServiceError.unavailable("The connection or target changed during this preview. Refresh before applying.")
@@ -1949,12 +1962,13 @@ import ClubhouseTransport
         guard value.matches(agent: target.agentID, provider: provider, selection: .init()), let capability = current.providerControlV2 else {
             throw CompanionServiceError.unavailable("The desktop returned a different provider intent. Nothing can be applied from this preview.")
         }
-        return .init(value: value, target: target, epoch: caps.epoch, generation: generation, capability: capability)
+        return .init(value: value, target: target, epoch: caps.epoch, generation: generation, capabilityRevision: capabilityRevision, capability: capability)
     }
     func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview,
                          clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome {
         let (caps, generation) = try providerV2Context(target)
         guard preview.target == target, preview.epoch == caps.epoch, preview.generation == generation,
+              providerV2CapabilityRevisions[target.hostID] == preview.capabilityRevision,
               preview.value.matches(agent: target.agentID, provider: preview.value.contract.proposed.provider, selection: .init()),
               let capability = caps.providerControlV2, preview.value.permitsApply(capability: capability) else {
             throw CompanionServiceError.unavailable("Refresh and review this provider proposal before Apply. Nothing was sent.")
@@ -1989,7 +2003,8 @@ import ClubhouseTransport
                          clientCommandID: String) async throws -> CompanionProviderV2StartOutcome {
         let (caps, generation) = try providerV2Context(target, starting: true)
         guard providerV2Applied[target] == applied, applied.target == target, applied.epoch == caps.epoch,
-              witness.target == target, witness.epoch == caps.epoch, witness.generation == generation, let token = applied.value.nextWake?.readyToken,
+              witness.target == target, witness.epoch == caps.epoch, witness.generation == generation,
+              providerV2CapabilityRevisions[target.hostID] == witness.capabilityRevision, let token = applied.value.nextWake?.readyToken,
               witness.value.matches(agent: target.agentID, provider: applied.value.contract.saved.provider, selection: .init()),
               witness.value.preview.expectedState == token, witness.value.contract.saved == applied.value.contract.saved,
               witness.value.contract.proposed == applied.value.contract.saved,

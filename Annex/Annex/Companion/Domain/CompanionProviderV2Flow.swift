@@ -8,6 +8,7 @@ struct CompanionProviderV2Preview: Sendable {
     let target: CompanionTarget
     let epoch: String
     let generation: UUID
+    let capabilityRevision: UUID
     let capability: AnnexProviderApplyV2Capability
 }
 struct CompanionProviderV2Applied: Sendable, Equatable {
