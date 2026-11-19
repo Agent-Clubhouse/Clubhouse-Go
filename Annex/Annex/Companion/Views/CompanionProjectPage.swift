@@ -323,7 +323,7 @@ struct CompanionLinkedProjectStateMenuItems: View {
     }
 }
 
-private struct CompanionSingleProjectStateMenuItems: View {
+struct CompanionSingleProjectStateMenuItems: View {
     @Bindable var store: CompanionStore
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
@@ -370,7 +370,7 @@ private struct CompanionSingleProjectStateMenuItems: View {
         .disabled(state != nil && !entry.host.connection.canOperate)
     }
 
-    private func change(local: () -> Void, remote: @escaping () async -> Void) {
+    func change(local: () -> Void, remote: @escaping () async -> Void) {
         guard let current = store.projectEntry(containing: entry.id) else { return }
         if current.isLinked {
             // Only the explicitly rendered old-host group may use per-copy state. Recheck
