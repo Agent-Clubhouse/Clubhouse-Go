@@ -168,6 +168,7 @@ struct CompanionConversationComposer: View {
                                     .frame(width: 30, height: 30)
                             }
                             .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
+                            .companionProminentLabel()
                             // Match Options' native 44pt circle and shared row inset at every text size.
                             .frame(width: 44, height: 44)
                             .contentShape(.circle)
