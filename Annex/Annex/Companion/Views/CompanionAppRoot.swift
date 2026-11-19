@@ -70,7 +70,12 @@ import ClubhouseTransport
         self.feedbackPresenter = CompanionFeedbackPresenter(model: self.feedback)
         self.registry = registry
         // Integration runs keep their sort, order and theme choices out of the real app's defaults.
+        #if DEBUG
+        let testState = CompanionSceneTestSupport.makeStoreAndPreferences?()
+        self.preferences = testState?.preferences ?? (persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard))
+        #else
         self.preferences = persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard)
+        #endif
         let service = CompanionLiveService()
         self.service = service
         self.lifecycle = CompanionLifecycle { active in
@@ -78,8 +83,8 @@ import ClubhouseTransport
             else { await service.suspend() }
         }
         #if DEBUG
-        if let makeStore = CompanionSceneTestSupport.makeStore {
-            self.store = makeStore()
+        if let testState {
+            self.store = testState.store
         } else {
             self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
                                         finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)

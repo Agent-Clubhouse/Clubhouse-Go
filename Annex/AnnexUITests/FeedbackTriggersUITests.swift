@@ -42,6 +42,10 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         try checkRenewalInSettings(expected: "Needs a new invitation", flags: ["--feedback-renewal-access-required"])
     }
 
+    @MainActor func testRegisteredFeedbackKeepsSettingsAndChatUnobstructed() throws {
+        try checkRenewalInSettings(expected: "Connected", flags: ["--feedback-renewal-registered"])
+    }
+
     @MainActor private func checkRenewalInSettings(expected: String, flags: [String] = [], largeText: Bool = false) throws {
         let app = launchApp(["--feedback-renewal-ui-testing", "--companion-root-ui-testing"] + flags
             + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []),
@@ -54,8 +58,9 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         }, timeout: 5))
         let original = try XCTUnwrap(evidence.value as? String)
         XCTAssertTrue(original.contains("preferences=[false, false, false]"))
-        XCTAssertTrue(original.hasPrefix(flags.contains("--feedback-renewal-offline") ? "requests=1;" : "requests=0;"),
-                      "Only the offline fixture's preparatory refresh may reach the non-socket transport")
+        let refresh = flags.contains("--feedback-renewal-offline") || flags.contains("--feedback-renewal-registered")
+        XCTAssertTrue(original.hasPrefix(refresh ? "requests=1;" : "requests=0;"),
+                      "Only the offline/registered fixture's preparatory refresh may reach the non-socket transport")
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
         XCTAssertTrue(scrollTo(agent, in: app, maxSwipes: 6)); agent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
