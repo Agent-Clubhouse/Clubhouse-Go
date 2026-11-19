@@ -141,8 +141,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let link = app.buttons["agent-settings-provider-flow"]
         XCTAssertTrue(scrollTo(link, in: app))
         waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
-        captureProvider(app, largeText ? "V2 Accessibility Large first session report" : "V2 standard first session report")
         let apply = app.buttons["provider-save"], reason = app.staticTexts["provider-apply-reason"]
+        let session = app.descendants(matching: .any).matching(identifier: "provider-session-unverified").firstMatch
+        XCTAssertTrue(session.waitForExistence(timeout: 5) && session.label.contains("Not verified"))
+        XCTAssertTrue(apply.waitForExistence(timeout: 5))
+        captureProvider(app, largeText ? "V2 Accessibility Large first session report" : "V2 standard first session report")
         XCTAssertTrue(apply.exists && apply.isHittable && pixelContains(app.frame, apply.frame))
         XCTAssertFalse(apply.isEnabled)
         let choice = app.buttons["provider-choice-codex-cli"]
@@ -173,6 +176,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
         app.buttons["provider-review-change"].tap()
         let receipt = app.staticTexts["provider-saved"]
+        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
         XCTAssertTrue(scrollTo(receipt, in: app, maxSwipes: 12))
         XCTAssertTrue(receipt.label.contains("historical") && receipt.label.contains("started no session"))
         captureProvider(app, "V2 historical Apply receipt before Start")
@@ -216,6 +220,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     }
     private func checkV2Unknown(_ app: XCUIApplication, link: XCUIElement, choice: XCUIElement) {
         let review = app.buttons["provider-review-held-result"]
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
         XCTAssertTrue(scrollTo(review, in: app, maxSwipes: 12))
         XCTAssertFalse(app.buttons["provider-save"].isEnabled)
         app.navigationBars["Provider"].buttons.firstMatch.tap()

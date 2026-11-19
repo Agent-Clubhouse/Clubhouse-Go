@@ -903,10 +903,10 @@ import ClubhouseTransport
         #endif
         throw previewError
     }
-    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview) -> Bool {
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview, starting: Bool) -> Bool {
         #if DEBUG && canImport(UIKit)
         return providerV2Fixture && witness.target == Self.sleepingTarget && witness.epoch == "synthetic-v2"
-            && !ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-no-start")
+            && (!starting || !ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-no-start"))
         #else
         return false
         #endif

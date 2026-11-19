@@ -267,4 +267,49 @@ private actor ProviderV2Transport: AnnexTransporting {
         #expect(await io.mutations().count == 1)
     }
 
+    @Test(arguments: [false, true], ["unsupported", "malformed", "missing"])
+    func sameEpochCapabilityChangeInvalidatesManagedAuthorityWithoutReconnect(afterApply: Bool, platform: String) async throws {
+        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let originalWitness = try #require(flow.preview)
+        if afterApply { await flow.apply(); #expect(flow.canStart) }
+        else { #expect(flow.canApply) }
+        let before = await io.mutations(), originalCaps = try providerV2Caps()
+        guard case .object(var applyCap) = originalCaps["providerControlV2"] else { throw AnnexTransportError.malformedResponse }
+        switch platform {
+        case "missing": applyCap["managedPlatform"] = nil
+        case "malformed": applyCap["managedPlatform"] = .string("unsupported-shape")
+        default:
+            applyCap["managedPlatform"] = .object(["current": .string("win32"), "supported": .bool(false), "supportedPlatforms": .array([.string("darwin"), .string("linux")]), "refusalCode": .string("managed_platform_unsupported")])
+        }
+        let unsupported = try changed(originalCaps, "providerControlV2", .object(applyCap))
+        await catalog.setRead("capabilities", unsupported); await io.setCapabilities(unsupported)
+        // Direct read refresh, no reconnect/resync; review generation must stay the SAME.
+        try await service.refreshSleepState(target)
+        try await wait { store.host(for: target)?.providerApplyV2?.managedPlatform?.permitsManaged != true }
+        #expect(store.host(for: target)?.providerStartV2?.isSupported == true)
+        #expect(!flow.canStart && !flow.canApply)
+        #expect(!service.providerV2WitnessIsCurrent(originalWitness, starting: false))
+        let freshUnsupported = try await service.providerPreviewV2(target, provider: "codex-cli")
+        #expect(freshUnsupported.generation == originalWitness.generation && freshUnsupported.epoch == originalWitness.epoch)
+        #expect(!freshUnsupported.value.permitsApply(capability: freshUnsupported.capability))
+        await flow.startNew(); await flow.apply()
+        #expect(await io.mutations() == before)
+        await catalog.setRead("capabilities", originalCaps); await io.setCapabilities(originalCaps)
+        try await service.refreshSleepState(target)
+        await flow.refresh()
+        #expect(afterApply ? flow.canStart : flow.canApply, "Only a fresh matching valid witness restores this known operation")
+        #expect(await io.mutations() == before)
+        // With managed support absent, a FRESH independently valid native preview still permits editing.
+        await catalog.setRead("capabilities", unsupported); await io.setCapabilities(unsupported)
+        try await service.refreshSleepState(target)
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.providerPreview", body: try #require(fixture["inheritedPreview"]?["body"]))
+        await flow.select("claude-code")
+        #expect(flow.preview?.value.preview.outcome.instructionScope == "native_primary_only" && flow.canApply)
+        #expect(await io.mutations() == before)
+    }
+
 }

@@ -57,11 +57,11 @@ enum CompanionProviderV2StartOutcome: Sendable {
     }
     var canApply: Bool {
         canChoose && startEligibleApply == nil && preservesRuntime
-            && preview.map { $0.value.permitsApply(capability: $0.capability) } == true
+            && preview.map { $0.value.permitsApply(capability: $0.capability) && service.providerV2WitnessIsCurrent($0, starting: false) } == true
     }
     var canStart: Bool {
         guard canChoose, startAdvertised(), let applied = startEligibleApply, let witness = startWitness else { return false }
-        return matchesStartWitness(witness, applied: applied) && service.providerV2WitnessIsCurrent(witness)
+        return matchesStartWitness(witness, applied: applied) && service.providerV2WitnessIsCurrent(witness, starting: true)
     }
     func updateRequestedRuntime(_ value: String) {
         guard !busy, requestedRuntime != value else { return }
@@ -99,7 +99,7 @@ enum CompanionProviderV2StartOutcome: Sendable {
                     do {
                         let witness = try await service.providerPreviewV2(target, provider: receipt.value.contract.saved.provider)
                         reportedSaved = witness.value.contract.saved
-                        if matchesStartWitness(witness, applied: receipt), service.providerV2WitnessIsCurrent(witness) {
+                        if matchesStartWitness(witness, applied: receipt), service.providerV2WitnessIsCurrent(witness, starting: true) {
                             startWitness = witness
                         } else { error = "Apply was confirmed, but the fresh saved-state check differs. Start is unavailable; review a new proposal." }
                     } catch { self.error = "Apply was confirmed, but a fresh state check failed. Start is unavailable. Refresh reported settings before continuing." }
@@ -126,7 +126,7 @@ enum CompanionProviderV2StartOutcome: Sendable {
             let witness = try await service.providerPreviewV2(target, provider: applied.value.contract.saved.provider)
             reportedSaved = witness.value.contract.saved
             // Start uses the Apply-issued token, NEVER the original proposal token or a new token.
-            guard matchesStartWitness(witness, applied: applied), service.providerV2WitnessIsCurrent(witness) else {
+            guard matchesStartWitness(witness, applied: applied), service.providerV2WitnessIsCurrent(witness, starting: true) else {
                 startEligibleApply = nil; startWitness = nil; preview = nil
                 error = "The current desktop state no longer matches the Apply receipt. Review a fresh proposal; no Start was sent."
                 return
