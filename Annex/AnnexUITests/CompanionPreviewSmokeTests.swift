@@ -131,10 +131,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(scrollTo(link, in: app))
         let choice = app.buttons["provider-choice-codex-cli"]
         waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        captureProvider(app, "Provider top and last-reported state before selection")
         let apply = app.buttons["provider-save"]
         XCTAssertTrue(scrollTo(apply, in: app), "Apply must be reachable before selecting, including at AX size")
         XCTAssertEqual(apply.label, "Apply provider")
         XCTAssertFalse(apply.isEnabled)
+        let session = app.descendants(matching: .any).matching(identifier: "provider-session-unverified").firstMatch
+        XCTAssertTrue(scrollTo(session, in: app))
+        XCTAssertTrue(session.label.contains("Not verified here"))
+        captureProvider(app, "Provider session evidence remains unverified before selection")
         tapVisibleProviderControl(choice, in: app)
         XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame), "Apply must remain visible immediately after selection; no search scroll")
         let visibleReason = app.staticTexts["provider-apply-reason"]
@@ -145,6 +150,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(waitFor(saved, NSPredicate(format: "hittable == true"), timeout: 5), "The explicit Review change action must reveal saved/proposed values")
         XCTAssertTrue(saved.label.contains("Claude"))
         XCTAssertTrue(proposed.exists && proposed.label.contains("Codex"))
+        XCTAssertTrue(pixelContains(app.frame, proposed.frame))
+        captureProvider(app, "Review shows saved Claude, proposed Codex, and persistent Apply reason")
         XCTAssertFalse(app.buttons["provider-start-new"].exists, "A proposal cannot enable wake")
         let resets = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Applying resets:")).firstMatch
         XCTAssertTrue(scrollTo(resets, in: app, maxSwipes: 12))
@@ -154,7 +161,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let scope = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "does not prepare or load skills or MCP")).firstMatch
         XCTAssertTrue(scrollUntilExists(scope, in: app, up: false, maxSwipes: 8))
         let proposalShot = XCTAttachment(screenshot: app.screenshot())
-        proposalShot.name = "Synthetic provider proposal remains separate from saved and runtime"; proposalShot.lifetime = .keepAlways; add(proposalShot)
+        proposalShot.name = "Synthetic preview native-primary scope and reset consequences"; proposalShot.lifetime = .keepAlways; add(proposalShot)
         XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame))
         apply.tap()
         if lostReply {
@@ -169,8 +176,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             tapVisibleProviderControl(check, in: app)
         }
         let receipt = app.staticTexts["provider-saved"]
+        app.buttons["provider-review-change"].tap()
         XCTAssertTrue(scrollUntilExists(receipt, in: app, up: false, maxSwipes: 12))
         XCTAssertTrue(receipt.label.contains("Codex") && receipt.label.contains("No session was started by Apply"))
+        captureProvider(app, "Matching Apply receipt before any Start confirmation")
         let start = app.buttons["provider-start-new"]
         XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 8))
         XCTAssertTrue(start.isEnabled)
@@ -191,10 +200,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         result.name = "Synthetic Apply receipt and separately requested Start"; result.lifetime = .keepAlways; add(result)
     }
 
+    private func captureProvider(_ app: XCUIApplication, _ name: String) {
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
+    }
+
     private func checkGuidedProviderFlow(largeText: Bool) {
         var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-control"]
         if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
-        let app = launchApp(arguments)
+        let app = launchApp(arguments, attempts: 1)
         openAgentSettings(app, sleeping: true)
         let link = app.buttons["agent-settings-provider-flow"]
         XCTAssertTrue(scrollTo(link, in: app))
