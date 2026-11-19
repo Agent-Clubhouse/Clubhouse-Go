@@ -126,6 +126,108 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
     }
 
+    /// Capture-only supplement: one preview, no Apply or Start.
+    func testProviderV2CaptureAccessibilityLargeReviewRows() {
+        let app = openProviderV2Capture(largeText: true, unsupportedStart: false)
+        XCTAssertTrue(captureReadableProviderRow("provider-session-unverified", in: app, containing: ["Not verified"], name: "V2 Large initial runtime uncertainty readable"))
+        selectProviderV2ForCapture(app)
+        app.buttons["provider-review-change"].tap()
+        XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-model", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed model and source readable BEFORE Apply"))
+        XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-effort", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed effort and source readable BEFORE Apply"))
+        XCTAssertTrue(captureReadableProviderRow("provider-reset-impacts", in: app, containing: ["Applying resets:", "model", "effort"], name: "V2 Large explicit reset list readable BEFORE Apply"))
+        XCTAssertFalse(app.staticTexts["provider-saved"].exists)
+        XCTAssertFalse(app.buttons["provider-start-new"].exists)
+    }
+
+    /// Capture-only supplement: one Apply, with Start independently unsupported.
+    func testProviderV2CaptureUnsupportedStartReason() {
+        let app = openProviderV2Capture(largeText: false, unsupportedStart: true)
+        selectProviderV2ForCapture(app)
+        tapVisibleProviderControl(app.buttons["provider-save"], in: app)
+        app.buttons["provider-review-change"].tap()
+        XCTAssertTrue(captureReadableProviderRow("provider-start-reason", in: app, containing: ["does not separately support"], name: "V2 independently unsupported Start reason readable"))
+        XCTAssertTrue(app.buttons["provider-start-new"].exists)
+        XCTAssertFalse(app.buttons["provider-start-new"].isEnabled)
+        XCTAssertFalse(app.staticTexts["provider-v2-start-evidence"].exists)
+    }
+
+    private func openProviderV2Capture(largeText: Bool, unsupportedStart: Bool) -> XCUIApplication {
+        var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-v2"]
+        if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
+        if unsupportedStart { arguments += ["--companion-preview-provider-v2-no-start"] }
+        let app = launchApp(arguments, attempts: 1)
+        openAgentSettings(app, sleeping: true)
+        let link = app.buttons["agent-settings-provider-flow"]
+        XCTAssertTrue(scrollTo(link, in: app))
+        waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper")
+        XCTAssertTrue(app.buttons["provider-save"].waitForExistence(timeout: 5))
+        XCTAssertFalse(app.buttons["provider-save"].isEnabled)
+        return app
+    }
+
+    private func selectProviderV2ForCapture(_ app: XCUIApplication) {
+        tapVisibleProviderControl(app.buttons["provider-choice-codex-cli"], in: app)
+        let apply = app.buttons["provider-save"], reason = app.staticTexts["provider-apply-reason"]
+        XCTAssertTrue(waitFor(apply, NSPredicate(format: "enabled == true"), timeout: 5))
+        // Check the actual selection path before any search/review navigation.
+        XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame))
+        XCTAssertTrue(reason.exists && pixelContains(app.frame, reason.frame))
+        XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper")
+    }
+
+    /// Dedicated visual proof; existing semantic-case helpers remain unchanged.
+    private func captureReadableProviderRow(_ identifier: String, in app: XCUIApplication,
+                                            containing expected: [String], name: String) -> Bool {
+        let navigation = app.navigationBars["Provider"]
+        let form = app.collectionViews.matching(identifier: "provider-flow").firstMatch
+        let row = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+        guard navigation.exists && form.exists else { XCTFail("Native Provider navigation and Form must exist"); return false }
+        var previousFrame: CGRect?
+        var previousDrag: CGFloat?
+        var response: CGFloat = 1
+        // Initial observation plus at most eight native pans, not nine gestures.
+        for attempt in 0...8 {
+            let apply = app.buttons["provider-save"], review = app.buttons["provider-review-change"]
+            guard apply.exists && review.exists else { XCTFail("Persistent actions must define the protected content band"); return false }
+            let top = max(navigation.frame.maxY + 12, form.frame.minY)
+            let bottom = min(min(app.frame.maxY - 34, form.frame.maxY), min(apply.frame.minY, review.frame.minY) - 12)
+            let frame: CGRect? = row.exists ? row.frame : nil
+            print("PROVIDER_CAPTURE_GEOMETRY id=\(identifier) attempt=\(attempt) row=\(String(describing: frame)) band=\(top)...\(bottom)")
+            if let frame {
+                guard frame.width > 0 && frame.height > 0 && frame.height <= bottom - top else {
+                    XCTFail("The complete text row must fit in the native readable band: \(frame), \(top)...\(bottom)"); return false
+                }
+                if frame.minY >= top && frame.maxY <= bottom {
+                    guard row.waitForExistence(timeout: 5), row.identifier == identifier,
+                          expected.allSatisfy({ row.label.contains($0) }), navigation.buttons.firstMatch.label == "Juniper" else {
+                        XCTFail("The realized row must retain its expected identity, text and Juniper context"); return false
+                    }
+                    captureProvider(app, name)
+                    return true
+                }
+                if let previousFrame, let previousDrag {
+                    let movement = frame.midY - previousFrame.midY
+                    print("PROVIDER_CAPTURE_MOVEMENT id=\(identifier) settled=\(movement) drag=\(previousDrag)")
+                    guard abs(movement) > 0.5 else { XCTFail("Native scrolling made no progress toward the readable row"); return false }
+                    if movement * previousDrag > 0 { response = min(4, max(0.25, movement / previousDrag)) }
+                }
+            }
+            guard attempt < 8 else { XCTFail("Readable row not reached within eight native pans"); return false }
+            let travel = min(120, (bottom - top) / 2 - 8)
+            guard travel >= 24 else { XCTFail("Protected content band cannot support a native pan"); return false }
+            let dy = frame.map { min(travel, max(-travel, ((top + bottom) / 2 - $0.midY) / response)) } ?? -travel
+            guard abs(dy) >= 24 else { XCTFail("Refusing a sub-pan correction before capture: \(dy)"); return false }
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: form.frame.midX - app.frame.minX, dy: (top + bottom) / 2 - app.frame.minY))
+            previousFrame = frame; previousDrag = dy
+            XCTContext.runActivity(named: "Reveal readable provider row \(identifier), band \(top)...\(bottom), drag \(dy)") { _ in
+                origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: dy)))
+            }
+        }
+        return false
+    }
+
     func testProviderV2ApplyAndStartStaySeparate() { checkProviderV2(largeText: false, mode: "success") }
     func testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable() { checkProviderV2(largeText: true, mode: "success") }
     func testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead() { checkProviderV2(largeText: false, mode: "lost-apply") }
