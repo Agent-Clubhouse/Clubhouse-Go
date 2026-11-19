@@ -70,7 +70,8 @@ private actor ProviderV2IO: AnnexIO {
         return .init(status: body["status"] == .string("completed") ? 200 : 409, data: try JSONEncoder().encode(body))
     }
     func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket { throw AnnexTransportError.disconnected }
-    func mutations() -> [AnnexJSON] { posts.filter { ["agent.providerChange", "agent.start"].contains($0["type"]?.string ?? "") } }
+    /// Every non-preview POST counts, including an unexpected generic update/stop/fallback.
+    func mutations() -> [AnnexJSON] { posts.filter { $0["type"] != .string("agent.providerPreview") } }
 }
 
 private actor ProviderV2Transport: AnnexTransporting {
