@@ -158,6 +158,73 @@ import XCTest
         }
     }
 
+    func testTerminalSendGlyphContrastWithKeyboardForIdleQueueAndSteering() throws {
+        try checkSendGlyphContrast(theme: ["--companion-header-terminal"])
+    }
+
+    func testLightAccentDarkThemeSendGlyphContrastWithKeyboard() throws {
+        try checkSendGlyphContrast(theme: ["--companion-header-mocha"])
+    }
+
+    func testLightAppearanceSendGlyphContrastWithKeyboard() throws {
+        try checkSendGlyphContrast(theme: ["--companion-header-latte", "--companion-header-light"])
+    }
+
+    private func checkSendGlyphContrast(theme: [String]) throws {
+        for (state, flags, label) in [
+            ("idle", ["--companion-header-idle"], "Send message"),
+            ("queue", ["--companion-header-queue"], "Queue message"),
+            ("steering", [], "Send steering message")
+        ] {
+            let app = launch(theme + flags)
+            defer { app.terminate() }
+            let composer = element(app, "companion-composer")
+            focus(app)
+            let send = app.buttons["companion-send"]
+            XCTAssertEqual(send.label, label)
+            XCTAssertTrue(send.isEnabled && send.isHittable)
+            XCTAssertEqual(send.frame.width, 44, accuracy: 1)
+            XCTAssertEqual(send.frame.height, 44, accuracy: 1)
+            try assertSendGlyphContrast(app, state: "\(theme) \(state) enabled")
+            composer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: draft.count))
+            XCTAssertFalse(send.isEnabled)
+            XCTAssertTrue(app.keyboards.firstMatch.exists, "The disabled state is also measured while editing")
+            try assertSendGlyphContrast(app, state: "\(theme) \(state) disabled")
+        }
+    }
+
+    private func assertSendGlyphContrast(_ app: XCUIApplication, state: String) throws {
+        let frame = app.buttons["companion-send"].frame
+        let screenshot = app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "Send glyph \(state)"; attachment.lifetime = .keepAlways; add(attachment)
+        let image = try XCTUnwrap(screenshot.image.cgImage)
+        let scale = CGFloat(image.width) / app.frame.width
+        // Stay inside the glass rim: neither the circle's edge nor neighbouring controls can pass as the arrow.
+        let center = CGRect(x: frame.midX - 12, y: frame.midY - 12, width: 24, height: 24)
+        let crop = try XCTUnwrap(image.cropping(to: center.applying(.init(scaleX: scale, y: scale)).integral))
+        var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
+        try bytes.withUnsafeMutableBytes { buffer in
+            let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
+                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        }
+        func linear(_ value: UInt8) -> Double {
+            let channel = Double(value) / 255
+            return channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        let luminances = stride(from: 0, to: bytes.count, by: 4).map {
+            0.2126 * linear(bytes[$0]) + 0.7152 * linear(bytes[$0 + 1]) + 0.0722 * linear(bytes[$0 + 2])
+        }.sorted()
+        let fill = luminances[luminances.count / 2]
+        let contrasts = luminances.map { (max($0, fill) + 0.05) / (min($0, fill) + 0.05) }.sorted()
+        let coreContrast = contrasts[Int(Double(contrasts.count - 1) * 0.95)]
+        print("SEND_GLYPH \(state) frame=\(frame) fill=\(fill) coreContrast=\(coreContrast)")
+        XCTAssertGreaterThanOrEqual(coreContrast, 4.5,
+                                    "\(state): at least 5% of the central pixels must form a contrast-safe glyph, not a few isolated pixels")
+    }
+
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
     /// glass must not restyle it. The 44pt photo is centred at the top of the identity control; sampled inside it,
     /// left of the initial and clear of the status dot.
