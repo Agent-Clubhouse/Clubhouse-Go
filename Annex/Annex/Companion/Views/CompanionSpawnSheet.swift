@@ -33,6 +33,7 @@ struct CompanionSpawnSheet: View {
         let optionsLoaded: Bool
         let loading: Bool
         let selection: CompanionManagedSelection?
+        let name: String
         let createDisabled: Bool
         let showsUnavailable: Bool
         let createHint: String
@@ -47,7 +48,7 @@ struct CompanionSpawnSheet: View {
         #if DEBUG
         let _ = hostedTestSeam?(HostedTestSeam(
             optionsLoaded: durable.options != nil, loading: durable.loading,
-            selection: durable.managedSelection, createDisabled: createDisabled,
+            selection: durable.managedSelection, name: durable.name, createDisabled: createDisabled,
             showsUnavailable: showsManagedUnavailable, createHint: createAccessibilityHint,
             selectTemplate: { durable.selectTemplate($0) }, selectProject: selectEntry,
             create: createDurableAgent))
