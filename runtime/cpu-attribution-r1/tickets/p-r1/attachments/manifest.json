@@ -1,0 +1,32 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "9E9F889C-C80A-4693-BE30-2AA455A9F14C",
+        "deviceName" : "ux-582-cpu-attribution",
+        "exportedFileName" : "0936B4C9-2560-42F1-B6B6-D369937BAA7E.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Deep paused opening work JSON_0_96D5363B-8D6D-4AEA-A3BB-21030D9AB7D0.json",
+        "timestamp" : 1795050904.29
+      }
+    ],
+    "testIdentifier" : "CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "9E9F889C-C80A-4693-BE30-2AA455A9F14C",
+        "deviceName" : "ux-582-cpu-attribution",
+        "exportedFileName" : "F551A07B-927C-49B1-9943-8F610AAF51F6.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Paused streaming conversation work JSON_0_4A9C17CE-784C-4109-AF88-45D0F0136817.json",
+        "timestamp" : 1795050906.833
+      }
+    ],
+    "testIdentifier" : "CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork"
+  }
+]

@@ -1,0 +1,252 @@
+[
+  {
+    "attribution" : [
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000108036200) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000108036200) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000108036200) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000108036200) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.0"
+      }
+    ],
+    "body" : 4,
+    "bookmarkIndex" : 60,
+    "iteration" : 0,
+    "preparedRowCount" : 540,
+    "preparedRowCountByBuild" : [
+      540,
+      540,
+      540,
+      540,
+      540
+    ],
+    "preparedRowCountTotal" : 2700,
+    "processCPUSeconds" : 1.8849480000000001,
+    "rows" : 600,
+    "timeline" : 5,
+    "wallSeconds" : 1.4528337498195469
+  },
+  {
+    "attribution" : [
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000106045a00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000106045a00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000106045a00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "parent.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.init",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "seed.body",
+        "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\"))",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.init",
+        "inputs" : "store=ObjectIdentifier(0x0000000106045a00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 150, entryID: Optional(\"message:deep-60\")) managed=true jump=nil",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      },
+      {
+        "event" : "transcript.body",
+        "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"clubhouse\", agentID: \"river\")",
+        "phase" : "deep.mount.1"
+      }
+    ],
+    "body" : 4,
+    "bookmarkIndex" : 60,
+    "iteration" : 1,
+    "preparedRowCount" : 540,
+    "preparedRowCountByBuild" : [
+      540,
+      540,
+      540,
+      540,
+      540
+    ],
+    "preparedRowCountTotal" : 2700,
+    "processCPUSeconds" : 0.94043900000000002,
+    "rows" : 600,
+    "timeline" : 5,
+    "wallSeconds" : 1.1210378333926201
+  }
+]

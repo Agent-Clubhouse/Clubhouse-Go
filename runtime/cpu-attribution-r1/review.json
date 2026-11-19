@@ -1,0 +1,16 @@
+{
+  "product": "e1633de9c7981b61207cf08aa3d8b4fec7a43c13",
+  "overlay_base": "94f101a6497099399f45b58f5e2e5d1b083614bd",
+  "diagnostic_head": "bd0980de959e762284f397a873ee4c81b7b0563b",
+  "diagnostic_diff_sha256": "9a5718689a479c45407da1d1d91949dd68ae18658d02b25b3ffe096877e1b5d3",
+  "full_diff_sha256": "5190ab106422e63345d1060e625007482697c4bbdb687f3307f8a0e7cdd1b93d",
+  "manifest_sha256": "33091c95622ffcb6ea184c712aa743f7c481bf7f82c25b38e43f5648e47e0d0d",
+  "source_sha256": {
+    "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+    "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "b5acdf00ccca83c8108039c9528bbe6698236763c7fde3133f95a8e755fc2925",
+    "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "da8430bb70953232f45288a51f1f6ace7a9512c314bd6097d4e02402c59bb585",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "40dfd9d0b66f68bf93ebd5e58c56dba1b68a478d4e7016f671a7b9e57c87d533"
+  },
+  "source": "/tmp/ux-582-proof/cpu-attribution-r1/overlay-source",
+  "counts": "A1 fresh900; P2 once480; no Home; all original paused/deep assertions; no behavioral product edits; no performance credit"
+}

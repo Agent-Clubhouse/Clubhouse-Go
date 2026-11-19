@@ -1,0 +1,149 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+index 1dab7a102..c1a68541f 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+@@ -4,6 +4,8 @@
+     enum Kind { case body, timeline }
+     static var record: ((Kind, CompanionTarget) -> Void)?
+     static var preparedRows: ((CompanionTarget, Int) -> Void)?
++    /// Logging-only CPU attribution overlay. Removed from all credited builds.
++    static var attribution: ((String, String) -> Void)?
+ }
+ 
+ /// Optional lifecycle evidence for hosted focus regressions. No draft/selection observation or focus mutation.
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index 3b3e62eec..1a88e1be5 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -88,6 +88,10 @@ struct CompanionConversationView: View {
+     var body: some View {
+         #if DEBUG
+         let _ = CompanionConversationBuildProbe.record?(.body, target)
++        let _ = { if let trace = CompanionConversationBuildProbe.attribution {
++            trace("parent.body", String(describing: target))
++            Self._printChanges()
++        } }()
+         #endif
+         Group {
+             if isVisible != false { content }
+@@ -598,8 +602,19 @@ private struct CompanionReadingSeedScope<Content: View>: View {
+          @ViewBuilder content: @escaping (CompanionReadingOpening) -> Content) {
+         _seed = StateObject(wrappedValue: CompanionReadingSeed(store: store, target: target))
+         self.content = content
++        #if DEBUG
++        CompanionConversationBuildProbe.attribution?("seed.init", String(describing: target))
++        #endif
++    }
++    var body: some View {
++        #if DEBUG
++        let _ = { if let trace = CompanionConversationBuildProbe.attribution {
++            trace("seed.body", String(describing: seed.value))
++            Self._printChanges()
++        } }()
++        #endif
++        content(seed.value)
+     }
+-    var body: some View { content(seed.value) }
+ }
+ 
+ /// Only the transcript unmounts when a retained chat is hidden. Composer/header State stays above this boundary.
+@@ -638,6 +653,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+         self.dismissComposer = dismissComposer
+         self.header = header
+         self.entry = entry
++        #if DEBUG
++        CompanionConversationBuildProbe.attribution?("transcript.init",
++            "store=\(ObjectIdentifier(store)) target=\(target) opening=\(opening) managed=\(isVisibilityManaged) jump=\(String(describing: decisionChatJump?.id))")
++        #endif
+         // Repeated View initialization copies only this cached value. No Store lookup or text slicing runs here.
+         _followLatest = State(initialValue: opening.followsLatest)
+         _atLatest = State(initialValue: opening.followsLatest)
+@@ -662,6 +681,10 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+     var body: some View {
+         #if DEBUG
+         let _ = CompanionConversationBuildProbe.record?(.timeline, target)
++        let _ = { if let trace = CompanionConversationBuildProbe.attribution {
++            trace("transcript.body", String(describing: target))
++            Self._printChanges()
++        } }()
+         #endif
+         let rows = store.timelineRows(for: target)
+         let viewport = readingViewport
+diff --git a/Annex/AnnexTests/CompanionReadingPausedCostTests.swift b/Annex/AnnexTests/CompanionReadingPausedCostTests.swift
+index aa98be645..35273fe5d 100644
+--- a/Annex/AnnexTests/CompanionReadingPausedCostTests.swift
++++ b/Annex/AnnexTests/CompanionReadingPausedCostTests.swift
+@@ -22,11 +22,19 @@ import UIKit
+         let window = UIWindow(windowScene: scene)
+         window.frame = CGRect(x: 0, y: 0, width: 800, height: 1000)
+         var body = 0, timeline = 0
++        var attributionPhase = "paused.mount"
++        var attribution: [[String: String]] = []
++        CompanionConversationBuildProbe.attribution = { event, inputs in
++            let sample = ["phase": attributionPhase, "event": event, "inputs": inputs]
++            attribution.append(sample)
++            print("READING_CPU_ATTRIBUTION \(sample)")
++        }
+         CompanionConversationBuildProbe.record = { kind, observed in
+             guard observed == target else { return }
+             switch kind { case .body: body += 1; case .timeline: timeline += 1 }
+         }
+         defer {
++            CompanionConversationBuildProbe.attribution = nil
+             CompanionConversationBuildProbe.record = nil
+             window.isHidden = true
+             window.rootViewController = nil
+@@ -44,6 +52,8 @@ import UIKit
+         try await Task.sleep(for: .milliseconds(250))
+         var samples: [[String: Int]] = []
+         for batch in 0..<10 {
++            attributionPhase = "paused.batch.\(batch)"
++            print("READING_CPU_MUTATION_BEGIN \(batch)")
+             let beforeBody = body, beforeTimeline = timeline
+             for _ in 0..<10 { store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed", sequence: nil)) }
+             window.layoutIfNeeded()
+@@ -52,7 +62,7 @@ import UIKit
+             XCTAssertFalse(bookmark.position.followsLatest)
+             samples.append(["batch": batch, "chunks": 10, "body": body - beforeBody, "timeline": timeline - beforeTimeline])
+         }
+-        let report: [String: Any] = ["uncredited": true, "samples": samples, "chunks": 100,
++        let report: [String: Any] = ["attribution": attribution, "uncredited": true, "samples": samples, "chunks": 100,
+                                     "notes": "Paused actual transcript, identical fixture on main/head, 10 separately rendered batches; compare body/timeline batch by batch. Per-mount seed/slicing count proven separately on the production head."]
+         let data = try JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys])
+         print("READING_PAUSED_COST " + String(decoding: data, as: UTF8.self))
+@@ -105,6 +115,12 @@ import Darwin
+             let window = UIWindow(windowScene: scene)
+             window.frame = CGRect(x: 0, y: 0, width: 800, height: 1_000)
+             var body = 0, timeline = 0
++            var attribution: [[String: String]] = []
++            CompanionConversationBuildProbe.attribution = { event, inputs in
++                let sample = ["phase": "deep.mount.\(iteration)", "event": event, "inputs": inputs]
++                attribution.append(sample)
++                print("READING_CPU_ATTRIBUTION \(sample)")
++            }
+             var preparedRows: [Int] = []
+             CompanionConversationBuildProbe.record = { kind, observed in
+                 guard observed == target else { return }
+@@ -114,6 +130,7 @@ import Darwin
+                 if observed == target { preparedRows.append(count) }
+             }
+             defer {
++                CompanionConversationBuildProbe.attribution = nil
+                 CompanionConversationBuildProbe.preparedRows = nil
+                 CompanionConversationBuildProbe.record = nil
+                 window.isHidden = true
+@@ -138,12 +155,13 @@ import Darwin
+             XCTAssertEqual(offset - frame.lowerBound, 40, accuracy: 6)
+             XCTAssertEqual(preparedRows.count, timeline, "Every actual transcript window build must report its prepared rows")
+             XCTAssertFalse(preparedRows.isEmpty)
+-            reports.append(["iteration": iteration, "rows": 600, "bookmarkIndex": 60,
++            reports.append(["attribution": attribution, "iteration": iteration, "rows": 600, "bookmarkIndex": 60,
+                             "body": body, "timeline": timeline,
+                             "preparedRowCount": preparedRows.max() ?? -1,
+                             "preparedRowCountTotal": preparedRows.reduce(0, +), "preparedRowCountByBuild": preparedRows,
+                             "processCPUSeconds": processCPU() - cpu,
+                             "wallSeconds": ProcessInfo.processInfo.systemUptime - start])
++            CompanionConversationBuildProbe.attribution = nil
+             CompanionConversationBuildProbe.preparedRows = nil
+             CompanionConversationBuildProbe.record = nil
+             window.isHidden = true

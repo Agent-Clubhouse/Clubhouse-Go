@@ -1,0 +1,218 @@
+deep.mount.0 parent.body
+CompanionConversationView: @self, @identity, _confirmCancel, _confirmSleep, _showArchive, _showContextSettings, _showHeaderDetails, _headerDetailsLackRoom, _headerLeadingOrigin, _headerTrailingInset, _headerBarWidth, _headerOverflowMonitor, _keyboardVisible, _decisionChatJump, _composerMemory, _composerFocusRequests, _composerDismissals, _scenePhase, _dynamicTypeSize, _palette, _openAgent, _agentSettings, _sendFeedback changed.
+deep.mount.0 seed.init
+deep.mount.0 seed.body
+SeedScope: @self, @identity, _seed changed.
+deep.mount.0 transcript.init
+deep.mount.0 transcript.body
+Transcript: @self, @identity, _followLatest, _atLatest, _nextAssistantMessageID, _readingScrollPosition, _openingWindowStartID, _navigationClearance, @336, _reduceMotion, _dynamicTypeSize, _openingID, _followPauseCount, _followSawDeceleration, _shownEntries changed.
+deep.mount.0 parent.body
+CompanionConversationView: _headerDetailsLackRoom, _openAgent changed.
+deep.mount.0 seed.init
+deep.mount.0 seed.body
+SeedScope: @self changed.
+deep.mount.0 transcript.init
+deep.mount.0 transcript.body
+Transcript: @self changed.
+deep.mount.0 parent.body
+CompanionConversationView: _headerDetailsLackRoom changed.
+deep.mount.0 seed.init
+deep.mount.0 seed.body
+SeedScope: @self changed.
+deep.mount.0 transcript.init
+deep.mount.0 transcript.body
+Transcript: @self changed.
+deep.mount.0 parent.body
+CompanionConversationView: _headerLeadingOrigin, _headerTrailingInset, _headerBarWidth changed.
+deep.mount.0 seed.init
+deep.mount.0 seed.body
+SeedScope: @self changed.
+deep.mount.0 transcript.init
+deep.mount.0 transcript.body
+Transcript: @self changed.
+deep.mount.0 transcript.body
+Transcript: _readingScrollPosition changed.
+READING_RESTORE outcome=arrived attempts=1 durationMs=247.26183339953423
+deep.mount.1 parent.body
+CompanionConversationView: @self, @identity, _confirmCancel, _confirmSleep, _showArchive, _showContextSettings, _showHeaderDetails, _headerDetailsLackRoom, _headerLeadingOrigin, _headerTrailingInset, _headerBarWidth, _headerOverflowMonitor, _keyboardVisible, _decisionChatJump, _composerMemory, _composerFocusRequests, _composerDismissals, _scenePhase, _dynamicTypeSize, _palette, _openAgent, _agentSettings, _sendFeedback changed.
+deep.mount.1 seed.init
+deep.mount.1 seed.body
+SeedScope: @self, @identity, _seed changed.
+deep.mount.1 transcript.init
+deep.mount.1 transcript.body
+Transcript: @self, @identity, _followLatest, _atLatest, _nextAssistantMessageID, _readingScrollPosition, _openingWindowStartID, _navigationClearance, @336, _reduceMotion, _dynamicTypeSize, _openingID, _followPauseCount, _followSawDeceleration, _shownEntries changed.
+deep.mount.1 parent.body
+CompanionConversationView: _headerDetailsLackRoom, _openAgent changed.
+deep.mount.1 seed.init
+deep.mount.1 seed.body
+SeedScope: @self changed.
+deep.mount.1 transcript.init
+deep.mount.1 transcript.body
+Transcript: @self changed.
+deep.mount.1 parent.body
+CompanionConversationView: _headerDetailsLackRoom changed.
+deep.mount.1 seed.init
+deep.mount.1 seed.body
+SeedScope: @self changed.
+deep.mount.1 transcript.init
+deep.mount.1 transcript.body
+Transcript: @self changed.
+deep.mount.1 parent.body
+CompanionConversationView: _headerLeadingOrigin, _headerTrailingInset, _headerBarWidth changed.
+deep.mount.1 seed.init
+deep.mount.1 seed.body
+SeedScope: @self changed.
+deep.mount.1 transcript.init
+deep.mount.1 transcript.body
+Transcript: @self changed.
+deep.mount.1 transcript.body
+Transcript: _readingScrollPosition changed.
+READING_RESTORE outcome=arrived attempts=1 durationMs=186.2659165635705
+paused.mount parent.body
+CompanionConversationView: @self, @identity, _confirmCancel, _confirmSleep, _showArchive, _showContextSettings, _showHeaderDetails, _headerDetailsLackRoom, _headerLeadingOrigin, _headerTrailingInset, _headerBarWidth, _headerOverflowMonitor, _keyboardVisible, _decisionChatJump, _composerMemory, _composerFocusRequests, _composerDismissals, _scenePhase, _dynamicTypeSize, _palette, _openAgent, _agentSettings, _sendFeedback changed.
+paused.mount seed.init
+paused.mount seed.body
+SeedScope: @self, @identity, _seed changed.
+paused.mount transcript.init
+paused.mount transcript.body
+Transcript: @self, @identity, _followLatest, _atLatest, _nextAssistantMessageID, _readingScrollPosition, _openingWindowStartID, _navigationClearance, @336, _reduceMotion, _dynamicTypeSize, _openingID, _followPauseCount, _followSawDeceleration, _shownEntries changed.
+paused.mount parent.body
+CompanionConversationView: _headerDetailsLackRoom, _openAgent changed.
+paused.mount seed.init
+paused.mount seed.body
+SeedScope: @self changed.
+paused.mount transcript.init
+paused.mount transcript.body
+Transcript: @self changed.
+paused.mount parent.body
+CompanionConversationView: _headerDetailsLackRoom changed.
+paused.mount seed.init
+paused.mount seed.body
+SeedScope: @self changed.
+paused.mount transcript.init
+paused.mount transcript.body
+Transcript: @self changed.
+paused.mount parent.body
+CompanionConversationView: _headerLeadingOrigin, _headerTrailingInset, _headerBarWidth changed.
+paused.mount seed.init
+paused.mount seed.body
+SeedScope: @self changed.
+paused.mount transcript.init
+paused.mount transcript.body
+Transcript: @self changed.
+paused.mount transcript.body
+Transcript: _readingScrollPosition changed.
+READING_RESTORE outcome=arrived attempts=1 durationMs=75.66354190930724
+READING_CPU_MUTATION_BEGIN 0
+paused.batch.0 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.0 seed.init
+paused.batch.0 seed.body
+SeedScope: @self changed.
+paused.batch.0 transcript.init
+paused.batch.0 transcript.body
+Transcript: @self changed.
+paused.batch.0 seed.body
+SeedScope: \CompanionStore.conversations changed.
+paused.batch.0 transcript.init
+paused.batch.0 transcript.body
+Transcript: \CompanionStore.conversations, @self changed.
+READING_CPU_MUTATION_BEGIN 1
+paused.batch.1 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.1 seed.init
+paused.batch.1 seed.body
+SeedScope: @self changed.
+paused.batch.1 transcript.init
+paused.batch.1 transcript.body
+Transcript: @self changed.
+paused.batch.1 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 2
+paused.batch.2 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.2 seed.init
+paused.batch.2 seed.body
+SeedScope: @self changed.
+paused.batch.2 transcript.init
+paused.batch.2 transcript.body
+Transcript: @self changed.
+paused.batch.2 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 3
+paused.batch.3 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.3 seed.init
+paused.batch.3 seed.body
+SeedScope: @self changed.
+paused.batch.3 transcript.init
+paused.batch.3 transcript.body
+Transcript: @self changed.
+paused.batch.3 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 4
+paused.batch.4 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.4 seed.init
+paused.batch.4 seed.body
+SeedScope: @self changed.
+paused.batch.4 transcript.init
+paused.batch.4 transcript.body
+Transcript: @self changed.
+paused.batch.4 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 5
+paused.batch.5 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.5 seed.init
+paused.batch.5 seed.body
+SeedScope: @self changed.
+paused.batch.5 transcript.init
+paused.batch.5 transcript.body
+Transcript: @self changed.
+paused.batch.5 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 6
+paused.batch.6 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.6 seed.init
+paused.batch.6 seed.body
+SeedScope: @self changed.
+paused.batch.6 transcript.init
+paused.batch.6 transcript.body
+Transcript: @self changed.
+paused.batch.6 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 7
+paused.batch.7 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.7 seed.init
+paused.batch.7 seed.body
+SeedScope: @self changed.
+paused.batch.7 transcript.init
+paused.batch.7 transcript.body
+Transcript: @self changed.
+paused.batch.7 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 8
+paused.batch.8 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.8 seed.init
+paused.batch.8 seed.body
+SeedScope: @self changed.
+paused.batch.8 transcript.init
+paused.batch.8 transcript.body
+Transcript: @self changed.
+paused.batch.8 transcript.body
+Transcript: \CompanionStore.conversations changed.
+READING_CPU_MUTATION_BEGIN 9
+paused.batch.9 parent.body
+CompanionConversationView: \CompanionStore.conversations changed.
+paused.batch.9 seed.init
+paused.batch.9 seed.body
+SeedScope: @self changed.
+paused.batch.9 transcript.init
+paused.batch.9 transcript.body
+Transcript: @self changed.
+paused.batch.9 transcript.body
+Transcript: \CompanionStore.conversations changed.

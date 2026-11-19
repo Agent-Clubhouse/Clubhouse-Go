@@ -1,0 +1,4 @@
+[
+  "CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts()",
+  "CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork()"
+]

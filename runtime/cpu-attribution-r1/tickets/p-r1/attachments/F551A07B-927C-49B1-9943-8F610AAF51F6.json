@@ -1,0 +1,484 @@
+{
+  "attribution" : [
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.mount"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.0"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.1"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.1"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.1"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.1"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.1"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.1"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.2"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.2"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.2"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.2"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.2"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.2"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.3"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.3"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.3"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.3"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.3"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.3"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.4"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.4"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.4"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.4"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.4"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.4"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.5"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.5"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.5"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.5"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.5"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.5"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.6"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.6"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.6"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.6"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.6"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.6"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.7"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.7"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.7"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.7"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.7"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.7"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.8"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.8"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.8"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.8"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.8"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.8"
+    },
+    {
+      "event" : "parent.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.9"
+    },
+    {
+      "event" : "seed.init",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.9"
+    },
+    {
+      "event" : "seed.body",
+      "inputs" : "CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\"))",
+      "phase" : "paused.batch.9"
+    },
+    {
+      "event" : "transcript.init",
+      "inputs" : "store=ObjectIdentifier(0x000000010a130c00) target=CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\") opening=CompanionReadingOpening(followsLatest: false, shownEntries: 300, entryID: Optional(\"message:reading-90\")) managed=true jump=nil",
+      "phase" : "paused.batch.9"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.9"
+    },
+    {
+      "event" : "transcript.body",
+      "inputs" : "CompanionTarget(hostID: \"preview-studio\", projectID: \"website\", agentID: \"maple\")",
+      "phase" : "paused.batch.9"
+    }
+  ],
+  "chunks" : 100,
+  "notes" : "Paused actual transcript, identical fixture on main\/head, 10 separately rendered batches; compare body\/timeline batch by batch. Per-mount seed\/slicing count proven separately on the production head.",
+  "samples" : [
+    {
+      "batch" : 0,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 1,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 2,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 3,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 4,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 5,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 6,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 7,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 8,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 9,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    }
+  ],
+  "uncredited" : true
+}
