@@ -1023,6 +1023,30 @@
             "persistsDrafts": "Bool",
             "service": "CompanionLiveService ( )"
           }
+        },
+        {
+          "expression": "CompanionStore ( service : service , draftPersistence : persistsDrafts ? CompanionLocalDrafts ( ) : nil , finishedPersistence : persistsDrafts ? CompanionLocalFinished ( ) : nil )",
+          "producers": {
+            "persistsDrafts": "Bool",
+            "service": "CompanionLiveService ( )"
+          }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionFeedbackRenewalFixture.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { let oldFeedback = CompanionSceneTestSupport . makeFeedback let oldState = CompanionSceneTestSupport . makeStoreAndPreferences defer { CompanionSceneTestSupport . makeFeedback = oldFeedback CompanionSceneTestSupport . makeStoreAndPreferences = oldState } CompanionSceneTestSupport . makeFeedback = { ( model , nil ) } CompanionSceneTestSupport . makeStoreAndPreferences = { ( CompanionStore ( service : CompanionPreviewService ( ) ) , CompanionPreferences ( defaults : defaults ) ) } return CompanionRuntime ( registry : AnnexTransportRegistry ( ) , persistsDrafts : false ) }",
+          "producers": {
+            "defaults": "UserDefaults ( suiteName : \" feedback-renewal-fixture- \\ ( UUID ( ) . uuidString )  \" ) !",
+            "model": "FeedbackModel ( client : try Client ( configuration : config , transport : transport , enrollmentStore : enrollment , feedbackStore : queue , now : { now } ) )"
+          }
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( ) )",
+          "producers": {}
         }
       ]
     },

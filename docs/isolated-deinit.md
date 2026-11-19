@@ -18,6 +18,25 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
+Feedback renewal proof (#609) reviews exactly three changed constructor capture records, not new
+teardown exemptions. AppRoot's DEBUG fallback and Release branch contain two identical Store
+constructors with the already-reviewed LiveService, Bool and optional local persistence owners.
+The DEBUG renewal fixture's capture-free Store constructor uses the reviewed UI-free PreviewService,
+without persistence. Its lazy lifetime factory captures only the synthetic FeedbackModel and
+per-launch UserDefaults: no Fixture/self, UIKit object or UI-capturing callback. The model has nil
+telemetry/diagnostics and default incident/clock providers; its Client actor owns a frozen Date,
+configuration values, lock-protected in-memory enrollment/queue values and a non-socket transport
+holding only a lock, optional immutable Data and an Int counter. The preserved local 26.0 Debug
+binary emits ordinary FeedbackModel deinit symbols, not an isolated-deallocating symbol. This is
+specific emitted-symbol evidence, not an SDK-wide safety exemption. Unmaterialized factories own
+only that UI-free model/defaults graph; materialized factories additionally cache Runtime, whose
+existing MainActor-task teardown remains unchanged. Temporary prior DEBUG hooks are restored by
+defer during factory invocation, not retained as additional factory captures. Preferences retains
+only its reviewed values/UserDefaults. Runtime still stops Presenter and shuts down Store before
+awaiting lifecycle/service teardown. Class policies, stored-property fingerprints, deinit bodies
+and enforcement remain unchanged; the reviewed rules must pass against the preserved same Swift
+binary before any new admission.
+
 Agent-row access defaults (#434) add only two Store dictionaries keyed by Sendable project/agent targets
 with permission-level enum values. They retain no UI objects, callbacks or tasks and introduce no deinit
 work. The response fence also holds `accessDefaultGenerations: [String: UUID]`, a per-host map of
@@ -104,7 +123,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionTimelineProjection` | arc_only | UUID, counters/index dictionaries and Sendable timeline rows; reachable image wrappers own immutable Data with reviewed ARC-only teardown. No UI or callbacks. |
 | `CompanionRuntime` | main_actor_task | Nonisolated deinit transfers feedback and whole Store/service/lifecycle subtrees into a MainActor task. First quiesce Presenter, clear Store's isolated provider flows and stop listeners/telemetry without awaiting. Then settle queued transitions, shut down/disconnect and relinquish transports, and release owners inside the task. Fields and exact deinit body are gated (#349). |
 | `CompanionHomeRenderSession` | `main_actor_task` | Lazy SwiftUI StateObject owns display snapshot and existing Root execution handles. StateObject teardown reproduced the isolated-deinit runtime invalid-free abort. Empty/nonisolated ARC alone cannot waive captured UI affinity: deinit copies actions/snapshot into a real MainActor Task and extends their lifetime there; exact fields and body are gated. No task handle is retained. |
-| `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue, Runtime, a synthetic PreviewService Store, or the DEBUG feedback-fixture tuple. The DEBUG prefix-trim fixture adds a capture-free factory producing a synthetic reading PreviewService Store, with the same UI-free ownership graph. Factories capture Store, a Bool, or nothing; Runtime separately defers UI teardown onto MainActor. New constructor/capture sites require review. |
+| `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue, Runtime, a synthetic PreviewService Store, or the DEBUG feedback-fixture tuple. The DEBUG prefix-trim fixture adds a capture-free factory producing a synthetic reading PreviewService Store, with the same UI-free ownership graph. Factories capture Store, a Bool, or nothing; the #609 renewal factory additionally captures only the specifically reviewed synthetic model and UserDefaults graph described above. Runtime separately defers UI teardown onto MainActor. New constructor/capture sites require review. |
 | `CompanionStore` | arc_only | Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Home decision projection stores only existing Sendable approval/question timeline values; no callbacks/tasks/UI owner. |
 | `CompanionStreamDiagnostics` | arc_only | Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields. |
 | `CompanionTelemetry` | main_actor | Owns SDK/MetricKit/subscription objects; their destruction affinity is not proved here. |
