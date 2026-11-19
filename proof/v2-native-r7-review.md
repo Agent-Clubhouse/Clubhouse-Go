@@ -1,0 +1,3 @@
+# Native logging-coverage head re-pin — unrun
+
+Only exact source/test evidence pin, P2 predecessor, owned root/name and actual cross-packet mock filenames/hash differ from r6. Product/app/hosted/UI sources byte-identical5a, same5methods/order949b/verifierc83d/counts13preview5Apply3Start0replay/fullguards/budgets. All9pure probes use ACTUAL r7 order/selectors and pass, no native result. P2 remains40/58; now25 decoded-array checkpoint records required in its private originals audit. Existing source/P2/native narrow review and actual P2 originals must close before A/phone/SE. All independent native trace/container/cancel/visual/cleanup/postFIFO gates remain unchanged.
