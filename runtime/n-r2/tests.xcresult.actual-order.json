@@ -1,0 +1,15 @@
+[
+  "CompanionReadingOpeningTests/pausedFirstBodyStartsAtItsCanonicalBookmarkWithoutAnIdentityRequest()",
+  "CompanionReadingOpeningTests/parentRecreationAndOpenReloadDoNotReseedOrShrinkTheReadersWindow()",
+  "CompanionReadingOpeningTests/mountedReplacementClearsTheBoundaryWithoutRequestingBottom()",
+  "CompanionReadingOpeningTests/followingStreamAndParentRecreationComputeOnlyOneOpeningSeed()",
+  "CompanionReadingOpeningTests/hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState()",
+  "CompanionReadingOpeningTests/groupedQuestionAliasUsesTheVisibleGroupOnTheFirstBody()",
+  "CompanionReadingOpeningTests/removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget()",
+  "CompanionReadingOpeningTests/aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest()",
+  "CompanionReadingOpeningTests/exactTopOpeningArrivesWithoutANumericCorrection()",
+  "CompanionReadingOpeningTests/reopenedPausedWindowKeepsItsFirstEntryWhenATailArrivesDuringRestore()",
+  "CompanionReadingOpeningTests/activeOpeningDragNeverWritesAnIdentityHandoff()",
+  "CompanionReadingOpeningTests/lightOpeningTouchNeverInstallsAnIdentityHandoff()",
+  "CompanionReadingOpeningTests/navigationAwayDuringTheOpeningHoldWritesNoIdentityHandoff()"
+]

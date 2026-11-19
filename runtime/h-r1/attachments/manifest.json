@@ -1,0 +1,16 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "83D20031-4970-4347-9E0C-3024C224540B.txt",
+        "isAssociatedWithFailure" : true,
+        "suggestedHumanReadableName" : "Complete Issue Description.txt"
+      }
+    ],
+    "testIdentifier" : "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()"
+  }
+]

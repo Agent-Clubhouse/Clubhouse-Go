@@ -1,0 +1,37 @@
+[
+  {
+    "actualSeconds" : 16.528333333333332,
+    "file" : "frame-0000-17.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 17,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.761666666666667,
+    "file" : "frame-0001-18.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 18,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 17.761666666666667,
+    "file" : "frame-0002-19.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 19,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 19.981666666666666,
+    "file" : "frame-0003-20.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 20,
+    "width" : 1320
+  },
+  {
+    "actualSeconds" : 20.916666666666668,
+    "file" : "frame-0004-21.000.png",
+    "height" : 2868,
+    "requestedSeconds" : 21,
+    "width" : 1320
+  }
+]

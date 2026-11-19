@@ -1,0 +1,32 @@
+Exported 1 attachment for: CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry():
+File: 83D20031-4970-4347-9E0C-3024C224540B.txt, suggested name: "Complete Issue Description.txt"
+
+Skipped export for CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming(): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition(): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/generationAndLatestPreventReissue(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry(): no matching attachments
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/h-r1/attachments/manifest.json

@@ -1,0 +1,1096 @@
+{
+  "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 1 seconds",
+    "durationInSeconds": 1,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testName": "prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Failed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "children": [
+                          {
+                            "details": "Swift.String",
+                            "name": "phase : \"waiting\"",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "details": "Swift.Bool",
+                            "name": "followsLatest : false",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "children": [
+                              {
+                                "details": "Swift.String",
+                                "name": "some : \"message:reading-46\"",
+                                "nodeType": "Test Value"
+                              }
+                            ],
+                            "details": "Swift.Optional<Swift.String>",
+                            "name": "entryID : \"message:reading-46\"",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "children": [
+                              {
+                                "details": "Swift.Double",
+                                "name": "some : 1324.0",
+                                "nodeType": "Test Value"
+                              }
+                            ],
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "offset : 1324.0",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "children": [
+                              {
+                                "details": "Swift.Double",
+                                "name": "some : 1295.0000000000146",
+                                "nodeType": "Test Value"
+                              }
+                            ],
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "entryLowerBound : 1295.0000000000146",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "children": [
+                              {
+                                "details": "Swift.Double",
+                                "name": "some : 1324.0",
+                                "nodeType": "Test Value"
+                              }
+                            ],
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "beforeOffset : 1324.0",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "children": [
+                              {
+                                "details": "Swift.Double",
+                                "name": "some : 1295.0000000000146",
+                                "nodeType": "Test Value"
+                              }
+                            ],
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "beforeLowerBound : 1295.0000000000146",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "pinnedOffset : nil",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "shift : nil",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "children": [
+                              {
+                                "details": "Swift.Double",
+                                "name": "some : 0.0",
+                                "nodeType": "Test Value"
+                              }
+                            ],
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "miss : 0.0",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "details": "Swift.Int",
+                            "name": "attempts : 0",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "details": "Swift.Optional<Swift.Double>",
+                            "name": "gateElapsed : nil",
+                            "nodeType": "Test Value"
+                          },
+                          {
+                            "details": "Swift.String",
+                            "name": "outcome : \"arrived\"",
+                            "nodeType": "Test Value"
+                          }
+                        ],
+                        "details": "ClubhouseGo.CompanionReadingPrefixTrimFixture.Sample",
+                        "name": "result : Sample(phase: \"waiting\", followsLatest: false, entryID: Optional(\"message:reading-46\"), offset: Optional(1324.0), entryLowerBound: Optional(1295.0000000000146), beforeOffset: Optional(1324.0), beforeLowerBound: Optional(1295.0000000000146), pinnedOffset: nil, shift: nil, miss: Optional(0.0), attempts: 0, gateElapsed: nil, outcome: \"arrived\")",
+                        "nodeType": "Test Value"
+                      },
+                      {
+                        "details": "Swift.Optional<Swift.Double>",
+                        "name": "shift : nil",
+                        "nodeType": "Test Value"
+                      }
+                    ],
+                    "name": "Results",
+                    "nodeType": "Expression"
+                  },
+                  {
+                    "name": "Complete Issue Description.txt",
+                    "nodeIdentifier": "AFCE8C20-669B-4D6C-B37C-D12A830F592F",
+                    "nodeType": "Attachment"
+                  },
+                  {
+                    "name": "",
+                    "nodeType": "Source Code Reference"
+                  }
+                ],
+                "name": "Expectation failed: (result \u2192 Sample(phase: \"waiting\", followsLatest: false, entryID: Optional(\"message:reading-46\"), offset: Optional(1324.0), entryLowerBound: Optional(1295.0000000000146), beforeOffset: Optional(1324.0), beforeLowerBound: Optional(1295.0000000000146), pinnedOffset: nil, shift: nil, miss: Optional(0.0), attempts: 0, gateElapsed: nil, outcome: \"arrived\")).shift \u2192 nil \u2192 nil",
+                "nodeType": "Test Case Run",
+                "result": "Failed"
+              }
+            ],
+            "duration": "1s",
+            "durationInSeconds": 1,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Failed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "1s",
+        "durationInSeconds": 1,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Failed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)": {
+    "arguments": [
+      {
+        "value": ".tab"
+      },
+      {
+        "value": ".desktop"
+      }
+    ],
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Average duration 4.5 seconds",
+    "durationInSeconds": 4.5,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 2 runs",
+    "testIdentifier": "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+    "testName": "hiddenStreamsDoNoTimelineWork(hidden:)",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Failed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGoTests.CompanionHiddenConversationTests.Hidden",
+                "name": "hidden : .tab",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "details": "CoreGraphics.CGFloat",
+                    "name": "abs(restoredOffset - readingOffset) : 1192.0",
+                    "nodeType": "Test Value"
+                  },
+                  {
+                    "details": "CoreGraphics.CGFloat",
+                    "name": "2 : 2.0",
+                    "nodeType": "Test Value"
+                  }
+                ],
+                "name": "Results",
+                "nodeType": "Expression"
+              },
+              {
+                "name": "",
+                "nodeType": "Source Code Reference"
+              }
+            ],
+            "name": "Expectation failed: (abs(restoredOffset - readingOffset) \u2192 1192.0) <= (2 \u2192 2.0): The reading offset survives unmounting within two points",
+            "nodeType": "Test Case Run",
+            "result": "Failed"
+          }
+        ],
+        "duration": "5s",
+        "durationInSeconds": 5,
+        "name": ".tab",
+        "nodeType": "Arguments",
+        "result": "Failed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGoTests.CompanionHiddenConversationTests.Hidden",
+                "name": "hidden : .desktop",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          },
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "details": "CoreGraphics.CGFloat",
+                    "name": "abs(restoredOffset - readingOffset) : 1192.0",
+                    "nodeType": "Test Value"
+                  },
+                  {
+                    "details": "CoreGraphics.CGFloat",
+                    "name": "2 : 2.0",
+                    "nodeType": "Test Value"
+                  }
+                ],
+                "name": "Results",
+                "nodeType": "Expression"
+              },
+              {
+                "name": "",
+                "nodeType": "Source Code Reference"
+              }
+            ],
+            "name": "Expectation failed: (abs(restoredOffset - readingOffset) \u2192 1192.0) <= (2 \u2192 2.0): The reading offset survives unmounting within two points",
+            "nodeType": "Test Case Run",
+            "result": "Failed"
+          }
+        ],
+        "duration": "4s",
+        "durationInSeconds": 4,
+        "name": ".desktop",
+        "nodeType": "Arguments",
+        "result": "Failed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 5.0 seconds",
+    "durationInSeconds": 5,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+    "testName": "lostRestoreCommandRecoversWhileStreaming()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Failed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "details": "CoreGraphics.CGFloat",
+                        "name": "abs(restoredOffset - readingOffset) : 1192.0",
+                        "nodeType": "Test Value"
+                      },
+                      {
+                        "details": "CoreGraphics.CGFloat",
+                        "name": "2 : 2.0",
+                        "nodeType": "Test Value"
+                      }
+                    ],
+                    "name": "Results",
+                    "nodeType": "Expression"
+                  },
+                  {
+                    "name": "",
+                    "nodeType": "Source Code Reference"
+                  }
+                ],
+                "name": "Expectation failed: (abs(restoredOffset - readingOffset) \u2192 1192.0) <= (2 \u2192 2.0): The reading offset survives unmounting within two points",
+                "nodeType": "Test Case Run",
+                "result": "Failed"
+              }
+            ],
+            "duration": "5s",
+            "durationInSeconds": 5,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Failed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "5s",
+        "durationInSeconds": 5,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Failed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 5.0 seconds",
+    "durationInSeconds": 5,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+    "testName": "touchDuringRetryWindowKeepsTheUsersPosition()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "5s",
+            "durationInSeconds": 5,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "5s",
+        "durationInSeconds": 5,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 6.0 seconds",
+    "durationInSeconds": 6,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+    "testName": "timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Failed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "children": [
+                  {
+                    "children": [
+                      {
+                        "details": "CoreGraphics.CGFloat",
+                        "name": "abs(restoredOffset - readingOffset) : 1192.0",
+                        "nodeType": "Test Value"
+                      },
+                      {
+                        "details": "CoreGraphics.CGFloat",
+                        "name": "2 : 2.0",
+                        "nodeType": "Test Value"
+                      }
+                    ],
+                    "name": "Results",
+                    "nodeType": "Expression"
+                  },
+                  {
+                    "name": "",
+                    "nodeType": "Source Code Reference"
+                  }
+                ],
+                "name": "Expectation failed: (abs(restoredOffset - readingOffset) \u2192 1192.0) <= (2 \u2192 2.0): The reading offset survives unmounting within two points",
+                "nodeType": "Test Case Run",
+                "result": "Failed"
+              }
+            ],
+            "duration": "6s",
+            "durationInSeconds": 6,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Failed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "6s",
+        "durationInSeconds": 6,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Failed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+    "testName": "droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+    "testName": "prefixShiftRetargetsBeforeStaleNumericArrival()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+    "testName": "prependIncreasesTheTargetByTheMeasuredEntryShift()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+    "testName": "halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+    "testName": "inconsistentGeometryCannotRepinTheTarget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+    "testName": "severalEntryShiftsConvergeWithinTheOriginalBudget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+    "testName": "continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)": {
+    "arguments": [
+      {
+        "value": ".navigation"
+      },
+      {
+        "value": ".scrollPhase"
+      },
+      {
+        "value": ".unmounted"
+      },
+      {
+        "value": ".touch"
+      }
+    ],
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 4 runs",
+    "testIdentifier": "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+    "testName": "userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .touch",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".touch",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .scrollPhase",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".scrollPhase",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .navigation",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".navigation",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .unmounted",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".unmounted",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/generationAndLatestPreventReissue()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+    "testName": "generationAndLatestPreventReissue()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+    "testName": "attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "98301AFD-EC8A-42E6-9385-72627BF596F9",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  }
+}

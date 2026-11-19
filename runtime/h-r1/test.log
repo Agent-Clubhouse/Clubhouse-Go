@@ -1,0 +1,207 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r6/DD -destination "platform=iOS Simulator,id=98301AFD-EC8A-42E6-9385-72627BF596F9" -resultBundlePath /tmp/ux-582-proof/tickets/h-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoTests/CompanionReadingRestorationTests" "-only-testing:ClubhouseGoTests/CompanionHiddenConversationTests"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r6/source @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  Framebriar: /tmp/ux-582-proof/tickets/a-r6/source/Vendor/Framebriar @ local
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/h-r1/tests.xcresult
+
+2026-11-18 16:00:10.935972-0800 ClubhouseGo[57696:458359849] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-18 16:00:10.979356-0800 ClubhouseGo[57696:458359844] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+Test Suite 'Selected tests' started at 2026-11-18 16:00:11.458.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-18 16:00:11.458.
+Test Suite 'ClubhouseGoTests.xctest' passed at 2026-11-18 16:00:11.458.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 16:00:11.459.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: arm64-apple-ios13.0-simulator
+◇ Suite CompanionHiddenConversationTests started.
+◇ Test prefixTrimDuringPinnedRestorePreservesTheReadingEntry() started.
+2026-11-18 16:00:11.531254-0800 ClubhouseGo[57696:458359737] READING569_FIXTURE phase=ready follow=1 entry=nil offset=-1.0 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:00:11.759851-0800 ClubhouseGo[57696:458359737] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=815.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=815.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=761.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+2026-11-18 16:00:11.940111-0800 ClubhouseGo[57696:458359737] READING569_FIXTURE phase=ready follow=1 entry=nil offset=14032.666666666666 lower=-1.0 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:00:12.030517-0800 ClubhouseGo[57696:458359737] READING569_FIXTURE phase=ready follow=0 entry=message:reading-33 offset=0.0 lower=38.33333333334788 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:00:12.140281-0800 ClubhouseGo[57696:458359737] READING569_FIXTURE phase=ready follow=0 entry=message:reading-46 offset=1324.0 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:00:12.274910-0800 ClubhouseGo[57696:458359737] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=1324.0 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+READING_RESTORE outcome=arrived attempts=0 durationMs=0.09966688230633736
+2026-11-18 16:00:12.333345-0800 ClubhouseGo[57696:458359737] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=1324.0 lower=1295.0000000000146 pin=-1.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=arrived
+✘ Test prefixTrimDuringPinnedRestorePreservesTheReadingEntry() recorded an issue at CompanionHiddenConversationTests.swift:79:25: Expectation failed: (result → Sample(phase: "waiting", followsLatest: false, entryID: Optional("message:reading-46"), offset: Optional(1324.0), entryLowerBound: Optional(1295.0000000000146), beforeOffset: Optional(1324.0), beforeLowerBound: Optional(1295.0000000000146), pinnedOffset: nil, shift: nil, miss: Optional(0.0), attempts: 0, gateElapsed: nil, outcome: "arrived")).shift → nil → nil
+✘ Test prefixTrimDuringPinnedRestorePreservesTheReadingEntry() failed after 0.883 seconds with 1 issue.
+↳ /// A real tail event trims the rendered prefix between the first pin and delivery.
+↳ /// Public geometry must still match the saved semantic entry after final arrival.
+◇ Test hiddenStreamsDoNoTimelineWork(hidden:) started.
+◇ Test case passing 1 argument hidden → .tab to hiddenStreamsDoNoTimelineWork(hidden:) started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:00:12.717500-0800 ClubhouseGo[57696:458359737] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.04387460649013519
+READING_RESTORE outcome=generation attempts=0 durationMs=0.09583355858922005
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=220.868667 observedCompletionMs=220.890709 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=188.33333333333337
+✘ Test hiddenStreamsDoNoTimelineWork(hidden:) recorded an issue with 1 argument hidden → .tab at CompanionHiddenConversationTests.swift:298:13: Expectation failed: (abs(restoredOffset - readingOffset) → 1192.0) <= (2 → 2.0)
+↳ The reading offset survives unmounting within two points
+READING_RESTORE outcome=arrived attempts=1 durationMs=209.09691648557782
+​◇ Test case passing 1 argument hidden → .desktop to hiddenStreamsDoNoTimelineWork(hidden:) started.
+2026-11-18 16:00:17.096896-0800 ClubhouseGo[57696:458359737] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x10986a600>.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:00:17.348105-0800 ClubhouseGo[57696:458359737] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=desktop visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=1 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=desktop stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_RESTORE_DIAGNOSTIC case=desktop stage=200ms geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_RESTORE_TIMING case=desktop firstObservedReadyMs=192.867583 observedCompletionMs=222.020083 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=desktop stage=completed geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_SCROLL_MEASUREMENT case=desktop before=1380.3333333333335 restored=188.33333333333337
+✘ Test hiddenStreamsDoNoTimelineWork(hidden:) recorded an issue with 1 argument hidden → .desktop at CompanionHiddenConversationTests.swift:298:13: Expectation failed: (abs(restoredOffset - readingOffset) → 1192.0) <= (2 → 2.0)
+↳ The reading offset survives unmounting within two points
+READING_RESTORE outcome=arrived attempts=1 durationMs=234.61783351376653
+​✘ Test hiddenStreamsDoNoTimelineWork(hidden:) with 2 test cases failed after 9.566 seconds with 2 issues.
+◇ Test lostRestoreCommandRecoversWhileStreaming() started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:00:22.226910-0800 ClubhouseGo[57696:458359737] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=taskCancelled attempts=0 durationMs=128.38974967598915
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=2.842170943040401e-14 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=false restoring=true ready=false restoreOffset=-1.0
+READING_RESTORE outcome=generation attempts=0 durationMs=0.17091678455471992
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=293.373958 observedCompletionMs=293.37825 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=188.33333333333337
+✘ Test lostRestoreCommandRecoversWhileStreaming() recorded an issue at CompanionHiddenConversationTests.swift:298:13: Expectation failed: (abs(restoredOffset - readingOffset) → 1192.0) <= (2 → 2.0)
+↳ The reading offset survives unmounting within two points
+READING_RESTORE outcome=arrived attempts=2 durationMs=263.72495805844665
+✘ Test lostRestoreCommandRecoversWhileStreaming() failed after 4.572 seconds with 1 issue.
+◇ Test touchDuringRetryWindowKeepsTheUsersPosition() started.
+2026-11-18 16:00:26.571833-0800 ClubhouseGo[57696:458359737] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x10c403200>.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:00:26.826249-0800 ClubhouseGo[57696:458359737] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.030708499252796173
+READING_RESTORE outcome=generation attempts=0 durationMs=0.02129189670085907
+READING_RESTORE outcome=touch attempts=1 durationMs=152.3578753694892
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=2400.0 saved=2400.0 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=-1.0
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=510.496209 observedCompletionMs=510.520417 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=2400.0 saved=2400.0 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=-1.0
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=2400.0
+✔ Test touchDuringRetryWindowKeepsTheUsersPosition() passed after 4.816 seconds.
+◇ Test timeoutPreservesBookmarkAndTheNextMountRetriesIt() started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:00:31.629227-0800 ClubhouseGo[57696:458359737] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+2026-11-18 16:00:31.667830-0800 ClubhouseGo[57696:458359737] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x10804ee00>.
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=taskCancelled attempts=0 durationMs=132.36499996855855
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=2.842170943040401e-14 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=false restoring=true ready=false restoreOffset=-1.0
+READING_RESTORE outcome=generation attempts=0 durationMs=0.18300022929906845
+READING_RESTORE outcome=exhausted attempts=20 durationMs=1036.2341669388115
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=1273.65975 observedCompletionMs=1273.663791 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=2.842170943040401e-14 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.38408348336815834
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=188.33333333333337
+✘ Test timeoutPreservesBookmarkAndTheNextMountRetriesIt() recorded an issue at CompanionHiddenConversationTests.swift:298:13: Expectation failed: (abs(restoredOffset - readingOffset) → 1192.0) <= (2 → 2.0)
+↳ The reading offset survives unmounting within two points
+READING_RESTORE outcome=arrived attempts=1 durationMs=195.1094581745565
+✘ Test timeoutPreservesBookmarkAndTheNextMountRetriesIt() failed after 5.968 seconds with 1 issue.
+✘ Suite CompanionHiddenConversationTests failed after 25.809 seconds with 5 issues.
+↳ /// Real hosted views, long preview histories, and separately rendered store events. Bounds count work, not time.
+◇ Suite CompanionReadingRestorationTests started.
+◇ Test droppedDeliveryRetriesButStreamingCannotChangeItsTarget() started.
+2026-11-18 16:00:37.364897-0800 ClubhouseGo[57696:458359737] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x10e090800>.
+✔ Test droppedDeliveryRetriesButStreamingCannotChangeItsTarget() passed after 0.098 seconds.
+◇ Test prefixShiftRetargetsBeforeStaleNumericArrival() started.
+✔ Test prefixShiftRetargetsBeforeStaleNumericArrival() passed after 0.001 seconds.
+◇ Test prependIncreasesTheTargetByTheMeasuredEntryShift() started.
+✔ Test prependIncreasesTheTargetByTheMeasuredEntryShift() passed after 0.001 seconds.
+◇ Test halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget() started.
+✔ Test halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget() passed after 0.001 seconds.
+◇ Test inconsistentGeometryCannotRepinTheTarget() started.
+✔ Test inconsistentGeometryCannotRepinTheTarget() passed after 0.001 seconds.
+◇ Test severalEntryShiftsConvergeWithinTheOriginalBudget() started.
+✔ Test severalEntryShiftsConvergeWithinTheOriginalBudget() passed after 0.001 seconds.
+◇ Test continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits() started.
+✔ Test continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits() passed after 0.001 seconds.
+◇ Test userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+◇ Test case passing 1 argument outcome → .touch to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=touch attempts=1 durationMs=10.0
+​◇ Test case passing 1 argument outcome → .scrollPhase to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=scrollPhase attempts=1 durationMs=10.0
+​◇ Test case passing 1 argument outcome → .navigation to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=navigation attempts=1 durationMs=10.0
+​◇ Test case passing 1 argument outcome → .unmounted to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=unmounted attempts=1 durationMs=10.0
+​✔ Test userAndNavigationCancellationPreventEveryLateReissue(outcome:) with 4 test cases passed after 0.006 seconds.
+◇ Test generationAndLatestPreventReissue() started.
+✔ Test generationAndLatestPreventReissue() passed after 0.001 seconds.
+◇ Test attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry() started.
+READING_RESTORE outcome=exhausted attempts=20 durationMs=1100.0
+✔ Test attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry() passed after 0.001 seconds.
+✔ Suite CompanionReadingRestorationTests passed after 0.111 seconds.
+✘ Test run with 15 tests in 2 suites failed after 25.921 seconds with 5 issues.
+2026-11-18 16:00:50.530 xcodebuild[57550:458358291] [MT] IDETestOperationsObserverDebug: 42.477 elapsed -- Testing started completed.
+2026-11-18 16:00:50.530 xcodebuild[57550:458358291] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 16:00:50.530 xcodebuild[57550:458358291] [MT] IDETestOperationsObserverDebug: 42.477 sec, +42.477 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/h-r1/tests.xcresult
+
+** TEST EXECUTE FAILED **
+
+Testing started

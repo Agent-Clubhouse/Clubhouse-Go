@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "/tmp/ux-582-proof/audit-native.py", line 32, in <module>
+    assert value['testResult'] in m['known_native_outcomes'].get(key,['Passed']),(key,value['testResult'])
+AssertionError: ('CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()', 'Failed')
