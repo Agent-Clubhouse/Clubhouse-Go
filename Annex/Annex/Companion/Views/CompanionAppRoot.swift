@@ -77,8 +77,17 @@ import ClubhouseTransport
             if active { await service.resume() }
             else { await service.suspend() }
         }
+        #if DEBUG
+        if let makeStore = CompanionSceneTestSupport.makeStore {
+            self.store = makeStore()
+        } else {
+            self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
+                                        finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)
+        }
+        #else
         self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
                                     finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)
+        #endif
         #if DEBUG
         CompanionSceneTestSupport.didCreateRuntime?(self)
         #endif

@@ -29,6 +29,8 @@ struct ClubhouseGoApp: App {
                 CompanionReadingPrefixTrimFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--diagnostics-ui-testing") {
                 NavigationStack { CompanionDiagnosticsView() }
+            } else if ProcessInfo.processInfo.arguments.contains("--feedback-renewal-ui-testing") {
+                CompanionFeedbackRenewalFixture()
             } else if ProcessInfo.processInfo.arguments.contains("--framebriar-shake-ui-testing") {
                 FramebriarShakePreview()
             } else if ProcessInfo.processInfo.arguments.contains("--companion-preview") {

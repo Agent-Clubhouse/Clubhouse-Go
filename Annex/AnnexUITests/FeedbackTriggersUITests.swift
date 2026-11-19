@@ -26,6 +26,84 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTFail("The feedback row must be fully visible below its sheet's navigation bar")
     }
 
+    @MainActor func testExpiredInvitationStaysInSettingsWhileChatUsesKeyboard() throws {
+        try checkRenewalInSettings(expected: "Expired")
+    }
+
+    @MainActor func testExpiredInvitationRenewalRemainsReachableAtAccessibilitySize() throws {
+        try checkRenewalInSettings(expected: "Expired", largeText: true)
+    }
+
+    @MainActor func testOfflineFeedbackKeepsEnrollmentWhenSettingsReopens() throws {
+        try checkRenewalInSettings(expected: "Offline, will retry", flags: ["--feedback-renewal-offline"])
+    }
+
+    @MainActor func testAccessRequiredFeedbackKeepsRenewalInSettings() throws {
+        try checkRenewalInSettings(expected: "Needs a new invitation", flags: ["--feedback-renewal-access-required"])
+    }
+
+    @MainActor private func checkRenewalInSettings(expected: String, flags: [String] = [], largeText: Bool = false) throws {
+        let app = launchApp(["--feedback-renewal-ui-testing", "--companion-root-ui-testing"] + flags
+            + (largeText ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : []),
+            attempts: 1)
+        defer { app.terminate() }
+        let evidence = app.descendants(matching: .any).matching(identifier: "feedback-renewal-evidence").firstMatch
+        XCTAssertTrue(evidence.waitForExistence(timeout: 15))
+        XCTAssertTrue(waitFor(evidence, NSPredicate { _, _ in
+            (evidence.value as? String)?.contains("queued=2;enrolled=true;diagnostics=off") == true
+        }, timeout: 5))
+        let original = try XCTUnwrap(evidence.value as? String)
+        XCTAssertTrue(original.contains("preferences=[false, false, false]"))
+        XCTAssertTrue(original.hasPrefix(flags.contains("--feedback-renewal-offline") ? "requests=1;" : "requests=0;"),
+                      "Only the offline fixture's preparatory refresh may reach the non-socket transport")
+        let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
+        XCTAssertTrue(scrollTo(agent, in: app, maxSwipes: 6)); agent.tap()
+        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+        XCTAssertTrue(composer.waitForExistence(timeout: 10)); composer.tap()
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        let send = app.buttons["companion-send"]
+        let banner = app.buttons["Feedback needs a new invitation. Reports stay on this device. Open Settings."]
+        let capture = XCTAttachment(screenshot: app.screenshot())
+        capture.name = "Renewal \(expected) AX=\(largeText) keyboard"; capture.lifetime = .keepAlways; add(capture)
+        print("RENEWAL_LAYOUT status=\(expected) AX=\(largeText) composer=\(composer.frame) send=\(send.frame) keyboard=\(app.keyboards.firstMatch.frame) banner=\(banner.exists ? banner.frame.description : "absent")")
+        XCTAssertFalse(banner.exists, "Feedback renewal must not add a global inset above navigation or the keyboard")
+        XCTAssertTrue(composer.isHittable && send.isHittable)
+        XCTAssertLessThanOrEqual(send.frame.maxY, app.keyboards.firstMatch.frame.minY)
+        app.navigationBars.firstMatch.buttons.firstMatch.tap()
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Home"].isHittable)
+
+        for _ in 0..<2 {
+            waitAndTap(app.buttons["Settings"], until: app.navigationBars["Settings"], attempts: 1)
+            let options = app.buttons["settings-feedback-options"]
+            try revealFeedbackRow(options, in: app, title: "Settings")
+            XCTAssertTrue(options.label.contains(expected), "The Settings entry speaks its current status")
+            options.tap()
+            let status = app.staticTexts["feedback-access-status"]
+            try revealFeedbackRow(status, in: app, title: "Feedback options")
+            XCTAssertEqual(status.label, "Feedback access: \(expected)")
+            let renewal = app.buttons["feedback-enrollment"]
+            try revealFeedbackRow(renewal, in: app, title: "Feedback options")
+            XCTAssertTrue(renewal.isHittable)
+            XCTAssertGreaterThanOrEqual(renewal.frame.height, 44)
+            renewal.tap()
+            XCTAssertTrue(app.navigationBars["Feedback enrollment"].waitForExistence(timeout: 5))
+            let invitation = app.secureTextFields["Invitation"]
+            try revealFeedbackRow(invitation, in: app, title: "Feedback enrollment")
+            invitation.tap()
+            XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+            XCTAssertFalse(app.buttons["Redeem invitation"].isEnabled, "Opening renewal cannot redeem an invitation")
+            app.navigationBars["Feedback enrollment"].buttons.firstMatch.tap()
+            XCTAssertTrue(app.navigationBars["Feedback options"].waitForExistence(timeout: 5))
+            app.navigationBars["Feedback options"].buttons.firstMatch.tap()
+            XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
+            app.buttons["settings-close"].tap()
+            XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
+        }
+        XCTAssertEqual(evidence.value as? String, original,
+                       "Navigation/dismiss/reopen must preserve enrollment, queued bytes, preferences, diagnostics choice and request count")
+    }
+
     @MainActor func testSettingsFromHomeToolbarAttachesCaptureOrOffersPhotos() throws {
         for failed in [false, true] {
             let app = launchApp(["--companion-preview", "--companion-preview-feedback", "--companion-preview-start-home",

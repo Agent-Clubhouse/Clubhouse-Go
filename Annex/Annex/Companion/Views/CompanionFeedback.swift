@@ -108,8 +108,9 @@ struct CompanionFeedbackSettings: View {
     /// Framebriar's rule: enrolling enables telemetry, and Settings must say so next to enrollment.
     static let telemetryDisclosure = "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer while you stay enrolled: performance data, crash and hang reports, and events such as connection, pairing and chat timings, error types and counts. Automated telemetry excludes prompts, agent content, names, file paths, addresses and URLs. Notes and images you choose to submit can contain private information; review them first. Reports may also include reviewed incident trace references. Clearing enrollment stops automatic telemetry; saved feedback stays on this device until delivered or explicitly cleared. Your own tracing collector, in Connection diagnostics, is separate."
     static let feedbackOnlyDisclosure = "Feedback shares the notes and optional image you choose to submit, plus optional reviewed incident trace references. Notes and images can contain private information; review them first. Automatic developer telemetry is unavailable in this session. Your own tracing collector, in Connection diagnostics, is separate."
-    static func label(_ access: AccessState) -> String {
-        switch access {
+    static func label(_ access: AccessState?, configured: Bool = true, responseRejected: Bool = false) -> String {
+        guard let access else { return "Not enrolled" }
+        return switch access {
         case .connected: "Connected"
         case .disconnected: "Not enrolled"
         case .offline: "Offline, will retry"
@@ -131,7 +132,8 @@ struct CompanionFeedbackSettings: View {
                         .navigationTitle("Feedback options").navigationBarTitleDisplayMode(.inline)
                 } label: {
                     CompanionSettingsRowLabel("Feedback options", symbol: "slider.horizontal.3", tone: .feedback,
-                        value: model?.status.map { Self.label($0.access) } ?? "Not enrolled")
+                        value: Self.label(model?.status?.access, configured: model != nil,
+                                          responseRejected: model?.status?.notice == "enrollment-response-rejected"))
                 }.accessibilityIdentifier("settings-feedback-options")
             }
         } else { CompanionFeedbackOptions(model: model, initialCapture: initialCapture) }
@@ -150,10 +152,12 @@ private struct CompanionFeedbackOptions: View {
             Section("Developer feedback") {
                 if let model {
                     NavigationLink("Invitation & enrollment") { CompanionFeedbackEnrollment(model: model) }
+                        .accessibilityIdentifier("feedback-enrollment")
                     if showsSend && model.status?.canSubmit == true {
                         NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }
                     }
                     Text("Feedback access: \(model.status.map { CompanionFeedbackSettings.label($0.access) } ?? "Checking")")
+                        .accessibilityIdentifier("feedback-access-status")
                     Text(model.telemetry == nil ? CompanionFeedbackSettings.feedbackOnlyDisclosure : CompanionFeedbackSettings.telemetryDisclosure)
                         .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("feedback-telemetry-disclosure")
                 } else {
