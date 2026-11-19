@@ -224,7 +224,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 .withOffset(CGVector(dx: form.frame.midX - app.frame.minX, dy: (top + bottom) / 2 - app.frame.minY))
             previousFrame = frame; previousDrag = dy
             XCTContext.runActivity(named: "Reveal readable provider row \(identifier), band \(top)...\(bottom), drag \(dy)") { _ in
-                origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: dy)))
+                origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: dy)),
+                             withVelocity: .slow, thenHoldForDuration: 0)
             }
         }
         return false

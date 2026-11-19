@@ -61,7 +61,7 @@ private struct CompanionProviderV2Form: View {
                         }
                     }
                     if let receipt = flow.lastApply {
-                        Text("Held Apply receipt: \(name(receipt.value.contract.saved.provider)) saved; Apply started no session. This is historical command evidence, not a current runtime report.")
+                        Text("Apply reported saving \(name(receipt.value.contract.saved.provider)) (historical). It started no session. Current runtime unverified.")
                             .accessibilityIdentifier("provider-saved")
                         nextWake(receipt.value.contract.saved, title: "Saved in that receipt", prefix: "provider-v2-receipt")
                         Button("Start new session") { confirmStart = true }
