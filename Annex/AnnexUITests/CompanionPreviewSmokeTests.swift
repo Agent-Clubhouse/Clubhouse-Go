@@ -132,6 +132,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(captureReadableProviderRow("provider-session-unverified", in: app, containing: ["Not verified"], name: "V2 Large initial runtime uncertainty readable"))
         selectProviderV2ForCapture(app, slowNativePan: true)
         app.buttons["provider-review-change"].tap()
+        // Saved then proposed: at most 16 pans across both reveals (eight each).
+        // Five readable targets allow 40 pans, plus the unchanged four-pan selection cap.
+        XCTAssertTrue(captureReadableProviderRow("provider-v2-saved-model", in: app, containing: ["fixture-current-model", "saved agent override"], name: "V2 Large saved override readable before proposed defaults"))
         XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-model", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed model and source readable BEFORE Apply"))
         XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-effort", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed effort and source readable BEFORE Apply"))
         XCTAssertTrue(captureReadableProviderRow("provider-reset-impacts", in: app, containing: ["Applying resets:", "model", "effort"], name: "V2 Large explicit reset list readable BEFORE Apply"))
