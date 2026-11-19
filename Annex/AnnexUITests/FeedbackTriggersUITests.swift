@@ -10,20 +10,106 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         return popover.exists ? popover : app.sheets.containing(.staticText, identifier: title).firstMatch
     }
 
+    private struct RevealState: Equatable {
+        var container: CGRect
+        var navigation: CGRect
+        var keyboard: CGRect?
+        var tabBar: CGRect?
+        var viewport: CGRect
+        var target: CGRect?
+        var targetID: String?
+        var targetLabel: String?
+        var hittable: Bool
+        var anchor: CGRect?
+        var anchorLabel: String?
+    }
+
     @MainActor private func revealFeedbackRow(_ row: XCUIElement, in app: XCUIApplication, title: String) throws {
-        let form = try XCTUnwrap(app.collectionViews.allElementsBoundByIndex.last)
         let navigation = app.navigationBars[title]
-        for _ in 0..<12 {
-            checkTimeLeft("revealing the feedback row")
-            let bounds = form.frame
-            let visible = CGRect(x: bounds.minX, y: navigation.frame.maxY + 8,
-                                 width: bounds.width, height: bounds.maxY - navigation.frame.maxY - 24)
-            if row.exists && row.isHittable && visible.contains(row.frame) { return }
-            let start = form.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let dy = row.exists && row.frame.minY < visible.minY ? visible.height * 0.2 : -visible.height * 0.2
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+        XCTAssertTrue(navigation.waitForExistence(timeout: 5))
+        let lists = app.collectionViews.allElementsBoundByIndex
+        let active = lists.filter(\.isHittable)
+        func fail(_ reason: String) {
+            let hierarchy = XCTAttachment(string: app.debugDescription)
+            hierarchy.name = "Feedback reveal failure: \(title)"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+            let image = XCTAttachment(screenshot: app.screenshot())
+            image.name = "Feedback reveal failure: \(title)"; image.lifetime = .keepAlways; add(image)
+            XCTFail("\(reason): \(row)")
         }
-        XCTFail("The feedback row must be fully visible below its sheet's navigation bar")
+        guard active.count == 1 else {
+            print("FEEDBACK_REVEAL containers=\(lists.map { "id=\($0.identifier) frame=\($0.frame) hittable=\($0.isHittable)" })")
+            fail("Expected one active native list beneath \(title), found \(active.count)")
+            return
+        }
+        let form = try XCTUnwrap(active.first)
+        let anchor = form.cells.firstMatch
+        func state() -> RevealState {
+            let bounds = form.frame.intersection(app.frame)
+            let nav = navigation.frame
+            let keyboard = app.keyboards.firstMatch
+            let keyboardFrame = keyboard.exists ? keyboard.frame : nil
+            let tabs = app.tabBars.firstMatch
+            let tabFrame = tabs.exists && tabs.isHittable ? tabs.frame : nil
+            let bottom = min(bounds.maxY, keyboardFrame?.minY ?? bounds.maxY, tabFrame?.minY ?? bounds.maxY) - 16
+            let top = max(bounds.minY, nav.maxY) + 8
+            let viewport = CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bottom - top))
+            let exists = row.exists
+            let hasAnchor = anchor.exists
+            return RevealState(container: bounds, navigation: nav, keyboard: keyboardFrame, tabBar: tabFrame,
+                viewport: viewport, target: exists ? row.frame : nil, targetID: exists ? row.identifier : nil,
+                targetLabel: exists ? row.label : nil, hittable: exists && row.isHittable,
+                anchor: hasAnchor ? anchor.frame : nil, anchorLabel: hasAnchor ? anchor.label : nil)
+        }
+        func revealed(_ sample: RevealState) -> Bool {
+            guard let frame = sample.target, !frame.isEmpty else { return false }
+            return sample.hittable && sample.viewport.contains(frame)
+        }
+        func targetState(_ sample: RevealState) -> String {
+            guard let frame = sample.target else { return "absent target" }
+            return frame.isEmpty ? "unrealized target" : "realized target"
+        }
+        var before = state()
+        print("FEEDBACK_REVEAL title=\(title) container=\(form) id=\(form.identifier) query=\(row) before=\(before)")
+        for step in 0..<12 {
+            checkTimeLeft("revealing the feedback row")
+            if revealed(before) { return }
+            guard !before.viewport.isEmpty else {
+                fail("Navigation, keyboard or tab bar leaves no native list viewport")
+                return
+            }
+            if let frame = before.target, !frame.isEmpty {
+                guard frame.height <= before.viewport.height && frame.width <= before.viewport.width else {
+                    fail("The realized row is physically larger than its unobstructed viewport")
+                    return
+                }
+                guard !before.viewport.contains(frame) else {
+                    fail("The fully contained row is blocked from native hit testing")
+                    return
+                }
+            }
+            let down = before.target.map { !$0.isEmpty && $0.minY < before.viewport.minY } ?? false
+            let startPoint = CGPoint(x: before.viewport.minX + before.viewport.width * 0.15,
+                                     y: before.viewport.minY + before.viewport.height * (down ? 0.2 : 0.8))
+            let delta = min(200, before.viewport.height * 0.35) * (down ? 1 : -1)
+            let endPoint = CGPoint(x: startPoint.x, y: startPoint.y + delta)
+            XCTAssertTrue(before.viewport.contains(startPoint) && before.viewport.contains(endPoint))
+            // Screen coordinates avoid resolving a background List as the gesture's coordinate space.
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            XCTContext.runActivity(named: "Reveal \(title) row: native list \(before.container), viewport \(before.viewport), drag \(startPoint) to \(endPoint)") { _ in
+                origin.withOffset(CGVector(dx: startPoint.x, dy: startPoint.y)).press(forDuration: 0.05,
+                    thenDragTo: origin.withOffset(CGVector(dx: endPoint.x, dy: endPoint.y)))
+            }
+            let after = state()
+            print("FEEDBACK_REVEAL title=\(title) step=\(step) after=\(after)")
+            if revealed(after) { return }
+            guard before.target != after.target || before.anchor != after.anchor
+                    || before.anchorLabel != after.anchorLabel || before.viewport != after.viewport else {
+                fail("The native list made no observed scroll progress toward the \(targetState(after))")
+                return
+            }
+            before = after
+        }
+        fail("The \(targetState(before)) is not fully visible and hittable after bounded native list scrolling")
     }
 
     @MainActor func testExpiredInvitationStaysInSettingsWhileChatUsesKeyboard() throws {
@@ -64,7 +150,10 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTAssertTrue(original.hasPrefix(refresh ? "requests=1;" : "requests=0;"),
                       "Only the offline/registered fixture's preparatory refresh may reach the non-socket transport")
         let agent = app.descendants(matching: .any).matching(identifier: "agent-preview-studio-river").firstMatch
-        XCTAssertTrue(scrollTo(agent, in: app, maxSwipes: 6)); agent.tap()
+        try revealFeedbackRow(agent, in: app, title: "Clubhouse")
+        XCTAssertEqual(agent.identifier, "agent-preview-studio-river")
+        XCTAssertTrue(agent.label.contains("River"))
+        agent.tap()
         let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
         XCTAssertTrue(composer.waitForExistence(timeout: 10)); composer.tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
@@ -146,7 +235,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
 
     /// Both Go's modal enrollment route and Settings expose clearing without enrollment or a send.
     @MainActor func testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings() throws {
-        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-shake-unenrolled"])
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-shake-unenrolled"], attempts: 1)
         let shake = app.buttons["fixture-shake"]
         XCTAssertTrue(shake.waitForExistence(timeout: 10))
         shake.tap()
@@ -178,7 +267,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
     }
 
     @MainActor func testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled() throws {
-        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-held-ui-testing"])
+        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-held-ui-testing"], attempts: 1)
         waitAndTap(app.buttons["Settings"], until: app.navigationBars["Fixture settings"], timeout: 10)
         let summary = app.staticTexts["feedback-held-summary"]
         try revealFeedbackRow(summary, in: app, title: "Fixture settings")

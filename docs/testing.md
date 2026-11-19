@@ -1033,6 +1033,14 @@ release-held, clear or Send action is invoked. SDK enrollment, consent, queue an
 code is unchanged; the fixture is not a real enrollment, provider, device-install or release test.
 Local XCTest stdout records both state values and each reopen cycle's status/renewal target frames;
 a retained text attachment also includes both state values for independent runtime inspection.
+Row navigation requires one hittable native List, logs its frame, navigation/keyboard/tab limits,
+the fully contained target and a cell's before/after geometry, and pans within that viewport rather
+than using the last collection view or a whole-window swipe over Home's horizontal desktop chips.
+An absent/unrealized target, a stalled pan and a row larger than or blocked within its viewport
+remain distinct failures with hierarchy/screenshot evidence; hittability alone never permits a tap.
+The same local helper serves the older clear-queued and held-report cases, so both belong in the
+affected runtime map alongside all five renewal cases. The original hosted first-attempt failures
+remain evidence, not passes or permission to repeat a failed attempt.
 
 `CompanionFeedbackSettingsCaptureTests.renewalStatusDistinguishesCheckingUnavailableAndEnrollmentStates`
 covers pending, unavailable, rejected invitation and all six access states. The proof baseline
