@@ -52,11 +52,16 @@ private actor ProviderV2IO: AnnexIO {
         var body = try #require(overrides[type] ?? fixtures[key]?["body"])
         body = try changed(changed(body, "commandId", try #require(command["commandId"])), "epoch", try #require(command["epoch"]))
         if type == "agent.start" {
-            let result = try #require(body["result"]), contract = try #require(result["contract"])
+            let completed = body["status"] == .string("completed")
+            var contract = try #require(completed ? body["result"]?["contract"] : body["contract"])
             var target = try #require(contract["target"])
             target = try changed(changed(target, "commandId", try #require(command["commandId"])), "hostEpoch", try #require(command["epoch"]))
-            let echoed = try changed(changed(contract, "configured", try #require(command["expectedNextWake"])), "target", target)
-            body = try changed(body, "result", changed(result, "contract", echoed))
+            if contract["configured"] != .null {
+                contract = try changed(contract, "configured", try #require(command["expectedNextWake"]))
+            }
+            contract = try changed(contract, "target", target)
+            body = completed ? try changed(body, "result", changed(#require(body["result"]), "contract", contract))
+                : try changed(body, "contract", contract)
         }
         return .init(status: body["status"] == .string("completed") ? 200 : 409, data: try JSONEncoder().encode(body))
     }
@@ -317,6 +322,27 @@ private actor ProviderV2Transport: AnnexTransporting {
         await flow.select("claude-code")
         #expect(flow.preview?.value.preview.outcome.instructionScope == "native_primary_only" && flow.canApply)
         #expect(await io.mutations() == before)
+    }
+
+    @Test func failedAfterCreationStaysLockedWhileKeepingHistoricalEvidence() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.start", body: try #require(fixture["failedAfterCreation"]?["body"]))
+        await flow.startNew()
+        #expect(flow.lastStart?.start.wasObserved == true && flow.lastStart?.result.status == "failed_after_creation")
+        #expect(flow.blocksMutations && !flow.canStart && !flow.canApply && !store.mayWake(target))
+        let before = await io.mutations(); #expect(before.count == 2)
+        let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(reopened === flow)
+        reopened.reviewHeldResult(); await reopened.refresh(); await reopened.select("claude-code")
+        await reopened.apply(); await reopened.startNew()
+        let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
+        do { _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "failed-creation-is-not-another-Apply"); Issue.record("Failed creation must remain locked") } catch {}
+        #expect(await io.mutations() == before && reopened.blocksMutations && !store.mayWake(target))
+        #expect(reopened.lastStart?.start.wasObserved == true, "A fresh read cannot erase or promote historical creation evidence")
     }
 
 }

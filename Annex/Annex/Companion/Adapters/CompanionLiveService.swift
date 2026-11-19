@@ -2035,7 +2035,9 @@ import ClubhouseTransport
                 (receipt.status == .failed && value.result.status == "failed_after_creation") else {
             throw CompanionServiceError.uncertain("The Start command's creation is unknown. The app will not issue another Start; check the desktop.")
         }
-        providerV2Unresolved.remove(target); providerV2Applied[target] = nil
+        // A failed command with historical creation is not permission to start again.
+        if receipt.status == .completed { providerV2Unresolved.remove(target) }
+        providerV2Applied[target] = nil
         return .evidence(value, completed: receipt.status == .completed)
     }
 

@@ -135,7 +135,7 @@ enum CompanionProviderV2StartOutcome: Sendable {
             blocksMutations = true; startWitness = nil
             switch try await service.startProviderV2(target, applied: applied, witness: witness, clientCommandID: UUID().uuidString) {
             case .evidence(let value, let completed):
-                lastStart = value; startEligibleApply = nil; preview = nil; blocksMutations = false
+                lastStart = value; startEligibleApply = nil; preview = nil; blocksMutations = !completed
                 error = completed ? nil : "The Start command did not complete successfully. Its historical creation evidence is shown below. Check the desktop before another Start."
             case .refused(let reason):
                 error = reason; blocksMutations = false; startEligibleApply = nil; preview = nil
