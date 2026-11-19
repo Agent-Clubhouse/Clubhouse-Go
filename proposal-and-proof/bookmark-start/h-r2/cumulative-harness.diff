@@ -1,0 +1,292 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+index 1863d9238..ddb6a88f2 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+@@ -62,13 +62,14 @@ struct CompanionReadingPrefixTrimFixture: View {
+         var beforeOffset: Double?
+         var beforeLowerBound: Double?
+         var pinnedOffset: Double?
++        var reloadShift: Double?
+         var shift: Double?
+         var miss: Double?
+         var attempts = 0
+         var gateElapsed: Double?
+         var outcome = "pending"
+         var description: String {
+-            "phase=\(phase) follow=\(followsLatest ? 1 : 0) entry=\(entryID ?? "nil") offset=\(offset ?? -1) lower=\(entryLowerBound ?? -1) pin=\(pinnedOffset ?? -1) shift=\(shift ?? 0) miss=\(miss ?? 0) attempts=\(attempts) elapsed=\(gateElapsed ?? 0) outcome=\(outcome)"
++            "phase=\(phase) follow=\(followsLatest ? 1 : 0) entry=\(entryID ?? "nil") offset=\(offset ?? -1) lower=\(entryLowerBound ?? -1) beforeOffset=\(beforeOffset ?? -1) pin=\(pinnedOffset ?? -1) reloadShift=\(reloadShift ?? 0) shift=\(shift ?? 0) miss=\(miss ?? 0) attempts=\(attempts) elapsed=\(gateElapsed ?? 0) outcome=\(outcome)"
+         }
+     }
+ 
+@@ -88,6 +89,10 @@ struct CompanionReadingPrefixTrimFixture: View {
+     @State private var oldEntryIDs: [String] = []
+     @State private var oldLower: Double?
+     @State private var oldMetrics: CompanionScrollMetrics?
++    @State private var reloadRevision: UUID?
++    @State private var editedEntryID: String?
++    @State private var editedFrame: ClosedRange<Double>?
++    @State private var pinnedLower: Double?
+     @State private var startedAt: TimeInterval?
+     @State private var pinned: Double?
+     @State private var observedShift: Double?
+@@ -118,6 +123,9 @@ struct CompanionReadingPrefixTrimFixture: View {
+             var events = service.events().makeAsyncIterator()
+             if let event = await events.next() { store.apply(event) }
+             await store.load(target)
++            // A same-session snapshot is the production history-replacement route used below.
++            store.apply(.timeline(target, items: store.conversation(for: target).items, sequence: 0,
++                reset: true, sessionID: "prefix-trim-fixture"))
+             CompanionReadingRestoreProbe.deliver = { _, attempt, offset, _ in
+                 guard armed else { return true }
+                 return delivery(attempt: attempt, offset: offset)
+@@ -127,12 +135,14 @@ struct CompanionReadingPrefixTrimFixture: View {
+                 guard value.target == target, value.phase == .body else { return }
+                 PrefixTrimWindowObservation.observed = true
+                 PrefixTrimWindowObservation.startID = value.windowStartID
++                PrefixTrimWindowObservation.revision = value.historyRevision
+             }
+             defer {
+                 CompanionReadingRestoreProbe.deliver = nil
+                 CompanionReadingOpeningProbe.record = nil
+                 PrefixTrimWindowObservation.observed = false
+                 PrefixTrimWindowObservation.startID = nil
++                PrefixTrimWindowObservation.revision = nil
+             }
+             ready = true
+             while !Task.isCancelled {
+@@ -156,6 +166,22 @@ struct CompanionReadingPrefixTrimFixture: View {
+               let lower = viewport.frames[id]?.lowerBound, let metrics = viewport.metrics,
+               abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 else { return }
+         let before = window(retaining: id)
++        var items = store.conversation(for: target).items
++        guard let index = items.indices.reversed().first(where: { index in
++            guard case .message(let message) = items[index] else { return false }
++            let entryID = "message:\(message.id)"
++            return entryID != before.entries.first?.id && before.entries.contains { $0.id == entryID }
++                && viewport.frames[entryID].map { $0.upperBound <= lower } == true
++        }), case .message(var message) = items[index],
++              let measuredEditedFrame = viewport.frames["message:\(message.id)"] else {
++            notExercised = true
++            publish()
++            return
++        }
++        editedEntryID = "message:\(message.id)"
++        editedFrame = measuredEditedFrame
++        message.text += "\n\nA resynchronised paragraph expands this existing earlier message without changing its identity."
++        items[index] = .message(message)
+         saved = bookmark.position
+         oldFirst = before.entries.first?.id
+         oldHidden = before.hiddenCount
+@@ -163,11 +189,16 @@ struct CompanionReadingPrefixTrimFixture: View {
+         oldLower = lower
+         oldMetrics = metrics
+         armed = true
+-        // #582 removes prefix trim on bookmark-first remounts. The same A race remains on an OPEN
+-        // normal-window history reload; keep the strict H/S methods and their six-point checks unchanged.
+-        Task { @MainActor in
+-            await store.load(target, force: true)
+-        }
++        // #582 makes remount windows bookmark-first. Exercise A on a still-open normal window instead:
++        // a real same-session resync changes one measured preceding row, forcing a nonzero restore.
++        // Identical history would already be aligned and could never reach the delivery gate.
++        let conversation = store.conversation(for: target)
++        store.apply(.timeline(target, items: items, sequence: (conversation.lastSequence ?? 0) + 1,
++            reset: true, sessionID: conversation.sessionID))
++        reloadRevision = store.conversation(for: target).historyRevision
++        NSLog("READING569_RELOAD edited=%@ oldFrame=%@ bookmark=%@ oldLower=%.6f oldOffset=%.6f oldRevision=%@ newRevision=%@",
++              editedEntryID ?? "nil", String(describing: measuredEditedFrame), id, lower, metrics.normalizedOffset,
++              conversation.historyRevision.uuidString, reloadRevision?.uuidString ?? "nil")
+     }
+ 
+     private func delivery(attempt: Int, offset: Double) -> Bool {
+@@ -181,8 +212,16 @@ struct CompanionReadingPrefixTrimFixture: View {
+         if startedAt == nil {
+             let beforeTail = window(retaining: id)
+             guard PrefixTrimWindowObservation.observed, PrefixTrimWindowObservation.startID == nil,
++                  let reloadRevision, viewport.historyRevision == reloadRevision,
++                  viewport.restoration?.revision == reloadRevision,
++                  PrefixTrimWindowObservation.revision == reloadRevision,
+                   beforeTail.entries.map(\.id) == oldEntryIDs, beforeTail.hiddenCount == oldHidden,
+-                  let lower = viewport.frames[id]?.lowerBound, abs(lower - oldLower) < 1 else {
++                  bookmark.position.entryID == id,
++                  let lower = viewport.frames[id]?.lowerBound, abs(lower - oldLower) > 1,
++                  let editedEntryID, let editedFrame, let changedFrame = viewport.frames[editedEntryID],
++                  changedFrame.upperBound - changedFrame.lowerBound > editedFrame.upperBound - editedFrame.lowerBound + 1,
++                  let metrics = viewport.metrics,
++                  abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 else {
+                 // A different reload window cannot classify this race. Never compensate the fixture silently.
+                 notExercised = true
+                 return true
+@@ -190,7 +229,13 @@ struct CompanionReadingPrefixTrimFixture: View {
+             // The real restoration has already pinned its offset before invoking this existing hook.
+             startedAt = ProcessInfo.processInfo.systemUptime
+             pinned = viewport.restoration?.offset
+-            guard pinned == offset else { notExercised = true; return true }
++            pinnedLower = lower
++            guard pinned == offset, abs(offset - (oldMetrics.normalizedOffset + lower - oldLower)) <= 2 else {
++                notExercised = true
++                return true
++            }
++            NSLog("READING569_PIN edited=%@ changedFrame=%@ bookmark=%@ newLower=%.6f reloadShift=%.6f pin=%.6f revision=%@",
++                  editedEntryID, String(describing: changedFrame), id, lower, lower - oldLower, offset, reloadRevision.uuidString)
+             store.apply(.upsert(target, .message(.init(id: "prefix-trim-tail", role: .assistant,
+                 text: "A distinct tail reply arrives while the earlier reading command is in flight.")), sequence: nil))
+             publish()
+@@ -206,7 +251,7 @@ struct CompanionReadingPrefixTrimFixture: View {
+         }
+         let after = window(retaining: id)
+         let first = after.entries.first?.id
+-        let shift = viewport.frames[id].map { $0.lowerBound - oldLower }
++        let shift = pinnedLower.flatMap { before in viewport.frames[id].map { $0.lowerBound - before } }
+         let matches = viewport.metrics.map {
+             abs($0.contentHeight - (viewport.frameContentHeight ?? -1)) < 1
+                 && abs($0.containerHeight - oldMetrics.containerHeight) < 1
+@@ -239,6 +284,11 @@ struct CompanionReadingPrefixTrimFixture: View {
+     private func publish() {
+         let bookmark = store.readingBookmark(for: target)
+         let viewport = bookmark.viewport
++        if armed, pinned == nil, let reloadRevision,
++           viewport.restoration?.revision == reloadRevision, viewport.restoration?.outcome == .arrived {
++            // Already aligned is a missed precondition, never a passing H1 regression.
++            notExercised = true
++        }
+         var next = Sample()
+         next.phase = notExercised ? "H1-not-exercised" : released ? "released" : armed ? "waiting" : ready ? "ready" : "loading"
+         next.followsLatest = bookmark.position.followsLatest
+@@ -248,6 +298,7 @@ struct CompanionReadingPrefixTrimFixture: View {
+         next.beforeOffset = oldMetrics?.normalizedOffset
+         next.beforeLowerBound = oldLower
+         next.pinnedOffset = pinned
++        next.reloadShift = pinnedLower.flatMap { lower in oldLower.map { lower - $0 } }
+         next.shift = observedShift
+         next.attempts = gateAttempts ?? attempts
+         next.gateElapsed = gateElapsed
+@@ -266,5 +317,6 @@ struct CompanionReadingPrefixTrimFixture: View {
+ @MainActor private enum PrefixTrimWindowObservation {
+     static var observed = false
+     static var startID: String?
++    static var revision: UUID?
+ }
+ #endif
+diff --git a/Annex/AnnexTests/CompanionHiddenConversationTests.swift b/Annex/AnnexTests/CompanionHiddenConversationTests.swift
+index 458f651ff..93160b611 100644
+--- a/Annex/AnnexTests/CompanionHiddenConversationTests.swift
++++ b/Annex/AnnexTests/CompanionHiddenConversationTests.swift
+@@ -39,7 +39,9 @@ import UIKit
+         }
+     }
+ 
+-    /// A real tail event trims the rendered prefix between the first pin and delivery.
++    /// A same-session reload grows a measured preceding message, requiring a nonzero restore on the
++    /// open normal window; a real tail event then trims its prefix between the first pin and delivery.
++    /// Bookmark-first remounts deliberately no longer expose that trimming route (#582).
+     /// Public geometry must still match the saved semantic entry after final arrival.
+     @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
+         var observed: CompanionReadingPrefixTrimFixture.Sample?
+@@ -79,6 +81,7 @@ import UIKit
+         let shift = try #require(result.shift)
+         let miss = try #require(result.miss)
+         let pin = try #require(result.pinnedOffset)
++        let reloadShift = try #require(result.reloadShift)
+         let beforeOffset = try #require(result.beforeOffset)
+         let beforeLower = try #require(result.beforeLowerBound)
+         let afterOffset = try #require(result.offset)
+@@ -86,7 +89,9 @@ import UIKit
+         #expect(result.attempts <= 10)
+         #expect((result.gateElapsed ?? .infinity) < 1)
+         #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
+-        #expect(abs(pin - beforeOffset) <= 2)
++        #expect(abs(reloadShift) > 1, "The real reload must move the bookmarked entry before the first pin")
++        #expect(abs(pin - (beforeOffset + reloadShift)) <= 2,
++                "The first pin includes only the measured reload displacement, before the tail trim")
+         #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
+         print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
+         #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
+@@ -185,6 +190,8 @@ import UIKit
+         let readingOffset = before.contentOffset.y + before.adjustedContentInset.top
+         let bookmark = store.readingBookmark(for: target)
+         let entryID = try #require(bookmark.position.entryID, "The shared reading bookmark captures an entry")
++        let beforeEntryFrame = try #require(bookmark.viewport.frames[entryID])
++        let readingEntryOffset = readingOffset - beforeEntryFrame.lowerBound
+         #expect(!bookmark.position.followsLatest)
+ 
+         switch hidden { case .tab: navigation.tab = 1; case .desktop: navigation.desktop = 1 }
+@@ -295,7 +302,18 @@ import UIKit
+             #expect(requests.count == 1, "No late retry may overwrite the user")
+             #expect(bookmark.viewport.restoration?.outcome == .touch)
+         } else {
+-            #expect(abs(restoredOffset - readingOffset) <= 2, "The reading offset survives unmounting within two points")
++            // #582 deliberately starts the reopened window at the canonical bookmark, so the omitted
++            // prefix changes its content-coordinate origin. Compare the same measured entry, not raw offsets.
++            let restoredEntryFrame = try #require(bookmark.viewport.frames[entryID],
++                "The original bookmarked entry must remain realised after restoration")
++            let restoredEntryOffset = restoredOffset - restoredEntryFrame.lowerBound
++            let visibleHeight = restored.bounds.height - restored.adjustedContentInset.top - restored.adjustedContentInset.bottom
++            #expect(restoredEntryFrame.upperBound > restoredOffset + CompanionReadingPosition.minimumVisibleExtent
++                && restoredEntryFrame.lowerBound < restoredOffset + visibleHeight,
++                "The original bookmarked entry must still intersect the visible transcript")
++            print("HIDDEN_ENTRY_MEASUREMENT case=\(hidden.rawValue) dropFirst=\(dropFirstRestore) timeout=\(timeoutRestore) entry=\(entryID) beforeOffset=\(readingOffset) beforeLower=\(beforeEntryFrame.lowerBound) restoredOffset=\(restoredOffset) restoredLower=\(restoredEntryFrame.lowerBound) rawShift=\(restoredOffset - readingOffset) relativeDelta=\(restoredEntryOffset - readingEntryOffset)")
++            #expect(abs(restoredEntryOffset - readingEntryOffset) <= 2,
++                "The reading offset relative to the same entry survives unmounting within two points")
+         }
+         if dropFirstRestore && !touchDuringRestore && !timeoutRestore {
+             #expect(requests.count >= 2, "Dropping the first command requires another delivery")
+diff --git a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+index 5fd6060a8..26b3ee449 100644
+--- a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+@@ -1,7 +1,9 @@
+ import XCTest
+ 
+ @MainActor final class CompanionReadingRestoreUITests: ReliableUITestCase {
+-    /// A real prefix trim after the restore pin must preserve both semantic and visible reading alignment.
++    /// A same-session reload grows an earlier measured message on the open normal window, then a real
++    /// prefix trim after the pin must preserve both semantic and visible reading alignment. #582's
++    /// bookmark-first remount no longer exposes this race; all pixel and six-point checks stay unchanged.
+     func testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry() {
+         let app = launchApp(["--reading-prefix-trim-ui-testing", "--companion-preview-reading"])
+         let state = app.staticTexts["reading-prefix-trim-state"]
+@@ -51,12 +53,16 @@ import XCTest
+                 .flatMap { Double($0.dropFirst(key.count + 1)) }
+         }
+         guard let shift = number("shift"), let miss = number("miss"),
++              let reloadShift = number("reloadShift"), let pin = number("pin"), let beforeOffset = number("beforeOffset"),
+               let attempts = number("attempts"), let elapsed = number("elapsed") else {
+             XCTFail("The diagnostic state must contain its measured gate and displacement"); return
+         }
+         XCTAssertLessThanOrEqual(attempts, 10)
+         XCTAssertLessThan(elapsed, 1)
+         XCTAssertGreaterThan(abs(shift), 8)
++        XCTAssertGreaterThan(abs(reloadShift), 1)
++        XCTAssertEqual(pin, beforeOffset + reloadShift, accuracy: 2,
++                       "The first pin must reflect the real reload displacement before tail arrival")
+         XCTAssertEqual(miss, 0, accuracy: 2, "The numeric target must follow the saved entry across a prefix shift")
+         XCTAssertEqual(beforeY - anchor.frame.minY, 0, accuracy: 2, "The real pixels must preserve the same reading entry")
+         XCTAssertTrue(app.pausedChatNavigation.exists)
+diff --git a/docs/reading-first-paint-plan.md b/docs/reading-first-paint-plan.md
+index c76759e34..4100cfb60 100644
+--- a/docs/reading-first-paint-plan.md
++++ b/docs/reading-first-paint-plan.md
+@@ -18,9 +18,11 @@ Before a prefix-widening State change, capture the real reading position and set
+ 
+ The new Domain/hosted tests replace windowFirstID != canonicalID with equality for paused remounts. The retained shownEntries expansion watermark does not force the older prefix back into a new paused opening. Tests cover sliced/grouped IDs, exact start, no hidden-prefix preparation, preceding-page expansion, missing/session fallback, seed-once identity, mounted reload, hidden reload and target isolation.
+ 
+-The zero-numeric-arrival setup derives a top-position bookmark from real identical-window geometry: distance =0.5 - measured first-entry lowerBound. Every zero-attempt/zero-command/one-save assertion remains. No assumed initialized-ID delivery or guessed height is used. All original Reading/restore/hidden method files remain byte-identical.
++The zero-numeric-arrival setup derives a top-position bookmark from real identical-window geometry: distance =0.5 - measured first-entry lowerBound. Every zero-attempt/zero-command/one-save assertion remains. No assumed initialized-ID delivery or guessed height is used. The original ReadingUITests file is re-pinned only to merged #587, and the restoration value tests remain byte-identical. The two deliberate H/S contract-file edits below are separately committed and reviewed; they are no longer claimed byte-identical.
+ 
+-The original H1 strict methods now use a separately changed DEBUG fixture: start following with the normal window, scroll up, then reload the still-open history to restart A before injecting the same normal tail event. A bookmark-first remount no longer trims, so it cannot exercise H1. The fixture requires the reload's pre-tail window and lowerBound to match the saved state; the existing pin/window-change/lowerBound-shift/consistent-geometry/10-attempt/1-second/arrived gates and6pt/miss assertions remain. A NEW hosted test proves bookmark-first remounts keep their first row fixed through a mid-restore tail arrival.
++H-r1 exposed two harness assumptions. The hidden-tab/desktop/drop/timeout tests compared raw offsets across a remount; bookmark-first intentionally omits the preceding content, changing the coordinate origin. A separate test-only commit captures the actual saved entry frame before hiding and requires that same entry to intersect the viewport after completion, at the same entry-relative position within the unchanged2pt tolerance. Both raw and relative deltas are logged. Touch ownership, timeout preservation, retry counts, fixed targets and zero hidden timeline work remain unchanged. Missing frames fail, never skip. H-r1 did not record the necessary before/after frames, so its .arrived result is not treated as independent semantic proof.
++
++The identical-history open reload reached .arrived without a command, so H1 was NOT exercised. The revised DEBUG fixture keeps the real normal window open and sends a same-session timeline resync with identical item IDs/order, growing exactly one already-measured message strictly before the bookmark. The bookmarked entry's actual reload displacement must exceed1pt; the first pin must equal the previous actual offset plus that measured displacement within2pt. Only then does the existing delivery refusal inject the normal tail upsert. The pre-tail identities/window/revision and edited-row geometry are checked; real first/hidden/frame changes plus a separately measured tail displacement gate release within10attempts/1second. Only final .arrived, miss<=2pt and the original6pt entry/pixel checks count. Already-aligned/no-command or any missed real-layout gate is H1-not-exercised/STOP, with no timing rescue. The hosted pin-baseline assertion now includes only the measured reload shift; the UI method adds the same explicit checks, leaving every existing pixel2pt/6pt assertion intact. No release product restoration logic changes. A new hosted test still proves bookmark-first remounts keep their first row fixed through a mid-restore tail arrival.
+ 
+ A separate capture correction uses upperBound > offset +0.5pt (shared minimumVisibleExtent) so a numerically touching row is not saved as visible. Value tests cover equal-edge,+0.4,+0.6 and identical restored offsets. A's target correction, tolerances and budget are unchanged.
+ 
+@@ -35,3 +37,8 @@ The opening/performance/restore gates are independent of eventual AX readiness.
+ F-r1 is preserved as STOP evidence, not credited. Its two fixture defects were an offscreen horizontal action strip and a TextView-only composer query. The DEBUG fixture now uses two visible rows of six native controls with short labels and44pt minimum label content, preserving all12 actions. Its controls use a fixed12pt test-only font; product Dynamic Type is unchanged. This adds offered control height and reduces the real conversation viewport; the footage and measured viewport disclose it. No product view, height, header, scroll inset, delay or positioning logic changes for this correction. The new test uses the existing general descendant composer lookup and the same software-keyboard setup sequence as Reading tests.
+ 
+ The branch was rebased onto85ee757a. The full pre-harness cumulative patch is byte-identical to the reviewed a971c9343/77b24899 patch. The one re-pinned original Reading file equals #587 on main; the #588 permission-menu product file is outside #582’s delta. Evidence and fresh configuration are independently reviewed before any build.
++
++
++## Accepted first-frame evidence on5c785b
++
++Independent QA accepted the exact encoded samples for all four routes, SE portrait and XXXL portrait, with bounded A movement and real prepend/tail stability. Only the first line ("Reading…") of the bookmarked message is visible on the first frame. The number 90 only becomes readable after the restore. This is the disclosed XXXL limitation of the recording viewport; landscape remains an uncredited #483 diagnostic. N13 passed. H-r1 STOP and its original results remain preserved; no later gate is credited until the reviewed harness changes pass on their exact head.

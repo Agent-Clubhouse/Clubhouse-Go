@@ -1,0 +1,33 @@
+{
+  "head": "a291d4d491926413eb726b6c80db5bca75254415",
+  "video_head": "5c785b864c4fe706c0b37765672fa9ece0e4283d",
+  "changed_files": [
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+    "docs/reading-first-paint-plan.md"
+  ],
+  "app_changed_only_DEBUG_fixture": [
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift"
+  ],
+  "fixture_whole_file_DEBUG_only": true,
+  "release_product_source_identity": true,
+  "opening_UI_and_fixture_identity": true,
+  "harness_delta_sha256": "54384176e951757f4260fb6b4f734d910bac2d36cf8519dc523d954f5c65ecb3",
+  "fresh_build_required": true,
+  "video_carry_requested_not_assumed": true,
+  "strict_contract_changes": {
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": {
+      "prior_sha256": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+      "current_sha256": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+      "diff_sha256": "561aff2f910d684bfe0e86e39c22a27a211c67e377613df3d822d1d8096131f9",
+      "authority": "QA qa-582-bookmark-start explicitly approved entry-relative2pt and real preceding-row resync proposal; cumulative diff review required before build"
+    },
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": {
+      "prior_sha256": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+      "current_sha256": "7a06b40ccb2fabab0e60b9c5f332d62538ac2f954b5bf8908b354b39a7fece54",
+      "diff_sha256": "462a0b7e6634faf682b9443e8a6c126751626a4d0a98bac73912aeae470288d2",
+      "authority": "QA qa-582-bookmark-start explicitly approved entry-relative2pt and real preceding-row resync proposal; cumulative diff review required before build"
+    }
+  }
+}
