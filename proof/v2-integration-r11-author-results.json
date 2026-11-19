@@ -1,0 +1,46 @@
+{
+  "head": "37d5b595fef266131b71f00fed92c3a4ca59401a",
+  "tree": "93ff9ca9cc542dfbc5f9fec8cdd5ebee6f4113d5",
+  "status": "AUTHOR_OBSERVED_PASS; independent capture/reading/aggregate originals review PENDING",
+  "components": {
+    "a-r11": {
+      "scope": "Fresh Debug build, compiled deinit checks and 20 policy tests",
+      "receipt_sha256": "203fb1ac588201a6b337d10d955c7e64d10e9415ce35b1f62685e61167b61d98",
+      "after_FIFO_seconds": 233.23042412474751,
+      "external_closure_sha256": "239f4f37658261dd57f398841a427a6408815c1cbc547e1c58144059712e6e67"
+    },
+    "capture-phone-r2": {
+      "scope": "Two once PASS: Accessibility Large read-only review and standard unsupported Start; strict separate 3-event classifier PASS; zero Starts",
+      "receipt_sha256": "6e26ac9bd14a3d49d33af30bf4ca7e3e5f31a84804a2939f4e57bbe7a3d5ffb5",
+      "after_FIFO_seconds": 184.0825966252014,
+      "external_closure_sha256": "65957972270640d6697802f02730e62a55e5f6d480aba3e7dc326d7fccf03d63",
+      "exclusive_classifier_sha256": "7e0c4caeee6d94cb9bdffd117657d14325b51d0b40305d7ec53285a345d96e04"
+    },
+    "capture-se-r2": {
+      "scope": "Two once PASS: Accessibility Large read-only review and standard unsupported Start; strict separate 3-event classifier PASS; zero Starts",
+      "receipt_sha256": "6c450f2f497968e217e230963d284673c29f8b8d6a684625a48e84662c91be41",
+      "after_FIFO_seconds": 188.66516241710633,
+      "external_closure_sha256": "b34389b38d19ffd7af36720f1d28c86052bd6729810a8880d58349ee4051b6c3",
+      "exclusive_classifier_sha256": "35c857d8146cb38e9af30db00edebc078a22e7c98cd868bad73a8231ea5306e5"
+    },
+    "reading-r1": {
+      "scope": "One once PASS: paused transcript archive-header open and Done-close; unsupported archive-content sheet only",
+      "receipt_sha256": "a77991e7ef541fd9b58b58583c54505ff6393df31ea72f6e861e93165769659a",
+      "after_FIFO_seconds": 98.01731841592118,
+      "external_closure_sha256": "1a1265d7cb73c3ee1c7393585d18ef7dc97158679b129a5d218b0b0e1c641f8a"
+    }
+  },
+  "carry": {
+    "package": "416-input identity carry to accepted 2b6406171 D: 43 methods/62 expanded/25 records; not a fresh D run",
+    "single_Large": "Identity carry to accepted 7e97563d single Large method with five events, receipt/creation full-row pixels; no fresh Large at 37d5",
+    "four_SE_controls": "Historical individual observations at af714fd3 (ordinary success and missing Start) and 2b6406171 (lost Apply and lost Start), not fresh five or current-copy geometry"
+  },
+  "limits": [
+    "Prior strict failures and setup stops remain immutable; no repaired batches or mixed checkpoints",
+    "Synthetic native fixture counts differ from production transport synthetic IO-seam decoded arrays; neither proves live backend or wire-byte identity",
+    "Runtime swap watcher is record-only with 256MiB flag; observed growth zero, not active 64MiB enforcement",
+    "No installed-host, physical-device, VoiceOver, Release, full-security or original incident resolution claim",
+    "Current-main parity is observed at sidecar timestamp, not evergreen"
+  ],
+  "current_main_check_sha256": "afa5ecd098405f4ca0c5cebb57e0c915b5b4d5497f1a98f561e2c262d0378a04"
+}
