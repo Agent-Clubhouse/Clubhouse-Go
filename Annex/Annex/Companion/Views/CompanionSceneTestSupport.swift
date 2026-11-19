@@ -224,7 +224,7 @@ nonisolated final class CompanionDiagnosticTrace: @unchecked Sendable {
     static var ready = false
     static weak var runtimeLifetime: CompanionStateLifetime<CompanionRuntime>?
     static var makeFeedback: (() -> (model: FeedbackModel, telemetry: CompanionTelemetry?))?
-    static var makeStore: (() -> CompanionStore)?
+    static var makeStoreAndPreferences: (() -> (store: CompanionStore, preferences: CompanionPreferences))?
     static var feedbackPumpChanged: ((Bool) -> Void)?
     static var didCreateRuntime: ((CompanionRuntime) -> Void)?
 }
