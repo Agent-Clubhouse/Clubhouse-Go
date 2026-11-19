@@ -1,0 +1,3849 @@
+{
+  "previous_union_commit": "2b6406171cbea5189c0606dd218e298eb63064f8",
+  "previous_whole_closure_sha256": "bfd31f6499f630fc160cf56b169e1285ec460d03d49e946eabf0330f8ecdabea",
+  "combined_commit": "4cb20aeec3da10c0440c98829ddcf3426a5ae038",
+  "combined_tree": "6cb25013fc98bae167942b34a868f227d869d68f",
+  "entry_count": 767,
+  "changed_paths": [
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift",
+    "docs/provider-v2-610.md"
+  ],
+  "post_union_patch_sha256": "57ee04df72ad210808f54732142ee9b05d59931fc5dc3e8a850d9b5ddc300ed9",
+  "combined_entries": {
+    ".github/actions/setup-xcode/action.yml": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a0cbdb1cfd6b283036293af2fb799eca0a7002ec"
+    },
+    ".github/workflows/annex-contract-drift.yml": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3f879f3c95b15f6f41c5edb7b36f0d988feb5959"
+    },
+    ".github/workflows/ci.yml": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "37a9aaea05c971396f8863d715b4ae3ecc68b33c"
+    },
+    ".github/workflows/e2e-nightly.yml": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ab181bf47a41c5bc1af084852933560e203b83cb"
+    },
+    ".gitignore": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e1db6c0aebf99a42084f913d455377336277132f"
+    },
+    ".nvmrc": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ce62013c39aed63f656bb7ae41bdd45d81163ffe"
+    },
+    "Annex/Annex.xcodeproj/project.pbxproj": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3eed11ee449e669f31643087a70d130bbda21df7"
+    },
+    "Annex/Annex.xcodeproj/project.xcworkspace/contents.xcworkspacedata": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "919434a6254f0e9651f402737811be6634a03e9c"
+    },
+    "Annex/Annex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "69ee8a474c0cc3f7de1fdc15e573730f1d663cd4"
+    },
+    "Annex/Annex.xcodeproj/xcshareddata/xcschemes/ClubhouseGo.xcscheme": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f7ec612aef0ac3739d7fdd8dfac0dd06eccd06b5"
+    },
+    "Annex/Annex/AnnexApp.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7d5d88da216cbf5f533a79720ea6773f95495790"
+    },
+    "Annex/Annex/Assets.xcassets/AccentColor.colorset/Contents.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "eb8789700816459c1e1480e0b34781d9fb78a1ca"
+    },
+    "Annex/Annex/Assets.xcassets/AppIcon.appiconset/AppIcon.png": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "014ad1280cc042fb72dee72f7319a7de976e248b"
+    },
+    "Annex/Annex/Assets.xcassets/AppIcon.appiconset/Contents.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "87d4015286bc8b982860bfa017bd39b4462beb96"
+    },
+    "Annex/Annex/Assets.xcassets/ClubhouseLogo.imageset/ClubhouseLogo.png": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f56ddf74a8250f43a519aead924e2add58af0262"
+    },
+    "Annex/Annex/Assets.xcassets/ClubhouseLogo.imageset/Contents.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "400c3544133fcbcdd6b86ea2c0260586c9b10726"
+    },
+    "Annex/Annex/Assets.xcassets/Contents.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "73c00596a7fca3f3d4bdd64053b69d86745f9e10"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionAgentSettingsDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f6accec116430675b4295114b9dfb37239e0b79e"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionArchiveReader.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "051b98cd2bbf3d152efc3b8134273c40015fe35e"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionAutoQuotaDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "96a598f93330aea1ac136fece559e2a568a02978"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionBuildInfo.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f8f3383fa8cfeec8fcf584c3e4ac78163d9ab9a6"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionChangesDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "55c31e9fff99942b5136e184d412d256f29ea24a"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionChatControlsDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "101fb7e78157ee013cc7744acc139e689af1951f"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionChatProjector.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "245ddd1407ef304bd43eaba6983457e8361c40df"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionContentAcceptanceFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0148c9ea687b5098f24447205892e25e3848c239"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionDispatcherSettingsDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c5f0082e48168287f2c47cfd4cc31f8671574a22"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionFinishedDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "012ff5da28cc73d1c9bc781ddf6164fd752bf3b1"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionHelperRoutingDecoding.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0e41fbf699b3ff3a4bce5e51a01533a169ed03aa"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionInstallReset.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bb7890e29cd7189b86656ef1d68c50a3230f24de"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9a9ab31585ce1b75b2b4601fd9560f15e4df6294"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e189f3953049fe08053cb5e366699fa4e23f8266"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionLocalDrafts.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2f66a4dd02e281abdb8252c4de0f9c062ede7627"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionLocalFinished.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1af985bdbae6ef6f1b623ab714f846cd689d3675"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionPreferences.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cc01a099188c8b51114f92661d15257d4f9c5ab8"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionPreviewAutoQuotaSamples.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "66fa68c658a2ded9eda6349c43ce2653912364fd"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2dbd97e7529418ed59e12476c284c0f10f012f96"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionPreviewTerminal.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e8b59a6207499dc8fedb2695b6a082cfb3e50bc0"
+    },
+    "Annex/Annex/Companion/Adapters/CompanionStreamDiagnostics.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dbe41eeb265967b2ec0653e8db6652554b2fac61"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAgentDetails.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bae538f991925647e00ede1b9c7478fe0352b1a4"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAgentFace.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ac9d5c39e91934293edfd7f2aafa24ef8bbef211"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5af3b4fa9753fd235dee46bbd661aa7a3993aa7f"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAgentTree.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "95232187e582bfff1d26943b4954591ccc6895af"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAppUpdate.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "346af122fe802132e59c4252ad93844761092463"
+    },
+    "Annex/Annex/Companion/Domain/CompanionArchive.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "765a559d155943b14b4b1440fa1ee036bf4b6293"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAttention.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a9126f21b28ec3f31286260193b243896c814d97"
+    },
+    "Annex/Annex/Companion/Domain/CompanionAutoQuota.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57ebe5dfdd7705af8f82bc8c6ceec66765829b1b"
+    },
+    "Annex/Annex/Companion/Domain/CompanionChanges.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9e9daf61f93dcf2130c33715bdd7dd79b76f9a4f"
+    },
+    "Annex/Annex/Companion/Domain/CompanionChatActivity.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "43bf494fa7e6fdb699a6807652f08d43e16a1ffc"
+    },
+    "Annex/Annex/Companion/Domain/CompanionChatControls.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4dca91499d3b7a25cb1e302ad916a6bbce3881b0"
+    },
+    "Annex/Annex/Companion/Domain/CompanionChatLinks.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "170949a0f47e58b0e43a152a0655293bce933e7b"
+    },
+    "Annex/Annex/Companion/Domain/CompanionComposerReturnKey.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a28a0de64407021058454bbcd3d834b16f914b0f"
+    },
+    "Annex/Annex/Companion/Domain/CompanionComposerSelection.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "725cc4a1f56d298c1bf20dffa72084a642c92c04"
+    },
+    "Annex/Annex/Companion/Domain/CompanionContent.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2b3b0398725a26bb4dde351d503a39c257c2a2ee"
+    },
+    "Annex/Annex/Companion/Domain/CompanionDecisionQueue.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fe49057cbc7d0e82bdec147b91eb0f4b14c22666"
+    },
+    "Annex/Annex/Companion/Domain/CompanionDesktopQuestions.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "abf37153dc43b5a23bd9d24c0a17a82ffecd1ff8"
+    },
+    "Annex/Annex/Companion/Domain/CompanionDispatcherLaunch.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "38c88a87f9e5c13c833469c101dbc67c4cb6435c"
+    },
+    "Annex/Annex/Companion/Domain/CompanionDispatcherPresence.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "48925655440c63d90790fed99461e5fae9592bfa"
+    },
+    "Annex/Annex/Companion/Domain/CompanionDispatcherSettings.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "791f60b3a5a009a96409eb0d52da8ce4caa87442"
+    },
+    "Annex/Annex/Companion/Domain/CompanionDraftPersistence.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fd481c36fe6112baf3b63c627e4fea0e8226fe9a"
+    },
+    "Annex/Annex/Companion/Domain/CompanionFeedbackTriggers.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3ff504de295f5a3aef496def18b8e0c585fb915c"
+    },
+    "Annex/Annex/Companion/Domain/CompanionFinished.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "312722a12d882bca5996603e8c490704d83dd582"
+    },
+    "Annex/Annex/Companion/Domain/CompanionFullEventDocument.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "184fde130d95b06e36ed7d098cfe4ec7d3d707a5"
+    },
+    "Annex/Annex/Companion/Domain/CompanionFullReview.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fd4dcd0be31e0eed94b259d3d0252ccb4dff8397"
+    },
+    "Annex/Annex/Companion/Domain/CompanionHeaderOverflow.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "282ee7ff8394c220121c503363a28e666bad986e"
+    },
+    "Annex/Annex/Companion/Domain/CompanionHelperRouting.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "60af83ac271a4d728920dec0367d182e18a7f1ed"
+    },
+    "Annex/Annex/Companion/Domain/CompanionHomeLayout.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6220c3fae0a18ac7972969e39dd4b40e2791f298"
+    },
+    "Annex/Annex/Companion/Domain/CompanionHomeLinkedFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "25b4e6e7f6a949fd6c75430b5cd6fd4721babebb"
+    },
+    "Annex/Annex/Companion/Domain/CompanionHomeLinkedRows.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bfff69e5ab69c814b2bd6ddeae021ffa2239bfe7"
+    },
+    "Annex/Annex/Companion/Domain/CompanionIconCatalog.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ccebd9a1b2aee0e9f200b98c0e677cb05530c836"
+    },
+    "Annex/Annex/Companion/Domain/CompanionIconStore.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7f37323317f24dac4a190bf17f3dbe380181edb9"
+    },
+    "Annex/Annex/Companion/Domain/CompanionImageProcessor.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1bdd273ba9561f76c3819eeadf6f89155df718cc"
+    },
+    "Annex/Annex/Companion/Domain/CompanionLargeCatalogFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "da8f6f590e0b3bf1666d0ddc563e1074d2b687e4"
+    },
+    "Annex/Annex/Companion/Domain/CompanionLifecycle.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3b5fa9c81f6fa7bb3c18ebedf100e0db0d7ff063"
+    },
+    "Annex/Annex/Companion/Domain/CompanionMarkdown.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6ba6f59316208face43657b9d6ca0726bb62c81c"
+    },
+    "Annex/Annex/Companion/Domain/CompanionMarkdownBlockPreview.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "acf3ec045d2ffa6a9d7201d6587ef4a1b1adfde4"
+    },
+    "Annex/Annex/Companion/Domain/CompanionMarkdownFilePreview.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "94c97c061dab57c44153b866787d072d9a4f871b"
+    },
+    "Annex/Annex/Companion/Domain/CompanionMessageRouting.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "076141d05e77e62b548fda2a471eff1c37a058e2"
+    },
+    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c32d567fefcb23aa6baa20b813acfe4c5ffc3129"
+    },
+    "Annex/Annex/Companion/Domain/CompanionModels.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3bdec9a1621dc41ef6abf6bd7dc85a5388a3336b"
+    },
+    "Annex/Annex/Companion/Domain/CompanionNavigation.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "67f9925356dc9bbdf68168f64f5fa71890e783ab"
+    },
+    "Annex/Annex/Companion/Domain/CompanionOrchestration.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b0ea68883cc089c55e214a6ccc652ef9e8172027"
+    },
+    "Annex/Annex/Companion/Domain/CompanionPairingLink.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7df183e8f1dce9d7b7d7697945c25d7c071e5e8c"
+    },
+    "Annex/Annex/Companion/Domain/CompanionPastedImages.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dad1d4a480841db0c81c076b3e219543a03aae13"
+    },
+    "Annex/Annex/Companion/Domain/CompanionPendingDecisions.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3be953a1ce5a64fd5e21e25fabf8e441966e8c37"
+    },
+    "Annex/Annex/Companion/Domain/CompanionPlanLimits.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "976d26d7c25d4bb142d2deb04012f14a08b17ec2"
+    },
+    "Annex/Annex/Companion/Domain/CompanionProjectAgentSections.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "704e73a34b892753719c944cf6bee40de8f962e4"
+    },
+    "Annex/Annex/Companion/Domain/CompanionProjectInfo.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "25d66717183b92b8f8748e8555cc9020ca002160"
+    },
+    "Annex/Annex/Companion/Domain/CompanionProjectOrdering.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1554fd99a0d1591495799985e89733e757e7a6f6"
+    },
+    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f9a77f2834604935058775291e10f65331c11fa3"
+    },
+    "Annex/Annex/Companion/Domain/CompanionProviderV2Flow.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "03e8b756395de1f356dda8ec6f21c8190b639ec2"
+    },
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "730ca8cc71758930c61a2f52540fba9075846e5a"
+    },
+    "Annex/Annex/Companion/Domain/CompanionRecoveryStatus.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9df0a4232d74fddbef7dd2b0051964f3c5be6b70"
+    },
+    "Annex/Annex/Companion/Domain/CompanionReviewModel.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5c110140670c03d5a58f3ce11da67501bbabd33e"
+    },
+    "Annex/Annex/Companion/Domain/CompanionSlashCommands.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4a6fbe81d75f65919619f18c1cbde2f6b69dea52"
+    },
+    "Annex/Annex/Companion/Domain/CompanionStateLifetime.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c62b075338a4d5592eeeb3aaf31b7a5b5c357e89"
+    },
+    "Annex/Annex/Companion/Domain/CompanionStatus.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ecd0af766d9c4615636505f511eff033a193a79f"
+    },
+    "Annex/Annex/Companion/Domain/CompanionStore.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1cae74d93770f27252c0e5940c88028e11a551cb"
+    },
+    "Annex/Annex/Companion/Domain/CompanionTerminal.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1eaa90d384447bd18cc53bc17821f5361c1f6237"
+    },
+    "Annex/Annex/Companion/Domain/CompanionTerminalScreen.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e3e3386d58b28dd09b5c28642a3b072567eba02f"
+    },
+    "Annex/Annex/Companion/Domain/CompanionTheme.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3cc3bb614270a7e31103590039c168b1e6e97f1e"
+    },
+    "Annex/Annex/Companion/Domain/CompanionTimelineProjection.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e8170c50eccf93a6298513c62f5aba9cdbc689d2"
+    },
+    "Annex/Annex/Companion/Views/CompanionAgentDetailsSheet.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1b12272ba19ec48a64ef3d321da3ce9e0e7f0b79"
+    },
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0ad1c2aed411aad5fb80eab690f9531521fe8fb2"
+    },
+    "Annex/Annex/Companion/Views/CompanionAgentTreeRows.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f57b9b9098e73cffcbda2e9855dd7fefb3a4b4d5"
+    },
+    "Annex/Annex/Companion/Views/CompanionAppRoot.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1b180d989481cce742a829b51e4f1472564c4858"
+    },
+    "Annex/Annex/Companion/Views/CompanionAppUpdateView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fee6186bc5856b60a546b0446bbb30b29f0db3f2"
+    },
+    "Annex/Annex/Companion/Views/CompanionArchiveView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7cf8baa3d361b707800117e396ca73506b7987a2"
+    },
+    "Annex/Annex/Companion/Views/CompanionAttachments.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e92307079d65e976925af69acf3b4ef04cf26eed"
+    },
+    "Annex/Annex/Companion/Views/CompanionAutoQuotaViews.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "167062ef0155c51c0ef93c9f6a93fbe39e8ffbd4"
+    },
+    "Annex/Annex/Companion/Views/CompanionChangesView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "faa1a13606c6b0fed712a568718a55dc8328302e"
+    },
+    "Annex/Annex/Companion/Views/CompanionChatControlsBar.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7f5f426c542ac4e8da2da95d26bf07b62c48cd6c"
+    },
+    "Annex/Annex/Companion/Views/CompanionChatPerformance.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "81e8275da5e90e8aa85470376e3515fc260c2521"
+    },
+    "Annex/Annex/Companion/Views/CompanionComposerPaste.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8c9623cacad92abf8ef4ea24ba383a83cc3c0339"
+    },
+    "Annex/Annex/Companion/Views/CompanionContentView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d2c469077a493e305b09f450cf87ce1488ab77ed"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a6f0c410c5ff36e6fb5890eab89cf9615763dd56"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationComposer.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "eb1dcfa28d969c445636f4c2485bf4e22a200cab"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationGrantRequests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9513e92eb2ef9087aee09d45e2a7638fe42a5947"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationHeader.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "81f9f9010a919bd2bdb278c44ff63a91b1b64c50"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationHeaderFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1d91d0843c7bd5623051a57ddf669b2c8589d60b"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationPendingDecisions.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "abdc184248b78d1d83e92a278979a5e1d0a2f9fa"
+    },
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "db98a5656b8dde09f1980055c6f320dd08dd0e6d"
+    },
+    "Annex/Annex/Companion/Views/CompanionDeinitProbe.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1ab8dc7a5d5b19aa6fadc04a7ad506349a2468a1"
+    },
+    "Annex/Annex/Companion/Views/CompanionDesign.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c7a4a32f986e2d230b268967329c97eab0f60bfe"
+    },
+    "Annex/Annex/Companion/Views/CompanionDesktopChips.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3525ec7b8bc0871ca2b8e67903198ce013c58700"
+    },
+    "Annex/Annex/Companion/Views/CompanionDiagnosticsView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "514ab9cb9ef01d583236411b8b52c080db58b3d7"
+    },
+    "Annex/Annex/Companion/Views/CompanionDispatcherChips.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "430c140cb0a512ad886c685d6d295e5f7b9f3177"
+    },
+    "Annex/Annex/Companion/Views/CompanionDispatcherIntent.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9f047b29eb2fa2693d677b848304adb9e373be2f"
+    },
+    "Annex/Annex/Companion/Views/CompanionDispatcherLaunchSheet.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "caa463f2a3e5e55871fbb73e118d5953d54996f9"
+    },
+    "Annex/Annex/Companion/Views/CompanionDispatcherSettingsSections.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d449a760d5dac17dd47f9f9e9200c1fd6fa5c457"
+    },
+    "Annex/Annex/Companion/Views/CompanionFeedback.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8a6e4c4e79b46f35469824a202e99d965f175ade"
+    },
+    "Annex/Annex/Companion/Views/CompanionFeedbackPresenter.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2d312ca4e46fccab3abd1568ae92d95e2d90f62d"
+    },
+    "Annex/Annex/Companion/Views/CompanionFolderList.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bdb8c376e833aed8ec9137fe7ac766af8621f594"
+    },
+    "Annex/Annex/Companion/Views/CompanionFullEventReview.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6d96678b98b2f40892100e49e0ce821b8816c242"
+    },
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4ac4756cd25f74d56ba22d5fcfaba29d65844b7f"
+    },
+    "Annex/Annex/Companion/Views/CompanionHelperPresetsView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1e3817ef69ecc82fad494c1016c7665c7efcf8f6"
+    },
+    "Annex/Annex/Companion/Views/CompanionHomeBuildProbe.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f5672e2109cd7289f0ea3e76c200eba959e09a6b"
+    },
+    "Annex/Annex/Companion/Views/CompanionHomeLinkedProjectRows.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8f385bd075196aa4192ff9f1de5d27cf778d94e6"
+    },
+    "Annex/Annex/Companion/Views/CompanionHomeRenderSnapshot.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d5889b552adfd439d2f098c19c8b9180fd28815b"
+    },
+    "Annex/Annex/Companion/Views/CompanionMarkdownBlockViews.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dc1109081c8233081b60395ee4165ca00f1bdcfe"
+    },
+    "Annex/Annex/Companion/Views/CompanionMarkdownFileView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2d58979ae16ba20802907708fae0e17b64ef83fe"
+    },
+    "Annex/Annex/Companion/Views/CompanionNativeScrollTopObserver.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bcf1703b2315b5d924885e0fdaa79a768dd3ad6c"
+    },
+    "Annex/Annex/Companion/Views/CompanionPairingSheet.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b0762f4fff641214521cef3d2c2da66da4fc0133"
+    },
+    "Annex/Annex/Companion/Views/CompanionPlanLimitsView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3e27d345386f77cc246139f4102459c0dbeb0459"
+    },
+    "Annex/Annex/Companion/Views/CompanionPreviewRoot.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "110025fd09d1e40ce601b5faec9ecb8ef506e1d4"
+    },
+    "Annex/Annex/Companion/Views/CompanionProjectInfoSheet.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f101c5dc550b6d5cb8e2963bb6c34e73a943c132"
+    },
+    "Annex/Annex/Companion/Views/CompanionProjectPage.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2f7a95ab4ab679250713f10b1d0ac0920e8da0a9"
+    },
+    "Annex/Annex/Companion/Views/CompanionProviderV2Fixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d8d6dc2c28205648e1791052310ad51b2d70e519"
+    },
+    "Annex/Annex/Companion/Views/CompanionProviderV2Screen.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8b869177291ed90e3531ddb846e526e97a56f1e0"
+    },
+    "Annex/Annex/Companion/Views/CompanionQRPairing.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "59ef4d433e889055ead4a1790c2a25c0a5c17016"
+    },
+    "Annex/Annex/Companion/Views/CompanionQuestionCard.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d3a316b452e5712af74942340ba7c2e82aac9e66"
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2b970bacd067f9e9ed222dabc9cdaa7ceb00510e"
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3069bc73c609c227685210bd1072e5b8c8bc12e4"
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8af93f31c5d01a464309ff0339ed684407cefbac"
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingTouchObserver.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f53520b96e902de21ce8249558925f3d5fb2dd5f"
+    },
+    "Annex/Annex/Companion/Views/CompanionRecoveryFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c6dc5fc1b0a37b74e3b138813f0973a9b5655d00"
+    },
+    "Annex/Annex/Companion/Views/CompanionRecoveryStatusView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9501af91b2dc1f523cc20bb805b355e78ad1543b"
+    },
+    "Annex/Annex/Companion/Views/CompanionReviewView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ea3fc84d2942833a38a6eaf2e32245d954dbc93d"
+    },
+    "Annex/Annex/Companion/Views/CompanionRootView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "18be07e5b01b0e13ee7773dddf960286b6f85978"
+    },
+    "Annex/Annex/Companion/Views/CompanionSceneTestSupport.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f749310a197f513b3f12649490a3f3368974f59f"
+    },
+    "Annex/Annex/Companion/Views/CompanionSettingsSections.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d73a33bb0ae1a3699f61fbe222c523fb7f1f8e57"
+    },
+    "Annex/Annex/Companion/Views/CompanionShakeDiagnostics.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "be02f3fa81c61c7ea6fcd3a3a469eb02c7956652"
+    },
+    "Annex/Annex/Companion/Views/CompanionSlashMenuView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "326b2637add009b2359f844af8b55e2b5239c808"
+    },
+    "Annex/Annex/Companion/Views/CompanionSpawnSheet.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "12e71d174ff068b379b0b4f31a33425220fabda1"
+    },
+    "Annex/Annex/Companion/Views/CompanionTelemetry.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c97d53b75ee1437fe1b0d3ef989bf31a1b1454f1"
+    },
+    "Annex/Annex/Companion/Views/CompanionTerminalView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5b5e2bafa435e6c535f8643b7ba023a9bf888ece"
+    },
+    "Annex/Annex/Companion/Views/CompanionTimelineCards.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ac3d59a79ad726ff0e7c40ddbc23d956b5e76135"
+    },
+    "Annex/Annex/Companion/Views/CompanionUIActions.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "68fe13e97660dd3a09512c2b914a93de56c7ba14"
+    },
+    "Annex/Annex/Companion/Views/CompanionUnicodeFocusFixture.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2c327f32e8311ab6180c55c818e6a3fbb295ba51"
+    },
+    "Annex/Annex/Companion/Views/CompanionWakeFocusDiagnostics.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "87680168016246b1cbaff770294778e283cbf63f"
+    },
+    "Annex/Annex/Companion/Views/CompanionWelcome.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fb8697714385e27ddccd4f18fa7acad9af44dfb6"
+    },
+    "Annex/Annex/Companion/Views/FramebriarShakePreview.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ab7a8000b9425180d1098709df5ecfc3aebe81ad"
+    },
+    "Annex/Annex/PrivacyInfo.xcprivacy": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b756bb86395a074b9dbbf30e01c301f9425468ef"
+    },
+    "Annex/Annex/Transport/AnnexAgentAddress.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e3079d0d2a185bd102038bae42d1b878b1178a12"
+    },
+    "Annex/Annex/Transport/AnnexAppTelemetry.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "07208ea3b48288618aeaea4353dd569b3a139773"
+    },
+    "Annex/Annex/Transport/AnnexAppUpdate.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9b455a7b0e50d701baf4aa0120b61cf8aeccff00"
+    },
+    "Annex/Annex/Transport/AnnexClientIdentity.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "635a21261692dde5edc0b48851dc9e0cc0e0c223"
+    },
+    "Annex/Annex/Transport/AnnexClock.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3495e608da6efba6fed3dfa97196c25b409acb22"
+    },
+    "Annex/Annex/Transport/AnnexCommands.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c8c814ee7e11f5e8fb108a2057a49232c0374479"
+    },
+    "Annex/Annex/Transport/AnnexCredentials.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ac9c6d3f3bd0ae5e08ec9500f9e5010c9ff57574"
+    },
+    "Annex/Annex/Transport/AnnexDiagnosticSettings.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5193d739e35ab2b6fdb2eb7e5f699aa1b9bb72f3"
+    },
+    "Annex/Annex/Transport/AnnexDiscovery.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "eb1162cdc0b8f00044832a91888cb2439b9b1f3e"
+    },
+    "Annex/Annex/Transport/AnnexDispatcherSettings.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8f580c36dd3fdd93bfb28e45bb4ead06c33c3731"
+    },
+    "Annex/Annex/Transport/AnnexEndpoint.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "af0b8250d79ddbf89e6db7545daf0e81ba64a6a5"
+    },
+    "Annex/Annex/Transport/AnnexFeedbackDiagnostics.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "973ec435c50d40fe2062ca9b9c494717d2041291"
+    },
+    "Annex/Annex/Transport/AnnexFullEvent.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f24d50b7bf3057ff322a0628997f6254fcd07ec9"
+    },
+    "Annex/Annex/Transport/AnnexFullEventIO.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f3de613b11a80e3b622f1325a26443ec08cfe83b"
+    },
+    "Annex/Annex/Transport/AnnexHelperRouting.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e63b320196109407376441b7ba1776bcd86a4712"
+    },
+    "Annex/Annex/Transport/AnnexIO.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d5bc31ec7eeef0a09df37cb4a9d46ba10ffef527"
+    },
+    "Annex/Annex/Transport/AnnexNetwork.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6b0ce451892f58453afdba5c5afd0741f28e8781"
+    },
+    "Annex/Annex/Transport/AnnexOTLPExport.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0e54553c30f2e47975ab8b018c3df723459bbc7e"
+    },
+    "Annex/Annex/Transport/AnnexPairing.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "27b26162c7f52fcde589e2e8d442050bfcd4cf1c"
+    },
+    "Annex/Annex/Transport/AnnexPairingStore.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5f7e23ea4cc83adab609edb488651596e05641e8"
+    },
+    "Annex/Annex/Transport/AnnexProviderControl.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "03401378a947fc5e8bd5be3170416953ca7f1a71"
+    },
+    "Annex/Annex/Transport/AnnexProviderControlV2.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4a5e368a0d9f9455b6ac0a464de8ff3be786e7ab"
+    },
+    "Annex/Annex/Transport/AnnexRediscovery.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "82c4b879be76222490051cba82a3d8e0a4d61a70"
+    },
+    "Annex/Annex/Transport/AnnexReplay.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1ba5178ddfc42202950e89d31894dffd93609344"
+    },
+    "Annex/Annex/Transport/AnnexStreamDiagnostic.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9ba9000a916646bf0996a12e93441e67aaf867f2"
+    },
+    "Annex/Annex/Transport/AnnexTelemetry.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8f2b9f4ddd76ad2e33f2021b04668ae2c6609ad8"
+    },
+    "Annex/Annex/Transport/AnnexTelemetryHandshake.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7cec4f5eeaf77d0c9d49afb7a006d46ada29fccb"
+    },
+    "Annex/Annex/Transport/AnnexTerminal.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7813f8091332eb5dfbe6af80f037d35da91aed4c"
+    },
+    "Annex/Annex/Transport/AnnexTraceContext.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "91b34293f5b24d6946697c52f2c9997d4bd0a707"
+    },
+    "Annex/Annex/Transport/AnnexTransport.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "363aad4b0df0f66eb6b78eea4b41cba9caa84178"
+    },
+    "Annex/Annex/Transport/AnnexTransportRegistry.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3965bf822c07e890e6a03f826b5521ae4dd94375"
+    },
+    "Annex/Annex/Transport/AnnexTrustProbe.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a7c026b21f18723b99c747988e19c3bdaeddd48c"
+    },
+    "Annex/Annex/Transport/AnnexUIAction.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8f4b3cb76156347399a9fd90ad1defc1a57b92c8"
+    },
+    "Annex/Annex/Transport/AnnexWire.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "78557aabc5f81d4305ebb9bdd9e837bfb9ad4b70"
+    },
+    "Annex/AnnexTests/AppUpdateFixtures/app-update-statuses.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ecc22fccbbe441a2597a7cb2b69920674f8f4483"
+    },
+    "Annex/AnnexTests/AppUpdateFixtures/snapshot-app-update-approval.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0daa92cc471212650ee8a113ae2b04a7f4ea3050"
+    },
+    "Annex/AnnexTests/CompanionAgentDefaultCacheTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b7c78fa59a6cee08fc6d09578937868e09c8b09c"
+    },
+    "Annex/AnnexTests/CompanionAgentRowTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d399413c33889e4f49da6bbaef826a744ff0554b"
+    },
+    "Annex/AnnexTests/CompanionAppUpdateViewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "058459d8415d584d89c3496c1048800e7aa62574"
+    },
+    "Annex/AnnexTests/CompanionAvatarRenderingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9d621fd54920df3563c06096cffd1d78f54cabc0"
+    },
+    "Annex/AnnexTests/CompanionBackgroundDisconnectTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "acb763c2cd5c06e7652c5cb13acfe4993cb2f5d0"
+    },
+    "Annex/AnnexTests/CompanionChatHeaderIdentityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9de4eea7202ca08e6e2abe6d388282b6dde0bbca"
+    },
+    "Annex/AnnexTests/CompanionChatPerformanceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f0eb11424899d356ae966c2395c12b39089fc18a"
+    },
+    "Annex/AnnexTests/CompanionChatResyncViewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1d5eb7b1fde2f99e7fd8141d5d28bd47eba10740"
+    },
+    "Annex/AnnexTests/CompanionComposerApprovalReviewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "722e3fc77f47891b18bbc19cc1d8b5c9d55688c8"
+    },
+    "Annex/AnnexTests/CompanionComposerIsolationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8748bf3554c93c28d47389219bd9a02e2675291f"
+    },
+    "Annex/AnnexTests/CompanionComposerLoadTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0c916088670881e3675cae26f219a471ce2bebc0"
+    },
+    "Annex/AnnexTests/CompanionComposerPasteTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e5dfe5a7f0c62ae0e3d0fd966479ba86748a6b7c"
+    },
+    "Annex/AnnexTests/CompanionComposerReturnTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "528959e7b968df8c54ac55b707c9fa553225f139"
+    },
+    "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e04e0f87275e79d51b41cb8e2461d2b08bf45ccc"
+    },
+    "Annex/AnnexTests/CompanionConversationFooterSurfaceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9bc703f35d3dfe7b05f7b5f25b6f53b4e501a2ad"
+    },
+    "Annex/AnnexTests/CompanionDeinitTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7db61f0af30575971d8b3711396aff43cebbe31f"
+    },
+    "Annex/AnnexTests/CompanionDesktopChipsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9a50394e89c59c0da9c9f0c7ecac4434e961a47e"
+    },
+    "Annex/AnnexTests/CompanionDispatcherLaunchTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f7dc7fb87f1d163785f06afabf4e25c8f9095514"
+    },
+    "Annex/AnnexTests/CompanionDispatcherNameTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bde7e040119b5b45b6723e7381056767602148c5"
+    },
+    "Annex/AnnexTests/CompanionDispatcherSettingsDraftTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7d096162f059b47ce6529d7e7ae3ad32efe55bcf"
+    },
+    "Annex/AnnexTests/CompanionDispatcherTurnTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a6d059548a78020900b28efbda967d43b6478645"
+    },
+    "Annex/AnnexTests/CompanionFeedbackAdoptionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5b920bca65855e9869f639708dee63b75c7655cc"
+    },
+    "Annex/AnnexTests/CompanionFeedbackSettingsCaptureTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ca65bfd2c9f5316e46f3f117ae7ca1cc47663177"
+    },
+    "Annex/AnnexTests/CompanionHelperMessagePresentationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2cdcc801a66e562b4ec83b005b5ee25b7a683b44"
+    },
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "93160b6116a028bbe24796778a5149d28a729aa4"
+    },
+    "Annex/AnnexTests/CompanionHistoryReadingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d90675171f1d6c0abaf8a468db0c121a61f81231"
+    },
+    "Annex/AnnexTests/CompanionHomeLinkedRowsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4363dcc0a0188b6eeeb1072a4d163bf0488fb3bf"
+    },
+    "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "510d4ea86b730df16f89f33ef96f0644e845f4b4"
+    },
+    "Annex/AnnexTests/CompanionIconDecoderTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3ecb942b9a7cc66b8c5d2d219c9559eb951a0840"
+    },
+    "Annex/AnnexTests/CompanionLargeCatalogTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3b5cd58f5c645510a813615363a66d1325d6c13d"
+    },
+    "Annex/AnnexTests/CompanionLongChatIconTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8a3bf839e94eda821bc5daf948878313d7bfe6e9"
+    },
+    "Annex/AnnexTests/CompanionLongChatRenderingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d9ebb2b7d6ed50767f4c330eac856dd4fa6301f3"
+    },
+    "Annex/AnnexTests/CompanionMachineStateVisualTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8400f3291981e6ccf6dc3607573e7d6abae3ebdf"
+    },
+    "Annex/AnnexTests/CompanionManagedSpawnCapabilityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a439ea2da5596aef8ddcf0ce3e326fb36ba13bf3"
+    },
+    "Annex/AnnexTests/CompanionManagedSpawnFormTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b0d198baca0d5f743b96d4adf36661e54634a7cc"
+    },
+    "Annex/AnnexTests/CompanionMarkdownSourceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ee151e2f66ec52ee6b186e2c5fe8a5f037a28a66"
+    },
+    "Annex/AnnexTests/CompanionNetworkTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a2b9b4b413801716fb1448e8febb7cb895f70f01"
+    },
+    "Annex/AnnexTests/CompanionPDFPreviewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0bd6e39404ad848ead529a7d2989a22d2fe9b56c"
+    },
+    "Annex/AnnexTests/CompanionProfileImageRenderingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c9952b3703f81827e768a1ab6cc21f30911ee93a"
+    },
+    "Annex/AnnexTests/CompanionProjectInfoReadTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5a6043dadcf25a2c7b62041ee9108e922d82c966"
+    },
+    "Annex/AnnexTests/CompanionProjectInfoVisualTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bde64f97f05b21e4c63a97ca6bbaa598292a28c7"
+    },
+    "Annex/AnnexTests/CompanionProjectPageVisualTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f12273562901e3b98b9aa4e40c242432a6c8055b"
+    },
+    "Annex/AnnexTests/CompanionQuietFoldRetainedTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "98d3a323fee8a93b168843829a04abe5e261cccf"
+    },
+    "Annex/AnnexTests/CompanionReadingOpeningTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3e84535ed8339a3fdae43bc8d76f5130523457c2"
+    },
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ba65a9d3eeb5df749f7231d1cbbd01bdba7af6b5"
+    },
+    "Annex/AnnexTests/CompanionRecoveryIntegrationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8cdb94833ea0699a42e2578437f89908c3758f62"
+    },
+    "Annex/AnnexTests/CompanionRecoveryStatusViewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b2304299c3e3d5b86dd45b748b5011499c2186c3"
+    },
+    "Annex/AnnexTests/CompanionSceneOwnershipTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "312b93d2587b0508eeff10f657bc1290839304d4"
+    },
+    "Annex/AnnexTests/CompanionSearchNavigationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fb841e4bb0b1fa8624722facd54d62cf5a7e18ed"
+    },
+    "Annex/AnnexTests/CompanionSessionModelTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f879198c2e268530b023bfcb9d26acdefb01ae54"
+    },
+    "Annex/AnnexTests/CompanionTelemetryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0857da23a57a63832e319e5fb3e2b13e996dbf2a"
+    },
+    "Annex/AnnexTests/CompanionThemeContrastVisualTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "292e91d650e5fecd4994a1bdfbff1ecd63231912"
+    },
+    "Annex/AnnexTests/CompanionTranscriptEqualityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9c629ad0d36192a9ae47b413747dc8c811665058"
+    },
+    "Annex/AnnexTests/CompanionUnicodeFocusTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2414fde0f23c0d3d950f3fbb3916f94cc28c515a"
+    },
+    "Annex/AnnexTests/CompanionWakeFocusTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2ccdfba113b81bf02eee58951cd63e9e501a61d9"
+    },
+    "Annex/AnnexTests/DiagnosticPrivacyTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "eb98b88d5cafcf550a23b9c071c68f285a132d8c"
+    },
+    "Annex/AnnexTests/Fixtures/held-reports-v1.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b78d5681a35b3984485f0eb4bf3b43e0005887f1"
+    },
+    "Annex/AnnexTests/Fixtures/report-diagnostics-v1.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b9461d30863a59e7f5f4f2d12aef127e3a1156d5"
+    },
+    "Annex/AnnexTests/FramebriarIntegrationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cd0842ca475d616a47b8256870f8c076800f3954"
+    },
+    "Annex/AnnexTests/QA361AccessRegressionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "67e3a0641d6839bb3958ce6d52e55cb913ce6f49"
+    },
+    "Annex/AnnexUITests/CompanionAccessoryUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a7d525c263dfdd7968ece0898c6f62da8e05e1e"
+    },
+    "Annex/AnnexUITests/CompanionAdditionalProviderTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ebba750758dcdb370ffdd3f9f7accb60b03203cf"
+    },
+    "Annex/AnnexUITests/CompanionAgentRowMenuUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9e77aaa07011e55dc214f00380c22ea5bb0a4990"
+    },
+    "Annex/AnnexUITests/CompanionAgentSettingsVisualUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "743829992f2962b54c7df13af6c0bd820069e9c6"
+    },
+    "Annex/AnnexUITests/CompanionAgentSheetsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0f8c7c3209cda25c86b9e7e761061ba2e7d8ed00"
+    },
+    "Annex/AnnexUITests/CompanionAgentTreeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "40c346a2fdff060f407f15b2e7ac28a075259399"
+    },
+    "Annex/AnnexUITests/CompanionAppLifetimeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "86e1138f46b0145bd69bb6a0bc404bbef1917f37"
+    },
+    "Annex/AnnexUITests/CompanionAppUpdateUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "545899057fd9236c0f41768fe70c04f50ad03f72"
+    },
+    "Annex/AnnexUITests/CompanionAutoQuotaUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c329689d793e9e02e095f1bbf3bf0174c213140a"
+    },
+    "Annex/AnnexUITests/CompanionChatChromeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ba1a5925fd08ec64fa97d34da70ebc47fb0d21ec"
+    },
+    "Annex/AnnexUITests/CompanionChatHeaderUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "02d902037e86c73f5846978e7b64fcb1b1339ef8"
+    },
+    "Annex/AnnexUITests/CompanionChatHeaderVisualUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "75f109a72acaa685e2053b91174724c454bf3b06"
+    },
+    "Annex/AnnexUITests/CompanionCombinedLinkedHomeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8de31ad3408407cf183b091bf92ea30185fe02a3"
+    },
+    "Annex/AnnexUITests/CompanionCompactComposerUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "837f0e1ecfe194b5db354a5c12c96669dc65cb3b"
+    },
+    "Annex/AnnexUITests/CompanionComposerFooterSurfaceUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "291e543b93ff612da9dfeb6470be188aad72f1e1"
+    },
+    "Annex/AnnexUITests/CompanionComposerPasteUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6bb5447352c91537e10802aa4e65e7b274b66ec9"
+    },
+    "Annex/AnnexUITests/CompanionContextLimitsUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "66282098cf55df5b5ca12a513cc440be84e0e3b5"
+    },
+    "Annex/AnnexUITests/CompanionContextWindowUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1f02d1432a6c4b9b6e0ef8313599f8db19aa6ec1"
+    },
+    "Annex/AnnexUITests/CompanionDesktopQuestionsUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9670fe881fac683c75f45600ff7ba95540aa04db"
+    },
+    "Annex/AnnexUITests/CompanionDispatchChipsUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d435871969e3c5841177cc21093951ffa33d8fd2"
+    },
+    "Annex/AnnexUITests/CompanionDispatcherLaunchUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "447d36364551d19144d7fc7af9a4cb975246b76f"
+    },
+    "Annex/AnnexUITests/CompanionDispatcherUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f6136a3471f1539e8b63169238ca9d1b0f25465e"
+    },
+    "Annex/AnnexUITests/CompanionGlassSchemeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0e653785ea3b874a4d94714f24f076daac6b9746"
+    },
+    "Annex/AnnexUITests/CompanionGrantRequestUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "17f9e6527944799e00fb3e73e8700f06ca9d6661"
+    },
+    "Annex/AnnexUITests/CompanionHardwareKeyboardUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7972170d825781c82d3b93d938b405df671c7f85"
+    },
+    "Annex/AnnexUITests/CompanionHeaderEdgeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d1fd1c3d69a2c0b6b5e9d10d3fa3aa783f34b7a9"
+    },
+    "Annex/AnnexUITests/CompanionHeaderReflowUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57fe4d6f0a7f3c73142ce93eff2054365be3412b"
+    },
+    "Annex/AnnexUITests/CompanionHelperPresetsUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "dcc8588468e55209a28ebb6786d29a65e9250b54"
+    },
+    "Annex/AnnexUITests/CompanionHomeDesktopScopeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "005188dbd68b8f49cfc7693a2cc457d1a11fd104"
+    },
+    "Annex/AnnexUITests/CompanionHomeSubtitleUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c0c191e2db076c7742f4ab9872ee5aa6d006b5af"
+    },
+    "Annex/AnnexUITests/CompanionHomeVisibilityUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "928710002ca37949d3d150597b643629f50d5a07"
+    },
+    "Annex/AnnexUITests/CompanionImageAttachmentUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6c5f80cfe8f14b77e7ba8791b3a989eaf2ad4a77"
+    },
+    "Annex/AnnexUITests/CompanionKeyboardDismissalUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b3175be7e9973e16fb259d807529f6ce73f4d10e"
+    },
+    "Annex/AnnexUITests/CompanionLargeCatalogUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c07c6e7748bc0908d3d7cd7b050e3f1a85684881"
+    },
+    "Annex/AnnexUITests/CompanionLatestUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "76e24e9934b46d9d3e7d5f636f9f882b3551710b"
+    },
+    "Annex/AnnexUITests/CompanionLinkedHomeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2ba3598e9a9aa3628587248e19e581aeca64b8c8"
+    },
+    "Annex/AnnexUITests/CompanionLinkedProjectStateUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "12c33a9a60f5f8311ce6ab8167bf0d2eadfeda2b"
+    },
+    "Annex/AnnexUITests/CompanionLinkedProjectUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "31870b5701251a1a77f990350b97419506aac2fe"
+    },
+    "Annex/AnnexUITests/CompanionLiveE2ETests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1adba145cb7e5e2a5de63d0bacbd411c59b8feb4"
+    },
+    "Annex/AnnexUITests/CompanionLiveSmokeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e354b55541ccbf142b8af66ac6a244c86bfa2d0b"
+    },
+    "Annex/AnnexUITests/CompanionLongReplyUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "64f63663e60069c657813710633fa37c02b06098"
+    },
+    "Annex/AnnexUITests/CompanionManagedSpawnUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "71afee27334de8c273d39f71ba157e30cc9e9ccb"
+    },
+    "Annex/AnnexUITests/CompanionMarkdownBlockUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7581269f88339fe78ed45aba4f5b7493151d0df8"
+    },
+    "Annex/AnnexUITests/CompanionMarkdownFileUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ca847520bb3a371feb212cd5d521a8024ad888e3"
+    },
+    "Annex/AnnexUITests/CompanionNeedsYouActionCardUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "96db1e517a4814e2146a7697516a3021dde982e5"
+    },
+    "Annex/AnnexUITests/CompanionNeedsYouUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ce2d35ec998093d65ff0ac8e74f7c7b57828d4cf"
+    },
+    "Annex/AnnexUITests/CompanionOfflineBannerUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "79bea14e68001c415463c4bf8cd61e5ede74532c"
+    },
+    "Annex/AnnexUITests/CompanionPermissionMenuUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "643f8d0a91113b3aa6f3fb8f27c598128556ab7b"
+    },
+    "Annex/AnnexUITests/CompanionPermissionStatusUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5db30872f7f091fbf12f0836b0462556825668b5"
+    },
+    "Annex/AnnexUITests/CompanionPhoneWorkflowTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "789e6ac7314ef64cba3271854018dc0cb5bb13b2"
+    },
+    "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "243ea59db539fb0039dea2fc7f1d1ccc6906bd31"
+    },
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6198c5af3f2bfeed4914763b700e09ca371e813f"
+    },
+    "Annex/AnnexUITests/CompanionProjectInfoUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "790f16d729508024d9eeb19b95a3a573fec702f8"
+    },
+    "Annex/AnnexUITests/CompanionProjectPageUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c18db77d23918acfe81670547f818f72647fc5bd"
+    },
+    "Annex/AnnexUITests/CompanionProviderSmokeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "41338da5f52f7b09b3e89eee6c61f256ace0bd24"
+    },
+    "Annex/AnnexUITests/CompanionQuestionUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4bce866c5001350a230c066ebe89ed2ae1419dcd"
+    },
+    "Annex/AnnexUITests/CompanionQueuedBurstUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8f3e399d2164e6928e91a4b0166c022e95ef6be4"
+    },
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0404941edf7f2e8def4ef9712932568f6c3b6b83"
+    },
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "308956792941eab793d35eba2558e0ad62f0ffa4"
+    },
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "19b4ac38657acfb720c72786aef8fbbac405c894"
+    },
+    "Annex/AnnexUITests/CompanionRecoveryIntegrationUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "86a10c4ee251937ae28771c83d1b634dc034a8aa"
+    },
+    "Annex/AnnexUITests/CompanionReviewUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e2fefb6e7c4d2907c5a6092b4cc305e5906c0378"
+    },
+    "Annex/AnnexUITests/CompanionSearchUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a03f47463abfd50047c5e9dfda95406b4fdaa307"
+    },
+    "Annex/AnnexUITests/CompanionSessionModelUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "94b3502a35d17e2583c6c75cd8abf74fdafac956"
+    },
+    "Annex/AnnexUITests/CompanionSettingsRegroupUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9ecd8dd2a8df94e32f39fd10a6d6ff39b64cd28f"
+    },
+    "Annex/AnnexUITests/CompanionSlashCommandUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f74be86a95c0f973a01f4d2db4704ae4d1fda9c1"
+    },
+    "Annex/AnnexUITests/CompanionSpawnVisualUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5942b426d00e36510ca14a9a211de008569530a1"
+    },
+    "Annex/AnnexUITests/CompanionTerminalUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4928bb33f347d685c933b538d672637ab2f86ecd"
+    },
+    "Annex/AnnexUITests/CompanionToolbarUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d21552cb298e82771bbcc8c2446217b2ac1517be"
+    },
+    "Annex/AnnexUITests/CompanionUnicodeFocusUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f5f0d80361a7c40c5c67ba92bef749907f2fc064"
+    },
+    "Annex/AnnexUITests/CompanionWakeFocusUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ce3f44d45d25c505b46cc00bb9b0d0371c20b8c6"
+    },
+    "Annex/AnnexUITests/CompanionWorkingActivityUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "31aaa5eb0421ea10d0324971e069541f5faedb18"
+    },
+    "Annex/AnnexUITests/DiagnosticSettingsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9c9509778e7f63ffff1f0ae3e63fe0ce2bf81cc4"
+    },
+    "Annex/AnnexUITests/FeedbackDiagnosticsWireUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bdb114109cfb8a1ceb26c396d5900badb300b1df"
+    },
+    "Annex/AnnexUITests/FeedbackMenuAttachmentUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d2b2c169c83cca1a0283c74d5efad15dbbe3c788"
+    },
+    "Annex/AnnexUITests/FeedbackTriggersUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "88dfbba5bfcb4a549752e6e4a803ed54bbe490e7"
+    },
+    "Annex/AnnexUITests/FramebriarShakeDiagnosticsUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3d7d847799567499e5c0b25e6a732104c85a37f1"
+    },
+    "Annex/AnnexUITests/FramebriarShakeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bfc3997a0f12be2811b46f461476a40135cd7f92"
+    },
+    "Annex/AnnexUITests/QA368GrantLayoutUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d66a460bafcc4a7cf2fc3b578902cf013cb58b8a"
+    },
+    "Annex/AnnexUITests/UIReadiness.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "902eb0eb01b8345e05802e72ccab7318b1757e2d"
+    },
+    "Annex/AnnexUITests/UITestSupport.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2d57d7e9dcb4cc08093e76dbb6553369cdea6563"
+    },
+    "Annex/Info.plist": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c8dace083e2d6aa90664b3d31c5d36c249d5d52d"
+    },
+    "App Icon.png": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "823cb6a20d993044b6fcb22fbdb5f710c3cbd8e3"
+    },
+    "FRAMEBRIAR_INTEGRATION.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fee9ff77270389a5272a4ea8a804f514181aa32e"
+    },
+    "Package.resolved": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cb423a54e493907fbe8b40fd7aa39f9673288c14"
+    },
+    "Package.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8e64079df16563760eaa784fc2dd0e8813b4649b"
+    },
+    "TRANSPORT_CONTRACT.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ff8eb0a0595b7f7d13cb452664dbe0e03bd25220"
+    },
+    "Tests/ClubhouseTransportTests/AdversarialTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a951c7d1839597a7c3a391acb7e3ddc365b1f487"
+    },
+    "Tests/ClubhouseTransportTests/AgentAddressTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "697a3cea90af09d7c7dea113d7797c219dacf7cf"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractChatPagesTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7c23e184d44c90823cb962224ec03571dc5e1e33"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractFixtureUsageTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6b45862a676d89d87523ed7ce595ab4a115163f0"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractFixtures.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1eaf08ac643798cabc59e412099e40b1b866c60d"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractFrameLimitTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ab38789a2d2c2a6e113e9d7f69ba023948ad8dd2"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractProjectLinksTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6f7834378aa646bf893588d02fcaa2b44a7cad74"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractRobustnessTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ccd760a64250430e80d39c2119f7975c29ab9a8c"
+    },
+    "Tests/ClubhouseTransportTests/AnnexContractTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "043274087a05dbfd06456807bc1f5161aa826dd8"
+    },
+    "Tests/ClubhouseTransportTests/AnnexNetworkTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ccddcc6def66d095f959c4346bba4c7e6a3834ef"
+    },
+    "Tests/ClubhouseTransportTests/AppTelemetryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5ad8893b09095ad4990ac3b87b411903caa55ea4"
+    },
+    "Tests/ClubhouseTransportTests/AppUpdateContractTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "27013ab730ef5840265ed9fdda87be0749d04dcd"
+    },
+    "Tests/ClubhouseTransportTests/AttachmentTransportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bdaeada1632c06151c4c61a98a339fb9c0106bd8"
+    },
+    "Tests/ClubhouseTransportTests/ChangesRouteTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "849ceb177578a2ecab06c45ba36ca191ca315735"
+    },
+    "Tests/ClubhouseTransportTests/ChatControlCommandTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "267edde14bcae08171d51e1d66900f4ebf67a7bd"
+    },
+    "Tests/ClubhouseTransportTests/ChatLinkRouteTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bdfac01a4fb6e6bd5a2ea1cd5815d3679191f959"
+    },
+    "Tests/ClubhouseTransportTests/CommandRefusalTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9c1f1b973c3869a7a8dafae7814437502459eb97"
+    },
+    "Tests/ClubhouseTransportTests/CommandSizeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a0cd5f885017a1273ea8901e59282262006ddf2"
+    },
+    "Tests/ClubhouseTransportTests/DiscoveryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bec88b7fa409766b1fec9ac30b05572b5f0dc734"
+    },
+    "Tests/ClubhouseTransportTests/DurableAgentCommandTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "68910fb1154ea5d19c0b3d09059c2440476e03dd"
+    },
+    "Tests/ClubhouseTransportTests/FeedbackDiagnosticsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b7361c3b47f2187b7a1db6171d12c3312e2b6535"
+    },
+    "Tests/ClubhouseTransportTests/FinishedQuickCommandTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e005e690425e19ebb46147f2189ed654f041f9e3"
+    },
+    "Tests/ClubhouseTransportTests/FirstSnapshotGapTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c603d2997282dbaa168260c5c738f12821e3ad01"
+    },
+    "Tests/ClubhouseTransportTests/FixtureProcess.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "89a320a9a843f6c3dfcceeb713414888e5f09e40"
+    },
+    "Tests/ClubhouseTransportTests/FixtureProcessTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e5b99fc14e5f894d2224ba14f48f0171871b7c09"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/SOURCE.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "16b109247b308463c5af64390c8e2eddfaca8a11"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/capabilities.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4518a86a1406ed8d65b1ffd816c031e9109465ef"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/provider-control-v2.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c9cb8d9c1b5bb3676aa35bfa51f8998e0621d320"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/command-refusal-server.mjs": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bf6d60675b365e7192c7674c83f981db49df3301"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/network-addressless-3611.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f9026652e2591dc20ebc2fa3e0e2c56068d0d7c0"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/telemetry-handshake-v1.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "00301ee2e7d97bdafccb14b509f9cb9f22d70017"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/tls-server.mjs": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fc456d565e3cbc4e90b8493282d909ff334d2d7c"
+    },
+    "Tests/ClubhouseTransportTests/Fixtures/ws-server.mjs": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "74a03cfa33b8dd5327aaac0e9f70b57385d8c1f7"
+    },
+    "Tests/ClubhouseTransportTests/FullEventTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e4e5afc9a194f15c0aaf7c4507a7e1a2f92d910f"
+    },
+    "Tests/ClubhouseTransportTests/GrantAnswerCommandTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1700680972bd962fdd541c63b272b1ed9df54bd7"
+    },
+    "Tests/ClubhouseTransportTests/HTTPRejectionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bb78b98c8208acf4032a6b7a476c29167595f408"
+    },
+    "Tests/ClubhouseTransportTests/HelperRoutingTransportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5b47efc51432d8bec765ff0ddd2117197b5b6afc"
+    },
+    "Tests/ClubhouseTransportTests/IconRefsTransportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7364803f216dbca52efd136df1df392d51b6d4c0"
+    },
+    "Tests/ClubhouseTransportTests/OTLPExportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6c740f6610d9dc7667d6e7201dd7a0eb6a93ded5"
+    },
+    "Tests/ClubhouseTransportTests/PinnedCommandRefusalTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "40e6c144c2675992bf9d9ada8ba8784a7558cb0b"
+    },
+    "Tests/ClubhouseTransportTests/PinnedIOTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4e2e21e440d5176faf7e9dffb917adfb34e9ffaa"
+    },
+    "Tests/ClubhouseTransportTests/PinnedWebSocketTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "40a8cf37261574fa07206ae09ba9d674b6710b24"
+    },
+    "Tests/ClubhouseTransportTests/ProjectStateCommandTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1a64cc19a973fbc7d346a484423b6325e3da8e7a"
+    },
+    "Tests/ClubhouseTransportTests/ProviderControlTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "464317bf20e24d5b7c5d54c43beca943742f1e1e"
+    },
+    "Tests/ClubhouseTransportTests/ProviderControlV2CommandTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "42d58eb06fcaa42feade528910195083856ec80a"
+    },
+    "Tests/ClubhouseTransportTests/ProviderControlV2ValueTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "696b84301ffd70fb3d6b9c9eeb96184f901ebb12"
+    },
+    "Tests/ClubhouseTransportTests/RediscoveryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7ced67f2f58bcca1a0ea287b748c7d900545654c"
+    },
+    "Tests/ClubhouseTransportTests/RegistryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5fb66c076338c826cf3f7b111e82e5e2d1cfc362"
+    },
+    "Tests/ClubhouseTransportTests/SessionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a61a3822267f141facbc596e49cedf30a2f753ed"
+    },
+    "Tests/ClubhouseTransportTests/TelemetryHandshakeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "085cbb605ffc11f31fc793743fd573261f9e1c40"
+    },
+    "Tests/ClubhouseTransportTests/TelemetryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3fd98e9aeeff48894c601dc8c04d498616410fa3"
+    },
+    "Tests/ClubhouseTransportTests/TerminalTransportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1e326a45448f072742fd7488d0bdb185ab6e68e1"
+    },
+    "Tests/ClubhouseTransportTests/TransportEdgeCaseTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cbd447d30666f8f654ca790deedb0a658041363f"
+    },
+    "Tests/ClubhouseTransportTests/TransportFailureModeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "06e480a692d952fcd7a6f0c823d223cfd2600247"
+    },
+    "Tests/ClubhouseTransportTests/TransportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b02b1637edbec1d29a9ede65d5ea787119593fcb"
+    },
+    "Tests/ClubhouseTransportTests/UIActionTelemetryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "42c502a7a7b6e55ac9fe80a1f4d12a16c9a9e4fe"
+    },
+    "Tests/CompanionDomainTests/AnnexContractChatPagesTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "37fb374d3e3133c6c579864f17a1897576b4bf67"
+    },
+    "Tests/CompanionDomainTests/AnnexContractContextWindowTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "41d5aa72006187eb541bed07b770682c711e7b70"
+    },
+    "Tests/CompanionDomainTests/AnnexContractDispatcherMCPOffTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0b5417fc2852bc33f77a9e522e434fc6486e058f"
+    },
+    "Tests/CompanionDomainTests/AnnexContractDispatcherSettingsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5c8485e476b122fe7260398daef8258282624d28"
+    },
+    "Tests/CompanionDomainTests/AnnexContractDispatcherTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "aae34065b9dca18059c918a7141bdaf11f03d222"
+    },
+    "Tests/CompanionDomainTests/AnnexContractDomainRobustnessTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0a72f7dc6558840333ea8cc4407b0be50c44eae7"
+    },
+    "Tests/CompanionDomainTests/AnnexContractDomainTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "575f6a5c01ed4fe746801cd9b7ce1b6b9c6d3ff1"
+    },
+    "Tests/CompanionDomainTests/AnnexContractFrameLimitTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e25137d2dbc97e0155c0f0722707d15974b33473"
+    },
+    "Tests/CompanionDomainTests/AnnexContractProjectLinksTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "033f43dc44434fefc9c780c7bfad6dfe881c1f42"
+    },
+    "Tests/CompanionDomainTests/AnnexContractQueuedBurstTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "423d03fb6e38db2c62af83857775e815d771ef3c"
+    },
+    "Tests/CompanionDomainTests/AnnexContractSenderIdentityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "98f818b1a9124fcfb5ac72bb7a175d13e08f1f6d"
+    },
+    "Tests/CompanionDomainTests/CompanionAgentAddressTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7b5fe27410189b49278a3b7c354faf3ec21bed3c"
+    },
+    "Tests/CompanionDomainTests/CompanionAgentDetailsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "14b8155f21fde1199bcf37470edf170a1f0fcba0"
+    },
+    "Tests/CompanionDomainTests/CompanionAgentFaceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0dae94111cc6ac8ed2287954dbfe76f8721e5ab2"
+    },
+    "Tests/CompanionDomainTests/CompanionAgentTreeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "261096816e72ee81d691d54f41ad1be40f4d9f9a"
+    },
+    "Tests/CompanionDomainTests/CompanionAppUpdateTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2976cf485a1c659c10d4f6bc12760cb3263fbee1"
+    },
+    "Tests/CompanionDomainTests/CompanionArchiveTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fc852d11df13baba8a271a7ff0f0cf650b00ec5f"
+    },
+    "Tests/CompanionDomainTests/CompanionAttachmentTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "76765888eaa5b5740dc7ece75c5041ea1913ceb6"
+    },
+    "Tests/CompanionDomainTests/CompanionAttentionAvailabilityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cdbf767446e448854e08e104288960082c3c827b"
+    },
+    "Tests/CompanionDomainTests/CompanionAttentionCardTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "777251f77fc2595116da9934fa1ce22a00da7f48"
+    },
+    "Tests/CompanionDomainTests/CompanionAutoQuotaTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c14b734ce29aff60d200945d2a90ad5bda5d6b9c"
+    },
+    "Tests/CompanionDomainTests/CompanionBuildInfoTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5fd95e68dc3ade27ebd10dcb36e4019985a6d16b"
+    },
+    "Tests/CompanionDomainTests/CompanionChatControlsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a8eea8f32b628a0fe96422309a013a6c7a982d1d"
+    },
+    "Tests/CompanionDomainTests/CompanionChatParityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e7062218b5065faa6544e670a2ba6bcaceb05873"
+    },
+    "Tests/CompanionDomainTests/CompanionChatProjectorEventTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "94f1e9e0774d2ef483d1204a2a96cecac30b7408"
+    },
+    "Tests/CompanionDomainTests/CompanionChatProjectorTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a89bcd6929b0a4da74c6a07d9f1e49143dfb0cd8"
+    },
+    "Tests/CompanionDomainTests/CompanionChatRetentionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3211f014bbd6b8a6d9f9fc5ca0c87a2dd7f22e5e"
+    },
+    "Tests/CompanionDomainTests/CompanionCommandSizeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6e2561eb6b8e95a8b4b7008f04dd8270d0be26da"
+    },
+    "Tests/CompanionDomainTests/CompanionComposerReturnKeyTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57cb962e5c3322860ca8debb5aac41c2db03dd46"
+    },
+    "Tests/CompanionDomainTests/CompanionComposerSelectionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e133c50d57139c22e5dc4f2086a8812a9f3e0c4b"
+    },
+    "Tests/CompanionDomainTests/CompanionContentGatingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "aa22614d15c74f590f5484b9f76871e9907be560"
+    },
+    "Tests/CompanionDomainTests/CompanionContentParityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "581b8f4d696292b21a81a7798a1b51fe8882d37b"
+    },
+    "Tests/CompanionDomainTests/CompanionContentRootsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "20bdddd5045fa924b83fad7f3aedc738864e5503"
+    },
+    "Tests/CompanionDomainTests/CompanionContentTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "428deb45c91faa7fd8d12754ee3ad487d4f1a12f"
+    },
+    "Tests/CompanionDomainTests/CompanionContextWindowTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b6364a65daabb3b5e75ba0a5e4b2048ee7af781d"
+    },
+    "Tests/CompanionDomainTests/CompanionDesktopQuestionsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2ffcd8d2cc533d76ab3b29f90a5dfa3b22297db5"
+    },
+    "Tests/CompanionDomainTests/CompanionDeviceNameTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ee8dcbc91393156e6be1450124a57066c49f14c2"
+    },
+    "Tests/CompanionDomainTests/CompanionDispatcherLaunchTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "03dca2cd63c7f09cf56fcd4a0ff6d80dca52af74"
+    },
+    "Tests/CompanionDomainTests/CompanionDispatcherPresenceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b61f8fd7361aa423c7ae98f1719d3965bc23685a"
+    },
+    "Tests/CompanionDomainTests/CompanionDispatcherReplyTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a7410cfc31c1664393365261974cbe6501373f0e"
+    },
+    "Tests/CompanionDomainTests/CompanionDispatcherSettingsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "094e255465ba6f9125d27729382ed9c1143f449e"
+    },
+    "Tests/CompanionDomainTests/CompanionDispatcherTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d86697e8ba8d53421da2fbde1a6499c3375fc850"
+    },
+    "Tests/CompanionDomainTests/CompanionDurableAgentTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "61daf69f748958823dec42ba3b2ee40308a2a717"
+    },
+    "Tests/CompanionDomainTests/CompanionFinishedSyncTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ba827a7ca86bca7815101db06b1485ced0b83eec"
+    },
+    "Tests/CompanionDomainTests/CompanionForegroundConnectionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e989cea39946fe1e8905e7c864fe7cb80451c8b3"
+    },
+    "Tests/CompanionDomainTests/CompanionFullEventDocumentTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f09732826d6ca7e013c8e663b6c6910a380b24b7"
+    },
+    "Tests/CompanionDomainTests/CompanionFullEventTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "abfcb52aac19904120e3d0153c2a75311e620dc8"
+    },
+    "Tests/CompanionDomainTests/CompanionGrantRequestTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0e881b764eafb245d6503046f99b215b7063bf46"
+    },
+    "Tests/CompanionDomainTests/CompanionHeaderOverflowTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "417d5b25c1e5bf4736d9b4db509a9fa0c8e5c5d7"
+    },
+    "Tests/CompanionDomainTests/CompanionHelperRequestTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "64324bacad75840ec28c230066bb0d39a5d2b4e4"
+    },
+    "Tests/CompanionDomainTests/CompanionHelperRoutingServiceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4591fadb48378f920ec84d8c36eef85dd4480d16"
+    },
+    "Tests/CompanionDomainTests/CompanionHelperRoutingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fb4b8e1dedfcc9ed6542df86119196a391554879"
+    },
+    "Tests/CompanionDomainTests/CompanionHomeAttentionProjectionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "84b28e204428f1399fcacc87326ee9fa88ded9ca"
+    },
+    "Tests/CompanionDomainTests/CompanionHomeLayoutTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "96f3382e0dbbc1b35931bd3f2d3631556be71147"
+    },
+    "Tests/CompanionDomainTests/CompanionHomeLinkedRowsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c6b4a65f17b1f0271f1a14eae5a77e0d32ab3a8e"
+    },
+    "Tests/CompanionDomainTests/CompanionHomeProjectActivityTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b5232e36c24211e73b6f9e1c5e3f843575315d71"
+    },
+    "Tests/CompanionDomainTests/CompanionHomeScopeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e743fee90fccd95a9b311794855a325d03b3e3b2"
+    },
+    "Tests/CompanionDomainTests/CompanionIconRefsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b36cb20dea67dfc30567c491b39d798febea0e6d"
+    },
+    "Tests/CompanionDomainTests/CompanionIconStoreTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "db9e8681676421134095778d70bf824709266a9e"
+    },
+    "Tests/CompanionDomainTests/CompanionIdentityRefreshTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "830e9f957052f5fb1d4cb5fe7524214b08d06231"
+    },
+    "Tests/CompanionDomainTests/CompanionLifecycleTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f5a44fa0d2d224fb52dd022326f917bff4d00a40"
+    },
+    "Tests/CompanionDomainTests/CompanionLinkedProjectTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c0e0e50978c911f23fe446b4bc13c636d58498c2"
+    },
+    "Tests/CompanionDomainTests/CompanionLiveServiceFailureTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4525467663ba6e9faae1a0bbb18ebfbc687b2d95"
+    },
+    "Tests/CompanionDomainTests/CompanionLiveServiceSyncTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "524c429557a43033f4e5a3647372e4eeacbb9724"
+    },
+    "Tests/CompanionDomainTests/CompanionLiveServiceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bf71d73d4772fc6188cd033fb7696e25eadf0191"
+    },
+    "Tests/CompanionDomainTests/CompanionLiveTerminalFailureTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6a088526760b792227485660df241c5bccb6d5d5"
+    },
+    "Tests/CompanionDomainTests/CompanionLocalLinkTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "01ca3740ed916d130c64753ea77463e3ab175478"
+    },
+    "Tests/CompanionDomainTests/CompanionLocalStorageTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3b1cbf1de4682dda13b1959af6d9a8504f648168"
+    },
+    "Tests/CompanionDomainTests/CompanionLongChatPerformanceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "72363c7e410ce670a5e4e323b2386b0c03c128cb"
+    },
+    "Tests/CompanionDomainTests/CompanionLongChatUpdateTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d460eb8ab476a8684f862f5b97626d18c456b2aa"
+    },
+    "Tests/CompanionDomainTests/CompanionMachineStateTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "607b02e16eef9dced59e54fc16ebd5bfbe1a5a54"
+    },
+    "Tests/CompanionDomainTests/CompanionMarkdownBlockPreviewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ec9f5e297477ae1e669a30da94aca2c906ea5955"
+    },
+    "Tests/CompanionDomainTests/CompanionMarkdownFilePreviewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "883f218fbf08bd188a433fbc3d7c4b7cbef4f730"
+    },
+    "Tests/CompanionDomainTests/CompanionMarkdownTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ba25718cad33ada2dbf2fb01b813d3516b4d1e7b"
+    },
+    "Tests/CompanionDomainTests/CompanionMessageRoutingTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1db9edb13a29125519dc8d584e93a3042e3e7705"
+    },
+    "Tests/CompanionDomainTests/CompanionMessageSlicesTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a7c4a8e65002de8ebb68ff71be2fc98e91061b79"
+    },
+    "Tests/CompanionDomainTests/CompanionModelsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9a8bc6db9ca95cc16218f86a1d54352cd98dbee6"
+    },
+    "Tests/CompanionDomainTests/CompanionNavigationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cff21f3bb2efc8815bc2c33383dcdfa3a2041526"
+    },
+    "Tests/CompanionDomainTests/CompanionOrchestrationTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b39cacfe90a40ea0355c0db8149a742d6a55175e"
+    },
+    "Tests/CompanionDomainTests/CompanionPastedImagesTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "09e88733c8ff365d7710ecea2e5ab6a21196bfb4"
+    },
+    "Tests/CompanionDomainTests/CompanionPlanLimitsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2333c5b4b019766d97526b5991a9b19f24105858"
+    },
+    "Tests/CompanionDomainTests/CompanionPreviewPinnedApprovalTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "11dc5dc45fa55dc942e8a2dc38a4e345e9ece724"
+    },
+    "Tests/CompanionDomainTests/CompanionProjectAgentSectionsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bac89fa48e368dc3583aaf70202fe8012f188c18"
+    },
+    "Tests/CompanionDomainTests/CompanionProjectInfoTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "026674ea3e124326d989b661f2effcfb7cb890c9"
+    },
+    "Tests/CompanionDomainTests/CompanionProjectPageTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "977f549125e1082de1e535f58b627606f1a3e0e6"
+    },
+    "Tests/CompanionDomainTests/CompanionProjectStateReceiptTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f6c381f40bb9e93e180bc804a1283feb6c212d0b"
+    },
+    "Tests/CompanionDomainTests/CompanionProjectStateSyncTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "672c358699bc2459928b0e5eb26033a4ae491270"
+    },
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5c608676bffc10c91ab686b4b7c3822acfd1f030"
+    },
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "649c95537dafe69d70ef2eff51a3874dd915fc66"
+    },
+    "Tests/CompanionDomainTests/CompanionProviderV2TransportTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ac5e4ce5529e88ca551191782f8c02b0a9935c13"
+    },
+    "Tests/CompanionDomainTests/CompanionQueueLifecycleTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9d9d155cb7569843113f1956845e7f929fd28c56"
+    },
+    "Tests/CompanionDomainTests/CompanionQueuedBurstTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8b36466796489ed226f6bfd14d73a2019fb2fb93"
+    },
+    "Tests/CompanionDomainTests/CompanionReadableChatTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "29199208c28d51fca709f988fffcb162fb932127"
+    },
+    "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6b5c01ff0bcc5a708eae078a63291b9c3bf81430"
+    },
+    "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "71ca6624f9c406bb3f3f458778d5970abeb8c408"
+    },
+    "Tests/CompanionDomainTests/CompanionReconnectPerformanceTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2a69686144e985ac9fd8c82698f8f48528f646a0"
+    },
+    "Tests/CompanionDomainTests/CompanionRecoveryStatusTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "908fbd4e8020dd644677d4da7795bd8061b0d9a7"
+    },
+    "Tests/CompanionDomainTests/CompanionRedesignTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9a2eeef4339afb038231fcca65f82aaca59b3ee3"
+    },
+    "Tests/CompanionDomainTests/CompanionResumePreemptionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "11177b4b7cdf76d38da77bfa785736f31185faa1"
+    },
+    "Tests/CompanionDomainTests/CompanionReviewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "77cc025de73f48a4f49994ec1a13133d1c766550"
+    },
+    "Tests/CompanionDomainTests/CompanionRoutedMessageTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f90a701eeec28b3e0dd32d02f20fb651d4e817ad"
+    },
+    "Tests/CompanionDomainTests/CompanionScreenshotFeedbackTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "76e5fd300450a8e1365ba8e0c3eb0d98322da223"
+    },
+    "Tests/CompanionDomainTests/CompanionSessionStartTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7aa2705169d1e693b8cbd9019841fe983a18a6fd"
+    },
+    "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e533bd15aa457c656da62d0dfcce2d815bf2f08b"
+    },
+    "Tests/CompanionDomainTests/CompanionSlashCommandsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ea3a06d2b9caec5674d3e28f414f25466ae18579"
+    },
+    "Tests/CompanionDomainTests/CompanionSleepTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cd7984ac9d6e5270eb94583d10e087ffa14e0cbd"
+    },
+    "Tests/CompanionDomainTests/CompanionSmallFixTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "01b6a6bba6895371ca8769050f80676d2a41918d"
+    },
+    "Tests/CompanionDomainTests/CompanionStateLifetimeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1d4bcb17447f57368cc9f780615518589d31eddb"
+    },
+    "Tests/CompanionDomainTests/CompanionStatusTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0a12b6894388079c71cd530fd1b8adf01db2845c"
+    },
+    "Tests/CompanionDomainTests/CompanionStoreFailureTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "89ea31d867c833cbec7da341036b2123e62ed801"
+    },
+    "Tests/CompanionDomainTests/CompanionStoreTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "340f9a435c3157abffcabb61ca106761793981b0"
+    },
+    "Tests/CompanionDomainTests/CompanionTerminalTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ed45a3a10974cc6f36117b76a1fc4c91a95ba4fe"
+    },
+    "Tests/CompanionDomainTests/CompanionThemeContrastTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6b4d67cf67bae4fc464314c331cfb94d65ae9d86"
+    },
+    "Tests/CompanionDomainTests/CompanionTimelineProjectionTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "960b359d3541c55326558ea15ef6d9b54026e6b2"
+    },
+    "Tests/CompanionDomainTests/DesktopRevisedSnapshotProposalTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f34f2a1b69c6b8ec1c49894d70581b02f02a6abd"
+    },
+    "Tests/CompanionDomainTests/DesktopSnapshotOrderingReviewTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "41148613103ce3c5b205da37468ab89b42cbcfa3"
+    },
+    "Tests/CompanionDomainTests/DesktopWireRecoveryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1d7335d28dae7fe4d92cd91bbc149b4f250d5da3"
+    },
+    "Tests/CompanionDomainTests/ScriptedAnnexTransport.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ea92ee962efead53473d73941d2d48e2f8b04d0c"
+    },
+    "Tests/CompanionDomainTests/StreamDiagnosticsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "922e5028c6e2d66c4bf1f553c50db8b0e8a27d79"
+    },
+    "Tests/Compatibility/Build147SnapshotShapeTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "13a7b5ea9bb0dfdc4bd8613c670fa461323df6bd"
+    },
+    "Tests/Compatibility/Build147TransportAuditTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7dc8387ba626ad85f0a50950bbe0056f2376f898"
+    },
+    "Tests/Compatibility/websocket_close_peer.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "05963ebca100cee6f13b3a8fb779953fdd091a96"
+    },
+    "Tests/Fixtures/AnnexContract/SOURCE.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f3cc0c0557d2ffba24db9a9d4144b0cbf901721d"
+    },
+    "Tests/Fixtures/AnnexContract/agent-address.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "db11ea450050a2ea0bf2c86d3f1299cdbb2478e8"
+    },
+    "Tests/Fixtures/AnnexContract/agent-settings-context-window.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b408f2d4581821b7a6cb685a48f7320add6331ac"
+    },
+    "Tests/Fixtures/AnnexContract/agent-settings-dispatcher.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "62d1d9a5478fa7b9405edfdf17bb6646820aeadb"
+    },
+    "Tests/Fixtures/AnnexContract/agent-settings-errors.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d4b4fef693cc0295c30720a9d2aed937686374c7"
+    },
+    "Tests/Fixtures/AnnexContract/agent-settings-helper.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "89c1e74415438d3552b256cb12935a2305d2c26d"
+    },
+    "Tests/Fixtures/AnnexContract/agent-settings-running.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3bca08128613a48c82cb4e34dfbe738becd803c2"
+    },
+    "Tests/Fixtures/AnnexContract/agent-settings.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b2bbf29a613c6b9703bab9ac2875aff2f0b7601a"
+    },
+    "Tests/Fixtures/AnnexContract/agent-sleep.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7617eeb69a4ef3c965ef04528746886017539f52"
+    },
+    "Tests/Fixtures/AnnexContract/agent-state.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2f4992f63ff30468beb7265743ea50a3846665ea"
+    },
+    "Tests/Fixtures/AnnexContract/app-update-check-events.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c675d94864fefb51b9f089914539410ab21019c9"
+    },
+    "Tests/Fixtures/AnnexContract/app-update-events.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8ac1dad7f49748636830e83a3514ab3287b63f7f"
+    },
+    "Tests/Fixtures/AnnexContract/app-update-statuses.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ecc22fccbbe441a2597a7cb2b69920674f8f4483"
+    },
+    "Tests/Fixtures/AnnexContract/attachments.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bf85bb9c8d1096adc252b46d4b90bdaa92586fd1"
+    },
+    "Tests/Fixtures/AnnexContract/canvas-route.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a093a7c0cb63191d41c67a6d80991295ef9dff9a"
+    },
+    "Tests/Fixtures/AnnexContract/capabilities.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6fb608b9eba38f42e7fdb5b697b377bd0bb4b9e9"
+    },
+    "Tests/Fixtures/AnnexContract/chat-event-tool-call-preview.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a2ec51d9e9eb95a44d82cd3c37cdf1ba68c7eb85"
+    },
+    "Tests/Fixtures/AnnexContract/chat-event-tool-output-preview.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b75b7f14e35f1a73b744404755b7fc4a6a246695"
+    },
+    "Tests/Fixtures/AnnexContract/chat-events.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a054ac3e3f309bd6f1e5ea4db98a591a5d7fc2e4"
+    },
+    "Tests/Fixtures/AnnexContract/chat-full-event.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5a05567435dbab81a19fcfbf002ca094bd39b21b"
+    },
+    "Tests/Fixtures/AnnexContract/chat-links.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7b06dd637a5d1f9e8d483adf6d98e17b12572d7f"
+    },
+    "Tests/Fixtures/AnnexContract/chat-page.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "081a29da2bfcb00c642cafe186ff27c65b81d2c5"
+    },
+    "Tests/Fixtures/AnnexContract/chat-pages.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "21ba5ee91adf9f9e05ba5825b4d230c902eadf18"
+    },
+    "Tests/Fixtures/AnnexContract/chat-permission-incomplete.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4062a3c749d4b093128db61ba44e948f94b8ee4b"
+    },
+    "Tests/Fixtures/AnnexContract/chat-sessions.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a36ebeafc80a10303be0a89e7722d43193c2b0e"
+    },
+    "Tests/Fixtures/AnnexContract/chat-snapshot-errors.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "103ce598e34c64957b8a41f1c00ce961998a6a13"
+    },
+    "Tests/Fixtures/AnnexContract/chat-snapshot-sleeping.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7b5863fc524acde16b346eb0386cf5edfda6d4b6"
+    },
+    "Tests/Fixtures/AnnexContract/chat-snapshot.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1c8442300d3fcdad162cecec72a30b4605658e37"
+    },
+    "Tests/Fixtures/AnnexContract/chat-start-model.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7bb9bfcc3821b368214f137650b8fde663d6d002"
+    },
+    "Tests/Fixtures/AnnexContract/command-too-large.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2f44f6c29f4eb3e8d1b22f2b3344516fbd2719be"
+    },
+    "Tests/Fixtures/AnnexContract/commands/_common.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "43bb0829992f45c6020d65f8e4c7a76972b24d18"
+    },
+    "Tests/Fixtures/AnnexContract/commands/_fields.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b1d73b241a37d2575068faa9d6550e3cc3c1a3fd"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.create.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a11f7c1abf1d0c3bca7ee7eae7862295304f397e"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.providerChange.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a214bfd1c02091e2ae459fcfad071a77f0c19215"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.providerPreview.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "64e1ec253b12e357c3e25bd74ea0ced8614ed557"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.spawn.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d29042da1e81a4483a22ee7b8868e8970a391763"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.start.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "28e42b87f86d5ff8a04b90dcc96a85e295c93b50"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.stop.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "eb23c24e0a493f351fbdf3922464b017b9192256"
+    },
+    "Tests/Fixtures/AnnexContract/commands/agent.update.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b39b8c9ccedbc8296f0a88ed8cad4d21570f4bdd"
+    },
+    "Tests/Fixtures/AnnexContract/commands/app.update.cancel.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9788020f682d23d5db1e52dae743c71b30ca8586"
+    },
+    "Tests/Fixtures/AnnexContract/commands/app.update.check.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e6d92ab0821cf5c9c2d1b2d2645dfbcaf662cdfc"
+    },
+    "Tests/Fixtures/AnnexContract/commands/app.update.request.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8d6f2d28f7b437b37a60c510f36e1cb1371b8c11"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.interrupt.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d8c490dcb037215ee496c5042a39c27ec55d13a6"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.permission.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "829fbe2209aa6da205518eb7a6ea075207faf3cc"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.question.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d81ab8822b5abf39c8316370d55e4d92a43eacdc"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.queue.remove.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5f8e95434a720d34c819f4f407803a82508b4469"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.send.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "607bb0e8eb56ee3ac62137e7ca13242c2219b77d"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.setLevel.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a07bd9eb0d2c2bf1ba0dcd69ce8f820e69db1682"
+    },
+    "Tests/Fixtures/AnnexContract/commands/chat.setModel.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f6a2ff80b67585454d2ae87bd9693012a66aaa10"
+    },
+    "Tests/Fixtures/AnnexContract/commands/dispatcher.clearChat.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "094d1a28e051abccf87f2883350496d42d57001d"
+    },
+    "Tests/Fixtures/AnnexContract/commands/dispatcher.forgetEverything.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "210f3cfe7b44a8c7b5f9e8c9a214b4b98fd0c5ad"
+    },
+    "Tests/Fixtures/AnnexContract/commands/dispatcher.setEnabled.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b88a5cdefeb347323cf114bf1bd3330de053962f"
+    },
+    "Tests/Fixtures/AnnexContract/commands/dispatcher.setModels.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "00cdb808890dcb27ab577574b3d3ed69358e3207"
+    },
+    "Tests/Fixtures/AnnexContract/commands/dispatcher.update.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "60042da4c68bf9497353e7f087c42dcb80de50f8"
+    },
+    "Tests/Fixtures/AnnexContract/commands/grant.answer.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8803de41af0e89d2d15dca228afa5648cb9ded40"
+    },
+    "Tests/Fixtures/AnnexContract/commands/helper.approve.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d3723fe4602b8f314d2b79fd4c181a1875834de0"
+    },
+    "Tests/Fixtures/AnnexContract/commands/helper.decline.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e2b4767137375c203d119bae061bc1651be7f49c"
+    },
+    "Tests/Fixtures/AnnexContract/commands/helperRouting.update.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8597676d6406cd7fd62427f84a2fbc0906474648"
+    },
+    "Tests/Fixtures/AnnexContract/commands/project.setInactive.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6fdd155d8db3a8279740721375c412eadd0de9ef"
+    },
+    "Tests/Fixtures/AnnexContract/commands/project.setPinned.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c28187e11bbd16865c515d073828a62af1e070e6"
+    },
+    "Tests/Fixtures/AnnexContract/commands/quick.clear.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cd27689ed58d2e6d429b5963cfdc98e4692f7f73"
+    },
+    "Tests/Fixtures/AnnexContract/commands/quick.dismiss.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "64684d822febf0cf950efc9b711021da27d9e2ea"
+    },
+    "Tests/Fixtures/AnnexContract/create-options-errors.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "24d87578118343a8cd35bd014d2f80ef602fb886"
+    },
+    "Tests/Fixtures/AnnexContract/create-options.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "19c822a369916022423d0c513def12ee88948945"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-changed.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "77174e1417fc8e8e258417efac803c4814564204"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-group-chat.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8c2934b895f9f0311f85ac9720dabac61f8f9589"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-off-routes.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "eaf1ca51376ccb1d9d68c8c6c6c5c5061e049251"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-off-states.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e53b799d96a9e21e9863287cd0f01fdca2629e9a"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-requests.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "70dfd37ce43635a00e576e1a30fc47ba6cb57f8e"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-routes.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a7f679efb8ab7812c4514eee1f4b0f0def5a4620"
+    },
+    "Tests/Fixtures/AnnexContract/dispatcher-settings.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d92136e15d4776131645ccbed4910f6cfb7659c7"
+    },
+    "Tests/Fixtures/AnnexContract/frames-over-limit.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "540960b7521b590be48c885711ec9993ba4b33dc"
+    },
+    "Tests/Fixtures/AnnexContract/grant-request-events.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7c4e001a80da6cb908fd4e051c5ca987dcc38b91"
+    },
+    "Tests/Fixtures/AnnexContract/helper-routing-auto.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d17d031d44b355fe9f3958c77febc5aa854b5394"
+    },
+    "Tests/Fixtures/AnnexContract/helper-routing-changed.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "95a0a467cee7dc1b22932b271bb1b69f7aab9f4e"
+    },
+    "Tests/Fixtures/AnnexContract/helper-routing-helper.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7e067dbda6c3da0bdcb092541404507aee35acbd"
+    },
+    "Tests/Fixtures/AnnexContract/helper-routing-quota.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "67421b8334475759157efb8d792c4e5761d14c6c"
+    },
+    "Tests/Fixtures/AnnexContract/helper-routing.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f43adc567dd11fb9761f4e15f91cda21fb9e0412"
+    },
+    "Tests/Fixtures/AnnexContract/icon-images.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a3e38ef5dc2a4d165b2f790dd22f27021a59590"
+    },
+    "Tests/Fixtures/AnnexContract/icon-refs-cases.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ca57c2f2b9909c27d2c320302f0823da2555d8f0"
+    },
+    "Tests/Fixtures/AnnexContract/icon-route.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bfa61b45b4c613ca227c3aec2c4d669f5799846f"
+    },
+    "Tests/Fixtures/AnnexContract/index.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "57c33d27dd0a87f1fb10a8fe1dfa19da5e917d8d"
+    },
+    "Tests/Fixtures/AnnexContract/linked-project-state.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9a1c4e21a3e8cf2e89a118207f793eec3fe76129"
+    },
+    "Tests/Fixtures/AnnexContract/network-changed.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "26effb7f9d1c39b815e2ad8eaf1e952409bec001"
+    },
+    "Tests/Fixtures/AnnexContract/network-list.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fa17d4a61c157b9eaaf839cc25ff81977ec841b0"
+    },
+    "Tests/Fixtures/AnnexContract/network-members.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "12ffb8611f36513143892dcea2c00a933bc224ed"
+    },
+    "Tests/Fixtures/AnnexContract/network-pairing.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "78be32883ade62c794494b4165a71cd13c906134"
+    },
+    "Tests/Fixtures/AnnexContract/pairing-revoke.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "376024ae76ca3b80e0ffa3fadf722ca2a1d173ec"
+    },
+    "Tests/Fixtures/AnnexContract/pairing.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0cddfa9d95e0acb3e5e1969429d550d20c65f3fd"
+    },
+    "Tests/Fixtures/AnnexContract/project-links.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e0488eb20d0995079b5eb29d0394091e95038a0e"
+    },
+    "Tests/Fixtures/AnnexContract/pty.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "960aee0c214044d5955ec5e0747daba2c6a30b46"
+    },
+    "Tests/Fixtures/AnnexContract/queued-bursts.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7cac47ee0e0958c8825a9c21e540c858f547bf61"
+    },
+    "Tests/Fixtures/AnnexContract/replay.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "352e01b0f5513e694298e1b820f182bc3591c3ff"
+    },
+    "Tests/Fixtures/AnnexContract/rest-catalog.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "04d66d1491cd40af7ee114105529a579472cfd1d"
+    },
+    "Tests/Fixtures/AnnexContract/sender-identity.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "75d0634a55bbbdc54c718df0ab67aa9439201cf1"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-app-update-approval.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0daa92cc471212650ee8a113ae2b04a7f4ea3050"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-dispatcher.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e57779c36ec8355262f4d6e57dcf27afff3862c9"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-grant-requests.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2b1fd0d4378ac6a766ccc3d8206093e1b7dd58a2"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-helper-requests.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "82845fc7a50bc6b376bb6045691a6eeee5f7e02e"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-icon-refs-changed.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0f27d819828076b9911d9625b020b32945470c5c"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-icon-refs.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "be4153be86786b3ff6843d8facb28dc60b00dd88"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot-truncated.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f1d9d1c2cf068efcf8b4a187d3f9fb52d571241b"
+    },
+    "Tests/Fixtures/AnnexContract/snapshot.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8ac6264e39f48c835e6a345668072db6b316c1a9"
+    },
+    "Tests/Fixtures/AnnexContractLegacy/SOURCE.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "be881f08ffd49e0a1f101c854f991f6a50f04ac8"
+    },
+    "Tests/Fixtures/AnnexContractLegacy/agent-settings-mcp-off.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "75c083897a4043437ce06f4957d9347fd1a1c9fb"
+    },
+    "Tests/Fixtures/AnnexContractLegacy/commands/agent.update.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d06278a1121beb07d9907aaf74e62b23cd9c81df"
+    },
+    "Tests/Fixtures/AnnexContractLegacy/dispatcher-off-routes.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d0f31e0ada7e043eda5e76fedb7bba16ec40d085"
+    },
+    "Tests/Fixtures/AnnexContractLegacy/dispatcher-off-states.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8b00fccea52b972b77cb2aa4a6700c7b6d7e8a74"
+    },
+    "Tests/Fixtures/AnnexContractLegacy/snapshot-dispatcher-mcp-off-running.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2b53fce1865e2ddbe6db7f18ca6b8822ee315f5c"
+    },
+    "Tests/Fixtures/DesktopThemes/README.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "41877186de63efea030f22c562dbeab74a9a5810"
+    },
+    "Tests/Fixtures/DesktopThemes/builtin-palettes.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1b8af5ddf4eac2f46b7a52f08c4266aa6137333c"
+    },
+    "Tests/Fixtures/IconRefs/SOURCE.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "09a305d829bd1e9a0bea1be71e88ea42b2f29d45"
+    },
+    "Tests/Fixtures/IconRefs/capabilities.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2bbc5416fb5cd383c734cf3bbd581b06c1c0dd27"
+    },
+    "Tests/Fixtures/IconRefs/icon-images.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a3e38ef5dc2a4d165b2f790dd22f27021a59590"
+    },
+    "Tests/Fixtures/IconRefs/icon-refs-cases.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "ca57c2f2b9909c27d2c320302f0823da2555d8f0"
+    },
+    "Tests/Fixtures/IconRefs/icon-route.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "bfa61b45b4c613ca227c3aec2c4d669f5799846f"
+    },
+    "Tests/Fixtures/IconRefs/snapshot-icon-refs-changed.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0f27d819828076b9911d9625b020b32945470c5c"
+    },
+    "Tests/Fixtures/IconRefs/snapshot-icon-refs.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "be4153be86786b3ff6843d8facb28dc60b00dd88"
+    },
+    "Vendor/Framebriar/.gitignore": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2d9f16e2d276179d73c91ec2022a23834caec180"
+    },
+    "Vendor/Framebriar/Harness/App/HarnessApp.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5b11369381b846c7f2ad7a35aaec940b7ef50e54"
+    },
+    "Vendor/Framebriar/Harness/FramebriarHarness.xcodeproj/project.pbxproj": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9045efbcecee9836d2037f035bf160a891ff90e4"
+    },
+    "Vendor/Framebriar/Harness/FramebriarHarness.xcodeproj/xcshareddata/xcschemes/FramebriarHarness.xcscheme": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a0f83bd6a8937c8a53ab13ee6c88be3515d60cee"
+    },
+    "Vendor/Framebriar/Harness/README.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0ffbf6e96da00921d09269b6da71e093d35dc5b6"
+    },
+    "Vendor/Framebriar/Harness/UITests/ComposerUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e56644cc86ab4a32f9152d4c3d5d970ee3ff87f9"
+    },
+    "Vendor/Framebriar/Harness/UITests/ScreenshotEditorUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "33549c52bfa74d6cd0ce6bdea062cd4f91c75623"
+    },
+    "Vendor/Framebriar/Harness/UITests/ShakeUITests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "10193bf41caf203795c1acb3d9d31c4c50477663"
+    },
+    "Vendor/Framebriar/Harness/UnitTests/ShakeHookTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3af99ef1efa01f285f4be43acaa9e165b8daa8f0"
+    },
+    "Vendor/Framebriar/Package.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "49250fd2e4d814603fdabf31beabb680dc843c59"
+    },
+    "Vendor/Framebriar/README.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "368690665047fbd75aa71a4584fc32320da25a3d"
+    },
+    "Vendor/Framebriar/SOURCE.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "05df7846f4a51a8747cdbcbfd7e3b0bda10dbeab"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Client.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c8cc80f855fe1b243673c0024b442ae025264b86"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Diagnostics.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3a44c838ec77f9a86f01f9e461f5e42c5a48163b"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Incident.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2b89d8783f29082d693510569b8198c9c8e9ab2f"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/MetricKitDiagnostics.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3407a05e9e9a146a6b121a1835ff6699c70c1935"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Models.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d2ed121c7a0e95b471baabc1398a4390b68a5016"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Session.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9c0ae75c7985517d75505e56e6b44cab4e27e731"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Storage.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "09c48a71627f77cba0aa8bb1993e595bd955696a"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Telemetry.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "88afaac0c73db233a42bce5df0d041827cdbaa32"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/TelemetryValues.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8593db39654e577f2b535c4db4a0a5e95cfc9fce"
+    },
+    "Vendor/Framebriar/Sources/Framebriar/Transport.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b84c48746380ebfbab836a93ec7eed8c07cbcca0"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/FeedbackDisclosure.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "41f51c385d79d7ab392da72fabf530e3c62dfe79"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/FeedbackModel.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "4588907af595f99a600739f6bf48453f68ab5342"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/FeedbackScreenshotEditor.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "266b97776fcdade70c63d08f2b21b3b73fa59835"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/FeedbackView.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3370f3ee191193d78cf32018b7d9f205a19337ab"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/ScreenshotAttachment.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "03f068d72bd52470b690882d946f0175aa8f4e39"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/ScreenshotFlattener.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c28534d31503b5bdda5305592ace327d5ff51a5d"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/ShakeFeedback.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f62f5ac3578cd381a1a4ffad962a65527719d7a1"
+    },
+    "Vendor/Framebriar/Sources/FramebriarUI/ShakeScreenshot.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fffebaefc0acd672ed0a3ddd7d0ae44c21fd4d02"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/ClientTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "711b7f0faf133d47d25f511df8198e6495cd9fd5"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/ComposerTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "355ac44845ae147b134b99ac0dbe51f408e072a2"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/DiagnosticsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "24f9bd12df71310a5624042f2f403943ffa99ce8"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/EnrollmentLengthTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3d0517b20ef759022ae29fbf4ff90f5668b4f7e7"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/held-reports-v1.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8083353e76165ac56037d7d9b2a6c11d70053554"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/incident-report-v1.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c3e82cb63fdec48db2e56ccf86804cce683d9c87"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/otlp-logs.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fa8d928ce333c286a0d6de47e9eed5b572ee2852"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/otlp-metrics.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "187b4b7ea504cc9a56c697a9b6f50e114f16bc08"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/otlp-traces.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "16f7c61de927ec1609babc7ab9af2bff4cbccb46"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/report-diagnostics-v1.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b9461d30863a59e7f5f4f2d12aef127e3a1156d5"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/Fixtures/text-report.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0c338019b9b5dfbaf0da65a5c1065b3bc8f16f60"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/HeldReportsTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "26a8382f9567c47a9136ee8bce31aaa75dfbce91"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/IncidentTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "22cae2dc933d2c9c409ae23bc6cc7e05eca485ef"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/ScreenshotEditorTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "55fcfa341f41bed071facaf5eb133c96a70c92e8"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/ScreenshotRetryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fd010cd4db46e81f56bc98ff0a1a93359cf8d6b8"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/ShakeFeedbackTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "37e815fafe9721d977b3b05dbde1008ce097d669"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/ShakeScreenshotTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9c9191aff8f2d42d3effaaa938375c51311e3d87"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/TelemetryInstanceCountTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3ff3d42a98bc6a87800be7ac1092dd0bf335116f"
+    },
+    "Vendor/Framebriar/Tests/FramebriarTests/TelemetryTests.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "fddb8902910400042749e0c9dbb4d38abc3a5d17"
+    },
+    "coverage-baseline.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "87f92bf21311d2695f588c36b40cf2cafb725a2a"
+    },
+    "docs/agent-avatar-identity.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c25164e5800f1e8fabda32fdf4158c11c1e50006"
+    },
+    "docs/annex-trace-context.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e525d69ea27767953e145e4dd1dd14f64d1fe820"
+    },
+    "docs/chat-reading.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "40c73f42025fc4afd70aad00fb0f654c3f1a0e15"
+    },
+    "docs/ci-shard-balance.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "15d0dc024da8d09f159e08226124ad26ffd59fc8"
+    },
+    "docs/compact-chat.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1c54e40204b531c67d9387bf772d9877f4d09f03"
+    },
+    "docs/content187-plan.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "73ebf2169d3ac510bd75654b3eda40a2fb0e57f6"
+    },
+    "docs/contracts/provider-control-v2-c4cdbacc.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "16a7bbbb9ecb6ec68eed2fe0f6942438df33b083"
+    },
+    "docs/desktop-chips-integration.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f040b461158044edbc91870c5e743e046d95a13c"
+    },
+    "docs/feedback-incident-v1.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "7a17e2375753d9b84a7e8eae88c9c1af8e8b846a"
+    },
+    "docs/home-linked-combined-rows.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1cf34acaa3bb6476036500865003e66f3c2f7c31"
+    },
+    "docs/home-visible-observation.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e270cfca5b440eb962d559873dec3d7d8946ff23"
+    },
+    "docs/home-visible-session.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d79b60ad60f8686c9696779cfe8e033b187999ce"
+    },
+    "docs/icon-store.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d039834bfa9f911ed739f91264c3c9ba4f07c613"
+    },
+    "docs/isolated-deinit.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5f1fc4aa6db0f0c72d04615938f00ead4c6ede14"
+    },
+    "docs/native-companion.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3e7ca2be1afc8f8b3bcfaf594257b543fcb6e628"
+    },
+    "docs/opentelemetry.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "0f8210022906665886ab1b072e89638508a6f575"
+    },
+    "docs/project-info-data.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2078488d7e18cb3eacda40697b52f8271d6cccb7"
+    },
+    "docs/project-page-actions.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "5094f27c0f3cb57e0c86e2fe0ea047a45417e154"
+    },
+    "docs/provider-apply-610-proof.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c0ba800fa391d7c9e75eea53133c47fd7dd95f27"
+    },
+    "docs/provider-apply-610.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "52078c6fb25124ebbc08b607ce156014d6bb5e98"
+    },
+    "docs/provider-v2-610.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "951695196a026ad2f2d6d6c40d46493945b967c9"
+    },
+    "docs/quiet-fold-retained-integration.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "28d73faa73ca40445f9819cfa2ad2d698e59e562"
+    },
+    "docs/reading-first-paint-extraction.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "428746720052812d133b8de0a7cf858f7f26f061"
+    },
+    "docs/reading-first-paint-plan.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "cecfaf28a9ad25c5d7af275d49abf68404bed705"
+    },
+    "docs/reading-prefix-trim-characterization.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "a3b53ee626bef0bf7f9ada1a54c6efafc20d4939"
+    },
+    "docs/release-notes-next.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1a3e40c54616f0c385b846a4dde7f07ffce2b8c4"
+    },
+    "docs/removed-legacy-features.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "22fe038d7c537f162894bbe1825b929b7514eb3b"
+    },
+    "docs/telemetry-ui-integration.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e54e91ff8b0bd576d19c7d061f4989d6f3e9a35a"
+    },
+    "docs/testflight.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "869b4aacc9042fa10dd38be5de8047b18911e40b"
+    },
+    "docs/testing.md": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b94562de9c406dbbdf1eb2e5f0e8e8eadd12f956"
+    },
+    "scripts/check-isolated-deinits.py": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "de2e22ab793a05451c485a59b62c90eedb3e5a94"
+    },
+    "scripts/ci/changes.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "d5c0fe9f13b38b7bed5a95a2a0fd2b05c98b3c12"
+    },
+    "scripts/ci/check_icon_hold_execution.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "1252a4fbe7cb53c5aecd9f737e4539e4a7320d2c"
+    },
+    "scripts/ci/run_icon_hold_probe.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "9530fe714c8d0e57d565c2c4f64acbd4da61c199"
+    },
+    "scripts/ci/tests/test_ci_scripts.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6a33f2fc9808d200f52cf039520f738c58fe34ac"
+    },
+    "scripts/ci/tests/test_deinit_probe.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "05d465ab70374ce0006ab81b6506a81e1bab271e"
+    },
+    "scripts/ci/tests/test_icon_hold_execution.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "532c04ced948288cbd3038c2fb158653b42c019a"
+    },
+    "scripts/ci/tests/test_ui_coverage.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f0ea61ca7716e18613a6cff81ed70c74eb76ea8d"
+    },
+    "scripts/ci/ui_shards.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "424d41ff658d98623fe72bc7effd8213fdda7242"
+    },
+    "scripts/ci/wait_simulator.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2a090ec0e724bc1acd6afa98789fb73683f419dd"
+    },
+    "scripts/coverage.sh": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "7a1ffc7816c2e5f97cec27e0f04c3274fa6d1f0c"
+    },
+    "scripts/deinit/tests/test_surfaces.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "2946891d025f41d2d5a4b11b065a041f495f433c"
+    },
+    "scripts/deinit_surface.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "78f3b6a6660bf4bd030d3aa7968786912ed7f772"
+    },
+    "scripts/e2e-live.sh": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "2828630763b2e7e0016cf85aecb6b97d782cb115"
+    },
+    "scripts/e2e-live/desktop-fixture.spec.ts": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8cbad9e1822f0faa22343277e80448e4375ccffb"
+    },
+    "scripts/e2e-live/generate-icon-fixtures.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f7558bde396e13aa31298b47c9e0c11c6e79b471"
+    },
+    "scripts/e2e-live/icon-fixture.ts": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "32fa6369ba0547b4eeb18a76cfc6f299b70e9384"
+    },
+    "scripts/e2e-live/live-icon-images.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3d0f47ab9dd0710145d7bf61ab0037123f771496"
+    },
+    "scripts/e2e-live/pairing-fixture.test.ts": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "3081bfa39c780c99e4755a7a7e9325c499e8616d"
+    },
+    "scripts/e2e-live/pairing-fixture.ts": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "e7b3c294f2d987e56a4d709c98d62d8ebdea7a83"
+    },
+    "scripts/e2e-live/redact-logs.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "afab31ba8ad911e002acbc6492a5e92c41ec8c78"
+    },
+    "scripts/e2e-live/test_launch_pairing.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "f6a479bde9233a15546a849e9bcf3fa28739a4de"
+    },
+    "scripts/e2e-live/test_redact_logs.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c8eeadabd8d44f25527841c13990d74738479f3b"
+    },
+    "scripts/e2e-live/test_replace_text.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "c72fb521b532b566c0e477257d03542e63a1e6f1"
+    },
+    "scripts/e2e-live/test_retry_policy.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "df66ab7e144e06d046a3aa6f2439ac8c58d4f401"
+    },
+    "scripts/fixtures/typing-profile.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "80475ec51aaf2414851fa880a920b9ab4ab58c2f"
+    },
+    "scripts/isolated-deinit-policy.json": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "8f7857fc9aceabfa7aa8c8e7ac3c2ade6a486373"
+    },
+    "scripts/isolated-deinit-runtime-probe.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "84d1215ac93b7364e435d5fd2f11d844dad4868e"
+    },
+    "scripts/isolated-deinit-surface.swift": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "70f0ff5820d29c809b834bbcf4a1eff758e0a23c"
+    },
+    "scripts/observe-isolated-deinit-runtime.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "b337191d7a28774243dabc5bcce45d6da500b3d5"
+    },
+    "scripts/prepare-typing-profile.py": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "d87316221a85b829fe0b75ff4ba0b7628d3a2c26"
+    },
+    "scripts/probe-isolated-deinit-runtime.sh": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "89980b47c203a9d5ae665c38a1b22deaabd52e90"
+    },
+    "scripts/sync-annex-fixtures.sh": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "a2add623e360c008fd207e07b901c5efa62bfbeb"
+    },
+    "scripts/testflight.sh": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "5a8150f33bcdac3e9dd2e5d0b86aa5061ceb00b7"
+    },
+    "scripts/verify-framebriar-vendor.sh": {
+      "mode": "100755",
+      "type": "blob",
+      "blob": "f16bca2f072e112a2e5f950daf6ed01eb7c32597"
+    },
+    "scripts/verify-xcresult.py": {
+      "mode": "100644",
+      "type": "blob",
+      "blob": "6c79c54bf3d80e80d40fad2d1efdb3da10597146"
+    }
+  }
+}
