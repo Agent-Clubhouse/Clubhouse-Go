@@ -5,11 +5,16 @@ import Testing
 
 @MainActor private final class ContentService: CompanionService {
     var fetched: [CompanionContentReference] = []
+    var resolved: [String] = []
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { .init(items: []) }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
         fetched.append(reference)
         return .init(kind: "text", name: "a.swift", text: "let a = 1")
+    }
+    func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        resolved.append(href)
+        return .file(path: "a.swift", name: "a.swift", kind: "text", size: nil)
     }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { .init(clientCommandID: request.clientCommandID) }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {}
@@ -83,12 +88,12 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 
 @Suite @MainActor struct CompanionContentStoreTests {
     private let target = CompanionTarget(hostID: "studio", projectID: "p", agentID: "a")
-    private func store(rich: Bool, connection: CompanionConnection = .connected) -> (CompanionStore, ContentService) {
+    private func store(rich: Bool, connection: CompanionConnection = .connected, canResolveLinks: Bool = false) -> (CompanionStore, ContentService) {
         let service = ContentService()
         let store = CompanionStore(service: service)
         store.apply(.hosts([.init(id: "studio", name: "Studio Mac", endpoint: "studio.local", connection: connection, projects: [
             .init(id: "p", name: "P", agents: [.init(id: target, name: "A", subtitle: "", status: .working)])
-        ], richContentAvailable: rich)]))
+        ], richContentAvailable: rich, canResolveLinks: canResolveLinks)]))
         return (store, service)
     }
     private func message(_ body: () async throws -> Void) async -> String? {
@@ -112,6 +117,18 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
         let error = await message { _ = try await store.content(.file("/tmp/apple-shot/apple.png"), target: target) }
         #expect(error?.contains("This conversation can't preview that file") == true)
         #expect(service.fetched.isEmpty)
+    }
+
+    @Test func deniedLocalLinksExplainTheRefusalWithoutResolvingOrReading() async {
+        for rich in [false, true] {
+            let (store, service) = store(rich: rich, canResolveLinks: true)
+            let roots = CompanionContentRoots(anyPath: !rich)
+            let error = await message {
+                _ = try await store.content(.link("/outside-secret.md"), target: target, contentRoots: roots)
+            }
+            #expect(error?.contains(rich ? "This conversation can't preview that file" : "Rich chat content is off on Studio Mac") == true)
+            #expect(service.resolved.isEmpty && service.fetched.isEmpty)
+        }
     }
 
     @Test func offlineAsksToReconnect() async {
