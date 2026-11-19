@@ -1,0 +1,7 @@
+[
+  "CompanionPreviewSmokeTests/testProviderV2ApplyAndStartStaySeparate()",
+  "CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable()",
+  "CompanionPreviewSmokeTests/testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead()",
+  "CompanionPreviewSmokeTests/testProviderV2LostStartNeverRequestsAnotherStart()",
+  "CompanionPreviewSmokeTests/testProviderV2ApplyDoesNotImplyStartCapability()"
+]
