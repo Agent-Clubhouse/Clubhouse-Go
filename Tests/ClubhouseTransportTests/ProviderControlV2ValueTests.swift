@@ -222,4 +222,22 @@ import Testing
         let ambiguous = try replace(raw, key: "evidence", with: .string("future_unknown")).decode(AnnexProviderStartReceiptV2.Creation.self)
         #expect(ambiguous.state == .unknown && !ambiguous.wasObserved)
     }
+
+    @Test func explicitNullConfigurationCannotBecomeVerifiedOrAuthorizeStart() throws {
+        let fixture = try fixture()
+        for name in ["catalogStale", "stale", "unsupportedStart"] {
+            let item = try at(fixture, name), raw = try #require(item["body"]?["contract"])
+            let value = try raw.decode(AnnexProviderStartReceiptV2.self)
+            let expected = try #require(item["request"]?["expectedNextWake"]).decode(AnnexProviderNextWakeV2.self)
+            #expect(value.configured == nil && !value.hasVerifiedConfiguration)
+            #expect(!value.matches(agent: value.target.agentId, command: value.target.commandId, epoch: value.target.hostEpoch, expected: expected))
+            #expect(value.start.state == .notObserved && value.result.configuration == "not_verified")
+            #expect(throws: (any Error).self) { try replace(raw, key: "configured", with: nil).decode(AnnexProviderStartReceiptV2.self) }
+            #expect(throws: (any Error).self) { try replace(raw, key: "configured", with: .object([:])).decode(AnnexProviderStartReceiptV2.self) }
+        }
+        for path in ["started/body/result/contract", "failedAfterCreation/body/contract", "refusedBeforeCreation/body/contract"] {
+            let raw = try at(fixture, path)
+            #expect(throws: (any Error).self) { try replace(raw, key: "configured", with: .null).decode(AnnexProviderStartReceiptV2.self) }
+        }
+    }
 }

@@ -361,13 +361,36 @@ nonisolated public struct AnnexProviderStartReceiptV2: Decodable, Sendable, Equa
     }
     public let version: Int
     public let target: Target
-    public let configured: AnnexProviderNextWakeV2
+    public let configured: AnnexProviderNextWakeV2?
     public let result: Result
     public let start: Creation
     public let running: Running
+    private enum CodingKeys: String, CodingKey { case version, target, configured, result, start, running }
+    public init(from decoder: Decoder) throws {
+        try providerV2Keys(decoder, allowed: ["version", "target", "configured", "result", "start", "running"],
+                           required: ["version", "target", "configured", "result", "start", "running"])
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        target = try c.decode(Target.self, forKey: .target)
+        configured = try c.decodeIfPresent(AnnexProviderNextWakeV2.self, forKey: .configured)
+        result = try c.decode(Result.self, forKey: .result)
+        start = try c.decode(Creation.self, forKey: .start)
+        running = try c.decode(Running.self, forKey: .running)
+        if configured == nil {
+            // Actual stale/catalog/unsupported precreation receipts explicitly
+            // report null. Missing/malformed and successful state stay distinct.
+            guard result.configuration == "not_verified", result.status == "refused_before_creation",
+                  !result.configPersistedByStart, start.state == .notObserved else {
+                throw DecodingError.dataCorruptedError(forKey: .configured, in: c, debugDescription: "Only an unverified precreation refusal permits explicit null configuration")
+            }
+        }
+    }
+    public var hasVerifiedConfiguration: Bool {
+        configured != nil && result.configuration == "verified_at_start" && !result.configPersistedByStart
+    }
     public func matches(agent: String, command: String, epoch: String, expected: AnnexProviderNextWakeV2) -> Bool {
         version == 2 && target.agentId == agent && target.commandId == command && target.hostEpoch == epoch
-            && configured == expected && result.configuration == "verified_at_start" && !result.configPersistedByStart
+            && configured == expected && hasVerifiedConfiguration
             && (!start.wasObserved || start.providerSelection == expected.provider)
     }
 }
