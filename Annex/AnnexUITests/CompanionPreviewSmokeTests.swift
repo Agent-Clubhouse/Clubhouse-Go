@@ -180,7 +180,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             app.navigationBars["Provider"].buttons.firstMatch.tap()
             XCTAssertTrue(link.waitForExistence(timeout: 5))
             waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+            XCTAssertTrue(scrollTo(choice, in: app, maxSwipes: 12), "Reveal the same provider row after the native Form remount")
             XCTAssertFalse(choice.isEnabled, "Reopening the screen cannot forget the unresolved action")
+            captureProvider(app, "Reopened unresolved Apply keeps the same provider choice disabled")
             tapVisibleProviderControl(check, in: app)
         }
         let receipt = app.staticTexts["provider-saved"]
@@ -195,9 +197,22 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         tapVisibleProviderControl(start, in: app)
         let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Start new session", "provider-start-new")).firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
-        app.buttons["Cancel"].tap()
+        captureProvider(app, "Start confirmation before native AX dismissal")
+        if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
+        else {
+            // iOS 26 presents this as a popover without a Cancel button. Its
+            // named AX dismissal element avoids a guessed point. XCTest activation
+            // here does not establish spoken VoiceOver behavior.
+            let dismiss = app.otherElements["PopoverDismissRegion"]
+            XCTAssertEqual(dismiss.label, "dismiss popup")
+            XCTAssertTrue(dismiss.isHittable, "The native accessible dismissal must be reachable")
+            dismiss.tap()
+        }
         XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Provider"].exists)
+        XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper", "Cancellation returns to the same agent's Provider screen")
         XCTAssertFalse(app.staticTexts["provider-start-requested"].exists)
+        captureProvider(app, "Cancelled Start returns to Juniper without a requested Start")
         tapVisibleProviderControl(start, in: app)
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         confirm.tap()
