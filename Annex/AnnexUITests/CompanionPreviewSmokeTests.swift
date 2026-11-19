@@ -293,16 +293,41 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             guard apply.exists && review.exists else { return bottom }
             return min(bottom, min(apply.frame.minY, review.frame.minY) - 12)
         }
-        for _ in 0..<4 {
+        var precedingFrame: CGRect?
+        var precedingDrag: CGFloat?
+        var observedResponse: CGFloat = 1
+        for attempt in 0..<4 {
             let top = navigation.frame.maxY + 12
             let bottom = clearBottom()
             let frame = control.frame
+            let settled = precedingFrame.map { frame.midY - $0.midY }
+            if let settled, let precedingDrag, abs(settled) > 0.5,
+               settled * precedingDrag > 0 {
+                observedResponse = min(4, max(0.25, settled / precedingDrag))
+            }
+            print("PROVIDER_CONTROL_GEOMETRY id=\(control.identifier) attempt=\(attempt) row=\(frame) band=\(top)...\(bottom) settled=\(String(describing: settled)) response=\(observedResponse)")
+            guard frame.height <= bottom - top else {
+                XCTFail("The full provider control must fit between navigation and sticky actions: row \(frame), band \(top)...\(bottom)")
+                return
+            }
             if frame.minY >= top && frame.maxY <= bottom { break }
-            let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
-            let dy: CGFloat = frame.minY < top ? 120 : -120
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+            // Fixed 120pt drags can fling an SE row across both clearances.
+            // Center using the last measured native response, within the same
+            // four gestures and the original protected viewport. No timing wait.
+            let travel = min(120, (bottom - top) / 2 - 8)
+            guard travel > 0 else { XCTFail("The protected viewport must permit a native scroll"); return }
+            let dy = min(travel, max(-travel, ((top + bottom) / 2 - frame.midY) / observedResponse))
+            let origin = CGPoint(x: app.frame.midX, y: (top + bottom) / 2)
+            let start = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: origin.x - app.frame.minX, dy: origin.y - app.frame.minY))
+            precedingFrame = frame; precedingDrag = dy
+            XCTContext.runActivity(named: "Measured provider scroll \(control.identifier): row \(frame), band \(top)...\(bottom), drag \(dy), response \(observedResponse)") { _ in
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+            }
         }
         let frame = control.frame
+        let finalShift = precedingFrame.map { frame.midY - $0.midY }
+        print("PROVIDER_CONTROL_GEOMETRY id=\(control.identifier) finalRow=\(frame) band=\(navigation.frame.maxY + 12)...\(clearBottom()) settled=\(String(describing: finalShift))")
         let point = CGPoint(x: frame.midX, y: frame.midY)
         XCTAssertTrue(control.exists && control.isHittable)
         XCTAssertGreaterThanOrEqual(frame.minY, navigation.frame.maxY + 12)
