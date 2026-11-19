@@ -1,0 +1,41 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "854B6A7F-94DD-47E4-B1B3-B06293F9944E",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "4BEA3F8A-C79E-4408-BAEE-0587C7F2FC89.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Deterministic prefix trim after the restore pin_0_91B1039D-6B8B-4056-900B-4378BFF64A13.png",
+        "timestamp" : 1795048381.926
+      }
+    ],
+    "testIdentifier" : "CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "854B6A7F-94DD-47E4-B1B3-B06293F9944E",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "9BA44F5C-EE72-42D7-8AC9-30B3D869048F.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Real drag after timeout restores its new bookmark_0_2113856B-115A-4E45-8FB1-40B8E7F62027.png",
+        "timestamp" : 1795048397.379
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "854B6A7F-94DD-47E4-B1B3-B06293F9944E",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "79AAC99B-5833-44DE-BD56-B9322874DD43.txt",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Timeout drag remount entry-relative two-point contract_0_64624E92-931C-47F5-9BA9-C196FB9BCAF2.txt",
+        "timestamp" : 1795048397.227
+      }
+    ],
+    "testIdentifier" : "CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition"
+  }
+]

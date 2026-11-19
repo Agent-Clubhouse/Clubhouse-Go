@@ -1,0 +1,1 @@
+entry=message:agent-6#63 beforeOffset=32105.666666666668 beforeLower=32042.000000000015 restoredOffset=102.0 restoredLower=38.333333333333314 rawShift=-32003.666666666668 relativeDelta=1.3358203432289883e-11

@@ -1,0 +1,62 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "854B6A7F-94DD-47E4-B1B3-B06293F9944E",
+      "deviceName" : "ux-582-first-paint",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "15s",
+                  "durationInSeconds" : 15.325819969177246,
+                  "name" : "testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+                  "nodeIdentifier" : "CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "15s",
+                  "durationInSeconds" : 15.448760032653809,
+                  "name" : "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition()",
+                  "nodeIdentifier" : "CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionReadingRestoreUITests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingRestoreUITests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoUITests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests",
+          "nodeType" : "UI test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

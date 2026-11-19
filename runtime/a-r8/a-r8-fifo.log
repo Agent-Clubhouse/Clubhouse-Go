@@ -1,0 +1,68 @@
+GUARD {"policy": "global-vm-stat-free-plus-inactive-8GiB", "authority": "Orchestrator t_mwkvyvft global guard update before C2", "top_unused_informational_only": true, "vm_memory_before": {"page_size_bytes": 16384, "free_bytes": 13164806144, "inactive_bytes": 19453378560, "free_plus_inactive_bytes": 32618184704}, "vm_memory_after": {"page_size_bytes": 16384, "free_bytes": 12822872064, "inactive_bytes": 19513753600, "free_plus_inactive_bytes": 32336625664}, "cpu_idle_percent": 88.26, "swap_growth_bytes": 0.0, "window_seconds": 10, "thresholds": {"cpu_idle_percent": 40, "vm_free_plus_inactive_bytes": 8589934592, "swap_growth_bytes": 67108864}, "accepted": true}
+Preparing worktree (detached HEAD e1633de9c)
+HEAD is now at e1633de9c Keep timeout drag remount checks in the measured entry coordinates
++ xcodebuild build-for-testing -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r8/DD -destination generic/platform=iOS Simulator
++ python3 scripts/check-isolated-deinits.py /tmp/ux-582-proof/tickets/a-r8/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib
++ python3 -m unittest discover -s scripts/deinit/tests
+{
+  "head": "e1633de9c7981b61207cf08aa3d8b4fec7a43c13",
+  "phase": "A",
+  "started_at": "2026-11-19T00:27:51.306816+00:00",
+  "source": "/tmp/ux-582-proof/tickets/a-r8/source",
+  "DD": "/tmp/ux-582-proof/tickets/a-r8/DD",
+  "source_provenance": {
+    "head": "e1633de9c7981b61207cf08aa3d8b4fec7a43c13",
+    "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+    "source_sha256": {
+      "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+      "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "d0d0fa43ef7361d21a1e81ee7ba908663f49f71533df0bbe0379d641418efb7f",
+      "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "02dee4efb081c672f9fad77dc6673bb9164dc5dac8d70530ef7f57920bc63e9b",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "1349db2618f8a04290cc6cc1082f6b9d2dc3cbdda74452a93d5c94d78dff0614",
+      "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "2c62cb35be43e7dc97d6cd58270b58c42d0a09083fb5f07012f734960b286f4f",
+      "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "0902bfc687af2eada91b57e59c57b13c7da914298f7f1020754c4b0e8d6af874",
+      "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "3bd2cd5ee56881fdb531796adee0a21ce1e64edea51317ec0e6c5462f8f80780",
+      "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+      "Annex/AnnexTests/CompanionReadingOpeningTests.swift": "3c9f737d7e7b81438359b3d419ab971ec8cd994397300138c12a9c52bc3e8550",
+      "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+      "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "9d6eecdec89ed51e0173482452b8a66dbfcddb762514a2a42197c09036462642",
+      "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+      "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": "680f9945d643a8788a87264121241821fd3919fc98ba94c88d28e37c6ba36f0e",
+      "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift": "851c34b4c0e4237ce3f5b56480f5e3e0bcfdf67846396fcaafd10e159d372ca5",
+      "docs/isolated-deinit.md": "fe15e254fb78d098fb4de2848d57308e7594408321b76b709051c37a19ea1658",
+      "docs/reading-first-paint-extraction.json": "2d407fde7001c26e8662cd23fac7d2f7c88937e054204a2b4c402a2fcaf06d07",
+      "docs/reading-first-paint-plan.md": "f975752a5f96d88d5aef924d8e40348343ee4c8774d028efcbf2ca26d458022a",
+      "scripts/isolated-deinit-policy.json": "7eab1911ff20ef528dbad59f17f2ce5cad3ee48de5721c142c720474b002d295"
+    },
+    "full_diff_sha256": "b0b916141835c5b22ceba16c08cd34558cb042042497ae9f37a545866b2d5b49"
+  },
+  "runner_sha256": "bf3f2f7139f5412b22f06bf04841172a43b843612d8fb6e11a9c391cd38afe59",
+  "build_rc": 0,
+  "rc": 0,
+  "artifact_sha256": {
+    "/tmp/ux-582-proof/tickets/a-r8/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "a5a9999399e33e368fd7bb3a1dbd401af84539543a55d2e60361823099ae17a1",
+    "/tmp/ux-582-proof/tickets/a-r8/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "07235462f96184eaa454e303862ae686cb2a0d7e65fc376ed19ccde92012b082",
+    "/tmp/ux-582-proof/tickets/a-r8/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "9d62296d8456daea4a93bbf8010cea979c0bbd4b0ad146920cdfb60d153a2805",
+    "/tmp/ux-582-proof/tickets/a-r8/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-582-proof/tickets/a-r8/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "c494ef2842f4859ba183211acdf1e7022a97cec1140749c1176c96c9c3942960"
+  },
+  "deinit_rc": 0,
+  "policy_rc": 0,
+  "owned_process_group": 20248,
+  "owned_processes_before_cleanup": [],
+  "owned_processes_after_cleanup": [],
+  "admitted_at": "2026-11-19T00:27:51.280307+00:00",
+  "closed_at": "2026-11-19T00:31:36.458694+00:00",
+  "duration_seconds": 225.17664825,
+  "hard_bound_seconds": 900,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 15,
+    "growth_bytes": 0,
+    "start_bytes": 2084831232.0,
+    "max_bytes": 2084831232.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-582-proof/a-r8-receipt.json",
+  "booted_after": []
+}

@@ -1,0 +1,1 @@
+Deinit policy: 38 ARC-only protections; 2 deferred main-actor protections; 20 reviewed isolated paths retained. UI affinity is not waived.

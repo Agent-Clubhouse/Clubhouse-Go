@@ -1,0 +1,8 @@
+Exported 1 attachment for: CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry():
+File: 4BEA3F8A-C79E-4408-BAEE-0587C7F2FC89.png, suggested name: "Deterministic prefix trim after the restore pin_0_91B1039D-6B8B-4056-900B-4378BFF64A13.png"
+
+Exported 2 attachments for: CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition():
+File: 9BA44F5C-EE72-42D7-8AC9-30B3D869048F.png, suggested name: "Real drag after timeout restores its new bookmark_0_2113856B-115A-4E45-8FB1-40B8E7F62027.png"
+File: 79AAC99B-5833-44DE-BD56-B9322874DD43.txt, suggested name: "Timeout drag remount entry-relative two-point contract_0_64624E92-931C-47F5-9BA9-C196FB9BCAF2.txt"
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/s-r2/attachments/manifest.json
