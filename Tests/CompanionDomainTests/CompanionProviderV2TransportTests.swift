@@ -75,12 +75,52 @@ private actor ProviderV2IO: AnnexIO {
 }
 
 private actor ProviderV2Transport: AnnexTransporting {
+    private struct ConnectGate: Sendable {
+        let id: UUID
+        let stream: AsyncStream<Void>
+        let release: AsyncStream<Void>.Continuation
+    }
     let catalog: ScriptedAnnexTransport
     var commands: AnnexTransport
+    private var nextConnectGate: ConnectGate?
+    private var activeConnectGate: ConnectGate?
     init(catalog: ScriptedAnnexTransport, commands: AnnexTransport) { self.catalog = catalog; self.commands = commands }
     func replaceCommands(_ commands: AnnexTransport) { self.commands = commands }
+    func holdNextConnect() throws -> UUID {
+        guard nextConnectGate == nil, activeConnectGate == nil else { throw AnnexTransportError.commandInFlight }
+        let pair = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingOldest(1))
+        let gate = ConnectGate(id: UUID(), stream: pair.stream, release: pair.continuation)
+        nextConnectGate = gate
+        return gate.id
+    }
+    func releaseConnect(_ id: UUID) {
+        if let gate = nextConnectGate, gate.id == id {
+            gate.release.finish(); nextConnectGate = nil
+        }
+        if let gate = activeConnectGate, gate.id == id {
+            gate.release.yield(()); gate.release.finish()
+        }
+    }
     func events() async -> AsyncThrowingStream<AnnexTransportEvent, Error> { await catalog.events() }
-    func connect() async throws { _ = try await commands.read(.capabilities); try await catalog.connect() }
+    func connect() async throws {
+        guard activeConnectGate == nil else { throw AnnexTransportError.commandInFlight }
+        let gate = nextConnectGate; nextConnectGate = nil; activeConnectGate = gate
+        defer {
+            if let gate, activeConnectGate?.id == gate.id {
+                gate.release.finish(); activeConnectGate = nil
+            }
+        }
+        // Production AnnexTransport.beginConnection emits connecting before connected.
+        await catalog.emit(.connection(.connecting))
+        if let gate {
+            await withTaskCancellationHandler {
+                for await _ in gate.stream { break }
+            } onCancel: { gate.release.finish() }
+        }
+        try Task.checkCancellation()
+        _ = try await commands.read(.capabilities)
+        try await catalog.connect()
+    }
     func disconnect() async { await commands.disconnect(); await catalog.disconnect() }
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON { try await catalog.read(route) }
     func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt { try await commands.execute(command) }
@@ -95,9 +135,33 @@ private actor ProviderV2Transport: AnnexTransporting {
         let data = try encoder.encode(value)
         print("PROVIDER_V2_BOUNDARY_PROOF " + String(decoding: data, as: UTF8.self))
     }
-    private func wait(_ condition: () async -> Bool) async throws {
+    private func wait(_ condition: () async -> Bool, sourceLocation: SourceLocation = #_sourceLocation) async throws {
         for _ in 0..<1000 { if await condition() { return }; try await Task.sleep(for: .milliseconds(5)) }
-        Issue.record("Provider fixture did not reach its expected state"); throw AnnexTransportError.disconnected
+        Issue.record("Provider fixture did not reach its expected state", sourceLocation: sourceLocation)
+        throw AnnexTransportError.disconnected
+    }
+    /// One original wait budget covers BOTH public connecting delivery and the unchanged ready predicate.
+    private func reconnect(_ service: CompanionLiveService, store: CompanionStore, transport: ProviderV2Transport,
+                           target: CompanionTarget, sourceLocation: SourceLocation = #_sourceLocation,
+                           ready: () -> Bool) async throws {
+        let id = try await transport.holdNextConnect()
+        let task = Task { await service.reconnect(hostID: target.hostID) }
+        do {
+            var observedConnecting = false
+            try await wait({
+                if !observedConnecting, store.host(for: target)?.connection == .connecting {
+                    observedConnecting = true
+                    await transport.releaseConnect(id)
+                }
+                return observedConnecting && ready()
+            }, sourceLocation: sourceLocation)
+            await task.value
+        } catch {
+            task.cancel()
+            await transport.releaseConnect(id)
+            await task.value
+            throw error
+        }
     }
     private func commands(host: TrustedAnnexHost, io: ProviderV2IO) async throws -> AnnexTransport {
         let credentials = MemoryAnnexCredentialStore()
@@ -147,9 +211,10 @@ private actor ProviderV2Transport: AnnexTransporting {
             try await io.setEpoch(epoch); await catalog.setRead("capabilities", try providerV2Caps(epoch))
         }
         await transport.replaceCommands(try await commands(host: LiveServiceHarness.trustedHost(), io: io))
-        await service.reconnect(hostID: target.hostID)
         let expectedEpoch = changedEpoch ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000001"
-        try await wait { store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == expectedEpoch }
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == expectedEpoch
+        }
         await reopened.refresh()
         #expect(reopened.reportedSaved?.provider == "codex-cli" && reopened.blocksMutations)
         reopened.reviewHeldResult(); await reopened.select("claude-code"); await reopened.apply(); await reopened.startNew()
@@ -221,12 +286,13 @@ private actor ProviderV2Transport: AnnexTransporting {
     }
 
     @Test func advertisedMalformedV2CannotDowngradeToV1OrGenericSettings() async throws {
-        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        let (store, service, io, transport, catalog, target) = try await setup(lost: nil)
         defer { store.stop(); service.remove(hostID: target.hostID) }
         let malformed = try changed(providerV2Caps(), "providerControlV2", .string("unrecognized"))
         await catalog.setRead("capabilities", malformed); await io.setCapabilities(malformed)
-        await service.reconnect(hostID: target.hostID)
-        try await wait { store.host(for: target)?.connection == .connected && store.host(for: target)?.providerApplyV2 == nil }
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.providerApplyV2 == nil
+        }
         #expect(store.host(for: target)?.providerV2Advertised == true)
         let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         await flow.select("codex-cli"); await flow.apply(); await flow.startNew()
@@ -235,13 +301,14 @@ private actor ProviderV2Transport: AnnexTransporting {
     }
 
     @Test func separateMissingStartCapabilityAllowsApplyButNeverStart() async throws {
-        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        let (store, service, io, transport, catalog, target) = try await setup(lost: nil)
         defer { store.stop(); service.remove(hostID: target.hostID) }
         guard case .object(var fields) = try providerV2Caps() else { throw AnnexTransportError.malformedResponse }
         fields["providerStartV2"] = nil
         await catalog.setRead("capabilities", .object(fields)); await io.setCapabilities(.object(fields))
-        await service.reconnect(hostID: target.hostID)
-        try await wait { store.host(for: target)?.connection == .connected && store.host(for: target)?.providerStartV2 == nil }
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.providerStartV2 == nil
+        }
         let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         await flow.select("codex-cli"); await flow.apply(); await flow.startNew()
         #expect(flow.lastApply != nil && !flow.canStart && flow.lastStart == nil)
@@ -278,15 +345,16 @@ private actor ProviderV2Transport: AnnexTransporting {
 
     @Test(arguments: [false, true])
     func reconnectCannotRestoreStartReadinessWithoutANewMatchingWitness(changedEpoch: Bool) async throws {
-        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        let (store, service, io, transport, catalog, target) = try await setup(lost: nil)
         defer { store.stop(); service.remove(hostID: target.hostID) }
         let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         await flow.select("codex-cli"); await flow.apply()
         #expect(flow.canStart)
         let nextEpoch = changedEpoch ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000001"
         try await io.setEpoch(nextEpoch); await catalog.setRead("capabilities", try providerV2Caps(nextEpoch))
-        await service.reconnect(hostID: target.hostID)
-        try await wait { store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == nextEpoch }
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == nextEpoch
+        }
         #expect(!flow.canStart, "A witness from the previous connection cannot enable Start")
         await flow.refresh()
         #expect(flow.canStart == !changedEpoch, "Only a new matching witness and the original Apply epoch may restore readiness")
