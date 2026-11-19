@@ -176,7 +176,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper")
     }
 
-    /// Dedicated visual proof; existing semantic-case helpers remain unchanged.
+    /// Full-row visual proof and Large-only navigation inside the protected native Form.
     private func captureReadableProviderRow(_ identifier: String, in app: XCUIApplication,
                                             containing expected: [String], name: String) -> Bool {
         let navigation = app.navigationBars["Provider"]
@@ -263,13 +263,22 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         app.buttons["provider-review-change"].tap()
         let saved = app.descendants(matching: .any).matching(identifier: "provider-v2-saved-model").firstMatch
         let proposed = app.descendants(matching: .any).matching(identifier: "provider-v2-proposed-model").firstMatch
-        XCTAssertTrue(scrollTo(saved, in: app, up: false, maxSwipes: 12))
+        if largeText {
+            XCTAssertTrue(captureReadableProviderRow("provider-v2-saved-model", in: app,
+                containing: ["fixture-current-model", "saved agent override"], name: "V2 Large saved model fully readable before Apply"))
+        } else { XCTAssertTrue(scrollTo(saved, in: app, up: false, maxSwipes: 12)) }
         XCTAssertTrue(saved.label.contains("fixture-current-model") && saved.label.contains("saved agent override"))
         captureProvider(app, "V2 host-reported saved model before Apply")
-        XCTAssertTrue(scrollTo(proposed, in: app, maxSwipes: 12))
+        if largeText {
+            XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-model", in: app,
+                containing: ["Provider default", "host reported"], name: "V2 Large proposed model fully readable before Apply"))
+        } else { XCTAssertTrue(scrollTo(proposed, in: app, maxSwipes: 12)) }
         XCTAssertTrue(proposed.label.contains("Provider default"))
         let resets = app.staticTexts["provider-reset-impacts"]
-        XCTAssertTrue(scrollTo(resets, in: app, maxSwipes: 12))
+        if largeText {
+            XCTAssertTrue(captureReadableProviderRow("provider-reset-impacts", in: app,
+                containing: ["Applying resets:", "model", "effort"], name: "V2 Large reset list fully readable before Apply"))
+        } else { XCTAssertTrue(scrollTo(resets, in: app, maxSwipes: 12)) }
         XCTAssertTrue(resets.label.contains("model") && resets.label.contains("effort"))
         captureProvider(app, "V2 proposed provider defaults and reset impacts before Apply")
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
