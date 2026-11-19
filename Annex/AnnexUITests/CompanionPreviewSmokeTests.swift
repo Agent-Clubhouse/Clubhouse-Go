@@ -1100,6 +1100,41 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                       "The message is sent, and a preview says it never reached a desktop")
     }
 
+    func testOriginalArtifactsOfferFilesAndShareAndCancelWithoutReloading() {
+        let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance", "--companion-preview-artifact-export"], attempts: 1)
+        openRiver(app)
+        for path in ["~/.clubhouse/scratch/acceptance.pdf", "~/.clubhouse/scratch/original.png"] {
+            let reference = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", path))
+            XCTAssertTrue(reference.element.waitForExistence(timeout: 10))
+            XCTAssertEqual(reference.count, 1)
+            reference.element.tap()
+            let name = (path as NSString).lastPathComponent
+            XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10))
+            let save = app.buttons["Save to Files"]
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Original artifact before explicit export \(name)")
+            save.tap()
+            XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Native Files export name and destination \(name)")
+            let browse = app.navigationBars.buttons["Browse"]
+            if browse.exists { browse.tap() }
+            XCTAssertTrue(app.staticTexts["On My iPhone"].waitForExistence(timeout: 10), "Device-local Files must be offered; do not silently substitute cloud-only export")
+            contentAcceptanceCapture(app, name: "Native device-local Files destination \(name)")
+            app.buttons["Cancel"].tap()
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            app.buttons["Share"].tap()
+            XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Native original-file Share presentation \(name)")
+            app.buttons["Close"].tap()
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(app.navigationBars[name].exists)
+            if name.hasSuffix(".png") { XCTAssertTrue(app.buttons["Copy image"].exists) }
+            app.buttons["companion-preview-done"].tap()
+            XCTAssertTrue(app.buttons["companion-preview-done"].waitForNonExistence(timeout: 5))
+        }
+        app.terminate()
+    }
+
     /// This fixture crosses actual link discovery, Store policy and the sheet; it does not contact a desktop.
     func testScratchAndHomeTextOpenInApp() {
         let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance"], attempts: 1)

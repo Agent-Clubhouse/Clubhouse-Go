@@ -197,6 +197,7 @@ struct CompanionContentRoots: Equatable, Sendable {
 }
 
 struct CompanionContent: Sendable {
+    static let maximumPreviewBytes = 8 * 1024 * 1024
     var kind: String
     var name: String
     var mimeType: String?
@@ -209,7 +210,7 @@ struct CompanionContent: Sendable {
 
     /// Bytes the phone may give PDFKit: only a desktop `pdf` payload within the phone limit, never one picked by MIME or another kind.
     var pdfBytes: Data? {
-        guard kind == "pdf", !tooLarge, let bytes, bytes.count <= 8 * 1024 * 1024 else { return nil }
+        guard kind == "pdf", !tooLarge, let bytes, bytes.count <= Self.maximumPreviewBytes else { return nil }
         return bytes
     }
 }

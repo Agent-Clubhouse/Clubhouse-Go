@@ -52,13 +52,23 @@ The merged desktop sniffs `%PDF-` at offset zero before text, uses `application/
 
 ## PDF preview
 
-Issue 187 accepts PDFKit rendering or Share/Open In. Go renders with PDFKit and does **not** add Share or Open In: no temporary file, share item or `Transferable` export, so there is no new file ownership or cleanup. An earlier draft of this plan listed Share/Open In and temporary-file ownership as deferred together with PDFKit; they are not delivered and not required.
+Issue 187 originally delivered PDFKit rendering without export. The separately requested artifact export below adds explicit Save to Files and iOS Share; PDFKit itself still renders in memory without a document URL.
 
 - `CompanionContent.pdfBytes` admits only `kind == "pdf"` without `tooLarge` and at most 8 MiB of bytes. This repeats the existing decoded-byte ceiling at the PDFKit entry point, including synthetic or injected content; it does not bound PDF rendering memory or time. Unknown kinds are already normalized to inert `other`, and MIME never selects PDFKit.
 - `PDFDocument(data:)` opens those bytes in memory; the document has no URL. A nil, locked or zero-page document throws a named `unavailable` error. Like the image decode failure, it offers Try again, because the desktop file may have changed. Go never asks for a PDF password.
 - `tooLarge` keeps the 8 MB message; a `pdf` without bytes keeps the generic unsupported-format text.
 - Lifecycle reuses the sheet's load generation. `load()` clears the document before every fetch, including Try again, and assigns it only after the existing cancellation and `loadID` checks, with no suspension between those checks and the synchronous parse. Disappearance invalidates the generation and drops the document. `.sheet(item:)` gives a different reference a new view. `dismantleUIView` removes the document from PDFView before its delegate.
 - PDFView retains native scrolling, zoom and text-selection facilities. Same-document navigation, rendered usability and VoiceOver interaction require actual native validation; extracted text is not accessibility acceptance.
+
+### Explicit artifact Save and Share (Refs #598, #602, #603)
+
+The shared preview offers Save to Files and iOS Share for complete, already-authorized PDF/image bytes. Live, archived and listed-folder destinations use this same page; export performs no additional desktop read, automatic export or permission change. Metadata-only, oversized and truncated responses cannot export. Existing decoded-byte and image-dimension checks are unchanged; the 8 MiB constant is shared with the existing decoder/PDF gate, not raised.
+
+Save uses `FileDocument` with the original bytes and native Files destination picker, including device-local destinations where the system offers them. Share uses a typed `NSItemProvider` data representation and `UIActivityItemsConfiguration`, not the displayed/downsampled `UIImage`. Neither action creates an app-owned temporary file. Each presentation owns an immutable snapshot with a safe bounded filename; raster type comes from ImageIO rather than a misleading name/MIME, and the extension matches the export type. Copy image remains unchanged. A phone-local sent attachment explicitly says it is the processed image, not the unavailable original photo.
+
+Different reference/folder pages have distinct identity; loading clears export snapshots, and completion/cancellation releases them. Share teardown drops the completion handler/configuration. Export failures are surfaced separately without replacing a valid preview; user cancellation is not an error. No broad Documents-directory sharing entitlement is enabled.
+
+Focused domain checks cover unchanged original bytes, detected type, safe names and refusal of partial/oversized payloads. Hosted synthetic checks load PDF/large-image provider bytes and verify name/type/equality and separation between files. Fresh native Save/Share presentation, device-local Files availability, cancellation/reopening and independent review remain required before acceptance; source preparation is not proof of those paths.
 
 ### Native actions
 

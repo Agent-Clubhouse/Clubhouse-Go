@@ -110,6 +110,7 @@ private struct CompanionContentView: View {
     var body: some View {
         NavigationStack {
             CompanionContentPage(source: .reference(reference), store: store, target: target, archiveRoots: archiveRoots, close: close)
+                .id(reference)
         }
     }
 }
@@ -138,6 +139,11 @@ private struct CompanionContentPage: View {
     @State private var loading = false
     @State private var linkError: CompanionLinkError?
     @State private var loadID = UUID()
+    @State private var loadedSource: Source?
+    @State private var saveArtifact: CompanionArtifactExport?
+    @State private var shareArtifact: CompanionArtifactExport?
+    @State private var saving = false
+    @State private var exportError: String?
 
     var body: some View {
         ScrollView {
@@ -163,6 +169,7 @@ private struct CompanionContentPage: View {
                     if let folder = content.folder {
                         CompanionFolderList(listing: folder) { path in
                             CompanionContentPage(source: .entry(path), store: store, target: target, archiveRoots: archiveRoots, close: close)
+                                .id(path)
                         }
                     } else if content.kind == "folder" {
                         Text("This folder can't be listed on this iPhone. Open it on your desktop.")
@@ -173,9 +180,6 @@ private struct CompanionContentPage: View {
                             .accessibilityLabel({ if case .localImage = reference { "Image you sent" } else { "Chat image from your desktop" } }())
                         HStack {
                             Button("Copy image", systemImage: "doc.on.doc") { UIPasteboard.general.image = image }
-                            ShareLink(item: Image(uiImage: image), preview: SharePreview(content.name, image: Image(uiImage: image))) {
-                                Label("Share preview", systemImage: "square.and.arrow.up")
-                            }
                         }.buttonStyle(.bordered)
                     } else if let pdf {
                         CompanionPDFPreview(document: pdf).containerRelativeFrame(.vertical) { length, _ in length * 0.8 }
@@ -199,6 +203,17 @@ private struct CompanionContentPage: View {
                     } else {
                         Text("This format cannot be previewed on this iPhone. Open it on your desktop.")
                     }
+                    if loadedSource == source, !content.tooLarge, !content.truncated, content.bytes != nil,
+                       image != nil || pdf != nil || content.kind == "image" && content.mimeType == "image/svg+xml" {
+                        HStack {
+                            Button("Save to Files", systemImage: "folder.badge.plus") { prepareExport(sharing: false) }
+                            Button("Share", systemImage: "square.and.arrow.up") { prepareExport(sharing: true) }
+                        }.buttonStyle(.bordered)
+                        if case .localImage = reference {
+                            Text("This is the processed image you sent. The original photo isn't available here.")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }.padding(20).frame(maxWidth: 900).frame(maxWidth: .infinity)
         }
@@ -206,14 +221,47 @@ private struct CompanionContentPage: View {
         .navigationTitle(content?.name ?? "Desktop preview")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark", action: close).companionToolbarClose().accessibilityIdentifier("companion-preview-done") } }
-        .task { await load() }
+        .task(id: source) { await load() }
+        .fileExporter(isPresented: $saving, document: saveArtifact.map { CompanionArtifactDocument(bytes: $0.bytes) },
+                      contentType: saveArtifact?.contentType ?? .data, defaultFilename: saveArtifact?.filename) { result in
+            if case .failure(let error) = result {
+                let error = error as NSError
+                if error.domain != NSCocoaErrorDomain || error.code != NSUserCancelledError {
+                    exportError = error.localizedDescription
+                }
+            }
+            saveArtifact = nil
+        }
+        .onChange(of: saving) { _, presented in if !presented { saveArtifact = nil } }
+        .sheet(item: $shareArtifact) { artifact in
+            CompanionArtifactShareView(artifact: artifact) { error in
+                shareArtifact = nil
+                exportError = error
+            }
+        }
+        .alert("Couldn't export this file", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
+            Button("OK", role: .cancel) { exportError = nil }
+        } message: { Text(exportError ?? "") }
         .onDisappear { loadID = UUID(); pdf = nil; clearPlayback() }
+    }
+
+    private func prepareExport(sharing: Bool) {
+        do {
+            guard loadedSource == source, let content else {
+                throw CompanionContentError.unavailable("Wait for this file to finish loading before saving or sharing.")
+            }
+            let artifact = try CompanionArtifactExport(content: content)
+            if sharing { shareArtifact = artifact } else { saveArtifact = artifact; saving = true }
+        } catch {
+            exportError = error.localizedDescription
+        }
     }
 
     private func load() async {
         guard !loading else { return }
         let id = UUID(); loadID = id
-        loading = true; error = nil; linkError = nil; content = nil; image = nil; pdf = nil; clearPlayback()
+        loading = true; error = nil; linkError = nil; content = nil; image = nil; pdf = nil; loadedSource = nil; clearPlayback()
+        saving = false; saveArtifact = nil; shareArtifact = nil; exportError = nil
         defer { loading = false }
         do {
             let value = switch source {
@@ -222,6 +270,7 @@ private struct CompanionContentPage: View {
             }
             guard !Task.isCancelled, loadID == id else { return }
             content = value
+            loadedSource = source
             if value.kind == "image", value.mimeType != "image/svg+xml", let bytes = value.bytes {
                 guard let source = CGImageSourceCreateWithData(bytes as CFData, nil),
                       let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
@@ -261,7 +310,7 @@ private struct CompanionContentPage: View {
     }
 }
 
-/// A desktop PDF shown from its bounded bytes in memory: no temporary file, share item or document URL.
+/// A desktop PDF shown from bounded bytes in memory; saving or sharing requires an explicit action.
 /// Uses PDFKit's native scrolling, zoom and text selection. URL-link and remote-document delegate
 /// actions are intercepted separately; this is not a claim about every PDF or system-menu action.
 struct CompanionPDFPreview: UIViewRepresentable {

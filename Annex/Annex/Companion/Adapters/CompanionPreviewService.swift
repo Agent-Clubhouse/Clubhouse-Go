@@ -834,7 +834,9 @@ import ClubhouseTransport
         #if DEBUG && canImport(UIKit)
         if CompanionContentAcceptanceFixture.enabled {
             guard target == Self.target else { throw previewError }
-            return try CompanionContentAcceptanceFixture.content(path: path)
+            let content = try CompanionContentAcceptanceFixture.content(path: path)
+            CompanionContentAcceptanceFixture.recordExportContent(content, path: path)
+            return content
         }
         #endif
         try await Task.sleep(for: .milliseconds(300))
