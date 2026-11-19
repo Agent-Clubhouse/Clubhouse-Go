@@ -42,3 +42,12 @@ The branch was rebased onto85ee757a. The full pre-harness cumulative patch is by
 ## Accepted first-frame evidence on5c785b
 
 Independent QA accepted the exact encoded samples for all four routes, SE portrait and XXXL portrait, with bounded A movement and real prepend/tail stability. Only the first line ("Reading…") of the bookmarked message is visible on the first frame. The number 90 only becomes readable after the restore. This is the disclosed XXXL limitation of the recording viewport; landscape remains an uncredited #483 diagnostic. N13 passed. H-r1 STOP and its original results remain preserved; no later gate is credited until the reviewed harness changes pass on their exact head.
+
+
+## Timeout/drag UI coordinate correction and remaining-selector sweep
+
+After H-r2 proved the changed origin, review found the same raw-origin assumption in the second S UI method. The first S attempt was interrupted during the first method's setup/app launch, with no assertion outcome; it is preserved as a partial execution, not a zero-execution refusal or a completed test retry. A process-group exit race in the external runner was manually cleaned and independently reported.
+
+The timeout fixture now exposes the original measured entry ID, frame and relative position through its DEBUG AX value only, preserving its existing visible text and offered viewport. The test retains its initial1200 timeout, real-drag chosen>1300, chosen==actual, completion and held checks. After remount it requires the same measured entry to intersect the viewport, entry-relative position within the unchanged2pt tolerance, and saved bookmark==new actual offset within2pt. It logs both origin shift and relative delta. This deliberately replaces only the two incompatible old-origin equalities; no pixel or six-point reading assertion changes.
+
+The source sweep covers all52 unique selected S/C23/C50/R0/RSE methods across five full files and their helpers, plus the three additive CPU methods. Only the two timeout/remount equalities needed this further adaptation. Reading's rotation/stream/prepend/tab/reopen checks compare public screen frames; CPU paused-stream checks stay within one mount, and deep-open checks are already entry-relative. Exact classified hits and source hashes are stored with the manifest before any new build. All previous runtime evidence remains separate; no S result is credited from the interrupted attempt.

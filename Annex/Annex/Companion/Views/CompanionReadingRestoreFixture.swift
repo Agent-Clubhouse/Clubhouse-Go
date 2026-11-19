@@ -10,6 +10,7 @@ struct CompanionReadingRestoreFixture: View {
     @State private var mounted = true
     @State private var refuse = true
     @State private var sample = "pending"
+    @State private var entrySample = "entry=nil lower=nan upper=nan distance=nan visible=0"
     private var store: CompanionStore { lifetime.value }
     private var target: CompanionTarget { CompanionPreviewService.target }
     var body: some View {
@@ -20,6 +21,7 @@ struct CompanionReadingRestoreFixture: View {
                 } else { Text("Reading fixture") }
             }
             Text(sample).font(.caption2).accessibilityIdentifier("reading-restore-fixture")
+                .accessibilityValue(entrySample)
             Button("Remount chat") {
                 Task {
                     refuse = false
@@ -44,6 +46,18 @@ struct CompanionReadingRestoreFixture: View {
                 let viewport = bookmark.viewport
                 let next = "offset=\(viewport.metrics?.normalizedOffset ?? -1) saved=\(bookmark.position.offset) held=\(viewport.preserveBookmarkUntilUserAction ? 1 : 0) restoring=\(viewport.isRestoring ? 1 : 0) outcome=\(viewport.restoration?.outcome?.rawValue ?? "pending") mounted=\(mounted ? 1 : 0)"
                 if next != sample { sample = next }
+                let frame = bookmark.position.entryID.flatMap { viewport.frames[$0] }
+                let offset = viewport.metrics?.normalizedOffset
+                let height = viewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) }
+                let visible: Bool
+                if let frame, let offset, let height {
+                    visible = frame.upperBound > offset + CompanionReadingPosition.minimumVisibleExtent
+                        && frame.lowerBound < offset + height
+                } else { visible = false }
+                let distance = frame.flatMap { frame in offset.map { $0 - frame.lowerBound } }
+                // AX-only data keeps the existing visible diagnostic text and offered viewport unchanged.
+                let nextEntry = "entry=\(bookmark.position.entryID ?? "nil") lower=\(frame?.lowerBound ?? .nan) upper=\(frame?.upperBound ?? .nan) distance=\(distance ?? .nan) visible=\(visible ? 1 : 0)"
+                if nextEntry != entrySample { entrySample = nextEntry }
                 do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
             }
         }

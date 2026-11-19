@@ -109,10 +109,34 @@ import XCTest
         let chosen = number("saved")
         XCTAssertEqual(chosen, number("offset"), accuracy: 2)
         XCTAssertGreaterThan(chosen, 1_300, "This must be the drag's position, not the original bookmark")
+        func entryField(_ key: String) -> String? {
+            (state.value as? String)?.split(separator: " ").first { $0.hasPrefix(key + "=") }
+                .map { String($0.dropFirst(key.count + 1)) }
+        }
+        guard let chosenEntry = entryField("entry"), chosenEntry != "nil",
+              let chosenLower = entryField("lower").flatMap(Double.init), chosenLower.isFinite,
+              let chosenDistance = entryField("distance").flatMap(Double.init), chosenDistance.isFinite else {
+            XCTFail("The real drag must expose its measured entry and relative position before remount"); return
+        }
+        XCTAssertEqual(entryField("visible"), "1")
+        XCTAssertEqual(chosen - chosenLower, chosenDistance, accuracy: 2)
         app.buttons["reading-restore-remount"].tap()
         XCTAssertTrue(waitFor(state, NSPredicate(format: "label CONTAINS %@", "outcome=arrived"), timeout: 5), state.label)
-        XCTAssertEqual(number("offset"), chosen, accuracy: 2)
-        XCTAssertEqual(number("saved"), chosen, accuracy: 2)
+        // #582 intentionally omits the earlier prefix on remount. Keep the same two-point contract
+        // in the original measured entry's coordinates; the saved bookmark must match the new actual offset.
+        guard let restoredLower = entryField("lower").flatMap(Double.init), restoredLower.isFinite else {
+            XCTFail("The original reading entry must be measured after arrival"); return
+        }
+        XCTAssertEqual(entryField("entry"), chosenEntry)
+        XCTAssertEqual(entryField("visible"), "1")
+        let restored = number("offset")
+        let relativeDelta = restored - restoredLower - chosenDistance
+        XCTAssertEqual(relativeDelta, 0, accuracy: 2)
+        XCTAssertEqual(number("saved"), restored, accuracy: 2)
+        let measurements = XCTAttachment(string: "entry=\(chosenEntry) beforeOffset=\(chosen) beforeLower=\(chosenLower) restoredOffset=\(restored) restoredLower=\(restoredLower) rawShift=\(restored - chosen) relativeDelta=\(relativeDelta)")
+        measurements.name = "Timeout drag remount entry-relative two-point contract"
+        measurements.lifetime = .keepAlways
+        add(measurements)
         XCTAssertEqual(number("held"), 0)
         let attachment = XCTAttachment(screenshot: app.screenshot())
         attachment.name = "Real drag after timeout restores its new bookmark"
