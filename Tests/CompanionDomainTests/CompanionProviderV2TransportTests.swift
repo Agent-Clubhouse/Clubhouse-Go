@@ -274,7 +274,12 @@ private actor ProviderV2Transport: AnnexTransporting {
         let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         await flow.select("codex-cli")
         let originalWitness = try #require(flow.preview)
-        if afterApply { await flow.apply(); #expect(flow.canStart) }
+        #expect(originalWitness.value.preview.outcome.instructionScope == "managed_composition")
+        #expect(originalWitness.value.delivery?.isAdmittedUnloaded == true)
+        if afterApply {
+            await flow.apply()
+            #expect(flow.lastApply?.value.outcome.instructionScope == "managed_composition" && flow.canStart)
+        }
         else { #expect(flow.canApply) }
         let before = await io.mutations(), originalCaps = try providerV2Caps()
         guard case .object(var applyCap) = originalCaps["providerControlV2"] else { throw AnnexTransportError.malformedResponse }
