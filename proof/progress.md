@@ -38,3 +38,9 @@ Candidate P1 starts on exact760efb198 under reviewed runner5e10: default global�
 ## Candidate P1
 
 Exact760efb198 passed55distinct methods/84argument-expanded executions across5suites, each method once and each declared argument once. Package rc0/strict exact map0,115.864s<900; raw SwiftTesting completion55tests/5suites is method-level, not84 independent methods. OwnPG30052 empty/system0Booted/swap0. Fresh A1 Debug/deinit/policy now queued through normal FIFO; no native test credit yet.
+
+## First candidate native STOP and reviewed correction
+
+Fresh A1 on760 passed Debug/deinit/policy in223.283s. Phone8 then ran once:1pass/7fail/0skip/E. Six fail on action/reason lookup; original AX hierarchy confirms both visible inset buttons have the outer provider-flow ID. Original ordinary/AX screenshots show their full labels and reason. This is a new accessibility identity collision, not evidence of the user's original incident. The seventh failure is unchanged Sleep full-viewport containment; the original movie shows its last row partly clipped although hittable. No Apply/Start occurred, and SE/D never admitted. Exact owned UUIDA64E6404… deleted/system0Booted/PG41475empty/swap0; ticket322.424s<1800.
+
+Sourcee1c6fcf1c moves the container ID before safeAreaInset; separate Sleep setup uses at most4nativeFormswipes before ALL original assertions, plus a capture. Independent narrow source/executable review PASS at packeta8b08cc1e, manifest2f6a4539…. Reviewer independently matched all407packageinputs and the complete unchanged checkProviderApply member: explicit carry of55/84P1 and ordinary T0, not reruns. FreshA-r2 queued after #611closure, then phone8/SE8/D only on successful preceding gates. Runtime/UX/coverage/final acceptance still pending; source hash changes do not turn the failed native result into a pass.
