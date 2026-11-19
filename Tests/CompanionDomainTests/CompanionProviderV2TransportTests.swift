@@ -60,8 +60,12 @@ private actor ProviderV2IO: AnnexIO {
                 contract = try changed(contract, "configured", try #require(command["expectedNextWake"]))
             }
             contract = try changed(contract, "target", target)
-            body = completed ? try changed(body, "result", changed(#require(body["result"]), "contract", contract))
-                : try changed(body, "contract", contract)
+            if completed {
+                let result = try #require(body["result"])
+                body = try changed(body, "result", changed(result, "contract", contract))
+            } else {
+                body = try changed(body, "contract", contract)
+            }
         }
         return .init(status: body["status"] == .string("completed") ? 200 : 409, data: try JSONEncoder().encode(body))
     }
