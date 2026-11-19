@@ -1,14 +1,14 @@
-# #610 exact-head synthetic proof (not yet executed)
+# #610 exact-head synthetic proof
 
 Candidate `760efb1985c12ef180975b65f3a73c42d21aa0f8` on `ux-root/provider-apply-610`; base main `85ee757ae3de9d962d0cafab81ad0011314522ab`. Baseline overlay `4deda61265ab373c7a7a4eed5ec7407cf946b221` on `evidence/ux-610-baseline` changes only `CompanionProviderBoundaryTests.swift` and `CompanionPreviewSmokeTests.swift`; those two files are byte-identical to candidate. Baseline product sources remain main. The source branch has no PR yet.
 
-Execution is HOLD until independent review of the exact candidate capture delta, scripts and both frozen manifests. The prior review accepted source/UX authority at 48861e060, not native results. The new capture delta adds actual top/session and Review comparison screenshots; these still require observed local visual acceptance. This packet contains only synthetic source/configuration; original native screenshots/logs/xcresults stay private.
+Independent source/UX-authority, ownership-policy, executable and stabilized-startup reviews have passed at the exact candidate. P0's two argument causes and T0's ordinary-size missing-Apply cause have separate private-originals acceptance. Candidate P1 passed55 methods/84 expanded executions; the fresh native build is in progress. Candidate native visuals, command/cancellation order, compiled gates, coverage and final independent exact-head acceptance remain pending. See [current progress](progress.md). This packet contains only synthetic source/configuration; original native screenshots/logs/xcresults stay private.
 
 Scripts are self-contained, use the existing default FIFO and measured global guard (8GiB free+inactive, >=40% idle, <=64MiB swap growth per10s), jobs2, fresh worktree/DerivedData, exact source/diff/manifest/runner/auditor/build hashes, no test retries or repetitions, fresh owned simulator/QuickPath suppression, and bounded own-process cleanup/UUID deletion. The installed local runtime is iOS26.0, not hosted26.5. Package compilation uses global FIFO then package FIFO so heavy work cannot overlap. Guard refusal or an unexpected compile/fixture/outcome/count/recovery is STOP, never an automatic retry.
 
 Order: P0 command-spy fail-before (two arguments, intended zero-dispatch assertions fail on main), baseline A fresh Debug/deinit/policy, T0 one intended missing Apply-before-selection UI failure, candidate P1 narrow package matrix, candidate A, phone8 then SE8, then fresh combined current-main coverage D. #609's exact closure/STOP and fresh direct host coordination precede any admission. Each ticket is separate; no interleaving is assumed without coordination.
 
-Examples (no commands have been run):
+Declared recipe (the baseline commands below are preserved history; current candidate uses the reviewed `run-ticket-stabilized.py` with the frozen head manifest):
 
 ```
 /tmp/clubhouse-go-run.sh /tmp/clubhouse-go-run-pkg.sh env UX610_PROOF_ROOT=/tmp/ux-610-proof/baseline python3 -u /tmp/ux-610-evidence/proof/run-ticket.py P0 p0-r1

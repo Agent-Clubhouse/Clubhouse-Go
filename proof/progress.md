@@ -34,3 +34,7 @@ Admission2 reused only the exact successful A0 source/artifact hashes, on baseli
 Ticket109.523s<600; owned UUID9C5AC68B-691F-427B-B8FC-8FBD21B29B00 Shutdown/deleted and independently absent, system0Booted, ownedPG21519 empty, swap growth0. Host returned for #546's bounded package window; candidate P1 now queued after the package-window closure. Receipt SHA256900414a6df58f7bbf352956f440a4c1c4d240092f81177c0fdb301c1ed15ceac. Local iOS26.0; not CI26.5 or device acceptance.
 
 Candidate P1 starts on exact760efb198 under reviewed runner5e10: default global→pkg FIFO, jobs2/hard900, admission27.43GiB/93.2%idle/swap0. All remaining candidate results and visual/coverage acceptance are pending.
+
+## Candidate P1
+
+Exact760efb198 passed55distinct methods/84argument-expanded executions across5suites, each method once and each declared argument once. Package rc0/strict exact map0,115.864s<900; raw SwiftTesting completion55tests/5suites is method-level, not84 independent methods. OwnPG30052 empty/system0Booted/swap0. Fresh A1 Debug/deinit/policy now queued through normal FIFO; no native test credit yet.
