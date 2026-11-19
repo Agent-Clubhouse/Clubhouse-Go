@@ -1,0 +1,93 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "0A5ACBFB-989F-4D37-BAEB-CE9528806B86",
+      "deviceName" : "ux-582-cpu-main",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "4s",
+                  "durationInSeconds" : 4.13788902759552,
+                  "name" : "testDiagnosticHomeScrollStepsReportExpensiveWork()",
+                  "nodeIdentifier" : "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionHomeVisibilityTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "children" : [
+                    {
+                      "name" : "CompanionReadingPausedCostTests.swift:124: XCTUnwrap failed: expected non-nil value of type \"ClosedRange<Double>\"",
+                      "nodeType" : "Failure Message"
+                    }
+                  ],
+                  "duration" : "0.97s",
+                  "durationInSeconds" : 0.9683620929718018,
+                  "name" : "testDeepPausedOpeningReportsWorkForTwoFreshMounts()",
+                  "nodeIdentifier" : "CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts",
+                  "nodeType" : "Test Case",
+                  "result" : "Failed"
+                }
+              ],
+              "name" : "CompanionReadingDeepOpeningCostTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingDeepOpeningCostTests",
+              "nodeType" : "Test Suite",
+              "result" : "Failed"
+            },
+            {
+              "children" : [
+                {
+                  "duration" : "2s",
+                  "durationInSeconds" : 2.5847350358963013,
+                  "name" : "testPausedStreamingReportsPerBatchConversationWork()",
+                  "nodeIdentifier" : "CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionReadingPausedCostTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingPausedCostTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoTests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests",
+          "nodeType" : "Unit test bundle",
+          "result" : "Failed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Failed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

@@ -1,0 +1,40 @@
+{
+  "main": {
+    "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+    "head": "4805673eb4c376420221f20079b5b8dac80512dc",
+    "source": "/tmp/ux-582-proof/cpu-main-r7/overlay-source",
+    "manifest": "/tmp/ux-582-proof/cpu-main-r7/manifest.json",
+    "overlay_sha256": "f4ed50dba8d9ab668c9bef9bde7cd39a1f1916d53e7304520039a7d205740bc5",
+    "scroll_sha256": "ef57d69a7a7b80d591341bdb0770d607f645b1252ce7fdac8cff68a37fd1192f",
+    "paused_sha256": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb",
+    "deep_open_sha256": "9087b4dde1fc2947b3c5bb525e82b6c526717da6f3f3dd97431118a1c6aac237",
+    "source_sha256": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "d8509b498dcfc4e0a9a529458f887bc0bcb510ac45b3ce33ee233d948e474195",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "ce4a05b1b29eb732f688a66e06e46ece9ea5e738613666c1ad0ea4b94550a04f",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "67b61b150aa5e13f4ea6635f4cecdb20c06aa2672727c13177aa006cb5de36dc"
+    },
+    "additive_tests_sha256": "1606d1b7caed9ad19a2e7bf6738517b6f5dd69a4484377873c32b8ab0686f0a8",
+    "hook_additions_sha256": "581677ae4960c4f43ebc6675ea6f74ae552863b157cc1d4c327a17b62085ce9d",
+    "measurement_hooks_sha256": "009a7c49f38f8040c6d38dd266b0a7e5cdbfa76cce8d9c254b17b8997ee6b976"
+  },
+  "head": {
+    "base": "e1633de9c7981b61207cf08aa3d8b4fec7a43c13",
+    "head": "dca27a7477de282e71e3c28fe16be770f8dddc0d",
+    "source": "/tmp/ux-582-proof/cpu-head-r7/overlay-source",
+    "manifest": "/tmp/ux-582-proof/cpu-head-r7/manifest.json",
+    "overlay_sha256": "753d8ff4f013a84e5550df878c5b4b6bbbf2f390c44f8ed277e41dfbaa862403",
+    "scroll_sha256": "ef57d69a7a7b80d591341bdb0770d607f645b1252ce7fdac8cff68a37fd1192f",
+    "paused_sha256": "ec487a35f0824a2cc1dec9d60d4b282cbb811b70fba6690f12776d4933999ecb",
+    "deep_open_sha256": "9087b4dde1fc2947b3c5bb525e82b6c526717da6f3f3dd97431118a1c6aac237",
+    "source_sha256": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "d8509b498dcfc4e0a9a529458f887bc0bcb510ac45b3ce33ee233d948e474195",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "ce4a05b1b29eb732f688a66e06e46ece9ea5e738613666c1ad0ea4b94550a04f",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "b908803b44ba8452c3f9c252404fe6d4d07364cce4c9139a3f98b5ee8db9dc3f"
+    },
+    "additive_tests_sha256": "1606d1b7caed9ad19a2e7bf6738517b6f5dd69a4484377873c32b8ab0686f0a8",
+    "hook_additions_sha256": "581677ae4960c4f43ebc6675ea6f74ae552863b157cc1d4c327a17b62085ce9d",
+    "measurement_hooks_sha256": "9acf7883076633ffe8d5e41ba2aff8b1419503dd2a8e60d65f537e8363cf68f0"
+  }
+}

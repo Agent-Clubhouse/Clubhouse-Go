@@ -1,0 +1,119 @@
+{
+  "base": "e1633de9c7981b61207cf08aa3d8b4fec7a43c13",
+  "source": "/tmp/ux-582-proof/cpu-head-r8/overlay-source",
+  "status": "S partial interruption preserved; timeout/drag coordinate correction and ProcessLookupError runner fix awaiting static review before any new build",
+  "guard": "normal FIFO; vm_stat free+inactive>=8GiB, idle>=40%, swap growth<=64MiB/10s, mid-run record-only",
+  "phases": {
+    "A": {
+      "kind": "fresh-build-for-testing",
+      "bound": 900,
+      "jobs": 2,
+      "parallel_testing": false,
+      "code_signing": false,
+      "policy_tests": true,
+      "compiled_deinit_gate": true
+    },
+    "P": {
+      "kind": "hosted",
+      "bound": 480,
+      "device": "iPhone-17-Pro-Max",
+      "selectors": [
+        "ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork",
+        "ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork",
+        "ClubhouseGoTests/CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts"
+      ],
+      "methods": 3,
+      "count": 3,
+      "method_names": {
+        "CompanionHomeVisibilityTests": [
+          "testDiagnosticHomeScrollStepsReportExpensiveWork"
+        ],
+        "CompanionReadingPausedCostTests": [
+          "testPausedStreamingReportsPerBatchConversationWork"
+        ],
+        "CompanionReadingDeepOpeningCostTests": [
+          "testDeepPausedOpeningReportsWorkForTwoFreshMounts"
+        ]
+      }
+    }
+  },
+  "order": [
+    "A",
+    "F (3 Pro recordings; ALL4routes + first-frame earlier visibility + native-top prepend)",
+    "FSE (1 SE portrait recording)",
+    "FAX (1 XXXL portrait recording)",
+    "FL (1 uncredited landscape recording; #483 exclusion)",
+    "Independent video review before N",
+    "N",
+    "H",
+    "S",
+    "CPU (3 additive methods per side)",
+    "C23",
+    "C50",
+    "R0",
+    "RSE",
+    "D"
+  ],
+  "head": "94f101a6497099399f45b58f5e2e5d1b083614bd",
+  "full_diff_sha256": "70d9332037e287de1cea1f8967265f098a9657493c339762c55bd20d66f158a7",
+  "private_simulator": {
+    "name": "ux-582-cpu-head"
+  },
+  "source_sha256": {
+    "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+    "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "0368c022f9c78a5b6da275233dd27cf9275346b970d140fbc6b9c1297192beb3",
+    "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "ce4a05b1b29eb732f688a66e06e46ece9ea5e738613666c1ad0ea4b94550a04f",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "b908803b44ba8452c3f9c252404fe6d4d07364cce4c9139a3f98b5ee8db9dc3f"
+  },
+  "unchanged_contract_sha256": {
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4"
+  },
+  "known_native_outcomes": {
+    "CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays()": [
+      "Expected Failure"
+    ],
+    "CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry()": [
+      "Expected Failure",
+      "Skipped"
+    ],
+    "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()": [
+      "Skipped"
+    ]
+  },
+  "proof_stop": "Unexpected count/order/result -> STOP, no assertion retry. No broad suite before new hosted+recorded first-frame proof accepted. Refusal rc4 is zero execution, not a test failure.",
+  "runner_sha256": "88fbd0a000b72f549e919713063a6c6c830bf8b6d0fcae25f78cb70ca7ee3c82",
+  "native_auditor_sha256": "463ec47da1cb03e745e887ccb4f59d6a6da816b6f11d434e63fdfc5e1b1bef14",
+  "proposal_authority": "User optionA t_mwmomzr7; QA qa-582-bookmark-start, including clarified movement bound and separate epsilon correction",
+  "contract_repin_authority": "Orchestrator t_mwmomzr7 + QA: rebase85ee757a, ONLY original Reading file re-pin to merged #587; rebase-85ee-identity.json proves exact merged delta and unchanged #582 core product. Separate disclosed H/S edits after H-r1 STOP: relative2pt replaces raw-origin2pt, measured reload displacement augments pin check, all other controls/tolerances intact.",
+  "disclosed_contract_changes": {
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": {
+      "prior_sha256": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+      "current_sha256": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+      "diff_sha256": "561aff2f910d684bfe0e86e39c22a27a211c67e377613df3d822d1d8096131f9",
+      "authority": "QA qa-582-bookmark-start explicitly approved entry-relative2pt and real preceding-row resync proposal; cumulative diff review required before build"
+    },
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": {
+      "prior_sha256": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+      "current_sha256": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+      "diff_sha256": "afb03fd27e8d75efc6faa4cd033ddaa7d417edf7b84867be62a56264f28ce7ad",
+      "authority": "QA qa-582-bookmark-start explicitly approved entry-relative2pt and real preceding-row resync proposal; cumulative diff review required before build"
+    }
+  },
+  "proof_order_after_review": [
+    "A fresh900",
+    "S2/600 once",
+    "CPU main/head freshA900 +3methods480 each",
+    "C23/1200",
+    "C50/2400",
+    "coldR0/480",
+    "RSE15/1200",
+    "D current-main1200"
+  ],
+  "carry_request": {
+    "F": "QA accepted on5c785b; opening source/fixture untouched",
+    "N13": "passed on fresh a291; N source and every exercised product path byte-identical",
+    "H15methods19executions": "QA accepted on a291; hidden/value test files and entire PrefixTrimFixture tail byte-identical; only unused timeout fixture changed",
+    "condition": "Independent QA identity/carry review required; not assumed"
+  }
+}

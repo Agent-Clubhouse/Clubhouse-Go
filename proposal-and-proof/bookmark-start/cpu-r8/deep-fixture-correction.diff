@@ -1,0 +1,32 @@
+--- r7/deep-opening-method.swift
++++ r8/deep-opening-method.swift
+@@ -19,10 +19,21 @@
+             store.apply(try XCTUnwrap(initialEvent))
+             let agent = try XCTUnwrap(store.hosts.flatMap(\.allAgents).first { $0.id == CompanionPreviewService.target })
+             let target = agent.id
++            // Complete the normal first load before overriding its authoritative fixture history.
++            await store.load(target)
+             let items: [CompanionTimelineItem] = (0..<600).map {
+                 .message(.init(id: "deep-\($0)", role: .assistant, text: "Deep reading marker \($0). A stable short paragraph."))
+             }
+             store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "deep-opening-cost"))
++            @MainActor func requireSeededHistory() throws {
++                let conversation = store.conversation(for: target)
++                XCTAssertTrue(conversation.isLoaded)
++                XCTAssertEqual(conversation.sessionID, "deep-opening-cost")
++                XCTAssertEqual(conversation.items.count, 600)
++                XCTAssertEqual(conversation.items.map(\.id), items.map(\.id))
++                _ = try XCTUnwrap(conversation.items.first { $0.id == "message:deep-60" })
++            }
++            try requireSeededHistory()
+             let bookmark = store.readingBookmark(for: target)
+             bookmark.hasMounted = true
+             bookmark.position = .init(followsLatest: false, entryID: "message:deep-60", distanceFromEntry: 40,
+@@ -58,6 +69,7 @@
+             XCTAssertEqual(bookmark.viewport.restoration?.outcome, .arrived)
+             try await Task.sleep(for: .milliseconds(250))
+             window.layoutIfNeeded()
++            try requireSeededHistory()
+             let frame = try XCTUnwrap(bookmark.viewport.frames["message:deep-60"])
+             let offset = try XCTUnwrap(bookmark.viewport.metrics?.normalizedOffset)
+             XCTAssertEqual(offset - frame.lowerBound, 40, accuracy: 6)

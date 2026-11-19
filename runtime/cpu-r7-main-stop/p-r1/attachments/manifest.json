@@ -1,0 +1,41 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "0A5ACBFB-989F-4D37-BAEB-CE9528806B86",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "DB0B5517-9A91-4007-A12D-5121AB594AAE.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home after measured step-scroll diagnostic_0_6979B22F-2C89-4AEC-9FF3-500143CD577F.png",
+        "timestamp" : 1795048762.719
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "0A5ACBFB-989F-4D37-BAEB-CE9528806B86",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "7D7705D3-2333-465E-BA64-46D2776F19F2.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home step-scroll redraw measurement JSON_0_BE0BC46E-3223-4278-AB33-82F83EB514B5.json",
+        "timestamp" : 1795048762.657
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "0A5ACBFB-989F-4D37-BAEB-CE9528806B86",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "CC4558F8-B73D-44EE-9AEB-889FC58E8A55.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Paused streaming conversation work JSON_0_F19385BE-6840-4896-925A-3047D59BA3BE.json",
+        "timestamp" : 1795048766.586
+      }
+    ],
+    "testIdentifier" : "CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork"
+  }
+]

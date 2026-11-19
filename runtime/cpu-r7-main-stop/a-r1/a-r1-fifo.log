@@ -1,0 +1,53 @@
+GUARD {"policy": "global-vm-stat-free-plus-inactive-8GiB", "authority": "Orchestrator t_mwkvyvft global guard update before C2", "top_unused_informational_only": true, "vm_memory_before": {"page_size_bytes": 16384, "free_bytes": 13005422592, "inactive_bytes": 19272073216, "free_plus_inactive_bytes": 32277495808}, "vm_memory_after": {"page_size_bytes": 16384, "free_bytes": 13502726144, "inactive_bytes": 19455688704, "free_plus_inactive_bytes": 32958414848}, "cpu_idle_percent": 85.85, "swap_growth_bytes": 0.0, "window_seconds": 10, "thresholds": {"cpu_idle_percent": 40, "vm_free_plus_inactive_bytes": 8589934592, "swap_growth_bytes": 67108864}, "accepted": true}
+Preparing worktree (detached HEAD 4805673eb)
+HEAD is now at 4805673eb Uncredited identical reading CPU measurement overlay
++ xcodebuild build-for-testing -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD -destination generic/platform=iOS Simulator
++ python3 scripts/check-isolated-deinits.py /tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib
++ python3 -m unittest discover -s scripts/deinit/tests
+{
+  "head": "4805673eb4c376420221f20079b5b8dac80512dc",
+  "phase": "A",
+  "started_at": "2026-11-19T00:34:46.842677+00:00",
+  "source": "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/source",
+  "DD": "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD",
+  "source_provenance": {
+    "head": "4805673eb4c376420221f20079b5b8dac80512dc",
+    "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+    "source_sha256": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "d8509b498dcfc4e0a9a529458f887bc0bcb510ac45b3ce33ee233d948e474195",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "ce4a05b1b29eb732f688a66e06e46ece9ea5e738613666c1ad0ea4b94550a04f",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "67b61b150aa5e13f4ea6635f4cecdb20c06aa2672727c13177aa006cb5de36dc"
+    },
+    "full_diff_sha256": "f4ed50dba8d9ab668c9bef9bde7cd39a1f1916d53e7304520039a7d205740bc5"
+  },
+  "runner_sha256": "6db4be18d3ab384c53270dd13105c56ee55fd6b172ebf2093ebea880e853fa01",
+  "build_rc": 0,
+  "rc": 0,
+  "artifact_sha256": {
+    "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "1c1f985f52b7be5732fe96f0d45450b48ec8bc921470d6f82760078aee208780",
+    "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "21977fec473079deefe1540b28da2e74ad516958affd927decb09e46349f3063",
+    "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "6902c9851132844aa67370d3d5420340f16bc16b02caf07c2f578bda1fda9fcd",
+    "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-582-proof/cpu-main-r7/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "e30467da34b1645409bb58f80c9276c0d19fe190570025d12dbce4ed7ffcf047"
+  },
+  "deinit_rc": 0,
+  "policy_rc": 0,
+  "owned_process_group": 41629,
+  "owned_processes_before_cleanup": [],
+  "owned_processes_after_cleanup": [],
+  "admitted_at": "2026-11-19T00:34:46.816308+00:00",
+  "closed_at": "2026-11-19T00:38:29.577695+00:00",
+  "duration_seconds": 222.759757084,
+  "hard_bound_seconds": 900,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 15,
+    "growth_bytes": 0,
+    "start_bytes": 2084831232.0,
+    "max_bytes": 2084831232.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-582-proof/cpu-main-r7/a-r1-receipt.json",
+  "booted_after": []
+}

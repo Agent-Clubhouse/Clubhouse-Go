@@ -1,0 +1,5 @@
+[
+  "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+  "CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork()",
+  "CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts()"
+]
