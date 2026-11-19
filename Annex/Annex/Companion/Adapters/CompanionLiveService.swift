@@ -599,6 +599,17 @@ import ClubhouseTransport
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget, clientCommandID: String) async throws -> CompanionAgentSettings {
         guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
         guard !change.isEmpty else { throw CompanionServiceError.rejected("Nothing to change.") }
+        var permittedChange = change
+        if let provider = change.orchestrator {
+            let current = try await settings(for: target)
+            guard provider == (current.orchestrator.value ?? current.resolvedOrchestrator) else {
+                throw CompanionServiceError.rejected(CompanionProviderReason.message("provider_change_requires_preview"))
+            }
+            // A same-provider no-op may accompany unrelated edits. Never forward
+            // its provider field: a race after this read must not become a switch.
+            permittedChange.orchestrator = nil
+            if permittedChange.isEmpty { return current }
+        }
         if change.orchestration?.autoHelpers != nil, (capabilities[target.hostID]?.helperRouting?.modes.contains("auto") != true || capabilities[target.hostID]?.helperRouting?.scopes.contains("agent") != true) {
             throw CompanionServiceError.unavailable("This desktop does not offer Auto provider.")
         }
@@ -617,7 +628,7 @@ import ClubhouseTransport
         if change.orchestration?.isEmpty == false, capabilities[target.hostID]?.supportsOrchestration != true {
             throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change orchestration from your phone.")
         }
-        let receipt = try await execute(.update(AnnexAgentUpdate(agentID: target.agentID, change: change)), id: clientCommandID, hostID: target.hostID)
+        let receipt = try await execute(.update(AnnexAgentUpdate(agentID: target.agentID, change: permittedChange)), id: clientCommandID, hostID: target.hostID)
         // The receipt carries the saved settings, without the option lists; the sheet keeps the ones it shows.
         if let result = receipt.result, let saved = try? CompanionAgentSettings(json: result) { return saved }
         return try await settings(for: target)
