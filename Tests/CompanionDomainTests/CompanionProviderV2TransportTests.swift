@@ -87,6 +87,14 @@ private actor ProviderV2Transport: AnnexTransporting {
 }
 
 @Suite @MainActor struct CompanionProviderV2TransportTests {
+    /// Synthetic decoded request bodies from the actual IO boundary, NOT original wire-byte serialization.
+    private func retainBoundary(_ scenario: String, stage: String, mutations: [AnnexJSON]) throws {
+        let value = AnnexJSON.object(["scenario": .string(scenario), "stage": .string(stage),
+                                     "count": .integer(Int64(mutations.count)), "decodedPosts": .array(mutations)])
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(value)
+        print("PROVIDER_V2_BOUNDARY_PROOF " + String(decoding: data, as: UTF8.self))
+    }
     private func wait(_ condition: () async -> Bool) async throws {
         for _ in 0..<1000 { if await condition() { return }; try await Task.sleep(for: .milliseconds(5)) }
         Issue.record("Provider fixture did not reach its expected state"); throw AnnexTransportError.disconnected
@@ -124,12 +132,15 @@ private actor ProviderV2Transport: AnnexTransporting {
         }
         #expect(flow.blocksMutations && !flow.canApply && !flow.canStart && !store.mayWake(target))
         let before = await io.mutations()
+        let scenario = "lost/\(lost)/changedEpoch=\(changedEpoch)"
+        try retainBoundary(scenario, stage: "after-loss", mutations: before)
         #expect(before.count == (lost == "agent.start" ? 2 : 1))
         let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         #expect(reopened === flow)
         let originalHeld = flow.lastApply
         await flow.refresh()
         #expect(flow.reportedSaved?.provider == "codex-cli" && flow.blocksMutations, "Equal fresh state is not a receipt")
+        try retainBoundary(scenario, stage: "after-reopen-and-equal-read", mutations: await io.mutations())
         // Replace the actual production transport: its command cache starts EMPTY.
         if changedEpoch {
             let epoch = "00000000-0000-4000-8000-000000000002"
@@ -143,12 +154,14 @@ private actor ProviderV2Transport: AnnexTransporting {
         #expect(reopened.reportedSaved?.provider == "codex-cli" && reopened.blocksMutations)
         reopened.reviewHeldResult(); await reopened.select("claude-code"); await reopened.apply(); await reopened.startNew()
         #expect(await io.mutations() == before, "No extra mutation request, regardless of server/transport cache state")
+        try retainBoundary(scenario, stage: "after-replacement-reconnect-equal-read-and-local-review", mutations: await io.mutations())
         let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
         do { _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "new-id-is-not-recovery"); Issue.record("Unresolved target must stay locked") } catch {}
         if let applied = originalHeld {
             do { _ = try await service.startProviderV2(target, applied: applied, witness: witness, clientCommandID: "another-start-is-not-recovery"); Issue.record("Unknown Start must stay locked") } catch {}
         }
         #expect(await io.mutations() == before && reopened.blocksMutations)
+        try retainBoundary(scenario, stage: "after-direct-new-ID-attempts", mutations: await io.mutations())
         #expect(before.allSatisfy { $0["contractVersion"] == .integer(2) && $0["model"] == nil && $0["effort"] == nil })
         #expect(Set(before.compactMap { $0["commandId"]?.string }).count == before.count)
     }
@@ -342,6 +355,7 @@ private actor ProviderV2Transport: AnnexTransporting {
         #expect(flow.lastStart?.start.wasObserved == true && flow.lastStart?.result.status == "failed_after_creation")
         #expect(flow.blocksMutations && !flow.canStart && !flow.canApply && !store.mayWake(target))
         let before = await io.mutations(); #expect(before.count == 2)
+        try retainBoundary("failed-after-creation", stage: "historical-observed-failure", mutations: before)
         let reads = await catalog.readRoutes
         do {
             _ = try await store.updateSettings(.init(model: "default"), target: target)
@@ -352,6 +366,7 @@ private actor ProviderV2Transport: AnnexTransporting {
         #expect(await catalog.readRoutes == reads, "The blocked edit must not even enter the settings adapter")
         await store.wake(target)
         #expect(await io.mutations() == before)
+        try retainBoundary("failed-after-creation", stage: "after-generic-Store-edit-and-wake", mutations: await io.mutations())
         let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         #expect(reopened === flow)
         reopened.reviewHeldResult(); await reopened.refresh(); await reopened.select("claude-code")
@@ -360,6 +375,7 @@ private actor ProviderV2Transport: AnnexTransporting {
         do { _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "failed-creation-is-not-another-Apply"); Issue.record("Failed creation must remain locked") } catch {}
         do { _ = try await service.startProviderV2(target, applied: originalApplied, witness: witness, clientCommandID: "failed-creation-is-not-another-Start"); Issue.record("Failed creation cannot authorize another Start") } catch {}
         #expect(await io.mutations() == before && reopened.blocksMutations && !store.mayWake(target))
+        try retainBoundary("failed-after-creation", stage: "after-reopen-equal-read-and-direct-new-IDs", mutations: await io.mutations())
         #expect(reopened.lastStart?.start.wasObserved == true, "A fresh read cannot erase or promote historical creation evidence")
     }
 
