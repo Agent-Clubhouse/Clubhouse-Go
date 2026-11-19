@@ -452,11 +452,21 @@ private final class GrantTransport: AnnexTransporting, @unchecked Sendable {
     static let callID = "grant_00000000-0000-4000-8000-000000000008"
     static let askID = "grant_00000000-0000-4000-8000-000000000009"
 
-    private func snapshot(_ rows: AnnexJSON? = nil) throws -> AnnexJSON {
+    private func snapshot(_ rows: AnnexJSON? = nil, projectName: String? = nil) throws -> AnnexJSON {
         guard case .object(var frame)? = try ContractFixtures.json("snapshot.json")["frame"], case .object(var payload)? = frame["payload"] else {
             throw AnnexTransportError.malformedResponse
         }
         payload["grantRequests"] = try rows ?? ContractFixtures.json("snapshot-grant-requests.json")["value"]
+        if let projectName {
+            guard case .array(var projects)? = payload["projects"],
+                  let index = projects.firstIndex(where: { $0["id"]?.string == "proj_app" }),
+                  case .object(var project) = projects[index] else {
+                throw AnnexTransportError.malformedResponse
+            }
+            project["name"] = .string(projectName)
+            projects[index] = .object(project)
+            payload["projects"] = .array(projects)
+        }
         frame["payload"] = .object(payload)
         return .object(frame)
     }
@@ -501,15 +511,23 @@ private final class GrantTransport: AnnexTransporting, @unchecked Sendable {
         let (service, store, transport) = try await connect()
         defer { store.stop(); service.remove(hostID: Self.hostID) }
         let ask = try #require(store.hosts.first?.grantRequests.first { $0.id == Self.askID })
+        // Freeze both grant rows before answering, then deliver that stale snapshot afterward.
+        let marker = "Processed stale grant snapshot \(UUID().uuidString)"
+        let staleSnapshot = try snapshot(projectName: marker)
+        let staleIDs = (staleSnapshot["payload"]?["grantRequests"]).arrayValue.compactMap { $0["requestId"]?.string }
+        #expect(staleIDs == [Self.callID, Self.askID])
         transport.script("accepted allow_lasting")
         await store.answer(ask, with: .allowLasting)
         #expect(transport.sent.last?["type"]?.string == "grant.answer" && transport.sent.last?["answer"]?.string == "allow_lasting")
         #expect(transport.sent.last?["requestId"]?.string == Self.askID)
         #expect(ids(store) == [Self.callID])
-        // A snapshot broadcast before the answer landed can't bring it back.
-        try transport.emit(try snapshot())
-        try await waitUntil { store.hosts.first?.grantRequests.count == 2 || ids(store) == [Self.callID] }
-        try await Task.sleep(for: .milliseconds(30))
+        #expect(store.hosts.first?.projects.contains { $0.name == marker } == false)
+        try transport.emit(staleSnapshot)
+        // The row is already absent, so it cannot acknowledge this snapshot. Its unique catalog
+        // marker reaches Store only after the same snapshot's grant headers have been processed.
+        try await waitUntil {
+            store.hosts.first?.projects.contains { $0.id == "proj_app" && $0.name == marker } == true
+        }
         #expect(ids(store) == [Self.callID])
     }
 
