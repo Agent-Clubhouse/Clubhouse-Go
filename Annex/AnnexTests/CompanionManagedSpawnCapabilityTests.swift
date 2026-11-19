@@ -18,6 +18,14 @@ import Vision
     }
 
     func testCancelledSameProjectReadCannotReplaceOrFinishANewerRead() async throws {
+        try await assertCancelledReadOwnership(retrying: false)
+    }
+
+    func testRetryCannotOutliveProjectSwitchesOrResetTheNewerForm() async throws {
+        try await assertCancelledReadOwnership(retrying: true)
+    }
+
+    private func assertCancelledReadOwnership(retrying: Bool) async throws {
         let service = ManagedCapabilityService()
         let store = CompanionStore(service: service)
         var host = try XCTUnwrap(CompanionPreviewService.hosts(now: .now).first)
@@ -50,12 +58,23 @@ import Vision
         presenter.present(controller, animated: false) { presented.fulfill() }
         await fulfillment(of: [presented], timeout: 5)
         try await waitUntil { observed?.optionsLoaded == true && observed?.loading == false }
+        if retrying {
+            service.failsReads = true
+            try XCTUnwrap(observed).selectProject(second)
+            try await waitUntil { observed?.optionsFailed == true && observed?.loading == false }
+            service.failsReads = false
+        }
         let initialReads = service.reads
         service.holdsReads = true
 
-        for (offset, project) in [second, first, second].enumerated() {
+        if retrying {
+            try XCTUnwrap(observed).retryOptions()
+            try await waitUntil { service.heldReads[initialReads + 1] != nil && observed?.loading == true }
+        }
+        let switches = retrying ? [first, second] : [second, first, second]
+        for (offset, project) in switches.enumerated() {
             try XCTUnwrap(observed).selectProject(project)
-            try await waitUntil { service.heldReads[initialReads + offset + 1] != nil && observed?.loading == true }
+            try await waitUntil { service.heldReads[initialReads + offset + (retrying ? 2 : 1)] != nil && observed?.loading == true }
         }
         XCTAssertEqual(service.reads, initialReads + 3, "Each actual project switch starts one read")
         service.finishHeldRead(initialReads + 1, name: "obsolete-second")
@@ -66,12 +85,13 @@ import Vision
 
         service.finishHeldRead(initialReads + 3, name: "latest-second")
         try await waitUntil { observed?.name == "latest-second" && observed?.loading == false }
+        try XCTUnwrap(observed).setName("edited-second")
         try XCTUnwrap(observed).selectTemplate(.template("helper"))
-        try await waitUntil { observed?.selection == .template("helper") }
+        try await waitUntil { observed?.selection == .template("helper") && observed?.name == "edited-second" }
         service.finishHeldRead(initialReads + 2, name: "obsolete-first")
         try await waitUntil { service.completedReads.contains(initialReads + 2) }
         controller.view.layoutIfNeeded()
-        XCTAssertEqual(try XCTUnwrap(observed).name, "latest-second")
+        XCTAssertEqual(try XCTUnwrap(observed).name, "edited-second")
         XCTAssertEqual(try XCTUnwrap(observed).selection, .template("helper"))
         XCTAssertFalse(try XCTUnwrap(observed).loading)
         XCTAssertTrue(service.requests.isEmpty)
@@ -204,6 +224,7 @@ import Vision
     var requests: [CompanionCreateRequest] = []
     var plainRead: CheckedContinuation<Void, Never>?
     var holdsReads = false
+    var failsReads = false
     var heldReads: [Int: CheckedContinuation<CompanionCreateOptions, Never>] = [:]
     var completedReads: Set<Int> = []
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
@@ -215,6 +236,7 @@ import Vision
     func reconnect(hostID: String) async {}
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
         reads += 1
+        if failsReads { throw CompanionServiceError.unavailable("Synthetic options failure") }
         if holdsReads {
             let read = reads
             let options = await withCheckedContinuation { heldReads[read] = $0 }
