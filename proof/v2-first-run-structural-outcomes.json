@@ -1,0 +1,241 @@
+{
+  "head": "e479a4afb84bd816adf0807e1059a6b4abb85062",
+  "phase": "FAILED original first P1; no acceptance/automatic retry",
+  "bound_originals": {
+    "original_swift_testing_xml": {
+      "sha256": "040ac630cb888c7d2a21f87398aa12da53ecaaa169981b75e211cb312af31a6a"
+    },
+    "original_package_log": {
+      "sha256": "d4356770101af723a331be131549d4c9ca158198d00364ffa1b1197f914cc6e6"
+    },
+    "original_core_receipt": {
+      "sha256": "263a60d4b03c9ce6191f35c07add62e4c123aac9785af9178adb410dcb42631e"
+    },
+    "original_outer_closure": {
+      "sha256": "ef9bd4c10c2506f2260c2db9302c63471da5d15c6ddf42618fcbf10e38e09c7d"
+    },
+    "original_post_FIFO_closure": {
+      "sha256": "65929b0c0fc2390e4a35e85e5efbb5d6cc8cab4c193ca6ad9d82d81cab279e8b"
+    },
+    "original_manifest": {
+      "sha256": "681b3811106d4c5fc993b243f9f2537c006e4e9142767a28af475538808dd93b"
+    }
+  },
+  "testcases": [
+    {
+      "classname": "ClubhouseTransportTests",
+      "name": "receiptsThatDoNotProveTheOutcomeAreUnknownAndNeverResent()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066617916
+    },
+    {
+      "classname": "ClubhouseTransportTests.CommandRefusalTests",
+      "name": "crossEpochExceptionRequiresEveryFieldAndNeverResendsUnknownOutcomes()",
+      "outcome": "Passed",
+      "duration_seconds": 0.114875958
+    },
+    {
+      "classname": "ClubhouseTransportTests.CommandRefusalTests",
+      "name": "committedOversizeBytesAreDefiniteAcrossEpochsOnlyAt413AndNeverResent()",
+      "outcome": "Passed",
+      "duration_seconds": 0.087040917
+    },
+    {
+      "classname": "ClubhouseTransportTests.CommandRefusalTests",
+      "name": "idlessOversizeRefusalIsDefiniteAcrossEpochsAndCached(changedEpoch:)",
+      "outcome": "Passed",
+      "duration_seconds": 0.066636791
+    },
+    {
+      "classname": "ClubhouseTransportTests",
+      "name": "pinnedURLSessionObservesRefusalWhileAnOversizeBodyIsUploading()",
+      "outcome": "Passed",
+      "duration_seconds": 0.334221667
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "capabilitiesWithUnknownFieldsEverywhere()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066603
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "truncatedFixturesNeverDecode()",
+      "outcome": "Passed",
+      "duration_seconds": 0.205889625
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "damagedWebSocketFrames()",
+      "outcome": "Passed",
+      "duration_seconds": 0.163347417
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "capabilitiesWithAFieldOfTheWrongType(_:)",
+      "outcome": "Passed",
+      "duration_seconds": 0.06660125
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "capabilitiesWithoutAField()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066676083
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "damagedReceiptsAreUnknownOutcomes()",
+      "outcome": "Passed",
+      "duration_seconds": 0.237500917
+    },
+    {
+      "classname": "ClubhouseTransportTests.AnnexContractRobustnessTests",
+      "name": "featureBlocksWithFieldsOfTheWrongType(_:)",
+      "outcome": "Passed",
+      "duration_seconds": 0.066668542
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "legacyStartAndStopOmitAllNewFields()",
+      "outcome": "Passed",
+      "duration_seconds": 0.06665625
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "preconditionIsOpaqueAndChangedResultDoesNotRequireIt()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066588667
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "previewSaveAndStartAreSeparateEnvelopes()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066607375
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "capabilityRequiresExactVersionPromisesAndCommands()",
+      "outcome": "Passed",
+      "duration_seconds": 0.06666825
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "stopRequestedAloneDoesNotConfirmExitOrCapture()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066604709
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "anyBlockedCodePreventsSave(_:)",
+      "outcome": "Passed",
+      "duration_seconds": 0.066600208
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "strictResumeNeedsBothProviderAndNativePointer()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066644333
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "unknownScopeOrContradictoryReadinessDoesNotGrantSave()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066592583
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "canonicalPreviewAndChangeResultsDecodeWithTheirDistinctTokenShapes()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066571416
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlTests",
+      "name": "canonicalStoppedAcknowledgmentRequiresTheOptInReceipt()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066386416
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "fullNextWakeEchoRetainsEveryNullAndRejectsMissingOrUnknownFields()",
+      "outcome": "Passed",
+      "duration_seconds": 0.213621042
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "platformRefusalsDoNotEraseIndependentlySupportedUnmanagedEditing()",
+      "outcome": "Passed",
+      "duration_seconds": 0.2129695
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "allCanonicalPreviewsBindAgentProviderAndExactRequestedIntent()",
+      "outcome": "Passed",
+      "duration_seconds": 0.234632584
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "applyAndStartAreSeparatelyNegotiatedAndMalformedIsNotAbsent()",
+      "outcome": "Passed",
+      "duration_seconds": 0.232775166
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "providerOnlyOmissionExplicitDefaultAndNullEffortStayDistinct()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066511542
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "everyCanonicalEnvelopeRetainsFailedEvidenceBeforeClassification()",
+      "outcome": "Failed",
+      "duration_seconds": 0.238108625
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "everyCanonicalApplyAcknowledgesOnlyItsExactSavedIntentAndNeverStarts()",
+      "outcome": "Passed",
+      "duration_seconds": 0.233730709
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "heldReplayIsHistoricalAndCreationIsNotHandshakeOrCurrentRuntime()",
+      "outcome": "Passed",
+      "duration_seconds": 0.232877083
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "conflictsRemainBlockingEvenWhenNarrowSavedAndProposedValuesAreEqual()",
+      "outcome": "Passed",
+      "duration_seconds": 0.235900042
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "mergedCanonicalInputsMatchTheirFrozenDigests()",
+      "outcome": "Passed",
+      "duration_seconds": 0.066677709
+    },
+    {
+      "classname": "ClubhouseTransportTests.ProviderControlV2ValueTests",
+      "name": "missingUnknownOrMalformedPlatformCannotGrantManagedStart()",
+      "outcome": "Passed",
+      "duration_seconds": 0.218711333
+    }
+  ],
+  "method_rows": 33,
+  "outcomes": {
+    "Passed": 32,
+    "Failed": 1,
+    "Error": 0,
+    "Skipped": 0
+  },
+  "argument_counts": {
+    "idlessOversizeRefusalIsDefiniteAcrossEpochsAndCached": 2,
+    "capabilitiesWithAFieldOfTheWrongType": 7,
+    "featureBlocksWithFieldsOfTheWrongType": 7,
+    "anyBlockedCodePreventsSave": 3
+  },
+  "expanded_execution_count": 48,
+  "filter": "ProviderControlV2ValueTests|ProviderControlTests|AnnexContractRobustnessTests|CommandRefusalTests|receiptsThatDoNotProveTheOutcomeAreUnknownAndNeverResent",
+  "projection_scope": "Only structural classname/name/outcome/time and cryptographic original bindings; NO raw log/error text/screenshots/private originals copied",
+  "next_inventory": "All33actualIDs plus sole new explicitNullConfigurationCannotBecomeVerifiedOrAuthorizeStart() in ProviderControlV2ValueTests =>34/49; CLI filter unchanged"
+}
