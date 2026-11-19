@@ -72,7 +72,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         let banner = app.buttons["Feedback needs a new invitation. Reports stay on this device. Open Settings."]
         let capture = XCTAttachment(screenshot: app.screenshot())
         capture.name = "Renewal \(expected) AX=\(largeText) keyboard"; capture.lifetime = .keepAlways; add(capture)
-        print("RENEWAL_LAYOUT status=\(expected) AX=\(largeText) composer=\(composer.frame) send=\(send.frame) keyboard=\(app.keyboards.firstMatch.frame) banner=\(banner.exists ? banner.frame.description : "absent")")
+        print("RENEWAL_LAYOUT status=\(expected) AX=\(largeText) composer=\(composer.frame) send=\(send.frame) keyboard=\(app.keyboards.firstMatch.frame) banner=\(banner.exists ? String(describing: banner.frame) : "absent")")
         XCTAssertFalse(banner.exists, "Feedback renewal must not add a global inset above navigation or the keyboard")
         XCTAssertTrue(composer.isHittable && send.isHittable)
         XCTAssertLessThanOrEqual(send.frame.maxY, app.keyboards.firstMatch.frame.minY)
