@@ -66,12 +66,20 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         // the old downward swipe at the top dismissed the entire settings sheet.
         let sleep = app.buttons["agent-sleep"]
         XCTAssertTrue(scrollTo(sleep, in: app, up: true))
+        let form = app.collectionViews.containing(.button, identifier: "agent-sleep").firstMatch
+        XCTAssertTrue(form.exists, "Sleep must belong to the presented settings Form")
+        // Hittable can include a partly clipped last row. Finish native Form travel
+        // before the unchanged full-viewport assertion; never tap that partial row.
+        for _ in 0..<4 {
+            checkTimeLeft("fully revealing Sleep inside the settings Form")
+            if pixelContains(form.frame.intersection(app.frame), sleep.frame) { break }
+            form.swipeUp()
+        }
         let settingsDone = app.buttons["agent-settings-done"]
         XCTAssertTrue(settingsDone.exists && settingsDone.isHittable, "Agent settings must remain presented after scrolling")
         XCTAssertTrue(sleep.isHittable, "Sleep must be reachable by a normal settings scroll")
-        let form = app.collectionViews.containing(.button, identifier: "agent-sleep").firstMatch
-        XCTAssertTrue(form.exists, "Sleep must belong to the presented settings Form")
         XCTAssertTrue(pixelContains(form.frame.intersection(app.frame), sleep.frame), "Sleep must be entirely inside the settings viewport")
+        captureProvider(app, "Sleep fully contained after native settings Form scroll")
         waitAndTap(sleep, until: confirmation)
         confirmation.tap()
         XCTAssertTrue(app.staticTexts["Preview only. This action does not contact a desktop."].waitForExistence(timeout: 5))

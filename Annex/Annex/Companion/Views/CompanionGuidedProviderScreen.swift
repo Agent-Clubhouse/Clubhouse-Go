@@ -136,8 +136,8 @@ private struct CompanionGuidedProviderForm: View {
                 Text("CLI availability only checks this desktop's local installation. Sign-in, configuration and remaining quota are not verified.")
             }
         }
-        .safeAreaInset(edge: .bottom) { applyBar(proxy: proxy) }
         .accessibilityIdentifier("provider-flow")
+        .safeAreaInset(edge: .bottom) { applyBar(proxy: proxy) }
         .companionTelemetryScreen(.providerSettings)
         .confirmationDialog("Start a new session?", isPresented: $confirmStart, titleVisibility: .visible) {
             Button("Start new session") {
