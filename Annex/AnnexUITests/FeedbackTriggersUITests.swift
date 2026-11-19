@@ -274,19 +274,55 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTAssertTrue(summary.label.hasPrefix("2 reports were saved under a previous enrollment"))
         let release = app.buttons["feedback-release-held"]
         try revealFeedbackRow(release, in: app, title: "Fixture settings")
+        let heldBeforeCancel = summary.label
+        let result = app.staticTexts["feedback-queue-status"]
+        let resultBeforeCancel = result.exists ? result.label : nil
         release.tap()
         let confirmation = confirmation(app, titled: "Send 2 reports saved under a previous enrollment with this one?")
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         XCTAssertTrue(confirmation.staticTexts["Send 2 reports saved under a previous enrollment with this one?"].exists)
-        // Compact iOS 26 confirmation popovers omit an automatic Cancel row. An outside
-        // tap is their native cancel action; keep the same retained-report assertions.
-        if app.buttons["Cancel"].exists { app.buttons["Cancel"].tap() }
-        else { app.navigationBars["Fixture settings"].coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap() }
-        XCTAssertFalse(confirmation.waitForExistence(timeout: 1))
+        let hierarchy = XCTAttachment(string: app.debugDescription)
+        hierarchy.name = "Held release confirmation native hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+        let cancel = confirmation.buttons["Cancel"]
+        let dismiss = app.descendants(matching: .any).matching(NSPredicate(
+            format: "identifier == %@ OR label ==[c] %@", "PopoverDismissRegion", "dismiss popup")).firstMatch
+        print("FEEDBACK_CANCEL cancel=\(cancel.exists) namedDismissal=\(dismiss.exists)")
+        if cancel.exists {
+            print("FEEDBACK_CANCEL route=nativeCancel frame=\(cancel.frame) hittable=\(cancel.isHittable)")
+            XCTAssertTrue(cancel.isHittable)
+            cancel.tap()
+        } else {
+            XCTAssertTrue(dismiss.exists, "The native popover must expose its named dismissal region")
+            print("FEEDBACK_CANCEL namedDismissal id=\(dismiss.identifier) label=\(dismiss.label) frame=\(dismiss.frame) hittable=\(dismiss.isHittable); accessibilityActivation=unproven")
+            XCTAssertTrue(dismiss.isHittable)
+            let region = dismiss.frame
+            let heading = app.staticTexts["Developer feedback"]
+            XCTAssertTrue(heading.exists)
+            let headingFrame = heading.frame
+            let form = app.collectionViews.containing(.staticText, identifier: "feedback-held-summary").firstMatch
+            XCTAssertTrue(form.exists)
+            XCTAssertTrue(form.buttons["feedback-release-held"].exists && form.buttons["feedback-clear-held"].exists)
+            XCTAssertTrue(confirmation.buttons["Send"].exists)
+            let navigation = app.navigationBars["Fixture settings"].frame
+            let popover = confirmation.frame
+            let actions = (form.buttons.allElementsBoundByIndex + confirmation.buttons.allElementsBoundByIndex).map(\.frame)
+            let point = CGPoint(x: headingFrame.midX, y: headingFrame.midY)
+            print("FEEDBACK_CANCEL route=namedRegionCheckedTouch region=\(region) heading=\(headingFrame) navigation=\(navigation) popover=\(popover) actions=\(actions) point=\(point)")
+            XCTAssertFalse(headingFrame.isEmpty)
+            XCTAssertTrue(app.frame.contains(headingFrame) && form.frame.contains(headingFrame))
+            XCTAssertTrue(region.contains(point), "Cancel inside the actual native dismissal region")
+            XCTAssertGreaterThan(headingFrame.minY, navigation.maxY)
+            XCTAssertFalse(popover.intersects(headingFrame))
+            XCTAssertFalse(actions.contains { $0.contains(point) }, "Cancellation must not activate any form or confirmation action")
+            dismiss.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: point.x - region.minX, dy: point.y - region.minY)).tap()
+        }
+        XCTAssertTrue(confirmation.waitForNonExistence(timeout: 5))
         XCTAssertTrue(summary.exists, "Cancel retains the held reports")
+        XCTAssertEqual(summary.label, heldBeforeCancel)
+        XCTAssertEqual(result.exists ? result.label : nil, resultBeforeCancel, "Cancel cannot release, send or clear reports")
         release.tap()
         confirmation.buttons["Send"].tap()
-        let result = app.staticTexts["feedback-queue-status"]
         try revealFeedbackRow(result, in: app, title: "Fixture settings")
         XCTAssertEqual(result.label, "2 will send with this enrollment. They aren't confirmed sent yet.")
         XCTAssertFalse(summary.exists)

@@ -1041,6 +1041,11 @@ remain distinct failures with hierarchy/screenshot evidence; hittability alone n
 The same local helper serves the older clear-queued and held-report cases, so both belong in the
 affected runtime map alongside all five renewal cases. The original hosted first-attempt failures
 remain evidence, not passes or permission to repeat a failed attempt.
+The held-report case inspects the confirmation's own Cancel and native named dismissal region.
+Without Cancel, its logged touch must lie on a noninteractive section heading within that region,
+outside navigation, the popover and all form/confirmation action frames. The popover must disappear
+and the exact held summary and queue result must remain unchanged before the separate explicit Send.
+A named region's checked touch proves sighted cancellation, not VoiceOver/accessibility activation.
 
 `CompanionFeedbackSettingsCaptureTests.renewalStatusDistinguishesCheckingUnavailableAndEnrollmentStates`
 covers pending, unavailable, rejected invitation and all six access states. The proof baseline
