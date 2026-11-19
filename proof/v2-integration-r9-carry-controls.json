@@ -1,0 +1,32 @@
+{
+  "current_head": "b1b9c419d63bb68e8658d697924b655b80b120ec",
+  "never_claim": "No fresh-five SE run or repaired prior batch",
+  "individual_controls": [
+    {
+      "method": "testProviderV2ApplyAndStartStaySeparate",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2ApplyDoesNotImplyStartCapability",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    },
+    {
+      "method": "testProviderV2LostStartNeverRequestsAnotherStart",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    }
+  ],
+  "basis": "Four prior individual control methods and their falseLarge/default navigation remain byte-identical. Domain/adapter/flow/package inputs unchanged. Current View relocates the whole existing conditional historical Start section nearer its action and preserves the revised historical receipt copy. Prior af/2b640 outcomes remain historical functional observations ONLY, not current-placement/copy navigation, geometry, pixels, fresh-five or a repaired batch. Current fresh Large plus two capture cases per device exercise the bounded UX delta; independent reviewer dispositions scope.",
+  "originals_reports": [
+    "2dad856bbe891b2719dc436c4d0e3e4540f3d9f85269964c8396dcdf3248daa6",
+    "3c3a2775bc56b3d36e75f3a40b97ae4bdb74d7f3cac1d0d77c1e2e2ddedee7fe"
+  ],
+  "current_copy_geometry": "At prior5b receipt fit/readability observed, but creation child unresolved and entire selector FAIL. No current-child frame/readability or method PASS inferred from relocation."
+}

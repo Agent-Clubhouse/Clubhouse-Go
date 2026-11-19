@@ -7,7 +7,7 @@ ROOT = Path(__file__).parent
 spec = importlib.util.spec_from_file_location('scoped', ROOT / 'verify-v2-scoped-native.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-SCOPES = json.loads((ROOT / 'v2-integration-r8-scopes.json').read_text())
+SCOPES = json.loads((ROOT / 'v2-integration-r9-scopes.json').read_text())
 PREFIX = module.PREFIX
 
 def example(cases):
@@ -32,12 +32,12 @@ class LargeRevealTests(unittest.TestCase):
         for phase in ('VPHONE', 'VSE'):
             self.assertEqual(self.verify(phase)['counts'], dict(preview=2, apply=1, start=0, replay=0))
     def test_actual_packet_orders_selectors_and_counts(self):
-        m = json.loads((ROOT / 'v2-integration-r8-manifest.json').read_text())
+        m = json.loads((ROOT / 'v2-integration-r9-manifest.json').read_text())
         self.assertNotIn('TSE3', m['phases'])
         self.assertNotIn('D', m['phases'])
         for phase, cases in SCOPES.items():
             cfg = m['phases'][phase]
-            order = json.loads((ROOT / ('v2-integration-r8-' + Path(cfg['order_file']).name)).read_text())
+            order = json.loads((ROOT / ('v2-integration-r9-' + Path(cfg['order_file']).name)).read_text())
             self.assertEqual(order, [c['method'] for c in cases])
             self.assertEqual(cfg['selectors'], ['ClubhouseGoUITests/' + c.removesuffix('()') for c in order])
             self.assertEqual(cfg['count'], len(order))

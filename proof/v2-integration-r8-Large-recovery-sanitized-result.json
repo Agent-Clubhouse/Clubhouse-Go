@@ -1,0 +1,33 @@
+{
+  "head": "5b1995e8fbffd0e2d497fd5477e40a3121190c23",
+  "ticket": "se-large-r5",
+  "disposition": "STRICT0P1F creation row unaddressed after8 protected pans; no waiver",
+  "independent_audit_sha256": "44f8a6e526f8755248592c40ca5919207dc91e7ae387f5dd922ce0a6ace72881",
+  "receipt_sha256": "2eb8f613e30cca4a8ba3af3ab5b0a8eb0391dcc0d150cb9f2b097d883cd47e36",
+  "once_classifier": "FALSE Unexpected native outcomes; unchanged exclusive output; no re-execution",
+  "positive_scope": {
+    "receipt_frame": [
+      16,
+      154,
+      343,
+      229.5
+    ],
+    "measured_band": [
+      112,
+      414
+    ],
+    "receipt_pixels": "Entire attributed historical saved Codex CLI/no session/current unverified text readable",
+    "events": {
+      "preview": 3,
+      "apply": 1,
+      "start": 1,
+      "replay": 0
+    },
+    "consent": "named native outside-popover dismissal, same Juniper/noStart checks then separate positive confirmation; fixture counts not backend proof"
+  },
+  "creation": "No child frame/height/text/fit. AX section heading after Refresh independently present; body progress seen, not bottom/stall or ID collision proof.",
+  "timing_correction": "actual114.725 precedes pan8; actual116.0916667 follows eighth event and precedes failure, showing chooser/Refresh",
+  "after_FIFO_seconds": 206.89883079193532,
+  "cleanup": "owned worker/supervisor empty, UUID deleted/absent, original0Booted",
+  "limits": "416input D carry only, four old individual controls only. Initial uncertainty photo clipped. Capture/reading held. Runtime swapwatch record_only/256MiB flag, observed0 not active64MiB enforcement."
+}
