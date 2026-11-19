@@ -1,3 +1,11 @@
+# Current #584: d526 fixture correction, Ready with CI gaps
+
+Source `d526b066e72c698625192feffafd0b693b3f4e91` changes only two hosted History fixtures from the previously accepted `fab400733` product/proof head. Independent source, structural metadata and private-original audits PASS; fresh local iPhone/iPad History8+8 pass once on iOS26.0. The stale inherited manifest runner field and actual reviewed ROOT-only runner delta remain explicitly documented. PR584 is Ready; parent retains landing/device acceptance.
+
+[Current CI signature attribution](proposal-and-proof/ci-history-r1/ci-attribution.md): CI1139 build/deinit/packages/Release/composer/preview-project/Home pass; permission landscape matches main (#588). Reading logs all8History passes once (parent accepted scoped phone result), while iPad starts none. Both hosted shards and dispatcher/feedback shards are cancelled, with partial failures retained and no complete-lane credit. Hosted26.5 iPad remains unproved; parent authorized one job-only recovery after this workflow becomes terminal. No workflow edit/full rerun/runtime installation or local reservation. [Per-method map](proposal-and-proof/ci-history-r1/history-ci1139-structural.json). Original native containers/screens/logs remain private.
+
+The earlier entries below preserve the investigation history; their old draft/STOP states are not the current revision's status.
+
 # Current: harness-only correction, pending exact QA review
 
 #582 source5c785b864 rebases cleanly onto85ee757a; the pre-harness cumulative patch is byte-identical to reviewed a971c9343. [Rebase identity + current diff/manifest](proposal-and-proof/bookmark-start/harness-r2/harness-r2-review-notes.md). Product code is unchanged; only the DEBUG recording fixture, its new UI tests and the proof doc change. No build/test/simulator on the rebased head yet. PR584 remains draft.

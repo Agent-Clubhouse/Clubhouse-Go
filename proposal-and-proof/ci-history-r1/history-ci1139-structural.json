@@ -1,0 +1,115 @@
+{
+  "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+  "runtime_scope": "official closed job logs only; cancelled shards no final acceptance; original container not audited",
+  "jobs": {
+    "ipad": {
+      "job": 135424228804,
+      "conclusion": "cancelled",
+      "expected_methods": 8,
+      "methods": {
+        "testNativeTopAdapterPreservesTheEnclosingScrollDelegate": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testNativeTopAdapterSurvivesItsOriginalDelegate": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testNativeTopBookmarkSurvivesYieldedHistoryRestore": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testNewHistoryRestorationCannotReclaimPendingNativeTop": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        },
+        "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent": {
+          "started": 0,
+          "passed": 0,
+          "failed": 0
+        }
+      },
+      "missing": [
+        "testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+        "testNativeTopAdapterSurvivesItsOriginalDelegate",
+        "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+        "testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+        "testNewHistoryRestorationCannotReclaimPendingNativeTop",
+        "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+        "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+        "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent"
+      ],
+      "first_failure": "-[ClubhouseGoTests.CompanionConnectionRetryLatchTests testDoubleTapIssuesOneReconnectUntilTheAttemptFinishes] : failed - The actual hosted banner must reach the requested state",
+      "log_sha256": "0605a4cac320d1f6f0c176e8b1b396736c842ba7036c1dead80912c2bf6a7bc0"
+    },
+    "reading": {
+      "job": 135424229134,
+      "conclusion": "cancelled",
+      "expected_methods": 8,
+      "methods": {
+        "testNativeTopAdapterPreservesTheEnclosingScrollDelegate": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testNativeTopAdapterSurvivesItsOriginalDelegate": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testNativeTopBookmarkSurvivesYieldedHistoryRestore": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testNewHistoryRestorationCannotReclaimPendingNativeTop": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        },
+        "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent": {
+          "started": 1,
+          "passed": 1,
+          "failed": 0
+        }
+      },
+      "missing": [],
+      "first_failure": "-[ClubhouseGoTests.CompanionDispatcherSettingsDraftTests testCanonicalServerAcknowledgementMakesTheNativeNameClean] : Asynchronous wait failed: Exceeded timeout of 5 seconds, with unfulfilled expectations: \"Expect predicate `BLOCKPREDICATE(0x13d93ee20)`\".",
+      "log_sha256": "ce688bb1842be0142f9ed0b1cd144dee149bab67a8710ff4d2d2d7dcdb81d5f2"
+    }
+  }
+}
