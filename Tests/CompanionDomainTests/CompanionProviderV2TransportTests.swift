@@ -329,22 +329,35 @@ private actor ProviderV2Transport: AnnexTransporting {
     }
 
     @Test func failedAfterCreationStaysLockedWhileKeepingHistoricalEvidence() async throws {
-        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
         defer { store.stop(); service.remove(hostID: target.hostID) }
         let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         await flow.select("codex-cli"); await flow.apply()
+        #expect(store.mayWake(target), "The stale sleeping catalog would otherwise expose generic Wake")
+        let originalApplied = try #require(flow.lastApply)
         let fixture = try providerV2Fixtures()
         await io.override("agent.start", body: try #require(fixture["failedAfterCreation"]?["body"]))
         await flow.startNew()
         #expect(flow.lastStart?.start.wasObserved == true && flow.lastStart?.result.status == "failed_after_creation")
         #expect(flow.blocksMutations && !flow.canStart && !flow.canApply && !store.mayWake(target))
         let before = await io.mutations(); #expect(before.count == 2)
+        let reads = await catalog.readRoutes
+        do {
+            _ = try await store.updateSettings(.init(model: "default"), target: target)
+            Issue.record("Unresolved provider creation must block generic Store edits")
+        } catch CompanionServiceError.rejected(let message) {
+            #expect(message == "Wait for the desktop to confirm that the agent is asleep.")
+        } catch { Issue.record("Expected the Store's pending-provider guard, not a later read refusal") }
+        #expect(await catalog.readRoutes == reads, "The blocked edit must not even enter the settings adapter")
+        await store.wake(target)
+        #expect(await io.mutations() == before)
         let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         #expect(reopened === flow)
         reopened.reviewHeldResult(); await reopened.refresh(); await reopened.select("claude-code")
         await reopened.apply(); await reopened.startNew()
         let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
         do { _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "failed-creation-is-not-another-Apply"); Issue.record("Failed creation must remain locked") } catch {}
+        do { _ = try await service.startProviderV2(target, applied: originalApplied, witness: witness, clientCommandID: "failed-creation-is-not-another-Start"); Issue.record("Failed creation cannot authorize another Start") } catch {}
         #expect(await io.mutations() == before && reopened.blocksMutations && !store.mayWake(target))
         #expect(reopened.lastStart?.start.wasObserved == true, "A fresh read cannot erase or promote historical creation evidence")
     }
