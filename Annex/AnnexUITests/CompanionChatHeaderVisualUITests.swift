@@ -181,12 +181,43 @@ import XCTest
             let composer = element(app, "companion-composer")
             focus(app)
             let send = app.buttons["companion-send"]
+            XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", draft), timeout: 5),
+                          "Native typing must finish: value=\(String(describing: composer.value)), editor=\(composer.debugDescription), sendEnabled=\(send.isEnabled)")
+            XCTAssertEqual(composer.value as? String, draft)
             XCTAssertEqual(send.label, label)
             XCTAssertTrue(send.isEnabled && send.isHittable)
             XCTAssertEqual(send.frame.width, 44, accuracy: 1)
             XCTAssertEqual(send.frame.height, 44, accuracy: 1)
             try assertSendGlyphContrast(app, state: "\(theme) \(state) enabled")
             composer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: draft.count))
+            let emptied = waitFor(composer, NSPredicate { _, _ in
+                guard let value = composer.value as? String else { return false }
+                return (value.isEmpty || value == composer.placeholderValue) && !send.isEnabled
+            }, timeout: 5)
+            let value = composer.value as? String
+            let placeholder = composer.placeholderValue
+            // An empty native field may expose its placeholder as its AX value.
+            let remainingDraft = value.map { $0 == placeholder ? "" : $0 }
+            let focused = composer.debugDescription.contains("Keyboard Focused")
+            let evidence = "SEND_DRAFT \(theme) \(state) emptied=\(emptied) value=\(String(describing: value)) placeholder=\(String(describing: placeholder)) remainingDraft=\(String(describing: remainingDraft)) focused=\(focused) sendEnabled=\(send.isEnabled) keyboard=\(app.keyboards.firstMatch.exists)"
+            print(evidence)
+            let editing = XCTAttachment(string: evidence)
+            editing.name = "Send draft after native deletion \(theme) \(state)"
+            editing.lifetime = .keepAlways
+            add(editing)
+            if !emptied {
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Send draft deletion failure \(theme) \(state)"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = "Send draft deletion failure hierarchy \(theme) \(state)"
+                hierarchy.lifetime = .keepAlways
+                add(hierarchy)
+            }
+            XCTAssertTrue(emptied, evidence)
+            XCTAssertEqual(remainingDraft, "", evidence)
+            XCTAssertTrue(focused, evidence)
             XCTAssertFalse(send.isEnabled)
             XCTAssertTrue(app.keyboards.firstMatch.exists, "The disabled state is also measured while editing")
             try assertSendGlyphContrast(app, state: "\(theme) \(state) disabled")

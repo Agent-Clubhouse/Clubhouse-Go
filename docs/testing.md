@@ -23,7 +23,11 @@ and samples each avatar screenshot once, retaining that exact image and its samp
 
 The three Send-glyph contrast methods in `CompanionChatHeaderVisualUITests` use the real composer,
 keyboard open, with Terminal, a light-accent dark Mocha theme and light Latte. Each checks enabled
-and empty-draft disabled Send, Queue and Steer states without sending. The screenshot's central
+and empty-draft disabled Send, Queue and Steer states without sending. These
+checks wait at most five seconds for native typing to reach the exact draft, and for native deletion
+to reach an empty field (distinguishing its AX placeholder) with Send disabled. The empty-draft,
+native focus and disabled assertions remain explicit; observed values, placeholder, focus and button
+state are retained, plus a screenshot and hierarchy if deletion does not settle. The screenshot's central
 24pt square excludes the glass rim; at least 5% of those pixels must contrast at 4.5:1 against
 the median rendered fill. Exact synthetic screenshots, central crops, high-contrast pixel fractions,
 and core mean RGB comparisons to the actual palette foreground are retained. The core mean must
