@@ -1,0 +1,11 @@
+GUARD {"policy": "global-vm-stat-free-plus-inactive-8GiB", "authority": "Orchestrator t_mwkvyvft global guard update before C2", "top_unused_informational_only": true, "vm_memory_before": {"page_size_bytes": 16384, "free_bytes": 13137920000, "inactive_bytes": 19617857536, "free_plus_inactive_bytes": 32755777536}, "vm_memory_after": {"page_size_bytes": 16384, "free_bytes": 13303463936, "inactive_bytes": 19601981440, "free_plus_inactive_bytes": 32905445376}, "cpu_idle_percent": 82.8, "swap_growth_bytes": 0.0, "window_seconds": 10, "thresholds": {"cpu_idle_percent": 40, "vm_free_plus_inactive_bytes": 8589934592, "swap_growth_bytes": 67108864}, "accepted": true}
++ xcrun simctl boot 3AAAEFBF-1BEC-4E08-93AB-5512A22CCDF1
++ xcrun simctl bootstatus 3AAAEFBF-1BEC-4E08-93AB-5512A22CCDF1 -b
++ xcrun simctl spawn 3AAAEFBF-1BEC-4E08-93AB-5512A22CCDF1 defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
++ xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r7/DD -destination platform=iOS Simulator,id=3AAAEFBF-1BEC-4E08-93AB-5512A22CCDF1 -resultBundlePath /tmp/ux-582-proof/tickets/s-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 -only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry -only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition
+Traceback (most recent call last):
+  File "/tmp/ux-582-proof/run-ticket.py", line 314, in <module>
+    sys.exit(worker() if sys.argv[3:] == ['--worker'] else supervisor())
+  File "/tmp/ux-582-proof/run-ticket.py", line 294, in supervisor
+    os.killpg(child.pid,signal.SIGTERM)
+ProcessLookupError: [Errno 3] No such process

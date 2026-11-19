@@ -1,0 +1,97 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+index ddb6a88f2..8af93f31c 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+@@ -10,6 +10,7 @@ struct CompanionReadingRestoreFixture: View {
+     @State private var mounted = true
+     @State private var refuse = true
+     @State private var sample = "pending"
++    @State private var entrySample = "entry=nil lower=nan upper=nan distance=nan visible=0"
+     private var store: CompanionStore { lifetime.value }
+     private var target: CompanionTarget { CompanionPreviewService.target }
+     var body: some View {
+@@ -20,6 +21,7 @@ struct CompanionReadingRestoreFixture: View {
+                 } else { Text("Reading fixture") }
+             }
+             Text(sample).font(.caption2).accessibilityIdentifier("reading-restore-fixture")
++                .accessibilityValue(entrySample)
+             Button("Remount chat") {
+                 Task {
+                     refuse = false
+@@ -44,6 +46,18 @@ struct CompanionReadingRestoreFixture: View {
+                 let viewport = bookmark.viewport
+                 let next = "offset=\(viewport.metrics?.normalizedOffset ?? -1) saved=\(bookmark.position.offset) held=\(viewport.preserveBookmarkUntilUserAction ? 1 : 0) restoring=\(viewport.isRestoring ? 1 : 0) outcome=\(viewport.restoration?.outcome?.rawValue ?? "pending") mounted=\(mounted ? 1 : 0)"
+                 if next != sample { sample = next }
++                let frame = bookmark.position.entryID.flatMap { viewport.frames[$0] }
++                let offset = viewport.metrics?.normalizedOffset
++                let height = viewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) }
++                let visible: Bool
++                if let frame, let offset, let height {
++                    visible = frame.upperBound > offset + CompanionReadingPosition.minimumVisibleExtent
++                        && frame.lowerBound < offset + height
++                } else { visible = false }
++                let distance = frame.flatMap { frame in offset.map { $0 - frame.lowerBound } }
++                // AX-only data keeps the existing visible diagnostic text and offered viewport unchanged.
++                let nextEntry = "entry=\(bookmark.position.entryID ?? "nil") lower=\(frame?.lowerBound ?? .nan) upper=\(frame?.upperBound ?? .nan) distance=\(distance ?? .nan) visible=\(visible ? 1 : 0)"
++                if nextEntry != entrySample { entrySample = nextEntry }
+                 do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+             }
+         }
+diff --git a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+index 26b3ee449..308956792 100644
+--- a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+@@ -109,10 +109,34 @@ import XCTest
+         let chosen = number("saved")
+         XCTAssertEqual(chosen, number("offset"), accuracy: 2)
+         XCTAssertGreaterThan(chosen, 1_300, "This must be the drag's position, not the original bookmark")
++        func entryField(_ key: String) -> String? {
++            (state.value as? String)?.split(separator: " ").first { $0.hasPrefix(key + "=") }
++                .map { String($0.dropFirst(key.count + 1)) }
++        }
++        guard let chosenEntry = entryField("entry"), chosenEntry != "nil",
++              let chosenLower = entryField("lower").flatMap(Double.init), chosenLower.isFinite,
++              let chosenDistance = entryField("distance").flatMap(Double.init), chosenDistance.isFinite else {
++            XCTFail("The real drag must expose its measured entry and relative position before remount"); return
++        }
++        XCTAssertEqual(entryField("visible"), "1")
++        XCTAssertEqual(chosen - chosenLower, chosenDistance, accuracy: 2)
+         app.buttons["reading-restore-remount"].tap()
+         XCTAssertTrue(waitFor(state, NSPredicate(format: "label CONTAINS %@", "outcome=arrived"), timeout: 5), state.label)
+-        XCTAssertEqual(number("offset"), chosen, accuracy: 2)
+-        XCTAssertEqual(number("saved"), chosen, accuracy: 2)
++        // #582 intentionally omits the earlier prefix on remount. Keep the same two-point contract
++        // in the original measured entry's coordinates; the saved bookmark must match the new actual offset.
++        guard let restoredLower = entryField("lower").flatMap(Double.init), restoredLower.isFinite else {
++            XCTFail("The original reading entry must be measured after arrival"); return
++        }
++        XCTAssertEqual(entryField("entry"), chosenEntry)
++        XCTAssertEqual(entryField("visible"), "1")
++        let restored = number("offset")
++        let relativeDelta = restored - restoredLower - chosenDistance
++        XCTAssertEqual(relativeDelta, 0, accuracy: 2)
++        XCTAssertEqual(number("saved"), restored, accuracy: 2)
++        let measurements = XCTAttachment(string: "entry=\(chosenEntry) beforeOffset=\(chosen) beforeLower=\(chosenLower) restoredOffset=\(restored) restoredLower=\(restoredLower) rawShift=\(restored - chosen) relativeDelta=\(relativeDelta)")
++        measurements.name = "Timeout drag remount entry-relative two-point contract"
++        measurements.lifetime = .keepAlways
++        add(measurements)
+         XCTAssertEqual(number("held"), 0)
+         let attachment = XCTAttachment(screenshot: app.screenshot())
+         attachment.name = "Real drag after timeout restores its new bookmark"
+diff --git a/docs/reading-first-paint-plan.md b/docs/reading-first-paint-plan.md
+index 4100cfb60..dc708be7d 100644
+--- a/docs/reading-first-paint-plan.md
++++ b/docs/reading-first-paint-plan.md
+@@ -42,3 +42,12 @@ The branch was rebased onto85ee757a. The full pre-harness cumulative patch is by
+ ## Accepted first-frame evidence on5c785b
+ 
+ Independent QA accepted the exact encoded samples for all four routes, SE portrait and XXXL portrait, with bounded A movement and real prepend/tail stability. Only the first line ("Reading…") of the bookmarked message is visible on the first frame. The number 90 only becomes readable after the restore. This is the disclosed XXXL limitation of the recording viewport; landscape remains an uncredited #483 diagnostic. N13 passed. H-r1 STOP and its original results remain preserved; no later gate is credited until the reviewed harness changes pass on their exact head.
++
++
++## Timeout/drag UI coordinate correction and remaining-selector sweep
++
++After H-r2 proved the changed origin, review found the same raw-origin assumption in the second S UI method. The first S attempt was interrupted during the first method's setup/app launch, with no assertion outcome; it is preserved as a partial execution, not a zero-execution refusal or a completed test retry. A process-group exit race in the external runner was manually cleaned and independently reported.
++
++The timeout fixture now exposes the original measured entry ID, frame and relative position through its DEBUG AX value only, preserving its existing visible text and offered viewport. The test retains its initial1200 timeout, real-drag chosen>1300, chosen==actual, completion and held checks. After remount it requires the same measured entry to intersect the viewport, entry-relative position within the unchanged2pt tolerance, and saved bookmark==new actual offset within2pt. It logs both origin shift and relative delta. This deliberately replaces only the two incompatible old-origin equalities; no pixel or six-point reading assertion changes.
++
++The source sweep covers all52 unique selected S/C23/C50/R0/RSE methods across five full files and their helpers, plus the three additive CPU methods. Only the two timeout/remount equalities needed this further adaptation. Reading's rotation/stream/prepend/tab/reopen checks compare public screen frames; CPU paused-stream checks stay within one mount, and deep-open checks are already entry-relative. Exact classified hits and source hashes are stored with the manifest before any new build. All previous runtime evidence remains separate; no S result is credited from the interrupted attempt.

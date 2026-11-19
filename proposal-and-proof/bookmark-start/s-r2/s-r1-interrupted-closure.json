@@ -1,0 +1,21 @@
+{
+  "classification": "MANUALLY INTERRUPTED PARTIAL FIRST METHOD; not zero execution, no outcome credit, remaining methods unexecuted",
+  "head": "a291d4d491926413eb726b6c80db5bca75254415",
+  "simulator_uuid": "3AAAEFBF-1BEC-4E08-93AB-5512A22CCDF1",
+  "shutdown_rc": 0,
+  "delete_rc": 0,
+  "simulator_absent": true,
+  "booted_after": [],
+  "owned_processes_after": [],
+  "partial_case_starts": [
+    "Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry]' started."
+  ],
+  "raw_log": "tickets/s-r1/test.log",
+  "runner_exception": "ProcessLookupError at os.killpg after owned group exited; cleanup completed manually",
+  "swap_after": "vm.swapusage: total = 3072.00M  used = 1988.25M  free = 1083.75M  (encrypted)\n",
+  "closed_epoch": 1795047629.067065,
+  "cause": "Static discovery of a remaining raw-coordinate timeout/remount assertion after ticket had launched, before an outcome; previous claim of zero execution rescinded",
+  "swap_start": "vm.swapusage: total = 3072.00M  used = 1988.25M  free = 1083.75M  (encrypted)\n",
+  "start_end_swap_growth_MiB": 0.0,
+  "runtime_swap_maximum": "Unavailable: supervisor exception before final watch receipt; no max-growth claim"
+}

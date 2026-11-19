@@ -1,0 +1,35 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r7/DD -destination "platform=iOS Simulator,id=3AAAEFBF-1BEC-4E08-93AB-5512A22CCDF1" -resultBundlePath /tmp/ux-582-proof/tickets/s-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry" "-only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  Framebriar: /tmp/ux-582-proof/tickets/a-r7/source/Vendor/Framebriar @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r7/source @ local
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/s-r1/tests.xcresult
+
+2026-11-18 16:19:47.177796-0800 ClubhouseGoUITests-Runner[4804:459068140] [Default] Running tests...
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 16:19:50.697.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 16:19:50.698.
+Test Suite 'CompanionReadingRestoreUITests' started at 2026-11-18 16:19:50.698.
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry]' started.
+    t =     0.00s Start Test at 2026-11-18 16:19:50.698
+    t =     0.12s Set Up
+    t =     0.12s Getting device orientation
+    t =     0.12s Setting device orientation to Portrait
+    t =     0.13s     Device orientation changed to Portrait
+    t =     0.13s     Wait for com.apple.springboard to idle
+    t =     0.18s Open com.Agent-Clubhouse.Go
+    t =     0.18s     Launch com.Agent-Clubhouse.Go
+    t =     1.01s         Setting up automation session

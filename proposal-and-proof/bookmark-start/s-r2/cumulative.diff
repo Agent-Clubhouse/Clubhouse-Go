@@ -1,0 +1,2434 @@
+diff --git a/Annex/Annex/AnnexApp.swift b/Annex/Annex/AnnexApp.swift
+index 8cf4274a5..7d5d88da2 100644
+--- a/Annex/Annex/AnnexApp.swift
++++ b/Annex/Annex/AnnexApp.swift
+@@ -23,6 +23,8 @@ struct ClubhouseGoApp: App {
+                 Color.clear
+             } else if ProcessInfo.processInfo.arguments.contains("--deinit-probe") {
+                 CompanionDeinitProbe()
++            } else if ProcessInfo.processInfo.arguments.contains("--reading-opening-ui-testing") {
++                CompanionReadingOpeningFixture()
+             } else if ProcessInfo.processInfo.arguments.contains("--reading-restore-ui-testing") {
+                 CompanionReadingRestoreFixture()
+             } else if ProcessInfo.processInfo.arguments.contains("--reading-prefix-trim-ui-testing") {
+diff --git a/Annex/Annex/Companion/Domain/CompanionMessageSlices.swift b/Annex/Annex/Companion/Domain/CompanionMessageSlices.swift
+index e88fa4d19..c32d567fe 100644
+--- a/Annex/Annex/Companion/Domain/CompanionMessageSlices.swift
++++ b/Annex/Annex/Companion/Domain/CompanionMessageSlices.swift
+@@ -237,6 +237,42 @@ struct CompanionTimelineWindow: Equatable, Sendable {
+     /// Number of rows expanded into entries; useful for a deterministic bound independent of timing.
+     private(set) var preparedRowCount = 0
+ 
++    /// A paused opening starts at its canonical saved entry. Older rows are not prepared until requested.
++    /// Unlike the normal tail window, this opt-in boundary can begin at an existing slice within a reply.
++    init?(rows: [CompanionTimelineRow], startingAt entryID: String) {
++        let result: Self? = AnnexTelemetry.shared.measurePerformance(.timelineBuild, messageCount: rows.count) {
++            guard let rowIndex = rows.lastIndex(where: { $0.contains(entryID: entryID) }) else { return nil }
++            let firstGroup = CompanionTimelineEntry.entries(for: [rows[rowIndex]])
++            guard let canonical = CompanionTimelineEntry.jumpTarget(for: entryID, in: firstGroup),
++                  let entryIndex = firstGroup.firstIndex(where: { $0.id == canonical.id }) else { return nil }
++            var window = Self([], limit: 0)
++            window.entries = Array(firstGroup[entryIndex...])
++            for row in rows.dropFirst(rowIndex + 1) { window.entries += CompanionTimelineEntry.entries(for: [row]) }
++            window.hiddenCount = rowIndex + entryIndex
++            window.preparedRowCount = rows.count - rowIndex
++            return window
++        }
++        guard let result else { return nil }
++        self = result
++    }
++
++    /// Explicit user expansion only. Include the first reply's earlier slices and at least one page of entries.
++    static func precedingStart(in rows: [CompanionTimelineRow], before entryID: String, count: Int = pageSize) -> String? {
++        guard var rowIndex = rows.lastIndex(where: { $0.contains(entryID: entryID) }) else { return nil }
++        let group = CompanionTimelineEntry.entries(for: [rows[rowIndex]])
++        guard let canonical = CompanionTimelineEntry.jumpTarget(for: entryID, in: group),
++              let entryIndex = group.firstIndex(where: { $0.id == canonical.id }) else { return nil }
++        var first = entryIndex > 0 ? group.first?.id : nil
++        var added = entryIndex
++        while rowIndex > 0 && added < max(1, count) {
++            rowIndex -= 1
++            let earlier = CompanionTimelineEntry.entries(for: [rows[rowIndex]])
++            if let id = earlier.first?.id { first = id }
++            added += earlier.count
++        }
++        return first
++    }
++
+     /// Build newest rows first, stopping before parsing Markdown for hidden history. A whole reply still crosses
+     /// the window edge intact. `hiddenCount` here counts omitted rows (only its nonzero state is presented).
+     init(rows: [CompanionTimelineRow], limit: Int, retaining entryID: String? = nil) {
+diff --git a/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift b/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift
+index ede2d15a1..730ca8cc7 100644
+--- a/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift
++++ b/Annex/Annex/Companion/Domain/CompanionReadingPosition.swift
+@@ -62,6 +62,8 @@ struct CompanionReadingGesture {
+ /// Content coordinates avoid depending on estimates of row heights. One visible entry and its pixel offset survive
+ /// prepends, grouping changes above it, and keyboard/composer resizing. Stored per conversation outside snapshots.
+ struct CompanionReadingPosition: Equatable, Sendable {
++    /// Ignore an edge that is effectively at the viewport top, including floating-point rounding noise.
++    static let minimumVisibleExtent: Double = 0.5
+     var followsLatest = true
+     var entryID: String?
+     var distanceFromEntry: Double = 0
+@@ -73,7 +75,7 @@ struct CompanionReadingPosition: Equatable, Sendable {
+     mutating func capture(offset: Double, frames: [String: ClosedRange<Double>]) {
+         self.offset = offset
+         var first: (key: String, value: ClosedRange<Double>)?
+-        for entry in frames where entry.value.upperBound > offset {
++        for entry in frames where entry.value.upperBound > offset + Self.minimumVisibleExtent {
+             if first == nil || entry.value.lowerBound < first!.value.lowerBound { first = entry }
+         }
+         if let first {
+@@ -94,6 +96,24 @@ struct CompanionReadingPosition: Equatable, Sendable {
+     }
+ }
+ 
++/// Value-only initial transcript window. Pixel alignment still belongs to the bounded restore.
++struct CompanionReadingOpening: Equatable, Sendable {
++    let followsLatest: Bool
++    let shownEntries: Int
++    let entryID: String?
++
++    init(position: CompanionReadingPosition, hasMounted: Bool, initialLimit: Int, rows: [CompanionTimelineRow]) {
++        followsLatest = position.followsLatest
++        // Match the existing history task: only an already mounted bookmark owns an expanded window.
++        shownEntries = hasMounted ? max(initialLimit, position.shownEntries) : initialLimit
++        guard !position.followsLatest, let id = position.entryID,
++              let row = rows.first(where: { $0.contains(entryID: id) }) else { entryID = nil; return }
++        // The paused opening window begins at this row's canonical entry. Do not prepare hidden Markdown.
++        // Reuse the existing grouped-question alias rule, while keeping the original semantic bookmark intact.
++        entryID = CompanionTimelineEntry.jumpTarget(for: id, in: CompanionTimelineEntry.entries(for: [row]))?.id
++    }
++}
++
+ enum CompanionAssistantNavigation {
+     static func targets(in entries: [CompanionTimelineEntry]) -> [String] {
+         var seen: Set<String> = []
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index b1121daa9..eccfef47f 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -1,4 +1,5 @@
+ import SwiftUI
++import Combine
+ import ClubhouseTransport
+ 
+ struct CompanionConversationView: View {
+@@ -13,13 +14,9 @@ struct CompanionConversationView: View {
+     #if DEBUG
+     /// Initial value only for the recovery component's private State; normal callers leave it false.
+     var initiallyShowsRecoveryDetails = false
+-    @State private var followPauseCount = 0
+-    @State private var followSawDeceleration = false
++    /// Hosted routing proof only; delivered into the same parent-owned request State as the real action.
++    var debugReadingJump: CompanionDecisionChatJump? = nil
+     #endif
+-    @State private var followLatest = true
+-    @State private var atLatest = true
+-    @State private var nextAssistantMessageID: String?
+-    @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
+     @State private var confirmCancel = false
+     @State private var confirmSleep = false
+     @State private var showArchive = false
+@@ -31,24 +28,12 @@ struct CompanionConversationView: View {
+     @State private var headerBarWidth: CGFloat = 0
+     @State private var headerOverflowMonitor = CompanionHeaderOverflowMonitor()
+     @State private var keyboardVisible = false
+-    @State private var decisionChatJump: DecisionChatJump?
+-    private struct DecisionChatJump: Equatable { let id = UUID(); let itemID: String }
+-    @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
+-    /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
+-    @State private var shownEntries = Self.initialEntryLimit
+-    private static var initialEntryLimit: Int {
+-        #if DEBUG
+-        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
+-        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
+-        #endif
+-        return CompanionTimelineWindow.pageSize
+-    }
++    @State private var decisionChatJump: CompanionDecisionChatJump?
+     // A stable, lazily created bookmark survives retained-tab content unmounts. Input State lives below.
+     @State private var composerMemory = CompanionStateLifetime { CompanionComposerMemory() }
+     @State private var composerFocusRequests = 0
+     @State private var composerDismissals = 0
+     @Environment(\.scenePhase) private var scenePhase
+-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+     @Environment(\.companionPalette) private var palette
+     @Environment(\.companionOpenAgent) private var openAgent
+@@ -113,6 +98,11 @@ struct CompanionConversationView: View {
+                 readingViewport.clearGeometry()
+             }
+         }
++        #if DEBUG
++        .onChange(of: debugReadingJump, initial: true) { _, request in
++            if let request { decisionChatJump = request }
++        }
++        #endif
+     }
+ 
+     private var content: some View {
+@@ -472,21 +462,216 @@ struct CompanionConversationView: View {
+         }
+     }
+ 
++    private var timeline: some View {
++        CompanionReadingSeedScope(store: store, target: target) { opening in
++            CompanionConversationTranscript(store: store, target: target, opening: opening,
++                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump, dismissComposer: dismissComposer,
++                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) })
++        }
++        .id(target)
++    }
++
++    /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
++    @ViewBuilder private var timelineHeader: some View {
++        if conversation.hasEarlierMessages {
++            Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
++                .font(.caption).frame(maxWidth: .infinity)
++        }
++        if conversation.items.isEmpty && !recoveryStatus.isVisible {
++            ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
++                .accessibilityIdentifier("companion-empty-conversation")
++        }
++    }
++    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, items: [CompanionTimelineItem]) -> some View {
++        switch entry {
++        case .row(let row): timelineRow(row, items: items)
++        case .slice(let message, let slice):
++            messageView(message, slice: slice)
++            if slice.isLast && message.role == .assistant {
++                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
++            }
++        }
++    }
++
++    private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
++        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
++            Task { await store.retry(messageID: message.id, target: target) }
++        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
++           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
++           slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
++    }
++
++    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, items: [CompanionTimelineItem]) -> some View {
++        switch row {
++        case .item(let item): timelineItem(item, items: items)
++        case .desktopQuestions(let group):
++            CompanionDesktopQuestionsCard(group: group, hostName: store.host(for: target)?.name)
++        case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
++        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
++        case .routed(let message, let index):
++            CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target))
++        }
++    }
++
++    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, items: [CompanionTimelineItem]) -> some View {
++        switch item {
++        case .message(let message):
++            messageView(message)
++            if message.role == .assistant {
++                CompanionContentLinks(references: CompanionContentReference.references(in: item))
++            }
++        case .tool(let tool):
++            CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
++            CompanionContentLinks(references: CompanionContentReference.references(in: item))
++        case .approval(let approval):
++            CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
++                                  canRespond: canRespond, actionsArePinned: true,
++                                  persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
++                Task { await store.respond(approval, option: option, target: target) }
++            }
++        case .question(let question):
++            CompanionQuestionCard(question: question, canRespond: false, actionsArePinned: true) { answers in
++                Task { await store.answer(question, answers: answers, target: target) }
++            }
++        case .notice(_, let text):
++            Text(text).font(.caption).foregroundStyle(.secondary)
++                .frame(maxWidth: .infinity, alignment: .leading)
++                .accessibilityIdentifier("companion-notice-\(item.id)")
++        }
++    }
++
++    private func focusComposer() { composerFocusRequests &+= 1 }
++
++    private func dismissComposer() {
++        composerDismissals &+= 1
++        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
++    }
++
++    /// Messages only reach chat-runtime agents (the desktop answers `not_chat` otherwise).
++    private var terminalNotice: some View {
++        Label("\(agent.name) runs in a terminal on your desktop. Open it there to work with it.", systemImage: "terminal")
++            .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
++            .frame(maxWidth: .infinity, alignment: .leading)
++            .padding(16)
++            .glassEffect(.regular, in: .rect(cornerRadius: 24))
++            .padding(.horizontal, 16).padding(.vertical, 10)
++    }
++
++
++}
++
++
++struct CompanionDecisionChatJump: Equatable {
++    let id = UUID()
++    let itemID: String
++}
++
++/// StateObject's autoclosure computes the seed once per mounted target, not per discarded View initializer.
++/// This owner retains immutable values only; composer and all mutable reading State stay outside it.
++@MainActor private final class CompanionReadingSeed: ObservableObject {
++    nonisolated deinit {}
++    let value: CompanionReadingOpening
++
++    init(store: CompanionStore, target: CompanionTarget) {
++        let bookmark = store.readingBookmark(for: target)
++        value = CompanionReadingOpening(position: bookmark.position, hasMounted: bookmark.hasMounted,
++            initialLimit: Self.initialEntryLimit, rows: store.timelineRows(for: target))
++        #if DEBUG
++        CompanionReadingOpeningProbe.didComputeSeed?(target)
++        #endif
++    }
++    private static var initialEntryLimit: Int {
++        #if DEBUG
++        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
++        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
++        #endif
++        return CompanionTimelineWindow.pageSize
++    }
++
++}
++
++private struct CompanionReadingSeedScope<Content: View>: View {
++    @StateObject private var seed: CompanionReadingSeed
++    @ViewBuilder var content: (CompanionReadingOpening) -> Content
++
++    init(store: CompanionStore, target: CompanionTarget,
++         @ViewBuilder content: @escaping (CompanionReadingOpening) -> Content) {
++        _seed = StateObject(wrappedValue: CompanionReadingSeed(store: store, target: target))
++        self.content = content
++    }
++    var body: some View { content(seed.value) }
++}
++
++/// Only the transcript unmounts when a retained chat is hidden. Composer/header State stays above this boundary.
++private struct CompanionConversationTranscript<Header: View, Entry: View>: View {
++    @Bindable var store: CompanionStore
++    let target: CompanionTarget
++    let isVisibilityManaged: Bool
++    let decisionChatJump: CompanionDecisionChatJump?
++    let dismissComposer: () -> Void
++    @ViewBuilder var header: () -> Header
++    @ViewBuilder var entry: (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry
++    @State private var followLatest = true
++    @State private var atLatest = true
++    @State private var nextAssistantMessageID: String?
++    @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
++    @State private var openingWindowStartID: String?
++    @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
++    @Environment(\.accessibilityReduceMotion) private var reduceMotion
++    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
++    #if DEBUG
++    @State private var openingID = UUID()
++    @State private var followPauseCount = 0
++    @State private var followSawDeceleration = false
++    #endif
++    /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
++    @State private var shownEntries = CompanionTimelineWindow.pageSize
++
++    init(store: CompanionStore, target: CompanionTarget, opening: CompanionReadingOpening, isVisibilityManaged: Bool,
++         decisionChatJump: CompanionDecisionChatJump?, dismissComposer: @escaping () -> Void,
++         @ViewBuilder header: @escaping () -> Header,
++         @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
++        self.store = store
++        self.target = target
++        self.isVisibilityManaged = isVisibilityManaged
++        self.decisionChatJump = decisionChatJump
++        self.dismissComposer = dismissComposer
++        self.header = header
++        self.entry = entry
++        // Repeated View initialization copies only this cached value. No Store lookup or text slicing runs here.
++        _followLatest = State(initialValue: opening.followsLatest)
++        _atLatest = State(initialValue: opening.followsLatest)
++        _shownEntries = State(initialValue: opening.shownEntries)
++        _openingWindowStartID = State(initialValue: opening.entryID)
++        _readingScrollPosition = State(initialValue: ScrollPosition(edge: opening.entryID == nil ? .bottom : .top))
++    }
++
++    private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
++    private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
++    private var conversation: CompanionConversation { store.conversation(for: target) }
++    /// Only the archive link precedes actual entries.
++    private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
++
+     private var showsLatestControl: Bool {
+-        !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(
+-            readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)
+-        ) && !conversation.items.isEmpty
++        guard !conversation.items.isEmpty else { return false }
++        // The paused semantic choice can present Latest before layout, without saving or cancelling restoration.
++        guard let metrics = readingViewport.metrics else { return !followLatest }
++        return !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(metrics)
+     }
+ 
+-    private var timeline: some View {
++    var body: some View {
+         #if DEBUG
+         let _ = CompanionConversationBuildProbe.record?(.timeline, target)
+         #endif
+         let rows = store.timelineRows(for: target)
+         let viewport = readingViewport
+-        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
++        let window = openingWindowStartID.flatMap { CompanionTimelineWindow(rows: rows, startingAt: $0) }
++            ?? CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+         let entries = window.entries
+         let stops = CompanionAssistantNavigation.targets(in: entries)
++        #if DEBUG
++        let _ = traceOpening(.body, firstEntryID: entries.first?.id)
++        #endif
+         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
+         return ScrollViewReader { proxy in
+             ScrollView {
+@@ -496,13 +681,10 @@ struct CompanionConversationView: View {
+                 // Each entry sets its own spacing, never negative.
+                 VStack(alignment: .leading, spacing: 0) {
+                     VStack(alignment: .leading, spacing: 22) {
+-                        timelineHeader
++                        header()
+                         if window.hiddenCount > 0 {
+                             Button("Show earlier messages", systemImage: "arrow.up.circle") {
+-                                setFollowing(false, reason: .earlier)
+-                                readingViewport.isRestoring = true
+-                                readingViewport.restoreOffset = nil
+-                                shownEntries += CompanionTimelineWindow.pageSize
++                                showEarlier(in: rows)
+                             }
+                                 .font(.caption).frame(maxWidth: .infinity)
+                                 .accessibilityIdentifier("companion-show-earlier")
+@@ -512,7 +694,7 @@ struct CompanionConversationView: View {
+                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
+                     ForEach(entries) { entry in
+                         VStack(alignment: .leading, spacing: 22) {
+-                            timelineEntry(entry, items: items)
++                            self.entry(entry, items)
+                             if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
+                         }
+                         .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
+@@ -530,6 +712,7 @@ struct CompanionConversationView: View {
+                     }
+                     .id("latest")
+                 }
++                .scrollTargetLayout()
+                 .padding(.horizontal, horizontalPadding)
+                 .padding(.top, 24)
+                 .coordinateSpace(name: "companion-transcript-content")
+@@ -548,8 +731,8 @@ struct CompanionConversationView: View {
+                 .frame(maxWidth: .infinity)
+             }
+             .scrollPosition($readingScrollPosition)
+-            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .initialOffset)
+-            .defaultScrollAnchor(.bottom, for: .alignment)
++            .defaultScrollAnchor(readingScrollPosition.edge == .bottom ? .bottom : .top, for: .initialOffset)
++            .defaultScrollAnchor(openingWindowStartID == nil ? .bottom : .top, for: .alignment)
+             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
+             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
+             .defaultScrollAnchor(followLatest ? .bottom : .top, for: .sizeChanges)
+@@ -569,6 +752,9 @@ struct CompanionConversationView: View {
+                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
+                     readingViewport.previousMetrics = Self.metrics(old)
+                     readingViewport.metrics = metrics
++                    #if DEBUG
++                    traceOpening(.geometry, firstEntryID: entries.first?.id)
++                    #endif
+                     updateNextAssistantMessage(in: stops)
+                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
+                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
+@@ -608,6 +794,9 @@ struct CompanionConversationView: View {
+                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
+                     readingViewport.frames = frames
+                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
++                    #if DEBUG
++                    traceOpening(.frames, firstEntryID: entries.first?.id)
++                    #endif
+                     updateNextAssistantMessage(in: stops)
+                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
+                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
+@@ -664,12 +853,24 @@ struct CompanionConversationView: View {
+             // Full history can also reset the offset with unchanged estimated dimensions. Reject that preceding
+             // generation's geometry/bookmark writes until this task restores the saved choice and issues its anchor.
+             .task(id: conversation.historyRevision) {
++                #if DEBUG
++                traceOpening(.historyTask, firstEntryID: entries.first?.id)
++                #endif
+                 let revision = conversation.historyRevision
+                 readingViewport.finishRestoration(.generation)
+                 readingViewport.preserveBookmarkUntilUserAction = false
+                 readingViewport.hasInitialized = false
+                 readingViewport.historyRevision = nil
+                 readingViewport.gesture.end()
++                if let start = openingWindowStartID {
++                    let row = rows.first { $0.contains(entryID: start) }
++                    let exists = row.map { CompanionTimelineEntry.entries(for: [$0]).contains { $0.id == start } } ?? false
++                    if !exists {
++                        // A replacement generation removed this boundary. Never resurrect its old cursor later.
++                        // Keep the mounted reader's position. A handles a missing entry using its saved offset.
++                        openingWindowStartID = nil
++                    }
++                }
+                 if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
+                 else {
+                     readingBookmark.hasMounted = true
+@@ -709,40 +910,51 @@ struct CompanionConversationView: View {
+                 let allEntries = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: .max).entries
+                 guard let entry = CompanionTimelineEntry.jumpTarget(for: request.itemID, in: allEntries),
+                       let index = allEntries.firstIndex(where: { $0.id == entry.id }) else { return }
++                #if DEBUG
++                traceOpening(.jump, firstEntryID: entries.first?.id)
++                #endif
+                 setFollowing(false, reason: .messageJump)
+-                shownEntries = max(shownEntries, allEntries.count - index)
++                let requestedShownEntries = max(shownEntries, allEntries.count - index)
+                 let saved = CompanionReadingPosition(followsLatest: false, entryID: entry.id,
+-                    offset: readingBookmark.position.offset, shownEntries: shownEntries)
++                    offset: readingBookmark.position.offset, shownEntries: requestedShownEntries)
+                 readingBookmark.position = saved
+                 readingViewport.isRestoring = true
+                 readingViewport.restoreOffset = nil
++                if let start = openingWindowStartID,
++                   let current = allEntries.firstIndex(where: { $0.id == start }), index < current {
++                    openingWindowStartID = entry.id
++                }
++                shownEntries = requestedShownEntries
+                 let restoration = CompanionReadingRestoration(revision: conversation.historyRevision,
+                     startedAt: ProcessInfo.processInfo.systemUptime)
+                 readingViewport.restoration = restoration
+                 await restoreReadingPosition(saved, id: restoration.id)
+             }
+             .onDisappear {
++                #if DEBUG
++                traceOpening(.unmounted, firstEntryID: entries.first?.id)
++                #endif
+                 // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
+                 // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
+-                if isVisible == nil { viewport.clearGeometry() }
++                if !isVisibilityManaged { viewport.clearGeometry() }
+             }
+ 
+         }
+     }
+ 
+-    /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
+-    @ViewBuilder private var timelineHeader: some View {
+-        if conversation.hasEarlierMessages {
+-            Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+-                .font(.caption).frame(maxWidth: .infinity)
+-        }
+-        if conversation.items.isEmpty && !recoveryStatus.isVisible {
+-            ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
+-                .accessibilityIdentifier("companion-empty-conversation")
++    /// Only an explicit earlier-page action can move the mounted opening boundary toward older history.
++    private func showEarlier(in rows: [CompanionTimelineRow]) {
++        setFollowing(false, reason: .earlier)
++        if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
++        // Guard geometry saves BEFORE either State value can prepend content.
++        readingViewport.isRestoring = true
++        readingViewport.restoreOffset = nil
++        if let start = openingWindowStartID {
++            // A stale/oldest boundary has no predecessor: fall back to the normal widened window.
++            openingWindowStartID = CompanionTimelineWindow.precedingStart(in: rows, before: start)
+         }
++        shownEntries += CompanionTimelineWindow.pageSize
+     }
+-    /// The settled empty state has no entries below it; only the archive link precedes actual entries.
+-    private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
+ 
+     private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
+         .init(offset: geometry.contentOffset.y, contentHeight: geometry.contentSize.height,
+@@ -753,6 +965,9 @@ struct CompanionConversationView: View {
+         readingViewport.acceptsGeometry(historyRevision: conversation.historyRevision, isLoaded: conversation.isLoaded)
+     }
+     private func readingScrollPhaseChanged(from old: ScrollPhase, to phase: ScrollPhase, metrics: CompanionScrollMetrics) {
++        #if DEBUG
++        traceOpening(.phaseChanged, firstEntryID: nil, detail: String(describing: phase))
++        #endif
+         let userPhase = phase == .tracking || phase == .interacting || phase == .decelerating
+         if userPhase {
+             cancelNativeScrollToTop()
+@@ -784,8 +999,14 @@ struct CompanionConversationView: View {
+               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
+         readingBookmark.position.followsLatest = followLatest
+         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
++        #if DEBUG
++        traceOpening(.saved, firstEntryID: nil)
++        #endif
+     }
+     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
++        #if DEBUG
++        traceOpening(.cancelled, firstEntryID: nil)
++        #endif
+         guard readingViewport.preserveBookmarkUntilUserAction || readingViewport.isRestoring
+                 || (readingViewport.restoration != nil && readingViewport.restoration?.outcome == nil) else { return }
+         readingViewport.finishRestoration(outcome)
+@@ -811,6 +1032,9 @@ struct CompanionConversationView: View {
+             case .finish(let outcome):
+                 readingViewport.finishRestoration(outcome)
+                 if outcome == .arrived, let metrics = readingViewport.metrics {
++                    #if DEBUG
++                    traceOpening(.arrived, firstEntryID: nil)
++                    #endif
+                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
+                     saveReadingPosition(metrics)
+                 }
+@@ -824,7 +1048,10 @@ struct CompanionConversationView: View {
+                     if let metrics = readingViewport.metrics { readingScrollPhaseChanged(from: priorPhase, to: phase, metrics: metrics) }
+                     priorPhase = phase
+                 }) ?? true
+-                if deliver { readingScrollPosition.scrollTo(y: offset) }
++                if deliver {
++                    readingScrollPosition.scrollTo(y: offset)
++                    traceOpening(.scroll, firstEntryID: nil)
++                }
+                 #else
+                 readingScrollPosition.scrollTo(y: offset)
+                 #endif
+@@ -854,9 +1081,10 @@ struct CompanionConversationView: View {
+ 
+     private func jump(to id: String?, forward: Bool, proxy: ScrollViewProxy) {
+         guard let id else {
+-            if !forward { setFollowing(false, reason: .messageJump); shownEntries += CompanionTimelineWindow.pageSize }
++            if !forward { showEarlier(in: store.timelineRows(for: target)) }
+             else {
+                 setFollowing(true, reason: .latest)
++                openingWindowStartID = nil
+                 readingBookmark.position.followsLatest = true
+                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
+             }
+@@ -894,6 +1122,20 @@ struct CompanionConversationView: View {
+         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
+     }
+ 
++    #if DEBUG
++    private func traceOpening(_ phase: CompanionReadingOpeningProbe.Phase, firstEntryID: String?, detail: String? = nil) {
++        guard let record = CompanionReadingOpeningProbe.record else { return }
++        record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, detail: detail, followsLatest: followLatest,
++            shownEntries: shownEntries, requestedEntryID: readingScrollPosition.viewID(type: String.self),
++            requestedBottom: readingScrollPosition.edge == .bottom, requestedTop: readingScrollPosition.edge == .top,
++            windowStartID: openingWindowStartID, savedDistanceFromEntry: readingBookmark.position.distanceFromEntry,
++            pointY: readingScrollPosition.y.map(Double.init), positionedByUser: readingScrollPosition.isPositionedByUser, windowFirstID: firstEntryID,
++            historyRevision: conversation.historyRevision, offset: readingViewport.metrics?.normalizedOffset,
++            entryLowerBound: readingBookmark.position.entryID.flatMap { readingViewport.frames[$0]?.lowerBound },
++            latestVisible: showsLatestControl))
++    }
++    #endif
++
+     /// Opt-in preview diagnostics for CI. Closed reasons and numbers only; never draft or transcript text.
+     #if DEBUG
+     private var tracesFollow: Bool {
+@@ -948,82 +1190,6 @@ struct CompanionConversationView: View {
+             && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast, currentViewport: currentViewport)
+     }
+ 
+-    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, items: [CompanionTimelineItem]) -> some View {
+-        switch entry {
+-        case .row(let row): timelineRow(row, items: items)
+-        case .slice(let message, let slice):
+-            messageView(message, slice: slice)
+-            if slice.isLast && message.role == .assistant {
+-                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
+-            }
+-        }
+-    }
+-
+-    private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
+-        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
+-            Task { await store.retry(messageID: message.id, target: target) }
+-        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
+-           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
+-           slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
+-    }
+-
+-    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, items: [CompanionTimelineItem]) -> some View {
+-        switch row {
+-        case .item(let item): timelineItem(item, items: items)
+-        case .desktopQuestions(let group):
+-            CompanionDesktopQuestionsCard(group: group, hostName: store.host(for: target)?.name)
+-        case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
+-        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
+-        case .routed(let message, let index):
+-            CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target))
+-        }
+-    }
+-
+-    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, items: [CompanionTimelineItem]) -> some View {
+-        switch item {
+-        case .message(let message):
+-            messageView(message)
+-            if message.role == .assistant {
+-                CompanionContentLinks(references: CompanionContentReference.references(in: item))
+-            }
+-        case .tool(let tool):
+-            CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
+-            CompanionContentLinks(references: CompanionContentReference.references(in: item))
+-        case .approval(let approval):
+-            CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
+-                                  canRespond: canRespond, actionsArePinned: true,
+-                                  persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
+-                Task { await store.respond(approval, option: option, target: target) }
+-            }
+-        case .question(let question):
+-            CompanionQuestionCard(question: question, canRespond: false, actionsArePinned: true) { answers in
+-                Task { await store.answer(question, answers: answers, target: target) }
+-            }
+-        case .notice(_, let text):
+-            Text(text).font(.caption).foregroundStyle(.secondary)
+-                .frame(maxWidth: .infinity, alignment: .leading)
+-                .accessibilityIdentifier("companion-notice-\(item.id)")
+-        }
+-    }
+-
+-    private func focusComposer() { composerFocusRequests &+= 1 }
+-
+-    private func dismissComposer() {
+-        composerDismissals &+= 1
+-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+-    }
+-
+-    /// Messages only reach chat-runtime agents (the desktop answers `not_chat` otherwise).
+-    private var terminalNotice: some View {
+-        Label("\(agent.name) runs in a terminal on your desktop. Open it there to work with it.", systemImage: "terminal")
+-            .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+-            .frame(maxWidth: .infinity, alignment: .leading)
+-            .padding(16)
+-            .glassEffect(.regular, in: .rect(cornerRadius: 24))
+-            .padding(.horizontal, 16).padding(.vertical, 10)
+-    }
+-
+-
+ }
+ 
+ private struct CompanionTranscriptEndSpacer: View {
+@@ -1115,6 +1281,6 @@ private struct CompanionReadingFrames: PreferenceKey {
+ #if DEBUG
+ @MainActor enum CompanionReadingRestoreProbe {
+     /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
+-    static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
++    static var deliver: ((UUID, Int, Double, @escaping (ScrollPhase) -> Void) -> Bool)?
+ }
+ #endif
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
+new file mode 100644
+index 000000000..2b970bacd
+--- /dev/null
++++ b/Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift
+@@ -0,0 +1,200 @@
++#if DEBUG
++import SwiftUI
++
++/// Opt-in recording harness. The user/test starts each mount after video recording has begun.
++/// Bookmarks use real preview histories; the production view draws immediately without opacity or a paint delay.
++struct CompanionReadingOpeningFixture: View {
++    @State private var lifetime = CompanionStateLifetime {
++        CompanionStore(service: CompanionPreviewService(showsReadingScenario: true))
++    }
++    @State private var agents: [CompanionAgent] = []
++    @State private var selected = 0
++    @State private var mounted = false
++    @State private var tab = 0
++    @State private var presentsDestination = false
++    private var visible: Bool { tab == 0 }
++    @State private var scenario = "loading"
++    @State private var status = "loading"
++    private var store: CompanionStore { lifetime.value }
++    private var target: CompanionTarget? { agents.indices.contains(selected) ? agents[selected].id : nil }
++    private var theme: CompanionDesktopTheme { CompanionPreviewService.appearanceTheme ?? .clubhouse }
++    private var colorScheme: ColorScheme {
++        let arguments = ProcessInfo.processInfo.arguments
++        if arguments.contains("--companion-preview-light") { return .light }
++        if arguments.contains("--companion-preview-dark") { return .dark }
++        return theme.mode == .light ? .light : .dark
++    }
++
++    var body: some View {
++        VStack(spacing: 0) {
++            TabView(selection: $tab) {
++                Tab("Chat", systemImage: "bubble.left", value: 0) {
++                    NavigationStack {
++                        Group {
++                            if mounted, agents.indices.contains(selected) {
++                                // No identity on this parent: the transcript itself must separate target State.
++                                CompanionConversationView(store: store, agent: agents[selected], isVisible: visible)
++                            } else { Text("Ready to open a chat").accessibilityIdentifier("reading-opening-unmounted") }
++                        }
++                        .navigationDestination(isPresented: $presentsDestination) {
++                            if agents.indices.contains(selected) {
++                                CompanionConversationView(store: store, agent: agents[selected])
++                                    .toolbar(.hidden, for: .tabBar)
++                            }
++                        }
++                    }
++                }
++                Tab("Home", systemImage: "house", value: 1) { Text("Recording fixture Home") }
++            }
++            Text(status).font(.caption2).lineLimit(3).frame(height: 48).accessibilityIdentifier("reading-opening-state")
++            // DEBUG controls only: two visible rows replace the unreliable offscreen strip.
++            // Their offered height is disclosed in the recording; the real chat uses the remaining viewport.
++            LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 6), spacing: 4) {
++                    recordingControl("Latest") { scenario = "latest"; mounted = true }
++                        .accessibilityIdentifier("reading-opening-latest")
++                    recordingControl("Paused") { Task { await openPaused() } }
++                        .accessibilityIdentifier("reading-opening-paused")
++                    recordingControl("Hide") { scenario = "hidden"; tab = 1 }
++                        .accessibilityIdentifier("reading-opening-hide")
++                    recordingControl("Show") { scenario = "tab-return"; tab = 0 }
++                        .accessibilityIdentifier("reading-opening-show")
++                    recordingControl("Close") {
++                        Task { if await closeCurrentMount() { scenario = "closed" } }
++                    }
++                        .accessibilityIdentifier("reading-opening-close")
++                    recordingControl("Reopen") { scenario = "reopen"; presentsDestination = true }
++                        .accessibilityIdentifier("reading-opening-reopen")
++                    recordingControl("Other") { scenario = "target-switch"; selected = selected == 0 ? 1 : 0 }
++                        .accessibilityIdentifier("reading-opening-other")
++                    recordingControl("Reload") {
++                        guard let target else { return }
++                        let wasHidden = !visible
++                        scenario = "loading-history"
++                        Task {
++                            await store.load(target, force: true)
++                            scenario = wasHidden ? "hidden-reload" : "open-reload"
++                        }
++                    }.accessibilityIdentifier("reading-opening-reload")
++                    recordingControl("Stream") {
++                        guard let target else { return }
++                        store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed after drag", sequence: nil))
++                        scenario = "streamed"
++                    }.accessibilityIdentifier("reading-opening-stream")
++                    recordingControl("Append") {
++                        guard let target else { return }
++                        store.apply(.upsert(target, .message(.init(id: "opening-earlier-tail", role: .assistant,
++                            text: "A new tail reply arrives while earlier history is visible.")), sequence: nil))
++                        scenario = "tail-arrived"
++                    }.accessibilityIdentifier("reading-opening-append")
++                    recordingControl("Short") { Task { await openShortPaused() } }
++                        .accessibilityIdentifier("reading-opening-short")
++                    recordingControl("Replace") { replaceSession() }
++                        .accessibilityIdentifier("reading-opening-session")
++            }
++            .buttonStyle(.bordered).font(.system(size: 12))
++            .accessibilityIdentifier("reading-opening-actions")
++        }
++        .companionTheme(theme)
++        .preferredColorScheme(colorScheme)
++        .task {
++            let preview = CompanionPreviewService(showsReadingScenario: true)
++            var events = preview.events().makeAsyncIterator()
++            if let event = await events.next() { store.apply(event) }
++            agents = Array(store.hosts.flatMap(\.allAgents).filter { !$0.isDispatcher }.prefix(2))
++            for agent in agents { await store.load(agent.id) }
++            ReadingOpeningRecording.last = nil
++            ReadingOpeningRecording.unmounted = []
++            ReadingOpeningRecording.handoffs = 0
++            CompanionReadingOpeningProbe.didComputeSeed = { target in
++                let saved = store.readingBookmark(for: target).position
++                print("READING_OPEN_SEED time=\(Date().timeIntervalSince1970) target=\(target.agentID) entry=\(saved.entryID ?? "nil") distance=\(saved.distanceFromEntry) shown=\(saved.shownEntries) follow=\(saved.followsLatest ? 1 : 0)")
++            }
++            CompanionReadingOpeningProbe.record = { sample in
++                ReadingOpeningRecording.last = sample
++                if sample.phase == .handoff { ReadingOpeningRecording.handoffs += 1 }
++                if sample.phase == .unmounted { ReadingOpeningRecording.unmounted.insert(sample.mountID) }
++                print("READING_OPEN time=\(Date().timeIntervalSince1970) case=\(scenario) phase=\(sample.phase.rawValue) mount=\(sample.mountID) target=\(sample.target.agentID) follow=\(sample.followsLatest ? 1 : 0) shown=\(sample.shownEntries) id=\(sample.requestedEntryID ?? "nil") bottom=\(sample.requestedBottom ? 1 : 0) top=\(sample.requestedTop ? 1 : 0) start=\(sample.windowStartID ?? "nil") distance=\(sample.savedDistanceFromEntry) user=\(sample.positionedByUser ? 1 : 0) point=\(sample.pointY ?? -1) first=\(sample.windowFirstID ?? "nil") offset=\(sample.offset ?? -1) lower=\(sample.entryLowerBound ?? -1) latest=\(sample.latestVisible ? 1 : 0)")
++            }
++            scenario = "ready"
++            defer {
++                CompanionReadingOpeningProbe.record = nil
++                CompanionReadingOpeningProbe.didComputeSeed = nil
++                ReadingOpeningRecording.handoffs = 0
++                ReadingOpeningRecording.last = nil
++                ReadingOpeningRecording.unmounted = []
++            }
++            while !Task.isCancelled {
++                let bookmark = target.map { store.readingBookmark(for: $0) }
++                let sample = ReadingOpeningRecording.last
++                let next = "case=\(scenario) mounted=\(mounted ? 1 : 0) visible=\(visible ? 1 : 0) target=\(target?.agentID ?? "nil") start=\(sample?.windowStartID ?? "nil") follow=\(bookmark?.position.followsLatest == true ? 1 : 0) entry=\(bookmark?.position.entryID ?? "nil") outcome=\(bookmark?.viewport.restoration?.outcome?.rawValue ?? "none") mount=\(sample?.mountID.uuidString ?? "none") user=\(sample?.positionedByUser == true ? 1 : 0) handoffs=\(ReadingOpeningRecording.handoffs)"
++                if status != next { status = next }
++                do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
++            }
++        }
++    }
++
++    private func recordingControl(_ title: String, action: @escaping () -> Void) -> some View {
++        Button(action: action) { Text(title).frame(maxWidth: .infinity, minHeight: 44) }
++    }
++
++    /// Observe the actual outgoing lifecycle, including a native pop, before starting a different recording case.
++    /// This is explicit fixture setup; no product mount waits or hides its first paint.
++    private func closeCurrentMount() async -> Bool {
++        let hadMount = mounted || presentsDestination
++        let prior = ReadingOpeningRecording.last?.mountID
++        mounted = false
++        presentsDestination = false
++        if hadMount {
++            guard let prior else { scenario = "unmount-not-observed"; return false }
++            let deadline = ProcessInfo.processInfo.systemUptime + 3
++            while !ReadingOpeningRecording.unmounted.contains(prior), ProcessInfo.processInfo.systemUptime < deadline {
++                do { try await Task.sleep(for: .milliseconds(10)) } catch { return false }
++            }
++            guard ReadingOpeningRecording.unmounted.contains(prior) else { scenario = "unmount-not-observed"; return false }
++            // Explicit removal of a managed fixture root is not a production root-navigation path.
++            if let target { store.readingBookmark(for: target).viewport.clearGeometry() }
++        }
++        return true
++    }
++
++    private func openPaused() async {
++        guard let target, await closeCurrentMount() else { return }
++        let bookmark = store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: 0,
++                                  offset: 0, shownEntries: 300)
++        scenario = "paused-expanded"
++        tab = 0
++        mounted = true
++    }
++
++    private func openShortPaused() async {
++        guard let target, await closeCurrentMount() else { return }
++        store.apply(.timeline(target, items: [
++            .message(.init(id: "before-short", role: .assistant, text: "Earlier short history.")),
++            .message(.init(id: "short-bookmark", role: .assistant, text: "Short bookmark."))
++        ], sequence: 1, reset: true, sessionID: "opening-short-session"))
++        let bookmark = store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "message:short-bookmark", shownEntries: 300)
++        scenario = "short-paused"
++        tab = 0
++        mounted = true
++    }
++
++    private func replaceSession() {
++        guard let target else { return }
++        scenario = "session-replacement"
++        let items: [CompanionTimelineItem] = (1...180).map {
++            .message(.init(id: "new-session-\($0)", role: .assistant, text: "New session marker \($0)."))
++        }
++        store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "reading-opening-new-session"))
++    }
++}
++
++@MainActor private enum ReadingOpeningRecording {
++    static var last: CompanionReadingOpeningProbe.Sample?
++    static var unmounted: Set<UUID> = []
++    static var handoffs = 0
++}
++#endif
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift b/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift
+new file mode 100644
+index 000000000..3069bc73c
+--- /dev/null
++++ b/Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift
+@@ -0,0 +1,31 @@
++#if DEBUG
++import SwiftUI
++
++/// Opt-in test observation only. No transcript text, State writes, timers or production callback.
++@MainActor enum CompanionReadingOpeningProbe {
++    enum Phase: String { case body, geometry, frames, historyTask, scroll, handoff, arrived, cancelled, unmounted, saved, phaseChanged, jump }
++    struct Sample {
++        let phase: Phase
++        let mountID: UUID
++        let target: CompanionTarget
++        let requestID: UUID?
++        let detail: String?
++        let followsLatest: Bool
++        let shownEntries: Int
++        let requestedEntryID: String?
++        let requestedBottom: Bool
++        let requestedTop: Bool
++        let windowStartID: String?
++        let savedDistanceFromEntry: Double
++        let pointY: Double?
++        let positionedByUser: Bool
++        let windowFirstID: String?
++        let historyRevision: UUID
++        let offset: Double?
++        let entryLowerBound: Double?
++        let latestVisible: Bool
++    }
++    static var record: ((Sample) -> Void)?
++    static var didComputeSeed: ((CompanionTarget) -> Void)?
++}
++#endif
+diff --git a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+index be9a5b67e..8af93f31c 100644
+--- a/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
++++ b/Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift
+@@ -10,6 +10,7 @@ struct CompanionReadingRestoreFixture: View {
+     @State private var mounted = true
+     @State private var refuse = true
+     @State private var sample = "pending"
++    @State private var entrySample = "entry=nil lower=nan upper=nan distance=nan visible=0"
+     private var store: CompanionStore { lifetime.value }
+     private var target: CompanionTarget { CompanionPreviewService.target }
+     var body: some View {
+@@ -20,6 +21,7 @@ struct CompanionReadingRestoreFixture: View {
+                 } else { Text("Reading fixture") }
+             }
+             Text(sample).font(.caption2).accessibilityIdentifier("reading-restore-fixture")
++                .accessibilityValue(entrySample)
+             Button("Remount chat") {
+                 Task {
+                     refuse = false
+@@ -44,6 +46,18 @@ struct CompanionReadingRestoreFixture: View {
+                 let viewport = bookmark.viewport
+                 let next = "offset=\(viewport.metrics?.normalizedOffset ?? -1) saved=\(bookmark.position.offset) held=\(viewport.preserveBookmarkUntilUserAction ? 1 : 0) restoring=\(viewport.isRestoring ? 1 : 0) outcome=\(viewport.restoration?.outcome?.rawValue ?? "pending") mounted=\(mounted ? 1 : 0)"
+                 if next != sample { sample = next }
++                let frame = bookmark.position.entryID.flatMap { viewport.frames[$0] }
++                let offset = viewport.metrics?.normalizedOffset
++                let height = viewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) }
++                let visible: Bool
++                if let frame, let offset, let height {
++                    visible = frame.upperBound > offset + CompanionReadingPosition.minimumVisibleExtent
++                        && frame.lowerBound < offset + height
++                } else { visible = false }
++                let distance = frame.flatMap { frame in offset.map { $0 - frame.lowerBound } }
++                // AX-only data keeps the existing visible diagnostic text and offered viewport unchanged.
++                let nextEntry = "entry=\(bookmark.position.entryID ?? "nil") lower=\(frame?.lowerBound ?? .nan) upper=\(frame?.upperBound ?? .nan) distance=\(distance ?? .nan) visible=\(visible ? 1 : 0)"
++                if nextEntry != entrySample { entrySample = nextEntry }
+                 do { try await Task.sleep(for: .milliseconds(50)) } catch { return }
+             }
+         }
+@@ -62,13 +76,14 @@ struct CompanionReadingPrefixTrimFixture: View {
+         var beforeOffset: Double?
+         var beforeLowerBound: Double?
+         var pinnedOffset: Double?
++        var reloadShift: Double?
+         var shift: Double?
+         var miss: Double?
+         var attempts = 0
+         var gateElapsed: Double?
+         var outcome = "pending"
+         var description: String {
+-            "phase=\(phase) follow=\(followsLatest ? 1 : 0) entry=\(entryID ?? "nil") offset=\(offset ?? -1) lower=\(entryLowerBound ?? -1) pin=\(pinnedOffset ?? -1) shift=\(shift ?? 0) miss=\(miss ?? 0) attempts=\(attempts) elapsed=\(gateElapsed ?? 0) outcome=\(outcome)"
++            "phase=\(phase) follow=\(followsLatest ? 1 : 0) entry=\(entryID ?? "nil") offset=\(offset ?? -1) lower=\(entryLowerBound ?? -1) beforeOffset=\(beforeOffset ?? -1) pin=\(pinnedOffset ?? -1) reloadShift=\(reloadShift ?? 0) shift=\(shift ?? 0) miss=\(miss ?? 0) attempts=\(attempts) elapsed=\(gateElapsed ?? 0) outcome=\(outcome)"
+         }
+     }
+ 
+@@ -85,8 +100,13 @@ struct CompanionReadingPrefixTrimFixture: View {
+     @State private var saved: CompanionReadingPosition?
+     @State private var oldFirst: String?
+     @State private var oldHidden = 0
++    @State private var oldEntryIDs: [String] = []
+     @State private var oldLower: Double?
+     @State private var oldMetrics: CompanionScrollMetrics?
++    @State private var reloadRevision: UUID?
++    @State private var editedEntryID: String?
++    @State private var editedFrame: ClosedRange<Double>?
++    @State private var pinnedLower: Double?
+     @State private var startedAt: TimeInterval?
+     @State private var pinned: Double?
+     @State private var observedShift: Double?
+@@ -117,11 +137,27 @@ struct CompanionReadingPrefixTrimFixture: View {
+             var events = service.events().makeAsyncIterator()
+             if let event = await events.next() { store.apply(event) }
+             await store.load(target)
++            // A same-session snapshot is the production history-replacement route used below.
++            store.apply(.timeline(target, items: store.conversation(for: target).items, sequence: 0,
++                reset: true, sessionID: "prefix-trim-fixture"))
+             CompanionReadingRestoreProbe.deliver = { _, attempt, offset, _ in
+                 guard armed else { return true }
+                 return delivery(attempt: attempt, offset: offset)
+             }
+-            defer { CompanionReadingRestoreProbe.deliver = nil }
++            PrefixTrimWindowObservation.observed = false
++            CompanionReadingOpeningProbe.record = { value in
++                guard value.target == target, value.phase == .body else { return }
++                PrefixTrimWindowObservation.observed = true
++                PrefixTrimWindowObservation.startID = value.windowStartID
++                PrefixTrimWindowObservation.revision = value.historyRevision
++            }
++            defer {
++                CompanionReadingRestoreProbe.deliver = nil
++                CompanionReadingOpeningProbe.record = nil
++                PrefixTrimWindowObservation.observed = false
++                PrefixTrimWindowObservation.startID = nil
++                PrefixTrimWindowObservation.revision = nil
++            }
+             ready = true
+             while !Task.isCancelled {
+                 publish()
+@@ -139,21 +175,44 @@ struct CompanionReadingPrefixTrimFixture: View {
+         let bookmark = store.readingBookmark(for: target)
+         let viewport = bookmark.viewport
+         guard ready, !armed, saved == nil, !bookmark.position.followsLatest,
++              PrefixTrimWindowObservation.observed, PrefixTrimWindowObservation.startID == nil,
+               !viewport.isRestoring, let id = bookmark.position.entryID,
+               let lower = viewport.frames[id]?.lowerBound, let metrics = viewport.metrics,
+               abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 else { return }
+         let before = window(retaining: id)
++        var items = store.conversation(for: target).items
++        guard let index = items.indices.reversed().first(where: { index in
++            guard case .message(let message) = items[index] else { return false }
++            let entryID = "message:\(message.id)"
++            return entryID != before.entries.first?.id && before.entries.contains { $0.id == entryID }
++                && viewport.frames[entryID].map { $0.upperBound <= lower } == true
++        }), case .message(var message) = items[index],
++              let measuredEditedFrame = viewport.frames["message:\(message.id)"] else {
++            notExercised = true
++            publish()
++            return
++        }
++        editedEntryID = "message:\(message.id)"
++        editedFrame = measuredEditedFrame
++        message.text += "\n\nA resynchronised paragraph expands this existing earlier message without changing its identity."
++        items[index] = .message(message)
+         saved = bookmark.position
+         oldFirst = before.entries.first?.id
+         oldHidden = before.hiddenCount
++        oldEntryIDs = before.entries.map(\.id)
+         oldLower = lower
+         oldMetrics = metrics
+         armed = true
+-        mounted = false
+-        Task { @MainActor in
+-            try? await Task.sleep(for: .milliseconds(100))
+-            mounted = true
+-        }
++        // #582 makes remount windows bookmark-first. Exercise A on a still-open normal window instead:
++        // a real same-session resync changes one measured preceding row, forcing a nonzero restore.
++        // Identical history would already be aligned and could never reach the delivery gate.
++        let conversation = store.conversation(for: target)
++        store.apply(.timeline(target, items: items, sequence: (conversation.lastSequence ?? 0) + 1,
++            reset: true, sessionID: conversation.sessionID))
++        reloadRevision = store.conversation(for: target).historyRevision
++        NSLog("READING569_RELOAD edited=%@ oldFrame=%@ bookmark=%@ oldLower=%.6f oldOffset=%.6f oldRevision=%@ newRevision=%@",
++              editedEntryID ?? "nil", String(describing: measuredEditedFrame), id, lower, metrics.normalizedOffset,
++              conversation.historyRevision.uuidString, reloadRevision?.uuidString ?? "nil")
+     }
+ 
+     private func delivery(attempt: Int, offset: Double) -> Bool {
+@@ -165,10 +224,32 @@ struct CompanionReadingPrefixTrimFixture: View {
+         let bookmark = store.readingBookmark(for: target)
+         let viewport = bookmark.viewport
+         if startedAt == nil {
++            let beforeTail = window(retaining: id)
++            guard PrefixTrimWindowObservation.observed, PrefixTrimWindowObservation.startID == nil,
++                  let reloadRevision, viewport.historyRevision == reloadRevision,
++                  viewport.restoration?.revision == reloadRevision,
++                  PrefixTrimWindowObservation.revision == reloadRevision,
++                  beforeTail.entries.map(\.id) == oldEntryIDs, beforeTail.hiddenCount == oldHidden,
++                  bookmark.position.entryID == id,
++                  let lower = viewport.frames[id]?.lowerBound, abs(lower - oldLower) > 1,
++                  let editedEntryID, let editedFrame, let changedFrame = viewport.frames[editedEntryID],
++                  changedFrame.upperBound - changedFrame.lowerBound > editedFrame.upperBound - editedFrame.lowerBound + 1,
++                  let metrics = viewport.metrics,
++                  abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 else {
++                // A different reload window cannot classify this race. Never compensate the fixture silently.
++                notExercised = true
++                return true
++            }
+             // The real restoration has already pinned its offset before invoking this existing hook.
+             startedAt = ProcessInfo.processInfo.systemUptime
+             pinned = viewport.restoration?.offset
+-            guard pinned == offset else { notExercised = true; return true }
++            pinnedLower = lower
++            guard pinned == offset, abs(offset - (oldMetrics.normalizedOffset + lower - oldLower)) <= 2 else {
++                notExercised = true
++                return true
++            }
++            NSLog("READING569_PIN edited=%@ changedFrame=%@ bookmark=%@ newLower=%.6f reloadShift=%.6f pin=%.6f revision=%@",
++                  editedEntryID, String(describing: changedFrame), id, lower, lower - oldLower, offset, reloadRevision.uuidString)
+             store.apply(.upsert(target, .message(.init(id: "prefix-trim-tail", role: .assistant,
+                 text: "A distinct tail reply arrives while the earlier reading command is in flight.")), sequence: nil))
+             publish()
+@@ -184,7 +265,7 @@ struct CompanionReadingPrefixTrimFixture: View {
+         }
+         let after = window(retaining: id)
+         let first = after.entries.first?.id
+-        let shift = viewport.frames[id].map { $0.lowerBound - oldLower }
++        let shift = pinnedLower.flatMap { before in viewport.frames[id].map { $0.lowerBound - before } }
+         let matches = viewport.metrics.map {
+             abs($0.contentHeight - (viewport.frameContentHeight ?? -1)) < 1
+                 && abs($0.containerHeight - oldMetrics.containerHeight) < 1
+@@ -217,6 +298,11 @@ struct CompanionReadingPrefixTrimFixture: View {
+     private func publish() {
+         let bookmark = store.readingBookmark(for: target)
+         let viewport = bookmark.viewport
++        if armed, pinned == nil, let reloadRevision,
++           viewport.restoration?.revision == reloadRevision, viewport.restoration?.outcome == .arrived {
++            // Already aligned is a missed precondition, never a passing H1 regression.
++            notExercised = true
++        }
+         var next = Sample()
+         next.phase = notExercised ? "H1-not-exercised" : released ? "released" : armed ? "waiting" : ready ? "ready" : "loading"
+         next.followsLatest = bookmark.position.followsLatest
+@@ -226,6 +312,7 @@ struct CompanionReadingPrefixTrimFixture: View {
+         next.beforeOffset = oldMetrics?.normalizedOffset
+         next.beforeLowerBound = oldLower
+         next.pinnedOffset = pinned
++        next.reloadShift = pinnedLower.flatMap { lower in oldLower.map { lower - $0 } }
+         next.shift = observedShift
+         next.attempts = gateAttempts ?? attempts
+         next.gateElapsed = gateElapsed
+@@ -240,4 +327,10 @@ struct CompanionReadingPrefixTrimFixture: View {
+         }
+     }
+ }
++/// Shared only by this opt-in serialized fixture; it observes the actual production window mode.
++@MainActor private enum PrefixTrimWindowObservation {
++    static var observed = false
++    static var startID: String?
++    static var revision: UUID?
++}
+ #endif
+diff --git a/Annex/AnnexTests/CompanionHiddenConversationTests.swift b/Annex/AnnexTests/CompanionHiddenConversationTests.swift
+index 458f651ff..93160b611 100644
+--- a/Annex/AnnexTests/CompanionHiddenConversationTests.swift
++++ b/Annex/AnnexTests/CompanionHiddenConversationTests.swift
+@@ -39,7 +39,9 @@ import UIKit
+         }
+     }
+ 
+-    /// A real tail event trims the rendered prefix between the first pin and delivery.
++    /// A same-session reload grows a measured preceding message, requiring a nonzero restore on the
++    /// open normal window; a real tail event then trims its prefix between the first pin and delivery.
++    /// Bookmark-first remounts deliberately no longer expose that trimming route (#582).
+     /// Public geometry must still match the saved semantic entry after final arrival.
+     @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
+         var observed: CompanionReadingPrefixTrimFixture.Sample?
+@@ -79,6 +81,7 @@ import UIKit
+         let shift = try #require(result.shift)
+         let miss = try #require(result.miss)
+         let pin = try #require(result.pinnedOffset)
++        let reloadShift = try #require(result.reloadShift)
+         let beforeOffset = try #require(result.beforeOffset)
+         let beforeLower = try #require(result.beforeLowerBound)
+         let afterOffset = try #require(result.offset)
+@@ -86,7 +89,9 @@ import UIKit
+         #expect(result.attempts <= 10)
+         #expect((result.gateElapsed ?? .infinity) < 1)
+         #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
+-        #expect(abs(pin - beforeOffset) <= 2)
++        #expect(abs(reloadShift) > 1, "The real reload must move the bookmarked entry before the first pin")
++        #expect(abs(pin - (beforeOffset + reloadShift)) <= 2,
++                "The first pin includes only the measured reload displacement, before the tail trim")
+         #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
+         print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
+         #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
+@@ -185,6 +190,8 @@ import UIKit
+         let readingOffset = before.contentOffset.y + before.adjustedContentInset.top
+         let bookmark = store.readingBookmark(for: target)
+         let entryID = try #require(bookmark.position.entryID, "The shared reading bookmark captures an entry")
++        let beforeEntryFrame = try #require(bookmark.viewport.frames[entryID])
++        let readingEntryOffset = readingOffset - beforeEntryFrame.lowerBound
+         #expect(!bookmark.position.followsLatest)
+ 
+         switch hidden { case .tab: navigation.tab = 1; case .desktop: navigation.desktop = 1 }
+@@ -295,7 +302,18 @@ import UIKit
+             #expect(requests.count == 1, "No late retry may overwrite the user")
+             #expect(bookmark.viewport.restoration?.outcome == .touch)
+         } else {
+-            #expect(abs(restoredOffset - readingOffset) <= 2, "The reading offset survives unmounting within two points")
++            // #582 deliberately starts the reopened window at the canonical bookmark, so the omitted
++            // prefix changes its content-coordinate origin. Compare the same measured entry, not raw offsets.
++            let restoredEntryFrame = try #require(bookmark.viewport.frames[entryID],
++                "The original bookmarked entry must remain realised after restoration")
++            let restoredEntryOffset = restoredOffset - restoredEntryFrame.lowerBound
++            let visibleHeight = restored.bounds.height - restored.adjustedContentInset.top - restored.adjustedContentInset.bottom
++            #expect(restoredEntryFrame.upperBound > restoredOffset + CompanionReadingPosition.minimumVisibleExtent
++                && restoredEntryFrame.lowerBound < restoredOffset + visibleHeight,
++                "The original bookmarked entry must still intersect the visible transcript")
++            print("HIDDEN_ENTRY_MEASUREMENT case=\(hidden.rawValue) dropFirst=\(dropFirstRestore) timeout=\(timeoutRestore) entry=\(entryID) beforeOffset=\(readingOffset) beforeLower=\(beforeEntryFrame.lowerBound) restoredOffset=\(restoredOffset) restoredLower=\(restoredEntryFrame.lowerBound) rawShift=\(restoredOffset - readingOffset) relativeDelta=\(restoredEntryOffset - readingEntryOffset)")
++            #expect(abs(restoredEntryOffset - readingEntryOffset) <= 2,
++                "The reading offset relative to the same entry survives unmounting within two points")
+         }
+         if dropFirstRestore && !touchDuringRestore && !timeoutRestore {
+             #expect(requests.count >= 2, "Dropping the first command requires another delivery")
+diff --git a/Annex/AnnexTests/CompanionReadingOpeningTests.swift b/Annex/AnnexTests/CompanionReadingOpeningTests.swift
+new file mode 100644
+index 000000000..e31d43f86
+--- /dev/null
++++ b/Annex/AnnexTests/CompanionReadingOpeningTests.swift
+@@ -0,0 +1,517 @@
++import Testing
++import SwiftUI
++import UIKit
++@testable import ClubhouseGo
++
++/// Actual SwiftUI State identity and first-body inputs, independently of final pixel restoration.
++@MainActor @Suite(.serialized) struct CompanionReadingOpeningTests {
++    @Observable final class Navigation {
++        nonisolated deinit {}
++        var visible = true
++        var selected = 0
++        var revision = 0
++        var jump: CompanionDecisionChatJump?
++    }
++    private struct Host: View {
++        let store: CompanionStore
++        let agents: [CompanionAgent]
++        @Bindable var navigation: Navigation
++        private var chat: CompanionConversationView {
++            var view = CompanionConversationView(store: store, agent: agents[navigation.selected], isVisible: navigation.visible)
++            view.debugReadingJump = navigation.jump
++            return view
++        }
++        var body: some View {
++            NavigationStack {
++                VStack(spacing: 0) {
++                    // Deliberately reuse this parent identity when selected changes; the transcript must key itself.
++                    chat
++                    Text("Parent revision \(navigation.revision)").font(.caption)
++                }
++            }
++        }
++    }
++    @MainActor private struct Fixture {
++        let store: CompanionStore
++        let agents: [CompanionAgent]
++        let navigation: Navigation
++        let window: UIWindow
++        init() async throws {
++            let service = CompanionPreviewService(showsReadingScenario: true)
++            store = CompanionStore(service: service)
++            var events = service.events().makeAsyncIterator()
++            store.apply(try #require(await events.next()))
++            agents = Array(store.hosts.flatMap(\.allAgents).filter { !$0.isDispatcher }.prefix(2))
++            #expect(agents.count == 2)
++            for agent in agents { await store.load(agent.id) }
++            navigation = Navigation()
++            let scene = try #require(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
++            window = UIWindow(windowScene: scene)
++            window.frame = CGRect(x: 0, y: 0, width: 800, height: 1000)
++        }
++        func mount() {
++            window.rootViewController = UIHostingController(rootView: Host(store: store, agents: agents, navigation: navigation))
++            window.makeKeyAndVisible()
++        }
++        func close() {
++            CompanionReadingOpeningProbe.record = nil
++            CompanionReadingOpeningProbe.didComputeSeed = nil
++            CompanionConversationBuildProbe.record = nil
++            CompanionReadingRestoreProbe.deliver = nil
++            window.isHidden = true
++            window.rootViewController = nil
++        }
++        func pause(_ index: Int = 0, distance: Double = 0) {
++            let bookmark = store.readingBookmark(for: agents[index].id)
++            bookmark.position = .init(followsLatest: false, entryID: "message:reading-90", distanceFromEntry: distance,
++                                      offset: 0, shownEntries: 300)
++            bookmark.hasMounted = true
++        }
++        func wait(_ condition: () -> Bool) async throws {
++            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
++            while !condition(), ContinuousClock.now < deadline {
++                window.layoutIfNeeded()
++                try await Task.sleep(for: .milliseconds(20))
++            }
++            #expect(condition(), "A bounded mount/restore wait must fail if the product does not reach its state")
++        }
++        func settle() async throws {
++            window.layoutIfNeeded()
++            try await Task.sleep(for: .milliseconds(150))
++            window.layoutIfNeeded()
++        }
++    }
++
++    @Test func pausedFirstBodyStartsAtItsCanonicalBookmarkWithoutAnIdentityRequest() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause(distance: 40)
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        f.mount()
++        let bookmark = f.store.readingBookmark(for: f.agents[0].id)
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        let first = try #require(samples.first { $0.phase == .body })
++        #expect(!first.followsLatest && first.shownEntries == 300)
++        #expect(first.requestedEntryID == nil && first.requestedTop && !first.requestedBottom && first.pointY == nil)
++        #expect(first.windowStartID == "message:reading-90" && first.windowFirstID == first.windowStartID,
++                "User-approved #582 UX replaces the old expanded-prefix inequality")
++        #expect(first.latestVisible, "Latest must be available from the paused semantic state before geometry")
++        let scrolled = try #require(samples.first { $0.phase == .scroll })
++        #expect(scrolled.requestedEntryID == nil && scrolled.pointY != nil,
++                "The initial ID must not retain a competing implicit anchor after numeric restoration starts")
++        let saved = bookmark.position
++        let lower = try #require(saved.entryID.flatMap { bookmark.viewport.frames[$0]?.lowerBound })
++        let offset = try #require(bookmark.viewport.metrics?.normalizedOffset)
++        #expect(abs(offset - (lower + saved.distanceFromEntry)) <= 6)
++    }
++
++    @Test func parentRecreationAndOpenReloadDoNotReseedOrShrinkTheReadersWindow() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause()
++        let target = f.agents[0].id
++        var seedCounts: [CompanionTarget: Int] = [:]
++        var parentBodies = 0
++        CompanionReadingOpeningProbe.didComputeSeed = { seedCounts[$0, default: 0] += 1 }
++        CompanionConversationBuildProbe.record = { kind, observed in
++            if observed == target, case .body = kind { parentBodies += 1 }
++        }
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        f.mount()
++        let bookmark = f.store.readingBookmark(for: f.agents[0].id)
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        let first = try #require(samples.first { $0.phase == .body })
++        let saved = bookmark.position
++        #expect(seedCounts[target] == 1)
++        for _ in 0..<5 { f.navigation.revision += 1; try await f.settle() }
++        let beforeChunks = seedCounts[target, default: 0]
++        let parentBefore = parentBodies
++        for _ in 0..<20 {
++            f.store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed", sequence: nil))
++            try await f.settle()
++        }
++        #expect(parentBodies > parentBefore, "This must observe real parent re-evaluation while paused")
++        #expect(seedCounts[target] == beforeChunks && beforeChunks == 1,
++                "No opening seed or its candidate slicing may run per chunk or discarded initializer")
++        print("READING_OPENING_SEED chunks=20 before=\(beforeChunks) after=\(seedCounts[target, default: 0]) parentBodyDelta=\(parentBodies - parentBefore)")
++        await f.store.load(f.agents[0].id, force: true)
++        try await f.wait { bookmark.viewport.historyRevision == f.store.conversation(for: f.agents[0].id).historyRevision
++            && bookmark.viewport.restoration?.outcome == .arrived }
++        #expect(Set(samples.map(\.mountID)) == [first.mountID], "A reload is not a mount boundary")
++        #expect(seedCounts[target] == 1, "Reload/resync keeps the immutable opening seed")
++        #expect(samples.filter { $0.phase == .body }.allSatisfy {
++            $0.shownEntries >= 300 && !$0.followsLatest && $0.windowStartID == first.windowStartID
++                && $0.windowFirstID == first.windowFirstID
++        }, "An unchanged mounted boundary cannot shrink, reset or silently return its prefix during reload")
++        let frame = try #require(saved.entryID.flatMap { bookmark.viewport.frames[$0] })
++        #expect(abs((bookmark.viewport.metrics?.normalizedOffset ?? -.infinity) - frame.lowerBound - saved.distanceFromEntry) <= 6)
++    }
++
++    /// A mounted replacement uses A's existing missing-entry offset fallback, never a new bottom-edge seed.
++    @Test func mountedReplacementClearsTheBoundaryWithoutRequestingBottom() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        let target = f.agents[0].id
++        let items: [CompanionTimelineItem] = (0..<240).map {
++            .message(.init(id: "replacement-\($0)", role: .assistant, text: "Replacement marker \($0). A stable paragraph."))
++        }
++        f.store.apply(.timeline(target, items: items, sequence: 1, reset: true, sessionID: "mounted-replacement"))
++        let bookmark = f.store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "message:replacement-90", distanceFromEntry: 40,
++                                  shownEntries: 300)
++        f.store.drafts[target] = "Draft survives a mounted replacement"
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        var seeds = 0
++        CompanionReadingOpeningProbe.record = { if $0.target == target { samples.append($0) } }
++        CompanionReadingOpeningProbe.didComputeSeed = { if $0 == target { seeds += 1 } }
++        f.mount()
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        let first = try #require(samples.first { $0.phase == .body })
++        #expect(first.requestedTop && first.windowStartID == "message:replacement-90")
++        let savedOffset = try #require(bookmark.viewport.metrics?.normalizedOffset)
++        let before = samples.count
++        let revision = f.store.conversation(for: target).historyRevision
++        f.store.apply(.timeline(target, items: items.filter { $0.id != "message:replacement-90" },
++                                sequence: 2, reset: true, sessionID: "mounted-replacement"))
++        let replacementRevision = f.store.conversation(for: target).historyRevision
++        #expect(replacementRevision != revision)
++        try await f.wait { bookmark.viewport.historyRevision == replacementRevision
++            && bookmark.viewport.restoration?.outcome == .arrived
++            && samples.dropFirst(before).contains { $0.phase == .body && $0.windowStartID == nil } }
++        try await f.settle()
++        let later = Array(samples.dropFirst(before))
++        #expect(later.allSatisfy { !$0.requestedBottom }, "Clearing a missing boundary must never install a bottom request")
++        #expect(later.allSatisfy { $0.mountID == first.mountID } && seeds == 1,
++                "A replacement is not a remount and must not recompute its edge seed")
++        let metrics = try #require(bookmark.viewport.metrics)
++        #expect(abs(metrics.normalizedOffset - savedOffset) <= 6, "A retains the saved numeric offset for a removed entry")
++        #expect(!metrics.isAtTrueBottom && !bookmark.position.followsLatest)
++        #expect(f.store.drafts[target] == "Draft survives a mounted replacement")
++    }
++
++    @Test func followingStreamAndParentRecreationComputeOnlyOneOpeningSeed() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        let target = f.agents[0].id
++        var seeds = 0
++        CompanionReadingOpeningProbe.didComputeSeed = { if $0 == target { seeds += 1 } }
++        f.mount()
++        try await f.wait { seeds == 1 && f.store.readingBookmark(for: target).viewport.metrics != nil }
++        for _ in 0..<20 {
++            f.navigation.revision += 1
++            f.store.apply(.textDelta(target, messageID: "reading-helper", text: " streamed", sequence: nil))
++            try await f.settle()
++        }
++        #expect(seeds == 1, "Following streaming and discarded parent initializers cannot recompute or slice the opening seed")
++        #expect(f.store.readingBookmark(for: target).position.followsLatest)
++        print("READING_OPENING_SEED followingChunks=20 seeds=\(seeds)")
++    }
++
++    @Test func hiddenReloadReseedsOnceAndTargetSwitchesCannotBorrowAnotherChatsState() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause()
++        f.store.drafts[f.agents[0].id] = "First chat draft"
++        f.store.drafts[f.agents[1].id] = "Second chat draft"
++        var seedCounts: [CompanionTarget: Int] = [:]
++        CompanionReadingOpeningProbe.didComputeSeed = { seedCounts[$0, default: 0] += 1 }
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        f.mount()
++        let target = f.agents[0].id
++        let bookmark = f.store.readingBookmark(for: target)
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        let originalID = try #require(samples.first?.mountID)
++        f.navigation.visible = false
++        try await f.settle()
++        #expect(bookmark.viewport.metrics == nil)
++        let hiddenCount = samples.count
++        await f.store.load(target, force: true)
++        try await f.settle()
++        #expect(samples.count == hiddenCount, "A hidden transcript must not build a seed or body")
++        #expect(seedCounts[target] == 1)
++        f.navigation.visible = true
++        try await f.wait { samples.contains { $0.phase == .body && $0.mountID != originalID } }
++        let secondID = try #require(samples.last?.mountID)
++        #expect(Set(samples.map(\.mountID)) == [originalID, secondID])
++        #expect(seedCounts[target] == 2, "Exactly one seed is computed on re-show after hidden reload")
++        let reopened = try #require(samples.first { $0.phase == .body && $0.mountID == secondID })
++        #expect(reopened.windowFirstID == reopened.windowStartID && reopened.requestedTop && reopened.requestedEntryID == nil)
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        f.navigation.selected = 1
++        try await f.wait { samples.contains { $0.target == f.agents[1].id && $0.phase == .body } }
++        let other = try #require(samples.first { $0.target == f.agents[1].id && $0.phase == .body })
++        #expect(other.followsLatest && other.requestedBottom && other.requestedEntryID == nil)
++        #expect(other.mountID != secondID)
++        #expect(seedCounts[f.agents[1].id] == 1 && seedCounts[target] == 2)
++        #expect(!bookmark.position.followsLatest && f.store.readingBookmark(for: f.agents[1].id).position.followsLatest)
++        #expect(f.store.drafts[target] == "First chat draft" && f.store.drafts[f.agents[1].id] == "Second chat draft")
++    }
++
++    @Test func groupedQuestionAliasUsesTheVisibleGroupOnTheFirstBody() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        let target = f.agents[0].id
++        let first = CompanionQuestion(id: "first", prompts: [])
++        let later = CompanionQuestion(id: "later", prompts: [], hasUnreadablePrompts: true)
++        f.store.apply(.timeline(target, items: [.question(first), .question(later)], sequence: 1, reset: true))
++        let bookmark = f.store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "question:later")
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        f.mount()
++        try await f.wait { samples.contains { $0.phase == .body } }
++        let opening = try #require(samples.first { $0.phase == .body })
++        #expect(opening.requestedEntryID == nil && opening.requestedTop && !opening.requestedBottom)
++        #expect(opening.windowStartID == "question:first" && opening.windowFirstID == "question:first")
++    }
++
++    @Test func removedEntryAndReplacementSessionDoNotInstallAStaleInitialPixelTarget() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        let target = f.agents[0].id
++        f.store.apply(.timeline(target, items: [.message(.init(id: "new-session", role: .assistant, text: "New history"))],
++                                sequence: 1, reset: true, sessionID: "new-session"))
++        let bookmark = f.store.readingBookmark(for: target)
++        bookmark.hasMounted = true
++        bookmark.position = .init(followsLatest: false, entryID: "message:old-session", offset: 900)
++        var first: CompanionReadingOpeningProbe.Sample?
++        CompanionReadingOpeningProbe.record = { if first == nil && $0.phase == .body { first = $0 } }
++        f.mount()
++        try await f.wait { first != nil }
++        let opening = try #require(first)
++        #expect(!opening.followsLatest && opening.requestedBottom && opening.requestedEntryID == nil && opening.pointY == nil)
++        #expect(bookmark.viewport.historyRevision == nil || bookmark.viewport.historyRevision == f.store.conversation(for: target).historyRevision,
++                "Prior-generation geometry cannot be accepted")
++    }
++
++    /// Main retains the request after use: it runs once again on a later opening. This test preserves that policy.
++    @Test func aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest() async throws {
++        let f = try await Fixture()
++        defer { f.navigation.jump = nil; f.close() }
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        f.navigation.visible = false
++        f.mount()
++        let first = CompanionDecisionChatJump(itemID: "message:reading-90")
++        f.navigation.jump = first
++        try await f.settle()
++        #expect(samples.filter { $0.phase == .jump }.isEmpty)
++        f.navigation.visible = true
++        try await f.wait { samples.filter { $0.phase == .jump }.count == 1 }
++        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id])
++        for _ in 0..<3 { f.navigation.revision += 1; try await f.settle() }
++        #expect(samples.filter { $0.phase == .jump }.count == 1)
++        let second = CompanionDecisionChatJump(itemID: "message:reading-100")
++        f.navigation.jump = second
++        try await f.wait { samples.filter { $0.phase == .jump }.count == 2 }
++        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
++        f.navigation.visible = false
++        try await f.settle()
++        #expect(samples.filter { $0.phase == .jump }.count == 2)
++        f.navigation.visible = true
++        try await f.wait { samples.filter { $0.phase == .jump }.count == 3 }
++        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id, second.id])
++    }
++
++
++    @Test func exactTopOpeningArrivesWithoutANumericCorrection() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause(distance: 40)
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        f.mount()
++        let bookmark = f.store.readingBookmark(for: f.agents[0].id)
++        let viewport = bookmark.viewport
++        try await f.wait { viewport.restoration?.outcome == .arrived }
++        let entryID = try #require(samples.first { $0.phase == .body }?.windowFirstID)
++        let measuredLower = try #require(viewport.frames[entryID]?.lowerBound)
++        f.navigation.visible = false
++        try await f.wait { samples.contains { $0.phase == .unmounted } && viewport.metrics == nil }
++        // A real top-position capture has a negative entry-relative distance when header/padding precedes it.
++        // Derive it from the identical mounted window, never from a guessed height or an assumed ID landing.
++        bookmark.position = .init(followsLatest: false, entryID: entryID,
++            distanceFromEntry: 0.5 - measuredLower, offset: 0.5, shownEntries: 300)
++        samples.removeAll()
++        f.navigation.visible = true
++        try await f.wait { viewport.restoration?.outcome == .arrived }
++        #expect(abs((viewport.frames[entryID]?.lowerBound ?? -.infinity) - measuredLower) <= 0.01,
++                "The zero-arrival setup requires the same real window geometry")
++        #expect(viewport.restoration?.attempts == 0, "The nonzero 0.5pt saved distance exercises A's unchanged 1pt arrival threshold")
++        let arrival = try #require(samples.first { $0.phase == .arrived })
++        #expect(arrival.requestedEntryID == nil)
++        #expect(samples.filter { $0.phase == .handoff }.isEmpty)
++        #expect(samples.filter { $0.phase == .scroll }.isEmpty)
++        let offset = try #require(viewport.metrics?.normalizedOffset)
++        let phaseCount = samples.filter { $0.phase == .phaseChanged }.count
++        try await f.settle()
++        #expect(abs((viewport.metrics?.normalizedOffset ?? -.infinity) - offset) <= 1)
++        #expect(samples.filter { $0.phase == .phaseChanged }.count == phaseCount)
++        #expect(samples.filter { $0.phase == .saved }.count == 1,
++                "Only the original arrival save is allowed; the marker handoff adds none")
++        #expect(viewport.restoration?.attempts == 0)
++    }
++
++    /// #569 can still trim on an open reload; bookmark-first remounts themselves must retain their boundary.
++    @Test func reopenedPausedWindowKeepsItsFirstEntryWhenATailArrivesDuringRestore() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause(distance: 40)
++        let target = f.agents[0].id
++        let bookmark = f.store.readingBookmark(for: target)
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        var injected = false
++        var exercised = false
++        var firstLower: Double?
++        CompanionReadingRestoreProbe.deliver = { _, attempt, pinnedOffset, _ in
++            if !injected {
++                injected = true
++                firstLower = bookmark.viewport.frames["message:reading-90"]?.lowerBound
++                #expect(bookmark.viewport.restoration?.offset == pinnedOffset)
++                f.store.apply(.upsert(target, .message(.init(id: "opening-tail", role: .assistant,
++                    text: "A normal tail arrival during bookmark-first restoration.")), sequence: nil))
++                return false
++            }
++            let viewport = bookmark.viewport
++            if viewport.frames["message:opening-tail"] != nil,
++               let metrics = viewport.metrics, abs(metrics.contentHeight - (viewport.frameContentHeight ?? -1)) < 1 {
++                exercised = true
++                return true
++            }
++            #expect(attempt < 10, "The real tail geometry must be exercised, not passed on a timeout")
++            return attempt >= 10
++        }
++        f.mount()
++        try await f.wait { bookmark.viewport.restoration?.outcome == .arrived }
++        #expect(injected && exercised)
++        #expect(samples.filter { $0.phase == .body }.allSatisfy {
++            $0.windowFirstID == "message:reading-90" && $0.windowStartID == "message:reading-90" && $0.requestedEntryID == nil
++        })
++        let lower = try #require(bookmark.viewport.frames["message:reading-90"]?.lowerBound)
++        #expect(abs(lower - (firstLower ?? -.infinity)) <= 1,
++                "Tail growth cannot trim the bookmark-first prefix")
++        let offset = try #require(bookmark.viewport.metrics?.normalizedOffset)
++        #expect(abs(offset - lower - 40) <= 6)
++    }
++
++    private func touchAnchor(_ view: UIView) -> CompanionReadingTouchObserver.Anchor? {
++        if let anchor = view as? CompanionReadingTouchObserver.Anchor { return anchor }
++        return view.subviews.lazy.compactMap { touchAnchor($0) }.first
++    }
++    private func transcript(_ view: UIView) -> UIScrollView? {
++        if view.isHidden || view.alpha == 0 { return nil }
++        if let scroll = view as? UIScrollView, scroll.bounds.width > 300,
++           scroll.contentSize.height > scroll.bounds.height * 2 { return scroll }
++        return view.subviews.lazy.compactMap { transcript($0) }.first
++    }
++
++    /// Native hosted scroll view, with phases injected through the existing DEBUG hook, not a finger gesture.
++    @Test func activeOpeningDragNeverWritesAnIdentityHandoff() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause(distance: 40)
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        var drivePhase: ((ScrollPhase) -> Void)?
++        var deliveries = 0
++        CompanionReadingRestoreProbe.deliver = { _, _, _, phaseChanged in
++            deliveries += 1
++            drivePhase = phaseChanged
++            // The installed passive observer takes the same path as a touch in the transcript.
++            let anchor = touchAnchor(f.window)
++            #expect(anchor != nil)
++            anchor?.touchBegan(at: CGPoint(x: 10, y: 10))
++            phaseChanged(.tracking)
++            phaseChanged(.interacting)
++            return false
++        }
++        f.mount()
++        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
++        try await f.wait { drivePhase != nil && viewport.restoration?.outcome == .touch }
++        let scroll = try #require(transcript(f.window))
++        let phase = try #require(drivePhase)
++        let attempts = viewport.restoration?.attempts
++        let writesBefore = samples.filter { $0.phase == .handoff || $0.phase == .scroll }.count
++        #expect(writesBefore == 0)
++        let activeOffset = scroll.contentOffset.y
++        try await f.settle()
++        #expect(abs(scroll.contentOffset.y - activeOffset) <= 1)
++        #expect(samples.filter { $0.phase == .handoff || $0.phase == .scroll }.isEmpty,
++                "No binding write is allowed while tracking, interacting or decelerating")
++        phase(.decelerating)
++        try await f.settle()
++        #expect(abs(scroll.contentOffset.y - activeOffset) <= 1)
++        #expect(samples.filter { $0.phase == .handoff || $0.phase == .scroll }.isEmpty)
++        let savesBeforeIdle = samples.filter { $0.phase == .saved }.count
++        let idleOffset = scroll.contentOffset.y
++        phase(.idle)
++        try await f.settle()
++        #expect(abs(scroll.contentOffset.y - idleOffset) <= 1)
++        let handoffs = samples.filter { $0.phase == .handoff }
++        #expect(handoffs.isEmpty, "Edge-seeded openings have no held identity, including at idle")
++        #expect(samples.filter { $0.phase == .saved }.count == savesBeforeIdle + 1,
++                "Only the unchanged gesture-idle save is allowed; the handoff adds no save")
++        #expect(samples.filter { $0.phase == .scroll }.isEmpty && deliveries == 1)
++        #expect(viewport.restoration?.attempts == attempts && viewport.restoration?.outcome == .touch)
++        drivePhase = nil
++    }
++
++    @Test func lightOpeningTouchNeverInstallsAnIdentityHandoff() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause(distance: 40)
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        var drivePhase: ((ScrollPhase) -> Void)?
++        CompanionReadingRestoreProbe.deliver = { _, _, _, phaseChanged in
++            drivePhase = phaseChanged
++            let anchor = touchAnchor(f.window)
++            #expect(anchor != nil)
++            anchor?.touchBegan(at: CGPoint(x: 10, y: 10))
++            return false
++        }
++        f.mount()
++        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
++        try await f.wait { drivePhase != nil && viewport.restoration?.outcome == .touch }
++        let scroll = try #require(transcript(f.window))
++        let before = scroll.contentOffset.y
++        let saves = samples.filter { $0.phase == .saved }.count
++        try await f.settle()
++        #expect(samples.filter { $0.phase == .handoff || $0.phase == .scroll }.isEmpty)
++        #expect(abs(scroll.contentOffset.y - before) <= 1)
++        let phase = try #require(drivePhase)
++        phase(.idle)
++        try await f.settle()
++        #expect(samples.filter { $0.phase == .handoff }.isEmpty)
++        #expect(samples.filter { $0.phase == .saved }.count == saves,
++                "A light-touch idle is not a gesture and cannot add a save")
++        #expect(abs(scroll.contentOffset.y - before) <= 1)
++        drivePhase = nil
++    }
++
++    @Test func navigationAwayDuringTheOpeningHoldWritesNoIdentityHandoff() async throws {
++        let f = try await Fixture()
++        defer { f.close() }
++        f.pause(distance: 40)
++        var samples: [CompanionReadingOpeningProbe.Sample] = []
++        CompanionReadingOpeningProbe.record = { samples.append($0) }
++        var deliveries = 0
++        CompanionReadingRestoreProbe.deliver = { _, _, _, _ in deliveries += 1; return false }
++        f.mount()
++        try await f.wait { deliveries > 0 }
++        #expect(samples.filter { $0.phase == .scroll || $0.phase == .handoff }.isEmpty)
++        f.navigation.visible = false
++        try await f.wait { samples.contains { $0.phase == .unmounted } }
++        try await f.settle()
++        #expect(samples.filter { $0.phase == .scroll || $0.phase == .handoff }.isEmpty,
++                "An unmounted transcript must not write any late target")
++        #expect(f.store.readingBookmark(for: f.agents[0].id).viewport.metrics == nil)
++    }
++
++}
+diff --git a/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+new file mode 100644
+index 000000000..eee5e3105
+--- /dev/null
++++ b/Annex/AnnexUITests/CompanionReadingOpeningUITests.swift
+@@ -0,0 +1,283 @@
++import XCTest
++import UIKit
++
++/// The external ticket records video BEFORE launch. The first rendered frame comes from that recording,
++/// not from AX readiness below. These attachments label the first public UI observation and final controls.
++@MainActor final class CompanionReadingOpeningUITests: ReliableUITestCase {
++    private func state(_ app: XCUIApplication) -> XCUIElement { app.staticTexts["reading-opening-state"] }
++    private func control(_ id: String, in app: XCUIApplication) {
++        let oldTarget = state(app).label.split(separator: " ").first { $0.hasPrefix("target=") }.map(String.init)
++        let button = app.buttons["reading-opening-" + id]
++        XCTAssertTrue(button.waitForExistence(timeout: 5))
++        let frame = button.frame
++        XCTAssertTrue(!frame.isEmpty && !frame.isNull && !frame.isInfinite && app.frame.contains(frame),
++                      "Every DEBUG grid action must be physically on screen: \(id), \(frame)")
++        XCTAssertTrue(button.isHittable, "Every DEBUG grid action must be natively hittable: \(id)")
++        button.tap() // One real tap, no scrolling/retry can rescue an unreachable fixture action.
++        if id == "other", let oldTarget {
++            XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
++                !self.state(app).label.split(separator: " ").map(String.init).contains(oldTarget)
++            }, timeout: 8), "The other chat must actually be selected before its controls are assessed")
++        }
++    }
++    private func waitState(_ fragment: String, in app: XCUIApplication) {
++        XCTAssertTrue(waitFor(state(app), NSPredicate(format: "label CONTAINS %@", fragment), timeout: 8), state(app).label)
++    }
++    private func viewport(_ app: XCUIApplication) -> CGRect {
++        let top = app.navigationBars.firstMatch.frame.maxY
++        let footer = app.descendants(matching: .any).matching(identifier: "companion-composer-region").firstMatch.frame.minY
++        return CGRect(x: 0, y: top, width: app.frame.width, height: max(0, footer - top))
++    }
++    private func observation(_ name: String, in app: XCUIApplication, anchor: XCUIElement? = nil) {
++        let frame = anchor?.exists == true ? anchor!.frame : .zero
++        let region = viewport(app)
++        let data = "time=\(Date().timeIntervalSince1970) \(state(app).label) anchor=\(frame) viewport=\(region) distanceFromTop=\(frame.minY - region.minY) Latest=\(app.pausedChatNavigation.exists) keyboard=\(app.keyboards.firstMatch.exists)"
++        let trace = XCTAttachment(string: data); trace.name = name + " first public UI observation (not first paint)"; trace.lifetime = .keepAlways; add(trace)
++        let pixels = XCTAttachment(screenshot: app.screenshot()); pixels.name = name; pixels.lifetime = .keepAlways; add(pixels)
++    }
++    private func settledY(_ anchor: XCUIElement, in app: XCUIApplication) -> CGFloat {
++        let deadline = Date().addingTimeInterval(6)
++        var previous: CGRect?, since: Date?
++        while Date() < deadline {
++            let frame = anchor.exists ? anchor.frame : .zero
++            if frame.isEmpty || frame != previous { since = frame.isEmpty ? nil : Date() }
++            previous = frame
++            if let since, Date().timeIntervalSince(since) >= 0.5 { return frame.minY }
++            RunLoop.current.run(until: Date().addingTimeInterval(0.1))
++        }
++        XCTFail("The bookmark's public frame must settle independently of its expected position")
++        return anchor.frame.minY
++    }
++    private func assertEarlierIsClearOfThePinnedBanner(in app: XCUIApplication) {
++        let earlier = app.buttons["companion-show-earlier"]
++        let banner = app.buttons["View River"]
++        let track = app.scrollViews["companion-transcript"].otherElements
++            .matching(NSPredicate(format: "label BEGINSWITH %@", "Vertical scroll bar")).firstMatch
++        XCTAssertTrue(banner.waitForExistence(timeout: 5), "This proof requires the real pinned other-agent banner")
++        XCTAssertTrue(track.waitForExistence(timeout: 5), "The public native track measures the unobscured scroll region")
++        XCTAssertTrue(waitFor(earlier, NSPredicate { _, _ in
++            let frame = earlier.frame, native = track.frame
++            return earlier.exists && earlier.isHittable && !frame.isEmpty && !native.isEmpty
++                && frame.minY >= native.minY && frame.maxY <= native.maxY
++                && native.minY >= banner.frame.maxY
++        }, timeout: 5), "Show earlier must be completely below the pinned banner, not merely AX-hittable")
++        XCTAssertEqual(earlier.label, "Show earlier messages", "The spoken action label is unchanged")
++        XCTAssertEqual(earlier.identifier, "companion-show-earlier", "The existing public identifier is unchanged")
++        let note = XCTAttachment(string: "earlier=\(earlier.frame) nativeTrack=\(track.frame) bannerAction=\(banner.frame) label=\(earlier.label) identifier=\(earlier.identifier)")
++        note.name = "Native content-top clearance and unchanged action semantics"; note.lifetime = .keepAlways; add(note)
++    }
++
++    private func openSoftwareKeyboard(_ composer: XCUIElement, in app: XCUIApplication) {
++        composer.tap()
++        let keyboard = app.keyboards.firstMatch
++        if !keyboard.waitForExistence(timeout: 2), app.buttons["Keyboard"].exists {
++            app.buttons["Keyboard"].tap()
++            let show = app.buttons["Show Keyboard"]
++            XCTAssertTrue(show.waitForExistence(timeout: 3))
++            show.tap()
++        }
++        XCTAssertTrue(keyboard.waitForExistence(timeout: 5))
++    }
++
++    private func launchFixture(extra: [String] = []) -> XCUIApplication {
++        let app = launchApp(["--reading-opening-ui-testing", "--companion-preview", "--companion-preview-reading", "--companion-preview-follow-trace"] + extra, attempts: 1)
++        XCTAssertTrue(state(app).waitForExistence(timeout: 10))
++        waitState("case=ready", in: app)
++        return app
++    }
++
++    func testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats() {
++        let app = launchFixture()
++        control("latest", in: app)
++        waitState("case=latest", in: app)
++        XCTAssertTrue(app.scrollViews["companion-transcript"].waitForExistence(timeout: 5))
++        waitState("follow=1", in: app)
++        XCTAssertFalse(app.pausedChatNavigation.exists)
++        observation("Fresh latest", in: app)
++
++        control("paused", in: app)
++        waitState("case=paused-expanded", in: app)
++        let anchor = app.staticTexts["Reading marker 90."]
++        observation("Paused bookmark-first opening", in: app, anchor: anchor)
++        waitState("outcome=arrived", in: app)
++        let savedY = settledY(anchor, in: app)
++        XCTAssertTrue(anchor.isHittable && viewport(app).intersects(anchor.frame))
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++
++        control("hide", in: app)
++        waitState("visible=0", in: app)
++        control("show", in: app)
++        waitState("case=tab-return", in: app)
++        observation("Retained tab return", in: app, anchor: anchor)
++        waitState("outcome=arrived", in: app)
++        XCTAssertEqual(settledY(anchor, in: app), savedY, accuracy: 6)
++        control("close", in: app)
++        waitState("case=closed", in: app)
++        control("reopen", in: app)
++        waitState("case=reopen", in: app)
++        observation("Native destination reopen", in: app, anchor: anchor)
++        waitState("outcome=arrived", in: app)
++        XCTAssertEqual(settledY(anchor, in: app), savedY, accuracy: 6)
++
++        control("other", in: app)
++        waitState("follow=1", in: app)
++        observation("Other chat starts latest", in: app)
++        XCTAssertFalse(app.pausedChatNavigation.exists)
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++        control("other", in: app)
++        waitState("outcome=arrived", in: app)
++        observation("Original chat keeps its pause", in: app, anchor: anchor)
++        XCTAssertEqual(settledY(anchor, in: app), savedY, accuracy: 6)
++        app.pausedChatNavigation.tap()
++        waitState("follow=1", in: app)
++        XCTAssertFalse(app.pausedChatNavigation.exists)
++        control("other", in: app)
++        waitState("follow=0", in: app)
++        observation("Latest on one chat leaves the other paused", in: app, anchor: anchor)
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++
++        // A real finger drag complements the hosted injected-phase/ownership branch tests.
++        // This probe reports SwiftUI's actual flag, never the DEBUG ownership override.
++        let handoffs = state(app).label.split(separator: " ").first { $0.hasPrefix("handoffs=") }.map(String.init)
++        XCTAssertNotNil(handoffs)
++        app.scrollViews["companion-transcript"].swipeDown()
++        waitState("user=1", in: app)
++        observation("Real drag reports native user ownership", in: app)
++        control("stream", in: app)
++        waitState("case=streamed", in: app)
++        RunLoop.current.run(until: Date().addingTimeInterval(0.5))
++        XCTAssertTrue(state(app).label.split(separator: " ").map(String.init).contains(handoffs ?? "missing"),
++                      "No identity handoff may be written after the real drag owns scrolling")
++
++        control("short", in: app)
++        waitState("case=short-paused", in: app)
++        let short = app.staticTexts["Short bookmark."]
++        XCTAssertTrue(short.waitForExistence(timeout: 5))
++        observation("Short-tail paused opening", in: app, anchor: short)
++        XCTAssertTrue(short.isHittable && viewport(app).intersects(short.frame))
++    }
++
++    /// External video audits every frame across each prepend; these are public-AX samples, not first-paint claims.
++    func testRecordedEarlierExpansionPreservesTheBookmarkDuringTailArrival() {
++        let app = launchFixture()
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        let anchor = app.staticTexts["Reading marker 90."]
++        let earlier = app.buttons["companion-show-earlier"]
++        let transcript = app.scrollViews["companion-transcript"]
++        // A intentionally aligns the saved entry after first paint. Reach the inline control like a reader:
++        // one native status-bar scroll to content top, not a tap through the pinned banner's hit region.
++        tapChatStatusBar(in: app)
++        assertEarlierIsClearOfThePinnedBanner(in: app)
++        let before = settledY(anchor, in: app)
++        var expansions = 0
++        while earlier.exists, expansions < 8 {
++            let previousStart = state(app).label.split(separator: " ").first { $0.hasPrefix("start=") }.map(String.init)
++            XCTAssertNotNil(previousStart)
++            observation("Before earlier expansion \(expansions)", in: app, anchor: anchor)
++            assertEarlierIsClearOfThePinnedBanner(in: app)
++            earlier.tap()
++            XCTAssertTrue(waitFor(state(app), NSPredicate { _, _ in
++                !self.state(app).label.split(separator: " ").map(String.init).contains(previousStart ?? "missing")
++            }, timeout: 8), "The real loaded prefix must widen before this can pass")
++            XCTAssertEqual(settledY(anchor, in: app), before, accuracy: 4,
++                "Show earlier preserves the same entry's screen position")
++            observation("After earlier expansion \(expansions)", in: app, anchor: anchor)
++            expansions += 1
++        }
++        XCTAssertGreaterThan(expansions, 0)
++        XCTAssertFalse(earlier.exists, "The bounded expansion must recover the entire prior prefix")
++        XCTAssertTrue(app.staticTexts["Reading marker 1."].exists)
++        control("append", in: app)
++        waitState("case=tail-arrived", in: app)
++        XCTAssertEqual(settledY(anchor, in: app), before, accuracy: 4,
++            "A normal new tail reply cannot move the entry after prefix expansion")
++        observation("Tail arrives after earlier expansion", in: app, anchor: anchor)
++        let oldest = app.staticTexts["Reading marker 1."]
++        for _ in 0..<25 {
++            checkTimeLeft("reaching the restored older history")
++            if oldest.frame.intersects(viewport(app)), oldest.isHittable { break }
++            transcript.swipeDown()
++        }
++        XCTAssertTrue(oldest.isHittable && viewport(app).intersects(oldest.frame),
++            "Restored earlier history must be user-reachable, not just retained in the model")
++        observation("Recovered beginning of history", in: app, anchor: oldest)
++    }
++
++    func testRecordedReloadsKeepTheOpenMountAndPreserveKeyboardDraftAndReadingControls() {
++        let app = launchFixture()
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        let anchor = app.staticTexts["Reading marker 90."]
++        let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
++        XCTAssertTrue(composer.waitForExistence(timeout: 5))
++        openSoftwareKeyboard(composer, in: app)
++        composer.typeText("First paint draft")
++        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
++        let savedY = settledY(anchor, in: app)
++        control("reload", in: app)
++        waitState("case=open-reload", in: app)
++        observation("Reload while open", in: app, anchor: anchor)
++        waitState("outcome=arrived", in: app)
++        XCTAssertEqual(settledY(anchor, in: app), savedY, accuracy: 6)
++        XCTAssertEqual(composer.value as? String, "First paint draft")
++        XCTAssertTrue(app.keyboards.firstMatch.exists)
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++
++        control("hide", in: app)
++        waitState("visible=0", in: app)
++        control("reload", in: app)
++        waitState("case=hidden-reload", in: app)
++        control("show", in: app)
++        waitState("case=tab-return", in: app)
++        observation("Reload while hidden then re-show", in: app, anchor: anchor)
++        waitState("outcome=arrived", in: app)
++        XCTAssertEqual(composer.value as? String, "First paint draft")
++        XCTAssertTrue(app.pausedChatNavigation.exists)
++        observation("Returned draft and keyboard state", in: app, anchor: anchor)
++        control("session", in: app)
++        waitState("case=session-replacement", in: app)
++        let newSession = app.staticTexts["New session marker 90."]
++        observation("Session replacement uses existing generation handling", in: app, anchor: newSession)
++        XCTAssertTrue(newSession.waitForExistence(timeout: 5))
++        XCTAssertEqual(composer.value as? String, "First paint draft")
++    }
++    /// Run on SE portrait. Encoded first paused frame must show this unchanged label fully below the banner.
++    /// Eventual AX checks establish semantics/real access only; they cannot rescue a bad first encoded frame.
++    func testRecordedSEPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
++        let app = launchFixture()
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        observation("SE portrait paused first-frame recording; later AX sample", in: app,
++                    anchor: app.staticTexts["Reading marker 90."])
++        tapChatStatusBar(in: app)
++        assertEarlierIsClearOfThePinnedBanner(in: app)
++    }
++
++    /// Run on Pro Max at XXXL portrait; first-frame visibility and canonical-first content are video gates.
++    func testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
++        let app = launchFixture(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
++        control("paused", in: app)
++        waitState("outcome=arrived", in: app)
++        observation("XXXL portrait paused first-frame recording; later AX sample", in: app,
++                    anchor: app.staticTexts["Reading marker 90."])
++        tapChatStatusBar(in: app)
++        assertEarlierIsClearOfThePinnedBanner(in: app)
++    }
++
++    /// Diagnostic recording ONLY: #483 excludes landscape tight-room visibility from this acceptance contract.
++    /// No passing portrait/landscape containment claim may be inferred from this method's eventual completion.
++    func testRecordedLandscapePausedOpeningIsUncreditedForTheKnown483Limit() {
++        let app = launchFixture()
++        addTeardownBlock { XCUIDevice.shared.orientation = .portrait }
++        XCUIDevice.shared.orientation = .landscapeLeft
++        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in app.frame.width > app.frame.height }, timeout: 5))
++        control("paused", in: app)
++        waitState("case=paused-expanded", in: app)
++        observation("Landscape diagnostic only; #483 visibility exclusion", in: app,
++                    anchor: app.staticTexts["Reading marker 90."])
++    }
++
++}
+diff --git a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+index 5fd6060a8..308956792 100644
+--- a/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
++++ b/Annex/AnnexUITests/CompanionReadingRestoreUITests.swift
+@@ -1,7 +1,9 @@
+ import XCTest
+ 
+ @MainActor final class CompanionReadingRestoreUITests: ReliableUITestCase {
+-    /// A real prefix trim after the restore pin must preserve both semantic and visible reading alignment.
++    /// A same-session reload grows an earlier measured message on the open normal window, then a real
++    /// prefix trim after the pin must preserve both semantic and visible reading alignment. #582's
++    /// bookmark-first remount no longer exposes this race; all pixel and six-point checks stay unchanged.
+     func testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry() {
+         let app = launchApp(["--reading-prefix-trim-ui-testing", "--companion-preview-reading"])
+         let state = app.staticTexts["reading-prefix-trim-state"]
+@@ -51,12 +53,16 @@ import XCTest
+                 .flatMap { Double($0.dropFirst(key.count + 1)) }
+         }
+         guard let shift = number("shift"), let miss = number("miss"),
++              let reloadShift = number("reloadShift"), let pin = number("pin"), let beforeOffset = number("beforeOffset"),
+               let attempts = number("attempts"), let elapsed = number("elapsed") else {
+             XCTFail("The diagnostic state must contain its measured gate and displacement"); return
+         }
+         XCTAssertLessThanOrEqual(attempts, 10)
+         XCTAssertLessThan(elapsed, 1)
+         XCTAssertGreaterThan(abs(shift), 8)
++        XCTAssertGreaterThan(abs(reloadShift), 1)
++        XCTAssertEqual(pin, beforeOffset + reloadShift, accuracy: 2,
++                       "The first pin must reflect the real reload displacement before tail arrival")
+         XCTAssertEqual(miss, 0, accuracy: 2, "The numeric target must follow the saved entry across a prefix shift")
+         XCTAssertEqual(beforeY - anchor.frame.minY, 0, accuracy: 2, "The real pixels must preserve the same reading entry")
+         XCTAssertTrue(app.pausedChatNavigation.exists)
+@@ -103,10 +109,34 @@ import XCTest
+         let chosen = number("saved")
+         XCTAssertEqual(chosen, number("offset"), accuracy: 2)
+         XCTAssertGreaterThan(chosen, 1_300, "This must be the drag's position, not the original bookmark")
++        func entryField(_ key: String) -> String? {
++            (state.value as? String)?.split(separator: " ").first { $0.hasPrefix(key + "=") }
++                .map { String($0.dropFirst(key.count + 1)) }
++        }
++        guard let chosenEntry = entryField("entry"), chosenEntry != "nil",
++              let chosenLower = entryField("lower").flatMap(Double.init), chosenLower.isFinite,
++              let chosenDistance = entryField("distance").flatMap(Double.init), chosenDistance.isFinite else {
++            XCTFail("The real drag must expose its measured entry and relative position before remount"); return
++        }
++        XCTAssertEqual(entryField("visible"), "1")
++        XCTAssertEqual(chosen - chosenLower, chosenDistance, accuracy: 2)
+         app.buttons["reading-restore-remount"].tap()
+         XCTAssertTrue(waitFor(state, NSPredicate(format: "label CONTAINS %@", "outcome=arrived"), timeout: 5), state.label)
+-        XCTAssertEqual(number("offset"), chosen, accuracy: 2)
+-        XCTAssertEqual(number("saved"), chosen, accuracy: 2)
++        // #582 intentionally omits the earlier prefix on remount. Keep the same two-point contract
++        // in the original measured entry's coordinates; the saved bookmark must match the new actual offset.
++        guard let restoredLower = entryField("lower").flatMap(Double.init), restoredLower.isFinite else {
++            XCTFail("The original reading entry must be measured after arrival"); return
++        }
++        XCTAssertEqual(entryField("entry"), chosenEntry)
++        XCTAssertEqual(entryField("visible"), "1")
++        let restored = number("offset")
++        let relativeDelta = restored - restoredLower - chosenDistance
++        XCTAssertEqual(relativeDelta, 0, accuracy: 2)
++        XCTAssertEqual(number("saved"), restored, accuracy: 2)
++        let measurements = XCTAttachment(string: "entry=\(chosenEntry) beforeOffset=\(chosen) beforeLower=\(chosenLower) restoredOffset=\(restored) restoredLower=\(restoredLower) rawShift=\(restored - chosen) relativeDelta=\(relativeDelta)")
++        measurements.name = "Timeout drag remount entry-relative two-point contract"
++        measurements.lifetime = .keepAlways
++        add(measurements)
+         XCTAssertEqual(number("held"), 0)
+         let attachment = XCTAttachment(screenshot: app.screenshot())
+         attachment.name = "Real drag after timeout restores its new bookmark"
+diff --git a/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift b/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift
+new file mode 100644
+index 000000000..6b5c01ff0
+--- /dev/null
++++ b/Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift
+@@ -0,0 +1,123 @@
++import Foundation
++import Testing
++@testable import CompanionDomain
++
++@MainActor struct CompanionReadingOpeningTests {
++    private func opening(_ position: CompanionReadingPosition, mounted: Bool = true,
++                         rows: [CompanionTimelineRow] = []) -> CompanionReadingOpening {
++        .init(position: position, hasMounted: mounted, initialLimit: 20, rows: rows)
++    }
++
++    @Test func freshAndLatestUseTheBottomFallbackWithoutBorrowingAPausedEntry() {
++        let fresh = opening(.init(), mounted: false)
++        #expect(fresh.followsLatest && fresh.shownEntries == 20 && fresh.entryID == nil)
++        let latest = opening(.init(followsLatest: true, entryID: "message:old", shownEntries: 300))
++        #expect(latest.followsLatest && latest.shownEntries == 300 && latest.entryID == nil)
++    }
++
++    @Test func pausedBookmarkBoundaryAndExactMessageIdentitySurviveSeeding() {
++        let row = CompanionTimelineRow.item(.message(.init(id: "ordinary", role: .assistant, text: "A real reply")))
++        let position = CompanionReadingPosition(followsLatest: false, entryID: row.id, distanceFromEntry: 40,
++                                               offset: 900, shownEntries: 300)
++        let seed = opening(position, rows: [row])
++        #expect(!seed.followsLatest && seed.shownEntries == 300 && seed.entryID == row.id)
++        #expect(position.offset == 900 && position.distanceFromEntry == 40,
++                "An opening seed must not replace the later geometry-based pixel target")
++    }
++
++    @Test func groupedQuestionAliasUsesTheExistingVisibleGroupWithoutChangingTheBookmark() throws {
++        let first = CompanionQuestion(id: "first", prompts: [])
++        let later = CompanionQuestion(id: "later", prompts: [], hasUnreadablePrompts: true)
++        let rows = CompanionTimelineFolding.rows(for: [.question(first), .question(later)], collapseDesktopQuestions: true)
++        let position = CompanionReadingPosition(followsLatest: false, entryID: "question:later", shownEntries: 150)
++        let seed = opening(position, rows: rows)
++        let group = try #require(rows.first)
++        #expect(group.id == "question:first" && seed.entryID == group.id)
++        #expect(position.entryID == "question:later", "The semantic bookmark still names the authoritative request")
++        let canonical = try #require(seed.entryID)
++        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: canonical))
++        #expect(window.entries.contains { $0.id == seed.entryID })
++    }
++
++    @Test func absentGroupRemovedMessageAndOldSessionUseTheBottomFallback() {
++        let current = CompanionTimelineRow.item(.message(.init(id: "new-session", role: .assistant, text: "Current history")))
++        for missing in ["question:unloaded-group", "message:removed", "message:old-session"] {
++            let seed = opening(.init(followsLatest: false, entryID: missing, offset: 800), rows: [current])
++            #expect(!seed.followsLatest && seed.entryID == nil,
++                    "No nonexistent initial ID request may silently leave the transcript at an unspecified position")
++        }
++    }
++
++    @Test func pausedWindowStartsAtItsCanonicalBookmarkAndRetainsEveryLaterEntry() throws {
++        let rows = (0..<40).map { CompanionTimelineRow.item(.message(.init(id: "row-\($0)", role: .user, text: "Row \($0)"))) }
++        let position = CompanionReadingPosition(followsLatest: false, entryID: rows[24].id, shownEntries: 150)
++        let seed = opening(position, rows: rows)
++        let canonical = try #require(seed.entryID)
++        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: canonical))
++        #expect(window.entries.first?.id == seed.entryID,
++                "User-approved #582 contract: a paused remount starts WITH its canonical bookmark")
++        #expect(window.hiddenCount > 0)
++        #expect(window.entries.map(\.id) == rows[24...].map(\.id))
++        #expect(window.entries.contains { $0.id == seed.entryID })
++        #expect(seed.entryID == rows[24].id)
++    }
++
++    @Test func slicedEntryMustExistRatherThanOnlyShareTheMessagePrefix() throws {
++        let message = CompanionMessage(id: "long", role: .assistant, text: String(repeating: "long reply ", count: 500))
++        let row = CompanionTimelineRow.item(.message(message))
++        let entries = CompanionTimelineEntry.entries(for: [row])
++        let actual = try #require(entries.dropFirst().first)
++        #expect(opening(.init(followsLatest: false, entryID: actual.id), rows: [row]).entryID == actual.id)
++        #expect(opening(.init(followsLatest: false, entryID: row.id + "#999"), rows: [row]).entryID == nil)
++    }
++    @Test func startingInsideAReplyAndThenExpandingRecoversItsBeginningAndPriorHistory() throws {
++        let row = CompanionTimelineRow.item(.message(.init(id: "long", role: .assistant,
++            text: String(repeating: "A paragraph of reply text.\n\n", count: 500))))
++        let rows: [CompanionTimelineRow] = [.item(.notice(id: "older", text: "Older history")), row,
++            .item(.notice(id: "tail", text: "Tail"))]
++        let slices = CompanionTimelineEntry.entries(for: [row])
++        let selected = try #require(slices.dropFirst(2).first)
++        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: selected.id))
++        #expect(window.entries.first?.id == selected.id && window.hiddenCount > 0)
++        let earlier = try #require(CompanionTimelineWindow.precedingStart(in: rows, before: selected.id))
++        let expanded = try #require(CompanionTimelineWindow(rows: rows, startingAt: earlier))
++        #expect(expanded.entries.contains { $0.id == slices.first?.id })
++        #expect(expanded.entries == CompanionTimelineEntry.entries(for: rows))
++        #expect(expanded.hiddenCount == 0)
++    }
++
++    @Test func deepBookmarkDoesNotPrepareTheHiddenPrefixAndTailGrowthKeepsItsBoundary() throws {
++        let rows = (0..<2_000).map { CompanionTimelineRow.item(.notice(id: "row-\($0)", text: "Row \($0)")) }
++        let window = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[1_000].id))
++        #expect(window.preparedRowCount == 1_000 && window.hiddenCount == 1_000)
++        let grown = try #require(CompanionTimelineWindow(rows: rows + [.item(.notice(id: "new-tail", text: "New tail"))],
++                                                         startingAt: rows[1_000].id))
++        #expect(grown.entries.first?.id == window.entries.first?.id)
++        #expect(Array(grown.entries.dropLast()) == window.entries)
++        let earlier = try #require(CompanionTimelineWindow.precedingStart(in: rows, before: rows[1_000].id))
++        let expanded = try #require(CompanionTimelineWindow(rows: rows, startingAt: earlier))
++        #expect(expanded.entries.count == window.entries.count + CompanionTimelineWindow.pageSize)
++        #expect(Array(expanded.entries.suffix(window.entries.count)) == window.entries)
++    }
++
++    @Test func missingExactWindowBoundaryFailsInsteadOfPretendingItsFirstRowIsCanonical() {
++        let rows: [CompanionTimelineRow] = [.item(.message(.init(id: "current", role: .assistant, text: "Current")))]
++        #expect(CompanionTimelineWindow(rows: rows, startingAt: "message:old-session") == nil)
++        #expect(CompanionTimelineWindow(rows: rows, startingAt: "message:current#999") == nil)
++    }
++
++    @Test func noPredecessorMeansTheBoundaryIsOldestOrNoLongerExists() throws {
++        let rows: [CompanionTimelineRow] = [.item(.notice(id: "first", text: "First")),
++                                            .item(.notice(id: "last", text: "Last"))]
++        let oldest = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[0].id))
++        #expect(oldest.hiddenCount == 0, "The oldest boundary cannot display Show earlier")
++        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: rows[0].id) == nil)
++        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: "notice:removed") == nil)
++        #expect(CompanionTimelineWindow(rows: rows, startingAt: "notice:removed") == nil,
++                "A stale boundary must fall back to the normal window, not remain a no-op cursor")
++        let later = try #require(CompanionTimelineWindow(rows: rows, startingAt: rows[1].id))
++        #expect(later.hiddenCount > 0)
++        #expect(CompanionTimelineWindow.precedingStart(in: rows, before: rows[1].id) == rows[0].id)
++    }
++
++}
+diff --git a/Tests/CompanionDomainTests/CompanionReadingPositionTests.swift b/Tests/CompanionDomainTests/CompanionReadingPositionTests.swift
+index 1b70edc1f..71ca6624f 100644
+--- a/Tests/CompanionDomainTests/CompanionReadingPositionTests.swift
++++ b/Tests/CompanionDomainTests/CompanionReadingPositionTests.swift
+@@ -4,6 +4,16 @@ import Testing
+ @testable import CompanionDomain
+ 
+ struct CompanionReadingPositionTests {
++    @Test(arguments: [0.0, 0.4, 0.6]) func captureRequiresHalfAPointOfVisibleEntryWithoutMovingTheRestore(overlap: Double) {
++        let frames: [String: ClosedRange<Double>] = ["previous": 0...(100 + overlap), "next": (100 + overlap)...200]
++        var position = CompanionReadingPosition(followsLatest: false)
++        position.capture(offset: 100, frames: frames)
++        #expect(position.entryID == (overlap > CompanionReadingPosition.minimumVisibleExtent ? "previous" : "next"))
++        #expect(position.restoredOffset(frames: frames) == 100)
++        let shifted = frames.mapValues { ($0.lowerBound + 250)...($0.upperBound + 250) }
++        #expect(position.restoredOffset(frames: shifted) == 350,
++                "Changing which boundary row is captured must not change the restored pixel")
++    }
+     @Test @MainActor func stalledRestorationExhaustsItsBudgetWithoutLosingTheReadingBookmark() {
+         let bookmark = CompanionReadingBookmark()
+         bookmark.position = .init(followsLatest: false, entryID: "message:reading", distanceFromEntry: 8, offset: 400)
+diff --git a/docs/isolated-deinit.md b/docs/isolated-deinit.md
+index ade62ed91..32ba60128 100644
+--- a/docs/isolated-deinit.md
++++ b/docs/isolated-deinit.md
+@@ -95,6 +95,7 @@ The root-owner replacement regression waits for an actual teardown event before
+ | `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; the last-tab choice is a Sendable raw-value enum, and recent choices contain only Sendable CompanionTarget values. UIDevice is read during init, not retained. No callback, UI owner or teardown change. |
+ | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. |
+ | `CompanionPreviewTerminalChannel` | arc_only | Value scope/text/size and Sendable stream continuation; no UI fields. |
++| `CompanionReadingSeed` | arc_only | Immutable opening values only: Bool, Int and optional String. Constructor Store/target are not retained; no UI handle, task, callback or mutable ScrollPosition. StateObject computes once per mounted target. |
+ | `CompanionReadingBookmark` | arc_only | Reading-position values and Bool plus the reviewed ARC-only ReadingViewport; no UI objects or callback captures. |
+ | `CompanionReadingViewport` | arc_only | Numeric SwiftUI/UIKit geometry snapshots and a bounded restoration value (UUIDs, numeric target/time/attempts, closed outcome); no SwiftUI scroll handles, tasks, UI objects or callbacks. UIKit publishes only value metrics here, never a view/delegate reference. |
+ | `CompanionReadingTouchObserver.Anchor` | main_actor | UIKit window/recognizer attachment and a view callback require main-thread teardown. |
+@@ -186,3 +187,5 @@ The external Dispatcher restore-failure acknowledgment adds one value-only Bool
+ The external-launch authority correction adds one Store Bool (`hasReceivedHostReport`) and one DEBUG-only optional Runtime diagnostic value (`CompanionLaunchKeychainDiagnostic`: Int32 statuses and an outcome String). These distinguish unknown initial storage from a known empty report and retain status-only test evidence. They own no UI, callback, credentials or teardown work. Runtime and Store deinit bodies and policy modes stay unchanged. A capability probe uses a unique test-service Keychain item, deleting it synchronously after a successful add.
+ 
+ Hosted entrypoint review: `Self.unitTestHost` is the unchanged Bool producer for the same lazy Runtime factory; capture ownership and teardown policy are unchanged.
++
++The opt-in #582 `CompanionReadingOpeningFixture` uses the same lazily constructed Store/reading-preview ownership as `CompanionReadingPrefixTrimFixture`. Its two exact constructor-capture records contain no producers; the Store/Preview service teardown audit is unchanged. Transcript opening state is value-only SwiftUI State and adds no actor-owned holder. The DEBUG observation hook is reset when the fixture task ends.
+diff --git a/docs/reading-first-paint-extraction.json b/docs/reading-first-paint-extraction.json
+new file mode 100644
+index 000000000..428746720
+--- /dev/null
++++ b/docs/reading-first-paint-extraction.json
+@@ -0,0 +1,26 @@
++{
++  "source_base": "77b24899",
++  "timeline_transforms": [
++    "timeline -> child.body",
++    "timelineHeader -> header()",
++    "timelineEntry -> entry closure",
++    "isVisible==nil -> !isVisibilityManaged"
++  ],
++  "moved_state": [
++    "followLatest",
++    "atLatest",
++    "readingScrollPosition",
++    "shownEntries",
++    "nextAssistantMessageID",
++    "followPauseCount(DEBUG)",
++    "followSawDeceleration(DEBUG)",
++    "navigationClearance(ScaledMetric)"
++  ],
++  "parent_remaining_uses": {
++    "decisionChatJump": "parent owns request; child consumes the same optional request",
++    "readingBookmark/Viewport": "parent clears geometry on managed visibility=false",
++    "header/entry builders": "parent supplies closures without reading moved State",
++    "dismissComposer": "child invokes parent action"
++  },
++  "reading_helpers_source_sha256": "eef20df7870da3b5baa12bab474af1e76dcf7dda92fb5c5b176f3991c28bc5f0"
++}
+diff --git a/docs/reading-first-paint-plan.md b/docs/reading-first-paint-plan.md
+new file mode 100644
+index 000000000..dc708be7d
+--- /dev/null
++++ b/docs/reading-first-paint-plan.md
+@@ -0,0 +1,53 @@
++# Reading bookmark-first opening (#582)
++
++PR584 is a draft. The user approved a new UX after the earlier ID-positioning experiment failed: a reopened paused transcript starts WITH its saved canonical entry as the first loaded message. Earlier history is behind Show earlier messages. This is an explicit replacement of the earlier expanded-prefix contract, not a tolerance change. It is outside beta.3 and requires independent exact-head runtime and current-main coverage acceptance.
++
++## Product boundary
++
++A lazy immutable StateObject computes one value-only opening seed per actual mounted full target. Discarded parent initializers, streaming and mounted history reloads do not recompute the seed. The transcript subtree owns reading State; composer/header/draft State remains above it. Initial, retained-tab return, native destination and A/B switch share this boundary.
++
++A valid paused bookmark resolves its canonical visible entry once. An opt-in TimelineWindow starts exactly there, including an existing slice within a long reply; older rows are not prepared. A per-mount cursor remains stable under streaming and reload. Explicit Show earlier/previous-page actions can only move it earlier; Show-in-chat can only widen it. Latest ends the opening boundary and uses the normal bottom path. A removed boundary is cleared on generation replacement and cannot resurrect. This does not write a new ScrollPosition: the mounted reader stays under A’s existing missing-entry offset fallback. A nil predecessor also clears the boundary so Show earlier falls back to the normal widened window. Missing, removed, invalid-slice and old-session opening IDs have the existing deterministic normal-tail/bottom fallback. Grouped-question aliases choose the visible group without mutating the semantic bookmark.
++
++Valid paused openings seed ScrollPosition(edge:.top); following/missing-ID openings seed bottom. The stopped onAppear proxy experiment and opening ID/handoff machinery are removed. There is no implicit ID owner to release at idle. Phase tests therefore assert ZERO active AND idle identity writes, and the real native drag still proves ownership and no late handoff. No Task, paint delay, opacity, animation, guessed numeric offset or UIKit introspection is added.
++
++Show earlier stays inline above the first message and is visible below the pinned banner in the first paused frame. A’s accepted entry-alignment correction can subsequently move that inline control above the viewport; a reader reaches it by a normal native scroll to content top. This is not a missing-inset defect; no banner/content-margin change is included. “At the top” means the canonical entry is the first message below the visible existing header/control/padding. Short bookmark-first content uses top alignment; following content retains bottom alignment. Product A subsequently restores the saved fractional distance using its unchanged six-point contract, retarget and20-attempt/2-second budget. Per-route video must show movement no greater than measured header/padding + saved distance +6pt, with the canonical row remaining at least partially visible as the top row.
++
++Before a prefix-widening State change, capture the real reading position and set the existing restoring/pending-offset guard. Existing preference/consistent-geometry compensation holds that entry's screen position. The test first performs the native status-bar top action and requires the whole earlier control to fit in the public native scroll track below the banner. Its AX label and identifier are unchanged. The new recording must show every subsequent Show-earlier tap and a normal tail arrival within4pt, and eventually prove the older history is reachable. No timing workaround is accepted if it visibly jumps.
++
++## Disclosed test changes
++
++The new Domain/hosted tests replace windowFirstID != canonicalID with equality for paused remounts. The retained shownEntries expansion watermark does not force the older prefix back into a new paused opening. Tests cover sliced/grouped IDs, exact start, no hidden-prefix preparation, preceding-page expansion, missing/session fallback, seed-once identity, mounted reload, hidden reload and target isolation.
++
++The zero-numeric-arrival setup derives a top-position bookmark from real identical-window geometry: distance =0.5 - measured first-entry lowerBound. Every zero-attempt/zero-command/one-save assertion remains. No assumed initialized-ID delivery or guessed height is used. The original ReadingUITests file is re-pinned only to merged #587, and the restoration value tests remain byte-identical. The two deliberate H/S contract-file edits below are separately committed and reviewed; they are no longer claimed byte-identical.
++
++H-r1 exposed two harness assumptions. The hidden-tab/desktop/drop/timeout tests compared raw offsets across a remount; bookmark-first intentionally omits the preceding content, changing the coordinate origin. A separate test-only commit captures the actual saved entry frame before hiding and requires that same entry to intersect the viewport after completion, at the same entry-relative position within the unchanged2pt tolerance. Both raw and relative deltas are logged. Touch ownership, timeout preservation, retry counts, fixed targets and zero hidden timeline work remain unchanged. Missing frames fail, never skip. H-r1 did not record the necessary before/after frames, so its .arrived result is not treated as independent semantic proof.
++
++The identical-history open reload reached .arrived without a command, so H1 was NOT exercised. The revised DEBUG fixture keeps the real normal window open and sends a same-session timeline resync with identical item IDs/order, growing exactly one already-measured message strictly before the bookmark. The bookmarked entry's actual reload displacement must exceed1pt; the first pin must equal the previous actual offset plus that measured displacement within2pt. Only then does the existing delivery refusal inject the normal tail upsert. The pre-tail identities/window/revision and edited-row geometry are checked; real first/hidden/frame changes plus a separately measured tail displacement gate release within10attempts/1second. Only final .arrived, miss<=2pt and the original6pt entry/pixel checks count. Already-aligned/no-command or any missed real-layout gate is H1-not-exercised/STOP, with no timing rescue. The hosted pin-baseline assertion now includes only the measured reload shift; the UI method adds the same explicit checks, leaving every existing pixel2pt/6pt assertion intact. No release product restoration logic changes. A new hosted test still proves bookmark-first remounts keep their first row fixed through a mid-restore tail arrival.
++
++A separate capture correction uses upperBound > offset +0.5pt (shared minimumVisibleExtent) so a numerically touching row is not saved as visible. Value tests cover equal-edge,+0.4,+0.6 and identical restored offsets. A's target correction, tolerances and budget are unchanged.
++
++## Proof and stop
++
++Before any build, QA reviews the cumulative implementation, test diff, source hashes and exact fresh manifest. Fresh guarded build/deinit/policy; three Pro Max recording methods cover all four routes, Show-earlier expansion and short content; separate SE portrait and XXXL portrait paused recordings require first-frame visibility below the banner; landscape is recorded only under the disclosed #483 exclusion; N; original H15/19 and S2; identical additive main/head CPU test overlays (16 scroll steps,100 paused chunks and two fresh 600-row/bookmark-60 openings per side), with paired DEBUG-only hooks observing the actual rendered window’s preparedRowCount. Counts (including deep-open prepared rows and body/timeline) must be no greater than main; process CPU is supporting evidence, flagged non-blocking if more than20% higher with equal counts; original ordered C23/C50; cold R0; Reading SE; D/current-main combined coverage with overlap/conflict review. Device acceptance remains deferred.
++
++The opening/performance/restore gates are independent of eventual AX readiness. Original videos, unaltered full frames with actual presentation timestamps, complete stdout and cleanup receipts are retained on evidence/ux-582. No first-paint claim comes from a screenshot queried after readiness. Every unexpected count/outcome or wrong first content is a STOP, with no assertion retry or timing iteration. The parent owns landing.
++
++## Recording-only fixture correction after F-r1
++
++F-r1 is preserved as STOP evidence, not credited. Its two fixture defects were an offscreen horizontal action strip and a TextView-only composer query. The DEBUG fixture now uses two visible rows of six native controls with short labels and44pt minimum label content, preserving all12 actions. Its controls use a fixed12pt test-only font; product Dynamic Type is unchanged. This adds offered control height and reduces the real conversation viewport; the footage and measured viewport disclose it. No product view, height, header, scroll inset, delay or positioning logic changes for this correction. The new test uses the existing general descendant composer lookup and the same software-keyboard setup sequence as Reading tests.
++
++The branch was rebased onto85ee757a. The full pre-harness cumulative patch is byte-identical to the reviewed a971c9343/77b24899 patch. The one re-pinned original Reading file equals #587 on main; the #588 permission-menu product file is outside #582’s delta. Evidence and fresh configuration are independently reviewed before any build.
++
++
++## Accepted first-frame evidence on5c785b
++
++Independent QA accepted the exact encoded samples for all four routes, SE portrait and XXXL portrait, with bounded A movement and real prepend/tail stability. Only the first line ("Reading…") of the bookmarked message is visible on the first frame. The number 90 only becomes readable after the restore. This is the disclosed XXXL limitation of the recording viewport; landscape remains an uncredited #483 diagnostic. N13 passed. H-r1 STOP and its original results remain preserved; no later gate is credited until the reviewed harness changes pass on their exact head.
++
++
++## Timeout/drag UI coordinate correction and remaining-selector sweep
++
++After H-r2 proved the changed origin, review found the same raw-origin assumption in the second S UI method. The first S attempt was interrupted during the first method's setup/app launch, with no assertion outcome; it is preserved as a partial execution, not a zero-execution refusal or a completed test retry. A process-group exit race in the external runner was manually cleaned and independently reported.
++
++The timeout fixture now exposes the original measured entry ID, frame and relative position through its DEBUG AX value only, preserving its existing visible text and offered viewport. The test retains its initial1200 timeout, real-drag chosen>1300, chosen==actual, completion and held checks. After remount it requires the same measured entry to intersect the viewport, entry-relative position within the unchanged2pt tolerance, and saved bookmark==new actual offset within2pt. It logs both origin shift and relative delta. This deliberately replaces only the two incompatible old-origin equalities; no pixel or six-point reading assertion changes.
++
++The source sweep covers all52 unique selected S/C23/C50/R0/RSE methods across five full files and their helpers, plus the three additive CPU methods. Only the two timeout/remount equalities needed this further adaptation. Reading's rotation/stream/prepend/tab/reopen checks compare public screen frames; CPU paused-stream checks stay within one mount, and deep-open checks are already entry-relative. Exact classified hits and source hashes are stored with the manifest before any new build. All previous runtime evidence remains separate; no S result is credited from the interrupted attempt.
+diff --git a/scripts/isolated-deinit-policy.json b/scripts/isolated-deinit-policy.json
+index c535ba622..5702603ab 100644
+--- a/scripts/isolated-deinit-policy.json
++++ b/scripts/isolated-deinit-policy.json
+@@ -980,6 +980,21 @@
+         },
+         "storageMacros": []
+       }
++    },
++    "CompanionReadingSeed": {
++      "policy": "arc_only",
++      "source": "Annex/Annex/Companion/Views/CompanionConversationView.swift",
++      "reason": "Immutable CompanionReadingOpening value only (Bool, Int and optional String). Store and target are constructor inputs and are not retained. No callback, task, client, timer, UIKit object or mutable ScrollPosition is owned; StateObject evaluates the constructor lazily once per mounted target.",
++      "surface": {
++        "bases": [
++          "ObservableObject"
++        ],
++        "nestedValueProperties": {},
++        "properties": {
++          "value": "CompanionReadingOpening"
++        },
++        "storageMacros": []
++      }
+     }
+   },
+   "captureSites": {
+@@ -1155,6 +1170,20 @@
+           }
+         }
+       ]
++    },
++    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": {
++      "constructor:CompanionStateLifetime": [
++        {
++          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) ) }",
++          "producers": {}
++        }
++      ],
++      "constructor:CompanionStore": [
++        {
++          "expression": "CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) )",
++          "producers": {}
++        }
++      ]
+     }
+   }
+ }

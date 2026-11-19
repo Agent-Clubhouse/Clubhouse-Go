@@ -1,0 +1,18 @@
+{
+  "before": "a291d4d491926413eb726b6c80db5bca75254415",
+  "head": "e1633de9c7981b61207cf08aa3d8b4fec7a43c13",
+  "changed_files": [
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+    "docs/reading-first-paint-plan.md"
+  ],
+  "release_product_identity": true,
+  "whole_app_delta_only_DEBUG_fixture": true,
+  "PrefixTrimFixture_byte_identical": true,
+  "first_S_UI_method_byte_identical": true,
+  "H_test_file_byte_identical": true,
+  "N_test_file_byte_identical": true,
+  "F_files_byte_identical": true,
+  "runner_sha256": "bf3f2f7139f5412b22f06bf04841172a43b843612d8fb6e11a9c391cd38afe59",
+  "carry_requested_not_assumed": true
+}

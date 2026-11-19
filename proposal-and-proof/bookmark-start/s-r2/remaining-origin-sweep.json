@@ -1,0 +1,740 @@
+{
+  "scope": "Every selected S/C23/C50/R0/RSE method plus their full source/helper files; CPU additions also checked",
+  "selected_methods": [
+    {
+      "suite": "CompanionReadingRestoreUITests",
+      "method": "testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+      "phases": [
+        "S"
+      ],
+      "classification": "Reviewed resync pin/miss uses measured reload displacement; physical pixel2/6pt unchanged."
+    },
+    {
+      "suite": "CompanionReadingRestoreUITests",
+      "method": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "phases": [
+        "S"
+      ],
+      "classification": "Pre-remount raw timeout/drag checks retained; post-remount two raw equalities replaced with same measured visible entry-relative2pt and saved==newactual2pt. Explicit disclosed change."
+    },
+    {
+      "suite": "CompanionComposerFooterSurfaceUITests",
+      "method": "testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionComposerFooterSurfaceUITests",
+      "method": "testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionComposerFooterSurfaceUITests",
+      "method": "testPendingTrayFooterMatchesChatSurfaceInLightAndDark",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionComposerFooterSurfaceUITests",
+      "method": "testOverflowFooterWithKeyboardUpEvidenceInLightAndDark",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testRotationKeepsNewestLineInsideViewportWhileFollowing",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testRotationPreservesAScrolledUpReader",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testPointerWheelScrollPausesFollowingWhileStreaming",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testNativeScrollToTopSticksWithAndWithoutStreaming",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testStreamingKeepsFollowingWhenNobodyScrolls",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testUserPositionedReplyStaysWhileStreaming",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+      "phases": [
+        "C23",
+        "C50",
+        "R0",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testFailedOutputFoldsButErrorStatusStaysVisible",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testLatestIsAbsentAtActualBottomWithoutPausingFollowing",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testLastReplyLabelMatchesTheActualStationaryAction",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionReadingUITests",
+      "method": "testLatestIsOneCenteredActionAndReachesStreamingTail",
+      "phases": [
+        "C23",
+        "C50",
+        "RSE"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testCircleMenuLight",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testCircleMenuDark",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testCircleMenuAccessibilityXXXL",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testIdleControlsStayCollapsedBeforeAndAfterTyping",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testLargestTextWorkingAttachmentRowFits",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testDarkModeDraftTextAndKeyboardStayDark",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testLightModeDraftPromptAndTextStayReadable",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionCompactComposerUITests",
+      "method": "testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard",
+      "phases": [
+        "C23",
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testLandscapeAndAX5KeepReviewContextAndDecisionsReachable",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testSwipesAndTitleTapsNeverSendADecision",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testIncompleteRequestDisablesAllowButKeepsDenyAvailable",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testLightDecisionBar",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testDarkDecisionBar",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testLatteDecisionBar",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testMochaDecisionBar",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    },
+    {
+      "suite": "CompanionPinnedDecisionUITests",
+      "method": "testAccessibilityDecisionBar",
+      "phases": [
+        "C50"
+      ],
+      "classification": "Screen-frame/action/fit/decision assertions only; no raw content-origin equality across remount."
+    }
+  ],
+  "numeric_or_origin_hits": [
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 15,
+      "method_or_helper": "testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+      "selected": true,
+      "source": "transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 16,
+      "method_or_helper": "testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+      "selected": true,
+      "source": ".press(forDuration: 0.1, thenDragTo: transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)),",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 64,
+      "method_or_helper": "testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+      "selected": true,
+      "source": "XCTAssertEqual(pin, beforeOffset + reloadShift, accuracy: 2,",
+      "classification": "Real resync first pin includes measured reload shift; miss and physical-frame checks refer to current entry or screen, not old raw origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 66,
+      "method_or_helper": "testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry",
+      "selected": true,
+      "source": "XCTAssertEqual(miss, 0, accuracy: 2, \"The numeric target must follow the saved entry across a prefix shift\")",
+      "classification": "Real resync first pin includes measured reload shift; miss and physical-frame checks refer to current entry or screen, not old raw origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 85,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "XCTAssertEqual(number(\"saved\"), 1_200, accuracy: 2)",
+      "classification": "Initial saved1200 / chosen>1300 / chosen==actual are BEFORE remount in one origin. After remount only entry-relative2pt and saved==NEWactual2pt remain; visibility and identity required."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 92,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.25))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 93,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": ".press(forDuration: 0.1, thenDragTo: transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.75)))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 98,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "XCTAssertTrue(waitFor(state, saved, timeout: 5), state.label)",
+      "classification": "Initial saved1200 / chosen>1300 / chosen==actual are BEFORE remount in one origin. After remount only entry-relative2pt and saved==NEWactual2pt remain; visibility and identity required."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 110,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "XCTAssertEqual(chosen, number(\"offset\"), accuracy: 2)",
+      "classification": "Initial saved1200 / chosen>1300 / chosen==actual are BEFORE remount in one origin. After remount only entry-relative2pt and saved==NEWactual2pt remain; visibility and identity required."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 111,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "XCTAssertGreaterThan(chosen, 1_300, \"This must be the drag's position, not the original bookmark\")",
+      "classification": "Initial saved1200 / chosen>1300 / chosen==actual are BEFORE remount in one origin. After remount only entry-relative2pt and saved==NEWactual2pt remain; visibility and identity required."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 122,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "XCTAssertEqual(chosen - chosenLower, chosenDistance, accuracy: 2)",
+      "classification": "Initial saved1200 / chosen>1300 / chosen==actual are BEFORE remount in one origin. After remount only entry-relative2pt and saved==NEWactual2pt remain; visibility and identity required."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift",
+      "line": 135,
+      "method_or_helper": "testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition",
+      "selected": true,
+      "source": "XCTAssertEqual(number(\"saved\"), restored, accuracy: 2)",
+      "classification": "Initial saved1200 / chosen>1300 / chosen==actual are BEFORE remount in one origin. After remount only entry-relative2pt and saved==NEWactual2pt remain; visibility and identity required."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionComposerFooterSurfaceUITests.swift",
+      "line": 185,
+      "method_or_helper": "scrollContentUnderFooter",
+      "selected": false,
+      "source": "let start = transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionComposerFooterSurfaceUITests.swift",
+      "line": 211,
+      "method_or_helper": "surfaceAndFinalLine",
+      "selected": false,
+      "source": "let start = transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionComposerFooterSurfaceUITests.swift",
+      "line": 219,
+      "method_or_helper": "surfaceAndFinalLine",
+      "selected": false,
+      "source": "app.scrollViews[\"companion-transcript\"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 126,
+      "method_or_helper": "dragTranscript",
+      "selected": false,
+      "source": "let from = app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 198,
+      "method_or_helper": "testRotationPreservesAScrolledUpReader",
+      "selected": true,
+      "source": "let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.minX + 8, dy: viewport.minY + 40))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 261,
+      "method_or_helper": "testMomentumAfterAShortUpwardPanKeepsFollowingPaused",
+      "selected": true,
+      "source": "let start = app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 347,
+      "method_or_helper": "testUserPositionedReplyStaysWhileStreaming",
+      "selected": true,
+      "source": "XCTAssertEqual(first.frame.minY, y, accuracy: 1, \"Later chunks cannot undo the reader's position\")",
+      "classification": "Physical XCUI frame position; independent of omitted content prefix. Rotation4pt, same-window streaming1pt, prepend4pt and tab/reopen6pt retained."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 369,
+      "method_or_helper": "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+      "selected": true,
+      "source": "let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.midX, dy: top + 20))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 386,
+      "method_or_helper": "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry",
+      "selected": true,
+      "source": "XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, \"Prepending history preserves the visible entry's pixel offset\")",
+      "classification": "Physical XCUI frame position; independent of omitted content prefix. Rotation4pt, same-window streaming1pt, prepend4pt and tab/reopen6pt retained."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 418,
+      "method_or_helper": "testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout",
+      "selected": true,
+      "source": "let point = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.45))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionReadingUITests.swift",
+      "line": 502,
+      "method_or_helper": "testLatestArrivesGeometricallyWithoutAnIncomingUpdate",
+      "selected": true,
+      "source": "let point = app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionCompactComposerUITests.swift",
+      "line": 214,
+      "method_or_helper": "dismissChatControls",
+      "selected": false,
+      "source": "app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: point.x - app.frame.minX, dy: point.y - app.frame.minY)).tap()",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionCompactComposerUITests.swift",
+      "line": 711,
+      "method_or_helper": "testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor",
+      "selected": true,
+      "source": "let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: startPoint.x, dy: startPoint.y))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionCompactComposerUITests.swift",
+      "line": 712,
+      "method_or_helper": "testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor",
+      "selected": true,
+      "source": "let end = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: endPoint.x, dy: endPoint.y))",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift",
+      "line": 19,
+      "method_or_helper": "swipe",
+      "selected": false,
+      "source": "let from = app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift",
+      "line": 56,
+      "method_or_helper": "assertPinned",
+      "selected": false,
+      "source": "XCTAssertEqual(app.buttons.matching(NSPredicate(format: \"label == %@ OR label == %@\", title, \"\\(title), \\(position)\")).count, 1,",
+      "classification": "Action label/decision position or native pointer coordinate; not a content-offset/bookmark-origin comparison."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift",
+      "line": 154,
+      "method_or_helper": "requestArrivingWhileTypingAtLargestText",
+      "selected": false,
+      "source": "XCTAssertEqual(review.value as? String, \"1 of 3 waiting \u00b7 Bash\", \"Position and tool stay complete for VoiceOver\")",
+      "classification": "Action label/decision position or native pointer coordinate; not a content-offset/bookmark-origin comparison."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift",
+      "line": 380,
+      "method_or_helper": "testSwipesAndTitleTapsNeverSendADecision",
+      "selected": true,
+      "source": "let verticalStart = app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift",
+      "line": 459,
+      "method_or_helper": "testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch",
+      "selected": true,
+      "source": "app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    },
+    {
+      "file": "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift",
+      "line": 494,
+      "method_or_helper": "testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation",
+      "selected": true,
+      "source": "app.coordinate(withNormalizedOffset: .zero)",
+      "classification": "Native gesture coordinate, not scroll-content origin."
+    }
+  ],
+  "source_sha256": {
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+    "Annex/AnnexUITests/CompanionComposerFooterSurfaceUITests.swift": "82d9c65e69645967a0833574e4147e681929c6ee7d2251b525152721718ba9a4",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+    "Annex/AnnexUITests/CompanionCompactComposerUITests.swift": "ffb83fc746c978fd5e8726aa28f13a47f1fcb0543ef7b0884a26751b5c856304",
+    "Annex/AnnexUITests/CompanionPinnedDecisionUITests.swift": "738f8340db50228f0d55250f23e1b32f8b3a990157ce113fe8684d7be3350884"
+  },
+  "cpu_checks": [
+    {
+      "method": "testDiagnosticHomeScrollStepsReportExpensiveWork",
+      "classification": "Home scroll/counters only; no transcript remount raw-origin assertion."
+    },
+    {
+      "method": "testPausedStreamingReportsPerBatchConversationWork",
+      "classification": "100chunk comparison remains inside same mounted window; raw target stability is intentional."
+    },
+    {
+      "method": "testDeepPausedOpeningReportsWorkForTwoFreshMounts",
+      "classification": "Each independent mount asserts actualoffset - actualentrylower == saved40 within6; already origin invariant."
+    }
+  ],
+  "finding": "Only the two post-remount raw comparisons in timeout/drag S required a further adaptation; all other selected hits are coordinate-safe. H-r2 semantic2pt remains separately accepted. No source or product tolerance changes beyond disclosed S adaptation."
+}

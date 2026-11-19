@@ -1,0 +1,39 @@
+--- previous/run-ticket.py
++++ current/run-ticket.py
+@@ -256,6 +256,13 @@
+         state['simulator_deleted'] = not any(d['udid']==uuid for d in devices())
+     state['booted_after'] = [d['udid'] for d in devices() if d['state'] == 'Booted']
+ 
++def signal_owned_group(group, sig):
++    try:
++        os.killpg(group, sig)
++    except ProcessLookupError:
++        # The group may exit between ps/wait and the signal. Still finish simulator cleanup/receipt.
++        pass
++
+ def supervisor():
+     assert not STATE.exists() and not RECEIPT.exists(), 'Preserve previous receipts'
+     started = time.monotonic()
+@@ -282,7 +289,7 @@
+                     watch['samples'] += 1
+             if done: break
+     except (subprocess.TimeoutExpired, KeyboardInterrupt) as error:
+-        os.killpg(child.pid, signal.SIGKILL)
++        signal_owned_group(child.pid, signal.SIGKILL)
+         child.wait()
+         rc = 124 if isinstance(error, subprocess.TimeoutExpired) else 143
+     state = json.loads(STATE.read_text()) if STATE.exists() else {}
+@@ -291,11 +298,11 @@
+     state['owned_process_group']=child.pid
+     state['owned_processes_before_cleanup']=owned
+     if owned:
+-        os.killpg(child.pid,signal.SIGTERM)
++        signal_owned_group(child.pid,signal.SIGTERM)
+         time.sleep(2)
+         remaining=[row.strip() for row in subprocess.check_output(['/bin/ps','-axo','pid=,ppid=,pgid=,comm='],text=True).splitlines() if len(row.split())>=4 and row.split()[2]==str(child.pid)]
+         if remaining:
+-            os.killpg(child.pid,signal.SIGKILL)
++            signal_owned_group(child.pid,signal.SIGKILL)
+             time.sleep(0.2)
+         rc=1
+         state['stop']='Unexpected surviving owned process group; cleaned, acceptance STOP'

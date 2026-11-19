@@ -1,0 +1,7 @@
+{
+  "source": "/tmp/ux-582-proof/run-ticket.py",
+  "normal_signal": "PASS",
+  "already_exited_group": "PASS",
+  "other_errors_propagate": "PASS",
+  "actual_signals_sent": false
+}

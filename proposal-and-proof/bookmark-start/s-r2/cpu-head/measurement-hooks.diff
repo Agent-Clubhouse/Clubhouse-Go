@@ -1,0 +1,26 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+index 8a6eb4905..1dab7a102 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+@@ -3,6 +3,7 @@
+ @MainActor enum CompanionConversationBuildProbe {
+     enum Kind { case body, timeline }
+     static var record: ((Kind, CompanionTarget) -> Void)?
++    static var preparedRows: ((CompanionTarget, Int) -> Void)?
+ }
+ 
+ /// Optional lifecycle evidence for hosted focus regressions. No draft/selection observation or focus mutation.
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index eccfef47f..3b3e62eec 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -668,6 +668,9 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View
+         let window = openingWindowStartID.flatMap { CompanionTimelineWindow(rows: rows, startingAt: $0) }
+             ?? CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+         let entries = window.entries
++        #if DEBUG
++        let _ = CompanionConversationBuildProbe.preparedRows?(target, window.preparedRowCount)
++        #endif
+         let stops = CompanionAssistantNavigation.targets(in: entries)
+         #if DEBUG
+         let _ = traceOpening(.body, firstEntryID: entries.first?.id)
