@@ -12,7 +12,9 @@
     "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
     "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
     "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
-    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "bd08f4233b04734cbba97309b0bbbe442bf1384b7762da4fd5d43bb80be888ed"
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "bd08f4233b04734cbba97309b0bbbe442bf1384b7762da4fd5d43bb80be888ed",
+    "scripts/isolated-deinit-policy.json": "cd91dc6b8c561182f4297f7a869e5afd143754f7d260dfb6c694c20bcf1ba560",
+    "docs/isolated-deinit.md": "cf4965d4ad658d0abc2fd39fbda124db581c456559518adaad0a317d7fd1b43b"
   },
   "synthetic_only": true,
   "device_install_release": false,
