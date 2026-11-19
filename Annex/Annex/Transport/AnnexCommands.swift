@@ -413,6 +413,13 @@ nonisolated public struct AnnexCommandReceipt: Codable, Sendable, Equatable {
     public let revision: String?
     public let settings: AnnexJSON?
     public let error: Failure?
+    /// Opt-in v2 error evidence lives at the top level, including failed/409 receipts.
+    /// Absence never acknowledges persistence, creation or a safe next wake.
+    /// Retain JSON before opt-in typed decoding so unrelated/legacy commands do not
+    /// acquire a new provider-specific decoding failure.
+    public let managedPlatform: AnnexJSON?
+    public let transition: AnnexJSON?
+    public let contract: AnnexJSON?
     /// The machine a `wrong_machine` refusal says the agent is on: an identity fingerprint, lowercased by `wrongMachine`.
     public let machine: String?
     /// 'completed' means dispatch completed, not that the agent's turn ended.
@@ -467,6 +474,16 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     public let agentSettings: Feature?
     /// Gate guided controls on this complete capability and the advertised commands.
     public let providerControl: AnnexProviderControlCapability?
+    public let providerControlV2: AnnexProviderApplyV2Capability?
+    public let providerStartV2: AnnexProviderStartV2Capability?
+    /// Present-but-invalid is deliberately distinct from an old host with no v2 advertisement.
+    public let providerControlV2Advertised: Bool
+    public var supportsProviderApplyV2: Bool {
+        providerControlV2?.isSupported == true && ["agent.providerPreview", "agent.providerChange"].allSatisfy(commands.contains)
+    }
+    public var supportsProviderStartV2: Bool {
+        providerStartV2?.isSupported == true && commands.contains("agent.start")
+    }
     public var supportsProviderControl: Bool {
         providerControl?.isSupported == true && ["agent.providerPreview", "agent.providerChange", "agent.stop", "agent.start"].allSatisfy(commands.contains)
     }
@@ -684,6 +701,9 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         createOptions = optional(.createOptions)
         agentSettings = optional(.agentSettings)
         providerControl = optional(.providerControl)
+        providerControlV2 = optional(.providerControlV2)
+        providerStartV2 = optional(.providerStartV2)
+        providerControlV2Advertised = c.contains(.providerControlV2)
         agentState = optional(.agentState)
         projectState = optional(.projectState)
         linkedProjectState = optional(.linkedProjectState)
@@ -707,7 +727,7 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
-        case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl
+        case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl, providerControlV2, providerStartV2
         case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
         case grantRequests, appUpdate, snapshotTruncation, projectLinks, managedCreate, linkedProjectState
     }
