@@ -19,6 +19,7 @@ import ClubhouseTransport
     /// This is neither a current-session fact nor a promise about the next wake.
     private(set) var reportedSavedProvider: String?
     private(set) var savedProvider: String?
+    private(set) var appliedSettingsReset: [String] = []
     private(set) var busy = false
     private(set) var error: String?
     private(set) var startRequested = false
@@ -36,7 +37,7 @@ import ClubhouseTransport
 
     func select(_ provider: String) async {
         guard canRequest(), !busy, !blocksMutations else { return }
-        selectedProvider = provider; savedProvider = nil; startRequested = false; preview = nil
+        selectedProvider = provider; savedProvider = nil; appliedSettingsReset = []; startRequested = false; preview = nil
         await refresh()
     }
     /// A read-only preview; neither opening the view nor choosing a provider saves it.
@@ -76,8 +77,8 @@ import ClubhouseTransport
             case .save(let preview, let id):
                 let result = try await service.changeProvider(target, preview: preview, clientCommandID: id)
                 switch result {
-                case .changed(let value): savedProvider = value.savedProvider
-                case .alreadySelected(let value): savedProvider = value.outcome.savedProvider
+                case .changed(let value): savedProvider = value.savedProvider; appliedSettingsReset = value.settingsReset
+                case .alreadySelected(let value): savedProvider = value.outcome.savedProvider; appliedSettingsReset = value.outcome.settingsReset
                 }
                 reportedSavedProvider = savedProvider
                 self.operation = nil; self.preview = nil; busy = false

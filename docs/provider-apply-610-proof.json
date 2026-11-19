@@ -3,16 +3,16 @@
   "branch": "ux-root/provider-apply-610",
   "review_scope": "V1 implementation only; no v2 compatibility/backend acceptance",
   "source_sha256": {
-    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "a0ee20818c9f029e471b0ed5fae4cae6132cc84cec0a640dd6fe3f30ce506446",
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "06cb2355049900c4bebf20f76f02f8103fba5e5f71c3da3c22c1a4f5545d2c60",
     "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "c46e0ea1995b34818a78f7ca93b69c87a71ae8c118213b09b33f1d6302451cef",
-    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": "a2f3798a60ca8f7da691f00e0a1d1e282cbe3ffa9947c717c52b6dad8ca9dff2",
+    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": "0dc21c9e0534ab83aeb4976e3229ed6c396785e03b19ffe2e19c8cecf5e02cd6",
     "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift": "0580e14b3796219b52d1cafbe5e5daee5783b9639d6a5ba3f52916df7f607e2a",
     "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
     "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "d3b690ae85c28940e238070b234b4ccc342ba2e501119e73c9cd56c9c8391dce",
-    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "f74b2359842b46131c321c0c88e7460038673101e71806c3bc61aee85184ecf3",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
     "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
     "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
-    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "9bb8c172be970347dce9675cde5a2c965b7a07175c8a32262c66f9652619ac8e"
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "f21d115bde44dec48f0eb73bb667c954130235b12aacee9f4dd544bf3371304b"
   },
   "synthetic_only": true,
   "device_install_release": false,
@@ -104,5 +104,6 @@
       "hard_seconds": 1200
     }
   ],
-  "required_review": "Exact source+implementation/test diff and manifest independent UX/source/security PASS before execution; exact originals/runtime/UX review before PR; no raw private evidence uploaded"
+  "required_review": "Exact source+implementation/test diff and manifest independent UX/source/security PASS before execution; exact originals/runtime/UX review before PR; no raw private evidence uploaded",
+  "ui_discoverability": "Immediately after selection: assert Apply+reason fully on-screen without identifier search scrolling; actual Review change control reveals comparison"
 }

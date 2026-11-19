@@ -27,18 +27,24 @@ private struct CompanionGuidedProviderForm: View {
     @State private var confirmStart = false
 
     var body: some View {
+        ScrollViewReader { proxy in form(proxy: proxy) }
+    }
+
+    private func form(proxy: ScrollViewProxy) -> some View {
         Form {
             Section {
                 LabeledContent("Agent", value: store.agent(for: target)?.name ?? settings.name.value)
                 LabeledContent("Desktop", value: store.host(for: target)?.name ?? "Desktop")
-                LabeledContent("Last reported saved provider", value: name(flow.reportedSavedProvider ?? settings.resolvedOrchestrator))
-                    .accessibilityElement(children: .combine)
-                    .accessibilityIdentifier("provider-saved-value")
                 LabeledContent("Last reported agent state", value: reportedState)
                     .accessibilityIdentifier("provider-reported-state")
                 LabeledContent("Requested runtime (last reported)", value: settings.runtime.value == "default" ? "Provider default" : settings.runtime.value.capitalized)
                 LabeledContent("Session provider", value: "Not verified here")
                     .accessibilityIdentifier("provider-session-unverified")
+                LabeledContent("Last loaded saved model", value: savedModelSummary)
+                    .accessibilityIdentifier("provider-saved-model")
+                LabeledContent("Saved effort", value: "Not reported by this host")
+                LabeledContent("Last reported session model", value: reportedSessionModel)
+                LabeledContent("Last reported session effort", value: reportedSessionEffort)
                 Text("Choosing checks a proposal. Apply saves it on the desktop. Starting a session is separate.")
                 if store.agent(for: target)?.isSleepingOnDesktop != true || store.sleepRequests.contains(target) {
                     Text("Sleep the agent before choosing and applying a provider.")
@@ -47,19 +53,12 @@ private struct CompanionGuidedProviderForm: View {
                 }
             }
             Section("Proposed change") {
+                LabeledContent("Last reported saved provider", value: name(flow.reportedSavedProvider ?? settings.resolvedOrchestrator))
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("provider-saved-value")
                 LabeledContent("Proposed provider", value: flow.selectedProvider.map(name) ?? "Choose below")
                     .accessibilityElement(children: .combine)
                     .accessibilityIdentifier("provider-proposed-value")
-                Button("Apply provider") {
-                    guard preservesRequestedRuntime else { return }
-                    CompanionUIActions.record(.saveProvider, on: .providerSettings)
-                    Task { await flow.save() }
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(!flow.canSave || !preservesRequestedRuntime)
-                .accessibilityIdentifier("provider-save")
-                .accessibilityHint(applyReason)
-                Text(applyReason).accessibilityIdentifier("provider-apply-reason")
                 if let saved = flow.savedProvider {
                     Text("Last Apply receipt: \(name(saved)) saved on the desktop. No session was started by Apply.")
                         .accessibilityIdentifier("provider-saved")
@@ -77,6 +76,7 @@ private struct CompanionGuidedProviderForm: View {
                     Text("Start requires a fresh matching desktop check and a separate confirmation.")
                 }
             }
+            .id("provider-review")
             Section("Choose a provider") {
                 ForEach(settings.options.orchestrators, id: \.id) { provider in
                     Button {
@@ -134,6 +134,7 @@ private struct CompanionGuidedProviderForm: View {
                 Text("CLI availability only checks this desktop's local installation. Sign-in, configuration and remaining quota are not verified.")
             }
         }
+        .safeAreaInset(edge: .bottom) { applyBar(proxy: proxy) }
         .accessibilityIdentifier("provider-flow")
         .companionTelemetryScreen(.providerSettings)
         .confirmationDialog("Start a new session?", isPresented: $confirmStart, titleVisibility: .visible) {
@@ -146,6 +147,48 @@ private struct CompanionGuidedProviderForm: View {
         } message: {
             Text("Start \(store.agent(for: target)?.name ?? "this agent") with \(name(flow.savedProvider ?? "")) on \(store.host(for: target)?.name ?? "the desktop")? This can use provider quota. Previous native context is not transferred.")
         }
+    }
+
+    private func applyBar(proxy: ScrollViewProxy) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Button("Review change") { proxy.scrollTo("provider-review", anchor: .top) }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("provider-review-change")
+                Button("Apply provider") {
+                    guard preservesRequestedRuntime else { return }
+                    CompanionUIActions.record(.saveProvider, on: .providerSettings)
+                    Task { await flow.save() }
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(!flow.canSave || !preservesRequestedRuntime)
+                .accessibilityIdentifier("provider-save")
+                .accessibilityHint(applyReason)
+            }
+            Text(applyReason).font(.caption).fixedSize(horizontal: false, vertical: true)
+                .accessibilityIdentifier("provider-apply-reason")
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(12)
+        .background(.regularMaterial)
+    }
+
+    private var savedModelSummary: String {
+        if settings.notHonored.contains("model") { return "Not used by this agent" }
+        if flow.appliedSettingsReset.contains("model") { return "Reset by Apply; new value not reported" }
+        if let reported = flow.reportedSavedProvider, reported != settings.resolvedOrchestrator {
+            return "Read for the previous provider; reload Agent settings"
+        }
+        return settings.model.value == "default" ? "Provider default (saved setting)" : settings.modelLabel
+    }
+    private var reportedSessionModel: String {
+        guard store.agent(for: target)?.isSleepingOnDesktop == false else { return "Not reported for an awake session" }
+        return store.agent(for: target)?.chatControls?.model ?? "Not reported"
+    }
+    private var reportedSessionEffort: String {
+        guard let agent = store.agent(for: target), agent.isSleepingOnDesktop == false else { return "Not reported for an awake session" }
+        if agent.chatControls?.effortReported == true { return agent.chatControls?.effortLabel ?? "Not reported" }
+        return agent.session?.effort ?? "Not reported"
     }
 
     /// Catalog lifecycle is a last report, including while disconnected. A preview's

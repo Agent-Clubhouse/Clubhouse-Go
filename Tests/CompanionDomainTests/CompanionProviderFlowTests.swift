@@ -227,4 +227,20 @@ import Testing
         #expect(await harness.transport.executed.filter { $0.type == "agent.start" }.count == 1)
     }
 
+    @Test func applyResetReceiptIsRetainedAcrossFreshPreviewAndClearedForAnotherProposal() async throws {
+        let harness = try await harness(); defer { harness.stop() }
+        let flow = CompanionProviderFlow(target: harness.target, service: harness.service, canRequest: { true })
+        await select(flow, harness)
+        guard case .object(var receipt) = Self.result(saved: "codex-cli", status: "changed") else { return }
+        receipt["settingsReset"] = .array(["model", "effort"].map(AnnexJSON.string))
+        await harness.transport.enqueue(.completed(.object(receipt)))
+        await harness.transport.enqueue(.completed(Self.result(saved: "codex-cli")))
+        await flow.save()
+        #expect(flow.appliedSettingsReset == ["model", "effort"], "A fresh preview must not erase the receipt's reset consequences")
+        await harness.transport.enqueue(.completed(Self.result(provider: "claude-code", saved: "codex-cli")))
+        await flow.select("claude-code")
+        #expect(flow.savedProvider == nil && flow.appliedSettingsReset.isEmpty)
+        #expect(flow.reportedSavedProvider == "codex-cli" && !flow.canStart)
+    }
+
 }

@@ -136,12 +136,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertEqual(apply.label, "Apply provider")
         XCTAssertFalse(apply.isEnabled)
         tapVisibleProviderControl(choice, in: app)
+        XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame), "Apply must remain visible immediately after selection; no search scroll")
+        let visibleReason = app.staticTexts["provider-apply-reason"]
+        XCTAssertTrue(visibleReason.exists && pixelContains(app.frame, visibleReason.frame), "The action's reason must remain fully visible at this text size")
+        app.buttons["provider-review-change"].tap()
         let saved = app.descendants(matching: .any).matching(identifier: "provider-saved-value").firstMatch
         let proposed = app.descendants(matching: .any).matching(identifier: "provider-proposed-value").firstMatch
-        XCTAssertTrue(scrollUntilExists(saved, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(waitFor(saved, NSPredicate(format: "hittable == true"), timeout: 5), "The explicit Review change action must reveal saved/proposed values")
         XCTAssertTrue(saved.label.contains("Claude"))
-        XCTAssertTrue(scrollUntilExists(proposed, in: app, maxSwipes: 8))
-        XCTAssertTrue(proposed.label.contains("Codex"))
+        XCTAssertTrue(proposed.exists && proposed.label.contains("Codex"))
         XCTAssertFalse(app.buttons["provider-start-new"].exists, "A proposal cannot enable wake")
         let resets = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Applying resets:")).firstMatch
         XCTAssertTrue(scrollTo(resets, in: app, maxSwipes: 12))
@@ -152,7 +155,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(scope, in: app, up: false, maxSwipes: 8))
         let proposalShot = XCTAttachment(screenshot: app.screenshot())
         proposalShot.name = "Synthetic provider proposal remains separate from saved and runtime"; proposalShot.lifetime = .keepAlways; add(proposalShot)
-        tapVisibleProviderControl(apply, in: app, up: false)
+        XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame))
+        apply.tap()
         if lostReply {
             let check = app.buttons["provider-check-result"]
             XCTAssertTrue(scrollTo(check, in: app, maxSwipes: 12))
@@ -218,8 +222,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         tapVisibleProviderControl(alternative, in: app)
         XCTAssertTrue(app.navigationBars["Provider"].exists, "Choosing a provider must stay on the Provider page")
         XCTAssertTrue(waitFor(alternative, NSPredicate(format: "selected == true"), timeout: 5), "Codex CLI must be selected before looking for Save")
-        XCTAssertTrue(scrollTo(save, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(save.isHittable && pixelContains(app.frame, save.frame), "Apply stays visible after choosing without a search scroll")
         XCTAssertTrue(save.isEnabled)
+        app.buttons["provider-review-change"].tap()
         let savedValue = app.descendants(matching: .any).matching(identifier: "provider-saved-value").firstMatch
         let proposal = app.descendants(matching: .any).matching(identifier: "provider-proposed-value").firstMatch
         XCTAssertTrue(scrollUntilExists(savedValue, in: app, up: false, maxSwipes: 8))
