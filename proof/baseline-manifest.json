@@ -1,0 +1,48 @@
+{
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "private_simulator": {
+    "name": "ux-610-provider-apply"
+  },
+  "runner_sha256": "79c052a52a56f4d5f755fe3e3250439739775705433a667a9c7f3095327265f7",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {
+    "CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate()": [
+      "Failed"
+    ]
+  },
+  "head": "ecd041582d90d05d41140688b34afe1cbf986764",
+  "source": "/tmp/ux-610-proof/baseline-source",
+  "source_sha256": {
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "4af6070ee08c37e97c821914c544542fc9dfd5a2f6887d17fcd68521b0fa0141"
+  },
+  "full_diff_sha256": "fa7082a920088201b749ed887d28cc39bbcb6779a0cf2f27a4867e1e720047a1",
+  "phases": {
+    "A": {
+      "kind": "build",
+      "bound": 900
+    },
+    "P0": {
+      "kind": "package",
+      "bound": 900,
+      "filter": "CompanionProviderBoundaryTests/genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport",
+      "expected_fail_before": true
+    },
+    "T0": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate"
+      ],
+      "count": 1,
+      "expected_fail_before": true
+    }
+  },
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  }
+}
