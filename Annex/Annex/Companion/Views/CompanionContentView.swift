@@ -95,10 +95,11 @@ struct CompanionContentLinks: View {
     }
 }
 
-/// Stands in for every image and file link while the desktop's Rich chat content is off.
+/// One status hint replaces image and file chips while desktop rich previews are unavailable.
 struct CompanionContentHint: View {
+    let message: String
     var body: some View {
-        Label(CompanionContentReference.richContentOffHint, systemImage: "photo.on.rectangle.angled")
+        Label(message, systemImage: "photo.on.rectangle.angled")
             .font(.caption).foregroundStyle(.secondary)
             .accessibilityIdentifier("companion-content-hint")
     }
@@ -154,7 +155,7 @@ private struct CompanionContentPage: View {
                             .accessibilityIdentifier("companion-link-missing")
                     case .notAllowed:
                         ContentUnavailableView(linkError.localizedDescription, systemImage: "lock",
-                                               description: Text("The desktop doesn't share this location with your phone. Open it on your desktop."))
+                                               description: Text("The target may be unreadable, unsupported, or outside shared locations. Open it on your desktop to check."))
                             .accessibilityIdentifier("companion-link-not-allowed")
                     }
                 }
@@ -170,7 +171,7 @@ private struct CompanionContentPage: View {
                     } else if content.kind == "folder" {
                         Text("This folder can't be listed on this iPhone. Open it on your desktop.")
                     } else if content.tooLarge {
-                        Text("This file exceeds the phone preview limit (8 MB). Open it on your desktop.")
+                        Text("This file exceeds a preview size or image-dimension limit. Open it on your desktop.")
                     } else if let image {
                         Image(uiImage: image).resizable().scaledToFit()
                             .accessibilityLabel({ if case .localImage = reference { "Image you sent" } else { "Chat image from your desktop" } }())

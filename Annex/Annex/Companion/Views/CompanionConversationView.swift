@@ -722,7 +722,7 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View,
                     ForEach(entries) { entry in
                         VStack(alignment: .leading, spacing: 22) {
                             self.entry(entry, items)
-                            if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
+                            if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint(message: store.richContentUnavailableMessage(for: target)) }
                         }
                         .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
                         .id(entry.id)
