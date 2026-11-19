@@ -34,11 +34,14 @@ struct CompanionSpawnSheet: View {
         let loading: Bool
         let selection: CompanionManagedSelection?
         let name: String
+        let optionsFailed: Bool
         let createDisabled: Bool
         let showsUnavailable: Bool
         let createHint: String
         let selectTemplate: (CompanionManagedSelection) -> Void
         let selectProject: (CompanionProjectTarget) -> Void
+        let retryOptions: () -> Void
+        let setName: (String) -> Void
         let create: () -> Void
     }
     var hostedTestSeam: ((HostedTestSeam) -> Void)? = nil
@@ -48,9 +51,11 @@ struct CompanionSpawnSheet: View {
         #if DEBUG
         let _ = hostedTestSeam?(HostedTestSeam(
             optionsLoaded: durable.options != nil, loading: durable.loading,
-            selection: durable.managedSelection, name: durable.name, createDisabled: createDisabled,
+            selection: durable.managedSelection, name: durable.name, optionsFailed: durable.error != nil,
+            createDisabled: createDisabled,
             showsUnavailable: showsManagedUnavailable, createHint: createAccessibilityHint,
             selectTemplate: { durable.selectTemplate($0) }, selectProject: selectEntry,
+            retryOptions: retryOptions, setName: { durable.name = $0 },
             create: createDurableAgent))
         #endif
         NavigationStack {
@@ -365,6 +370,10 @@ struct CompanionSpawnSheet: View {
         }
     }
 
+    private func retryOptions() {
+        Task { await loadOptions(for: durableProject) }
+    }
+
     private var durableForm: some View {
         Form {
             Section { kindPicker }
@@ -398,7 +407,7 @@ struct CompanionSpawnSheet: View {
             } else if let error = durable.error {
                 Section {
                     Label(error, systemImage: "exclamationmark.circle").foregroundStyle(Color(palette.error))
-                    Button("Try again") { Task { await loadOptions(for: durableProject) } }
+                    Button("Try again", action: retryOptions)
                 }
             } else {
                 Section { ProgressView("Loading the desktop's options…").frame(maxWidth: .infinity) }
