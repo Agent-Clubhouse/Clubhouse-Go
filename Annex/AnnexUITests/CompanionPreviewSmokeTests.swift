@@ -1122,11 +1122,26 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             contentAcceptanceCapture(app, name: "Native device-local Files destination \(name)")
             app.buttons["Cancel"].tap()
             XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(save.isHittable)
+            save.tap()
+            XCTAssertTrue(app.buttons["Cancel"].waitForExistence(timeout: 10))
+            if browse.exists { browse.tap() }
+            let local = app.staticTexts["On My iPhone"]
+            XCTAssertTrue(local.waitForExistence(timeout: 10))
+            local.tap()
+            contentAcceptanceCapture(app, name: "Explicit device-local original-file save \(name)")
+            let confirm = app.buttons["Save"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 10) && confirm.isHittable)
+            confirm.tap()
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(save.isHittable)
+            XCTAssertFalse(app.alerts["Couldn't export this file"].exists)
             app.buttons["Share"].tap()
             XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 10))
             contentAcceptanceCapture(app, name: "Native original-file Share presentation \(name)")
             app.buttons["Close"].tap()
             XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(save.isHittable)
             XCTAssertTrue(app.navigationBars[name].exists)
             if name.hasSuffix(".png") { XCTAssertTrue(app.buttons["Copy image"].exists) }
             app.buttons["companion-preview-done"].tap()

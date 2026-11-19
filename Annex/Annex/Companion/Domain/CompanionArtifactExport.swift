@@ -16,13 +16,13 @@ struct CompanionArtifactExport: Identifiable, Sendable {
         let type: UTType
         if content.kind == "pdf" {
             type = .pdf
-        } else if content.kind == "image", content.mimeType == "image/svg+xml" {
-            type = .svg
         } else if content.kind == "image",
                   let source = CGImageSourceCreateWithData(bytes as CFData, nil),
                   let identifier = CGImageSourceGetType(source),
                   let imageType = UTType(identifier as String), imageType.conforms(to: .image) {
             type = imageType
+        } else if content.kind == "image", content.mimeType == "image/svg+xml" {
+            type = .svg
         } else {
             throw CompanionContentError.unavailable("This file can't be saved or shared from this preview.")
         }

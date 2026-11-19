@@ -5,7 +5,9 @@ import UniformTypeIdentifiers
 
 @MainActor final class CompanionArtifactExportTests: XCTestCase {
     private func image() -> Data {
-        UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 2400)).pngData { context in
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 2400), format: format).pngData { context in
             UIColor.systemBlue.setFill()
             context.fill(CGRect(x: 0, y: 0, width: 3000, height: 2400))
         }

@@ -12,12 +12,16 @@ import CryptoKit
     static let temporaryText = "/tmp/clubhouse-preview/scratch.txt"
     static let homePDF = "~/.clubhouse/scratch/acceptance.pdf"
     static let exportImage = "~/.clubhouse/scratch/original.png"
-    static let exportImageBytes = UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 2400)).pngData { context in
-        UIColor.systemBlue.setFill()
-        context.fill(CGRect(x: 0, y: 0, width: 3000, height: 2400))
-        ("Synthetic original image" as NSString).draw(at: CGPoint(x: 40, y: 40),
-            withAttributes: [.font: UIFont.systemFont(ofSize: 64), .foregroundColor: UIColor.white])
-    }
+    static let exportImageBytes: Data = {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 2400), format: format).pngData { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 3000, height: 2400))
+            ("Synthetic original image" as NSString).draw(at: CGPoint(x: 40, y: 40),
+                withAttributes: [.font: UIFont.systemFont(ofSize: 64), .foregroundColor: UIColor.white])
+        }
+    }()
     static let linkHref = "Some%20Folder/notes.md#intro"
     static let folderHref = "Some%20Folder/"
     static let truncatedHref = "Big%20Folder/"
@@ -124,6 +128,15 @@ import CryptoKit
         guard let bytes = content.bytes else { preconditionFailure("Synthetic artifact export must carry complete file bytes") }
         let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
         print("ARTIFACT_EXPORT_FIXTURE_CONTENT path=\(path) bytes=\(bytes.count) sha256=\(hash)")
+    }
+
+    static func recordSavedExport(_ url: URL) throws {
+        guard enabled, ProcessInfo.processInfo.arguments.contains("--companion-preview-artifact-export") else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let bytes = try Data(contentsOf: url)
+        let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        print("ARTIFACT_EXPORT_SAVED name=\(url.lastPathComponent) bytes=\(bytes.count) sha256=\(hash)")
     }
 }
 #endif

@@ -221,9 +221,15 @@ private struct CompanionContentPage: View {
         .navigationTitle(content?.name ?? "Desktop preview")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark", action: close).companionToolbarClose().accessibilityIdentifier("companion-preview-done") } }
-        .task(id: source) { await load() }
+        .task(id: source) { if loadedSource != source { await load() } }
         .fileExporter(isPresented: $saving, document: saveArtifact.map { CompanionArtifactDocument(bytes: $0.bytes) },
                       contentType: saveArtifact?.contentType ?? .data, defaultFilename: saveArtifact?.filename) { result in
+            #if DEBUG
+            if case .success(let url) = result {
+                do { try CompanionContentAcceptanceFixture.recordSavedExport(url) }
+                catch { exportError = error.localizedDescription }
+            }
+            #endif
             if case .failure(let error) = result {
                 let error = error as NSError
                 if error.domain != NSCocoaErrorDomain || error.code != NSUserCancelledError {
@@ -242,7 +248,11 @@ private struct CompanionContentPage: View {
         .alert("Couldn't export this file", isPresented: Binding(get: { exportError != nil }, set: { if !$0 { exportError = nil } })) {
             Button("OK", role: .cancel) { exportError = nil }
         } message: { Text(exportError ?? "") }
-        .onDisappear { loadID = UUID(); pdf = nil; clearPlayback() }
+        .onDisappear {
+            // System export presentations may cover the preview without ending its lifetime.
+            guard !saving, shareArtifact == nil else { return }
+            loadID = UUID(); loadedSource = nil; pdf = nil; clearPlayback()
+        }
     }
 
     private func prepareExport(sharing: Bool) {

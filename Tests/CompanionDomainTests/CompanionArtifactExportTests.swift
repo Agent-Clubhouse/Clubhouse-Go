@@ -7,11 +7,13 @@ import UniformTypeIdentifiers
     private let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wl6hx8AAAAASUVORK5CYII=")!
 
     @Test func originalImageBytesAndDetectedTypeSurviveMisleadingMetadata() throws {
-        let content = CompanionContent(kind: "image", name: "C:\\private\\report.jpg", mimeType: "image/jpeg", bytes: png)
-        let artifact = try CompanionArtifactExport(content: content)
-        #expect(artifact.bytes == png)
-        #expect(artifact.contentType == .png)
-        #expect(artifact.filename == "report.png")
+        for mime in ["image/jpeg", "image/svg+xml"] {
+            let content = CompanionContent(kind: "image", name: "C:\\private\\report.jpg", mimeType: mime, bytes: png)
+            let artifact = try CompanionArtifactExport(content: content)
+            #expect(artifact.bytes == png)
+            #expect(artifact.contentType == .png)
+            #expect(artifact.filename == "report.png")
+        }
     }
 
     @Test func exportRefusesIncompleteOversizedAndNonArtifactPayloads() {
