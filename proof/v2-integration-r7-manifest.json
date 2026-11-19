@@ -1,0 +1,178 @@
+{
+  "base": "cadce0a4575227a5ad24a6956f819f42913446d8",
+  "private_simulator": {
+    "name": "ux-610-v2-integrated-r7"
+  },
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {},
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "head": "72ede47df4815139b5ee55358520b11af1909f2b",
+  "source": "/tmp/ux-610-v2-integration-source",
+  "scope": "UNRUN Large-only explicit slow control-pan velocity; same4pan/24..120/.05initialPress/zeroEndHold/fullframeguards, no addedwait. Normal/V1originaldefaultcall preserved. D416identitycarry; freshA thenoneLarge thenindependentlygatedcaptures/reading.",
+  "phases": {
+    "A": {
+      "kind": "build",
+      "bound": 900
+    },
+    "VPHONE": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2CaptureAccessibilityLargeReviewRows",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2CaptureUnsupportedStartReason"
+      ],
+      "count": 2,
+      "order_file": "/tmp/ux-610-v2-proof/integration-r7/vphone-order.json",
+      "postboot_stabilization_seconds": 20,
+      "independent_scoped_trace_gate": true,
+      "expected_v2_counts": {
+        "preview": 2,
+        "apply": 1,
+        "start": 0,
+        "replay": 0
+      }
+    },
+    "VSE": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-SE-3rd-generation",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2CaptureAccessibilityLargeReviewRows",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2CaptureUnsupportedStartReason"
+      ],
+      "count": 2,
+      "order_file": "/tmp/ux-610-v2-proof/integration-r7/vse-order.json",
+      "postboot_stabilization_seconds": 20,
+      "independent_scoped_trace_gate": true,
+      "expected_v2_counts": {
+        "preview": 2,
+        "apply": 1,
+        "start": 0,
+        "replay": 0
+      }
+    },
+    "TBOOKMARK": {
+      "kind": "UI",
+      "bound": 600,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionReadingOpeningUITests/testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming"
+      ],
+      "count": 1,
+      "order_file": "/tmp/ux-610-v2-proof/integration-r7/bookmark-order.json",
+      "postboot_stabilization_seconds": 20,
+      "scope": "Shared PreviewService reading-branch control; unsupported archive-content fixture qualification retained, no provider trace claim"
+    },
+    "TSELARGE": {
+      "kind": "UI",
+      "bound": 1200,
+      "device": "iPhone-SE-3rd-generation",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable"
+      ],
+      "count": 1,
+      "order_file": "/tmp/ux-610-v2-proof/integration-r7/tse-large-order.json",
+      "postboot_stabilization_seconds": 20,
+      "independent_scoped_trace_gate": true,
+      "expected_v2_counts": {
+        "preview": 3,
+        "apply": 1,
+        "start": 1,
+        "replay": 0
+      }
+    }
+  },
+  "source_sha256": {
+    "Annex/Annex.xcodeproj/project.pbxproj": "be84daed357675b75675627fda7f99b9be0cc35eaea01094dcbfe969f2a43a7a",
+    "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "6584207f7621911d40c760418fe47de4d273ab72b16e2b4bdcb290ac98b7a6c8",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "176c937d49df6fe8d224f5907df6bf552379c917ecefcaa1c1988c57231145be",
+    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "d0d0fa43ef7361d21a1e81ee7ba908663f49f71533df0bbe0379d641418efb7f",
+    "Annex/Annex/Companion/Domain/CompanionModels.swift": "0d1d44280b4696d4a6dd4ef88f642ba7b782a8538fe86c6f6a78effadbc73eca",
+    "Annex/Annex/Companion/Domain/CompanionProviderV2Flow.swift": "546c8a7c54e78b87499e1dec4a7cb829bbe2fa22dd822c006db0f2679e32e7e2",
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "02dee4efb081c672f9fad77dc6673bb9164dc5dac8d70530ef7f57920bc63e9b",
+    "Annex/Annex/Companion/Domain/CompanionStore.swift": "357bca13718b11871fb2e276967f99b1b17ce31826236427599dcf7e29439aed",
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "3c7b2c463c4ec92f4c387609798c3966252e9adc1e8839f76f45fea509e266bc",
+    "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "c9b3813a7880bf8a429f373d9d41621dc4a731c03288f93e883fb10bd8963b28",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "89b48b6374b1cdb86e863b2d847fcc8525ede1fdd2b182c65f89d0e11b774df6",
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "09e1a8b9776753da67d6a0fd9ba09ef441359f5c5138501371252cfad6005557",
+    "Annex/Annex/Companion/Views/CompanionProjectPage.swift": "f808b7893db9a6bc064e0853bb85294d95085c05f344a74dba948ddb8625e098",
+    "Annex/Annex/Companion/Views/CompanionProviderV2Fixture.swift": "8ba10bc0f9215c66dd43853e78f16cdcc1c5a9ffd4ba25fbedfe7377f2bf7336",
+    "Annex/Annex/Companion/Views/CompanionProviderV2Screen.swift": "de806e314ae3e27af8be6e5960c9aa39df415a62d319cc1ce792898c94fce2aa",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "2c62cb35be43e7dc97d6cd58270b58c42d0a09083fb5f07012f734960b286f4f",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "0902bfc687af2eada91b57e59c57b13c7da914298f7f1020754c4b0e8d6af874",
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "3bd2cd5ee56881fdb531796adee0a21ce1e64edea51317ec0e6c5462f8f80780",
+    "Annex/Annex/Transport/AnnexCommands.swift": "88ff91a4f5ff1553895262e8873ac436726f35fa95b194e34fc98dae712d0f6c",
+    "Annex/Annex/Transport/AnnexProviderControlV2.swift": "398a507c72159fdae5274b4c249e0d9e41b663a5cd05acfa9e644528f3411636",
+    "Annex/Annex/Transport/AnnexTelemetry.swift": "b89f176935467c762c998bc9cd2070b1381cd3b18cc340b275bff483dfcb35bc",
+    "Annex/Annex/Transport/AnnexTransport.swift": "7c292058c7471337f447bb1ed0c6738060ae30ecc0e62d95ddc864b4eaab6775",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+    "Annex/AnnexTests/CompanionHistoryReadingTests.swift": "e362599697a6eb55907538584f3a3693d3f0e0cccfb71fddbf6a1f6d7fa76de1",
+    "Annex/AnnexTests/CompanionProjectPageVisualTests.swift": "c21dfc765ef28157c292eda1963b9530a2c8d114696690496fe0d9a8b3304ef3",
+    "Annex/AnnexTests/CompanionReadingOpeningTests.swift": "3bd13add0dd03769db700ceba18472d9c61832f89f44ca44d21d3f58c279b49f",
+    "Annex/AnnexTests/CompanionTranscriptEqualityTests.swift": "939ae0e1c0dd4514b637d70ce017babca074b0c29a20f797683440011b918dd2",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "a0f3c8661e3c88ff2813af7c80cc7c43ab75a3fcb037df8dda1982a8e9dd7128",
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "ffc7eb416ebba587ceb774d1b2e5a7b4eee7355f901753ec50a5bbde5dff17a7",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+    "Package.resolved": "829b8e1a4f8ff348a92fb98568fbd8481f0ac20c44b0e807c3ca6be228a3d3d3",
+    "Package.swift": "27b85de39a35b2aea5c1217278aad5e137246a68ba5c2a71f2f0bef6e37a6fe3",
+    "Tests/ClubhouseTransportTests/AnnexContractRobustnessTests.swift": "de901d8aa622310a2c0a7670a5fda480c051d6d989d805be037aea938353f72b",
+    "Tests/ClubhouseTransportTests/CommandRefusalTests.swift": "2d8384cc8cf2e973512670ac59f36d7817131dc0dfce004625dd69f397df584a",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/SOURCE.json": "d5311168156bb6fc5b9f1e47c62c0bfff5cc475e80f234add51fe185e65dc1f2",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/capabilities.json": "ef486b9c51eb4743c8e3c61f9b5335f5deae2e36d049a0e5dcc7f610942a360e",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/provider-control-v2.json": "5e2da9b877b3038066e25c7d54b866977657dedc3713f5b8a170f8daf1fbf44e",
+    "Tests/ClubhouseTransportTests/Fixtures/command-refusal-server.mjs": "432430c88fb6fc6388512205aa1352a698131aa082fdc2fb01294abf3edd483a",
+    "Tests/ClubhouseTransportTests/PinnedCommandRefusalTests.swift": "48fe753816fc6646ebe071482f304db00186dae8388bd0a22dd7a36c007b1716",
+    "Tests/ClubhouseTransportTests/ProviderControlTests.swift": "92b19f4ee7dc24166666b8cc6fef72da29155d6546d0a7294d63f79754dc427f",
+    "Tests/ClubhouseTransportTests/ProviderControlV2CommandTests.swift": "68cae97b8afc3b02709c950d99b06b382a17efb68154275dc7d639690918bf4e",
+    "Tests/ClubhouseTransportTests/ProviderControlV2ValueTests.swift": "099d137bb808b25369345632b3a675f31a58d0cfdcfdbee6d74d932eb779ada1",
+    "Tests/ClubhouseTransportTests/TransportFailureModeTests.swift": "ce07feb25701b325bef54fc3734b2bd2172688de38d3bf2e159ac55548dcb2a7",
+    "Tests/CompanionDomainTests/CompanionGrantRequestTests.swift": "9cbea0efcc774f8a64a3ec669b5a9ef5761d0d8d0c876dd398eca11d0a20a477",
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
+    "Tests/CompanionDomainTests/CompanionProviderV2TransportTests.swift": "8c35ea8a7e62cc6f4510b9f2886394e0ecc0d8490bf3075d86a44e57ee383173",
+    "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": "680f9945d643a8788a87264121241821fd3919fc98ba94c88d28e37c6ba36f0e",
+    "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift": "851c34b4c0e4237ce3f5b56480f5e3e0bcfdf67846396fcaafd10e159d372ca5",
+    "Tests/CompanionDomainTests/ScriptedAnnexTransport.swift": "e74f779cdd5dba111e9dc9dfdec73e2e94d5a6540ee2f4462805113dcfe1ef97",
+    "coverage-baseline.json": "db6831fca31407e21a8b77e4c6deb6035c1a4a4bbf6a94a1d93b77b4c5dcd6c4",
+    "docs/contracts/provider-control-v2-c4cdbacc.md": "824e24375c8f3ba2a552f74ff2e776e483d82dc88eea60aa11cf9a37d080f9e9",
+    "docs/isolated-deinit.md": "24fffae140275d6fb1c836c0021d771b94c5a83c4d0afca0da3459f6c0a7816e",
+    "docs/project-page-actions.md": "8552ca86a1a778487130d903d5867a4d0435a474f59bcff7712035dd47357c34",
+    "docs/provider-v2-610.md": "ebf60520ac97592ff2cbe606d4e1feb4a85af597220810d49fa8d2e27c9e711d",
+    "docs/reading-first-paint-extraction.json": "2d407fde7001c26e8662cd23fac7d2f7c88937e054204a2b4c402a2fcaf06d07",
+    "docs/reading-first-paint-plan.md": "27aee4033293ff64eb0c3a97058f2ba9b578b2986d392860850365db6bb22cf2",
+    "scripts/coverage.sh": "87af3d4247324dc9755bf42a84783ef9468e6f837b740555a6d106bdd7d1a675",
+    "scripts/isolated-deinit-policy.json": "9307c3426f64b73922528cf6a3bf99ba0688a8d6cad182231ac8899ea9beab81"
+  },
+  "full_diff_sha256": "17f057b47505d6fb3eecfca3ae5b169f5ee7e8227b96ec95a91f02e6d764694d",
+  "inventory_basis": "All Tests/**/*.swift path/hash closure retained for independent filter/suite/extension/global-function scan; no reliance on filename alone.",
+  "v2_trace_verifier_sha256": "c83d4ed4cdfd1a7775d6c9c6fdab03bd411a846595a0dae91a651443d6cf0f37",
+  "reviewed_main": "cadce0a4575227a5ad24a6956f819f42913446d8",
+  "scoped_v2_map_path": "/tmp/ux-610-v2-proof/integration-r7/scopes.json",
+  "scoped_v2_map_sha256": "6231e8f34988150f1be0550d5b3e6315b4f1543b583b40ac93528e988216ab86",
+  "scoped_v2_verifier_sha256": "0f09f868aab5ee4e2e6e01330e9ead4535ff7f32a464cdffead82b1eabb11c13",
+  "proof_attribution": {
+    "phone_functional": "af5once/c83d21 PASS_SCOPED dc520, not five fresh at this head",
+    "SE_original": "af3P2F strictFAIL retained; later2b640 SE3 strict2P1F retained with10of14events/classifierFALSE",
+    "SE_replacement": "ONE Large affected fresh, expected5events. Four prior individual SEcontrols only by explicit reviewedunchangedpath basis, NOT5fresh or repairedoldbatch.",
+    "capture_only": "two new selectors per device, separately classified three-event packet; do not combine with semantic-three trace"
+  },
+  "scoped_v2_mock_sha256": "2f10e3c3a123a58f1b110d3f7b69de7b2aeba3852d00aa959391476c3a404952",
+  "scoped_v2_probe_count": 10,
+  "required_prior_D": {
+    "head": "2b6406171cbea5189c0606dd218e298eb63064f8",
+    "report_sha256": "f4580d01461f8a7c946bb73bb86100f99f0cd9cb10c66e3b34f9c6e1e62d6bab",
+    "package_carry_sha256": "c72f6291f50fd99bfd8fe257cd7b32b34523836013bd82ec7ed767ce35ace355",
+    "methods": 43,
+    "expanded": 62,
+    "checkpoints": 25
+  },
+  "control_carry_sha256": "44919b888451573c1e05a7532fbec5668ca716576a2cb826cca585335ad7f98e"
+}

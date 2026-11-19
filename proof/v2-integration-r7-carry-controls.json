@@ -1,0 +1,31 @@
+{
+  "current_head": "72ede47df4815139b5ee55358520b11af1909f2b",
+  "never_claim": "No fresh-five SE run or repaired prior batch",
+  "individual_controls": [
+    {
+      "method": "testProviderV2ApplyAndStartStaySeparate",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2ApplyDoesNotImplyStartCapability",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    },
+    {
+      "method": "testProviderV2LostStartNeverRequestsAnotherStart",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    }
+  ],
+  "basis": "All four enter checkProviderV2 largeText:false. Only three Large:true navigation branches changed; every false branch retains original statement. checkV2Unknown/tapVisibleProviderControl/scrollTo/control wrappers unchanged. No product/fixture/policy/transport change. Prioraf\u21922b carry basis separately reviewed; new4cb must independently review current delta. Current child adds only three further Large:true nav branches; one creation Text identifier, existing label/condition/layout unchanged. FalseLarge query by label remains valid. Current child passes slowNativePan:largeText at fourV2controltap sites. Defaultfalse preserves originalpresscall and every falseLarge/V1 guard; trueonly changes velocity=.slow/endHold0, sameinitialpress.05/pans4/travel24..120, no wait. No productchange.",
+  "originals_reports": [
+    "2dad856bbe891b2719dc436c4d0e3e4540f3d9f85269964c8396dcdf3248daa6",
+    "3c3a2775bc56b3d36e75f3a40b97ae4bdb74d7f3cac1d0d77c1e2e2ddedee7fe"
+  ]
+}

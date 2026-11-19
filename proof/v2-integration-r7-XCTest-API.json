@@ -1,0 +1,15 @@
+{
+  "toolchain": "Xcode17A400 / iphonesimulator26.0, matching prioractualAInfo",
+  "headers": {
+    "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCUIAutomation.framework/Headers/XCUICoordinate.h": "b0c0ecef6d2e8c7d2f2fad899e4b2a16c53ebe740897d52249d512422f2cd07a",
+    "/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneSimulator.platform/Developer/Library/Frameworks/XCUIAutomation.framework/Headers/XCUIElement.h": "2279cc5f76043ff8ccbdeefc6b0966f3c6c64330cc93904fa03b9fbbbaad01e3"
+  },
+  "declarations": "Coordinate press/drag overload accepts velocity and end hold; XCUIGestureVelocitySlow is exported.",
+  "primary_docs": [
+    "https://developer.apple.com/documentation/xcuiautomation/xcuicoordinate/press(forduration:thendragto:withvelocity:thenholdforduration:)",
+    "https://developer.apple.com/documentation/xcuiautomation/xcuigesturevelocity/slow"
+  ],
+  "semantics": "Velocity controls movement speed separately from initial press and final hold. Slow is a named preset, not a guaranteed no-inertia/convergence contract.",
+  "candidate": "Large V2 control pans only: initialPress0.05, velocity.slow, endHold0. Fourpan/24..120/fullframe and all original timebounds preserved; no extra sleep/hold/attempt.",
+  "status": "Static API verification ONLY; no compile/runtime/speed numeric value/convergence credit"
+}
