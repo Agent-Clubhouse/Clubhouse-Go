@@ -8,12 +8,14 @@ import ClubhouseTransport
 /// DEBUG in-memory acceptance fixtures. Those never contact or configure a host.
 @MainActor final class CompanionPreviewService: CompanionService {
     #if DEBUG
+    #if canImport(UIKit)
     private var providerApplySaved = "claude-code"
     private var providerApplyReceipts: [String: AnnexProviderChangeResult] = [:]
     private var providerApplyStarts: Set<String> = []
     private var providerApplyFixture: Bool {
         ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-fixture")
     }
+    #endif
     /// Shared synthetic desktop payloads for normal and recovery-fixture appearance evidence.
     static var appearanceTheme: CompanionDesktopTheme? {
         let theme: CompanionDesktopTheme?
@@ -850,7 +852,7 @@ import ClubhouseTransport
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
-        #if DEBUG
+        #if DEBUG && canImport(UIKit)
         if providerApplyFixture, target == Self.sleepingTarget {
             if let previous = providerApplyReceipts[clientCommandID] {
                 print("PROVIDER_APPLY_FIXTURE replay change id=\(clientCommandID)")
@@ -875,7 +877,7 @@ import ClubhouseTransport
         throw previewError
     }
     func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws {
-        #if DEBUG
+        #if DEBUG && canImport(UIKit)
         if providerApplyFixture, target == Self.sleepingTarget {
             guard provider == providerApplySaved else { throw CompanionServiceError.rejected(CompanionProviderReason.message("stale_state")) }
             providerApplyStarts.insert(clientCommandID)
@@ -888,10 +890,12 @@ import ClubhouseTransport
     }
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview {
         #if DEBUG
+        #if canImport(UIKit)
         if providerApplyFixture, target == Self.sleepingTarget {
             print("PROVIDER_APPLY_FIXTURE preview proposed=\(provider) saved=\(providerApplySaved) starts=\(providerApplyStarts.count)")
             return try providerApplyValue(target, provider: provider).decode(AnnexProviderPreview.self)
         }
+        #endif
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") {
             let same = provider == "claude-code"
             return try AnnexJSON.object([
@@ -907,7 +911,7 @@ import ClubhouseTransport
         #endif
         throw previewError
     }
-    #if DEBUG
+    #if DEBUG && canImport(UIKit)
     private func providerApplyValue(_ target: CompanionTarget, provider: String, status: String? = nil) -> AnnexJSON {
         let same = provider == providerApplySaved
         var value: [String: AnnexJSON] = [
@@ -1200,7 +1204,7 @@ import ClubhouseTransport
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
                      orchestration: policy, parentAgentID: (showsHelperIdentity || showsHelperPresets) && sleeping ? Self.target.agentID : nil,
                      routing: showsHelperPresets && sleeping ? .init(mode: "preset", selection: .init(provider: "codex-cli", model: "gpt-6.1-sol", effort: "high", difficulty: "hard"), reason: "preset_on_cli", summary: "gpt-6.1-sol, high effort. From the helper settings for this difficulty.", displayReason: "From the helper settings for this difficulty") : nil)
-        #if DEBUG
+        #if DEBUG && canImport(UIKit)
         if sleeping, providerApplyFixture, ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-runtime-mismatch") {
             result.runtime.value = "chat"
         }
