@@ -44,7 +44,12 @@ private actor ProviderV2IO: AnnexIO {
         let key: String
         switch type {
         case "agent.providerPreview": key = saved ? "savedDefaultsPreview" : "preview"
-        case "agent.providerChange": saved = true; key = "applied"
+        case "agent.providerChange":
+            let reply = overrides[type]
+            let prewriteRefusal = reply?["status"] == .string("rejected") && reply?["result"] == nil
+                && reply?["transition"] == nil && reply?["contract"] == nil
+            if !prewriteRefusal { saved = true }
+            key = "applied"
         case "agent.start": key = "started"
         default: throw AnnexTransportError.malformedResponse
         }
@@ -419,6 +424,8 @@ private actor ProviderV2Transport: AnnexTransporting {
         defer { store.stop(); service.remove(hostID: target.hostID) }
         let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
         await flow.select("codex-cli")
+        let savedBefore = try #require(flow.reportedSaved)
+        #expect(savedBefore.provider == "claude-code")
         let fixture = try providerV2Fixtures()
         await io.override("agent.providerChange", body: try #require(fixture["authorityDenied"]?["body"]))
         await flow.apply()
@@ -426,9 +433,11 @@ private actor ProviderV2Transport: AnnexTransporting {
         #expect(refused.count == 1 && refused.first?["type"] == .string("agent.providerChange"))
         #expect(flow.error != nil && !flow.blocksMutations && flow.canChoose)
         #expect(flow.preview == nil && flow.lastApply == nil && !flow.canApply && !flow.canStart)
+        #expect(flow.reportedSaved == savedBefore)
         await flow.startNew()
         await flow.refresh()
         #expect(flow.canApply && !flow.canStart, "A refusal permits a new review, never an automatic Apply or Start")
+        #expect(flow.reportedSaved == savedBefore && flow.preview?.value.contract.saved == savedBefore)
         #expect(await io.mutations() == refused)
     }
 
@@ -456,7 +465,9 @@ private actor ProviderV2Transport: AnnexTransporting {
         do {
             _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "conflict-is-not-another-Apply")
             Issue.record("Acknowledged conflict must retain the service target lock")
-        } catch {}
+        } catch CompanionServiceError.uncertain(let message) {
+            #expect(message == "The previous provider action is unresolved. It will not be sent again. Review the desktop before another Apply or Start.")
+        } catch { Issue.record("Expected the unresolved target lock, not an unrelated failure: \(error)") }
         #expect(await io.mutations() == before && reopened.conflict == conflict && reopened.blocksMutations)
     }
 
