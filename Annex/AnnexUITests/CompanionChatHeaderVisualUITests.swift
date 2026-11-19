@@ -213,7 +213,7 @@ import XCTest
         var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
         try bytes.withUnsafeMutableBytes { buffer in
             let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
-                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB),
+                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB)),
                 bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
             context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
         }
