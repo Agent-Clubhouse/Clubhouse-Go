@@ -1,6 +1,6 @@
 # #610 proof progress
 
-Candidate `760efb1985c12ef180975b65f3a73c42d21aa0f8`, branch `ux-root/provider-apply-610`, base `85ee757ae`. Prior1c48 source/UX-authority/value-ownership and executable prebuild review PASS; final DEBUG/UIKit-only fixture delta is pending narrow independent review before head execution. This is not native/runtime/backend/device acceptance.
+Candidate `760efb1985c12ef180975b65f3a73c42d21aa0f8`, branch `ux-root/provider-apply-610`, base `85ee757ae`. Prior1c48 source/UX-authority/value-ownership and executable prebuild review PASS; final DEBUG/UIKit-only fixture delta and bounded OS-stabilization runner are independently accepted before head execution. This is not native/runtime/backend/device acceptance.
 
 ## Completed P0 only
 
@@ -21,6 +21,16 @@ OwnPG94587 was independently absent, own processes empty/system0Booted, FIFO que
 
 ## Still required
 
-Baseline fresh Debug/deinit/policy and native T0; candidate package55methods/84argument-expanded executions, fresh Debug/deinit/policy, phone8 and SE8 plus actual visual/command/cancellation/once-only reviews; fresh combined current-main coverage and final independent exact-head runtime acceptance. Local installed runtime26.0 is distinct from hosted26.5. A passing static review or P0 is not credit for any of these steps. PR is not yet opened. Parent retains integration/landing; no installs/releases.
+Candidate package55methods/84argument-expanded executions, fresh Debug/deinit/policy, phone8 and SE8 plus actual visual/command/cancellation/once-only reviews; fresh combined current-main coverage and final independent exact-head runtime acceptance. Local installed runtime26.0 is distinct from hosted26.5. A passing static review or P0 is not credit for any of these steps. PR is not yet opened. Parent retains integration/landing; no installs/releases.
 
 The [pinned desktop fixture review](desktop-cf2ee-integration-review.md) is separate Go integration feedback on unshipped v2, not adoption. #610 remains v1 and preserves its host gates, explicit unsupported legacy state and unverified-session wording. The original incident's installed pair and transaction remain unknown.
+
+## Baseline native fail-before
+
+Fresh baseline A0 passed Debug, compiled deinit and policy gates in218.720s. Admission1 legitimately refused the unchanged pretest guard at20.82% idle: zero test executions; its private UUID was deleted and receipts remain immutable. A separately reviewed recipe allows20s OS stabilization before the same full10s pretest guard, with no retry loop or changed thresholds.
+
+Admission2 reused only the exact successful A0 source/artifact hashes, on baseline4deda. Pretest64.41%idle/full guard PASS. The first actual UI execution ran one declared method once and failed only the intended assertion: Apply must be reachable before selecting. Strict one-cause classifier/audit rc0; no additional failures, skips or expected failures. Raw test rc65 is preserved. Independent original-container T0-only acceptance PASS (go-bug-runner). This was largeText:false and gives no AX-size credit.
+
+Ticket109.523s<600; owned UUID9C5AC68B-691F-427B-B8FC-8FBD21B29B00 Shutdown/deleted and independently absent, system0Booted, ownedPG21519 empty, swap growth0. Host returned for #546's bounded package window; candidate P1 now queued after the package-window closure. Receipt SHA256900414a6df58f7bbf352956f440a4c1c4d240092f81177c0fdb301c1ed15ceac. Local iOS26.0; not CI26.5 or device acceptance.
+
+Candidate P1 starts on exact760efb198 under reviewed runner5e10: default global→pkg FIFO, jobs2/hard900, admission27.43GiB/93.2%idle/swap0. All remaining candidate results and visual/coverage acceptance are pending.
