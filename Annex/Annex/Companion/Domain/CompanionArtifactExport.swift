@@ -3,6 +3,16 @@ import ImageIO
 import UniformTypeIdentifiers
 
 struct CompanionArtifactExport: Identifiable, Sendable {
+    static let supportedContentTypes: [UTType] = {
+        guard let identifiers = CGImageSourceCopyTypeIdentifiers() as? [String] else {
+            preconditionFailure("ImageIO must report image type identifier strings")
+        }
+        let images = identifiers
+            .compactMap { UTType($0) }
+            .filter { $0.conforms(to: .image) && $0.preferredFilenameExtension != nil }
+        return Set(images + [.pdf, .svg]).sorted { $0.identifier < $1.identifier }
+    }()
+
     let id = UUID()
     let bytes: Data
     let contentType: UTType
@@ -26,7 +36,7 @@ struct CompanionArtifactExport: Identifiable, Sendable {
         } else {
             throw CompanionContentError.unavailable("This file can't be saved or shared from this preview.")
         }
-        guard let fileExtension = type.preferredFilenameExtension else {
+        guard Self.supportedContentTypes.contains(type), let fileExtension = type.preferredFilenameExtension else {
             throw CompanionContentError.unavailable("This file's format isn't supported for saving or sharing.")
         }
         self.bytes = bytes

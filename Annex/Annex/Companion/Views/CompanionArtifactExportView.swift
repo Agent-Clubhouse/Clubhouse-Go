@@ -3,18 +3,30 @@ import UIKit
 import UniformTypeIdentifiers
 
 struct CompanionArtifactDocument: FileDocument {
-    static var readableContentTypes: [UTType] { [.data] }
+    static var readableContentTypes: [UTType] { CompanionArtifactExport.supportedContentTypes }
+    static var writableContentTypes: [UTType] { CompanionArtifactExport.supportedContentTypes }
     let bytes: Data
+    let contentType: UTType
 
-    init(bytes: Data) { self.bytes = bytes }
+    init(artifact: CompanionArtifactExport) {
+        bytes = artifact.bytes
+        contentType = artifact.contentType
+    }
     init(configuration: ReadConfiguration) throws {
         guard let bytes = configuration.file.regularFileContents else {
             throw CompanionContentError.unavailable("This file's bytes aren't available.")
         }
         self.bytes = bytes
+        contentType = configuration.contentType
     }
     func fileWrapper(configuration: WriteConfiguration) throws -> FileWrapper {
-        FileWrapper(regularFileWithContents: bytes)
+        try fileWrapper(for: configuration.contentType)
+    }
+    func fileWrapper(for requestedType: UTType) throws -> FileWrapper {
+        guard requestedType == contentType, Self.writableContentTypes.contains(requestedType) else {
+            throw CompanionContentError.unavailable("This preview can save only its original file format.")
+        }
+        return FileWrapper(regularFileWithContents: bytes)
     }
 }
 

@@ -222,8 +222,8 @@ private struct CompanionContentPage: View {
         .navigationBarTitleDisplayMode(.inline)
         .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done", systemImage: "xmark", action: close).companionToolbarClose().accessibilityIdentifier("companion-preview-done") } }
         .task(id: source) { if loadedSource != source { await load() } }
-        .fileExporter(isPresented: $saving, document: saveArtifact.map { CompanionArtifactDocument(bytes: $0.bytes) },
-                      contentType: saveArtifact?.contentType ?? .data, defaultFilename: saveArtifact?.filename) { result in
+        .fileExporter(isPresented: $saving, document: saveArtifact.map { CompanionArtifactDocument(artifact: $0) },
+                      contentType: saveArtifact?.contentType ?? .pdf, defaultFilename: saveArtifact?.filename) { result in
             #if DEBUG
             if case .success(let url) = result {
                 do { try CompanionContentAcceptanceFixture.recordSavedExport(url) }

@@ -56,4 +56,25 @@ import UniformTypeIdentifiers
         XCTAssertEqual(firstProvider.suggestedName, "first.pdf")
         XCTAssertEqual(secondProvider.suggestedName, "second.png")
     }
+
+    func testSaveDocumentNegotiatesConcreteOriginalTypesAndRefusesConversion() throws {
+        let jpeg = try XCTUnwrap(UIImage(data: image())?.jpegData(compressionQuality: 0.9))
+        for content in [
+            CompanionContent(kind: "pdf", name: "original.pdf", bytes: pdf()),
+            CompanionContent(kind: "image", name: "original.png", bytes: image()),
+            CompanionContent(kind: "image", name: "original.jpeg", bytes: jpeg),
+            CompanionContent(kind: "image", name: "original.svg", mimeType: "image/svg+xml",
+                             bytes: Data("<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1\" height=\"1\"/>".utf8))
+        ] {
+            let artifact = try CompanionArtifactExport(content: content)
+            let document = CompanionArtifactDocument(artifact: artifact)
+            XCTAssertTrue(CompanionArtifactDocument.writableContentTypes.contains(artifact.contentType))
+            let saved = try document.fileWrapper(for: artifact.contentType)
+            XCTAssertEqual(saved.regularFileContents, content.bytes, "Save must serialize original bytes, independently of Share's provider")
+            XCTAssertEqual(artifact.filename, content.name)
+            XCTAssertThrowsError(try document.fileWrapper(for: .data))
+            XCTAssertThrowsError(try document.fileWrapper(for: artifact.contentType == .pdf ? .png : .pdf),
+                                 "An alternate supported type must not relabel unchanged bytes")
+        }
+    }
 }

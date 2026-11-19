@@ -1,6 +1,7 @@
 #if DEBUG && canImport(UIKit)
 import UIKit
 import CryptoKit
+import UniformTypeIdentifiers
 
 /// Opt-in synthetic service data only. No desktop filesystem, transport or URL is accessed.
 @MainActor enum CompanionContentAcceptanceFixture {
@@ -135,8 +136,11 @@ import CryptoKit
         let scoped = url.startAccessingSecurityScopedResource()
         defer { if scoped { url.stopAccessingSecurityScopedResource() } }
         let bytes = try Data(contentsOf: url)
+        guard let type = try url.resourceValues(forKeys: [.contentTypeKey]).contentType else {
+            throw CompanionContentError.unavailable("The saved synthetic file didn't report its content type.")
+        }
         let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
-        print("ARTIFACT_EXPORT_SAVED name=\(url.lastPathComponent) bytes=\(bytes.count) sha256=\(hash)")
+        print("ARTIFACT_EXPORT_SAVED name=\(url.lastPathComponent) type=\(type.identifier) bytes=\(bytes.count) sha256=\(hash)")
     }
 }
 #endif
