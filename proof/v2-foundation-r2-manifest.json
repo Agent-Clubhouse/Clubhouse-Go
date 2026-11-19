@@ -1,0 +1,85 @@
+{
+  "base": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+  "private_simulator": {
+    "name": "ux-610-v2-foundation-unused"
+  },
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "review_required_before_execution": true,
+  "originals_private": true,
+  "known_native_outcomes": {},
+  "head": "e479a4afb84bd816adf0807e1059a6b4abb85062",
+  "source": "/Users/masonallen/source/Clubhouse-Annex/.clubhouse/agents/ux-root",
+  "source_sha256": {
+    "Annex/Annex/Transport/AnnexCommands.swift": "16f13aae8c5452cca5f3dda4121fd42dfa59b951677aafa58fc96a4854e3bc77",
+    "Annex/Annex/Transport/AnnexProviderControlV2.swift": "7d1f30f5926e6ae9d725909cadbbdcf663ec393d1b8c94f0c67b491f8b5a82da",
+    "Annex/Annex/Transport/AnnexTransport.swift": "62b830b5382e299ad28905210c5aa3d38003a392cad3ce6c9a9eac3b6c3ee77e",
+    "Package.resolved": "829b8e1a4f8ff348a92fb98568fbd8481f0ac20c44b0e807c3ca6be228a3d3d3",
+    "Package.swift": "27b85de39a35b2aea5c1217278aad5e137246a68ba5c2a71f2f0bef6e37a6fe3",
+    "Tests/ClubhouseTransportTests/AnnexContractRobustnessTests.swift": "de901d8aa622310a2c0a7670a5fda480c051d6d989d805be037aea938353f72b",
+    "Tests/ClubhouseTransportTests/CommandRefusalTests.swift": "2d8384cc8cf2e973512670ac59f36d7817131dc0dfce004625dd69f397df584a",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/SOURCE.json": "d5311168156bb6fc5b9f1e47c62c0bfff5cc475e80f234add51fe185e65dc1f2",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/capabilities.json": "ef486b9c51eb4743c8e3c61f9b5335f5deae2e36d049a0e5dcc7f610942a360e",
+    "Tests/ClubhouseTransportTests/Fixtures/ProviderControlV2/provider-control-v2.json": "5e2da9b877b3038066e25c7d54b866977657dedc3713f5b8a170f8daf1fbf44e",
+    "Tests/ClubhouseTransportTests/ProviderControlTests.swift": "92b19f4ee7dc24166666b8cc6fef72da29155d6546d0a7294d63f79754dc427f",
+    "Tests/ClubhouseTransportTests/ProviderControlV2ValueTests.swift": "15b1f38b494ce631178053bf097a009801f7d5ebacacbe573ce20b43ba5550d7",
+    "Tests/ClubhouseTransportTests/TransportFailureModeTests.swift": "ce07feb25701b325bef54fc3734b2bd2172688de38d3bf2e159ac55548dcb2a7",
+    "docs/contracts/provider-control-v2-c4cdbacc.md": "824e24375c8f3ba2a552f74ff2e776e483d82dc88eea60aa11cf9a37d080f9e9",
+    "docs/provider-v2-610.md": "04e123f89e76bddb43cf7a386204780224ee5564b2d3314c0f13f79bec4bd075"
+  },
+  "full_diff_sha256": "70ffee1e2a0a02e3210c5fde5690ac827b14d35408feaf3aa9c51931cce9be16",
+  "phases": {
+    "P1": {
+      "kind": "package",
+      "bound": 900,
+      "filter": "ProviderControlV2ValueTests|ProviderControlTests|AnnexContractRobustnessTests|CommandRefusalTests|receiptsThatDoNotProveTheOutcomeAreUnknownAndNeverResent",
+      "method_names": [
+        "mergedCanonicalInputsMatchTheirFrozenDigests",
+        "everyCanonicalEnvelopeRetainsFailedEvidenceBeforeClassification",
+        "applyAndStartAreSeparatelyNegotiatedAndMalformedIsNotAbsent",
+        "missingUnknownOrMalformedPlatformCannotGrantManagedStart",
+        "providerOnlyOmissionExplicitDefaultAndNullEffortStayDistinct",
+        "fullNextWakeEchoRetainsEveryNullAndRejectsMissingOrUnknownFields",
+        "allCanonicalPreviewsBindAgentProviderAndExactRequestedIntent",
+        "platformRefusalsDoNotEraseIndependentlySupportedUnmanagedEditing",
+        "everyCanonicalApplyAcknowledgesOnlyItsExactSavedIntentAndNeverStarts",
+        "conflictsRemainBlockingEvenWhenNarrowSavedAndProposedValuesAreEqual",
+        "heldReplayIsHistoricalAndCreationIsNotHandshakeOrCurrentRuntime",
+        "canonicalPreviewAndChangeResultsDecodeWithTheirDistinctTokenShapes",
+        "canonicalStoppedAcknowledgmentRequiresTheOptInReceipt",
+        "legacyStartAndStopOmitAllNewFields",
+        "previewSaveAndStartAreSeparateEnvelopes",
+        "strictResumeNeedsBothProviderAndNativePointer",
+        "preconditionIsOpaqueAndChangedResultDoesNotRequireIt",
+        "anyBlockedCodePreventsSave",
+        "unknownScopeOrContradictoryReadinessDoesNotGrantSave",
+        "stopRequestedAloneDoesNotConfirmExitOrCapture",
+        "capabilityRequiresExactVersionPromisesAndCommands",
+        "capabilitiesWithoutAField",
+        "capabilitiesWithAFieldOfTheWrongType",
+        "capabilitiesWithUnknownFieldsEverywhere",
+        "truncatedFixturesNeverDecode",
+        "damagedReceiptsAreUnknownOutcomes",
+        "damagedWebSocketFrames",
+        "featureBlocksWithFieldsOfTheWrongType",
+        "committedOversizeBytesAreDefiniteAcrossEpochsOnlyAt413AndNeverResent",
+        "idlessOversizeRefusalIsDefiniteAcrossEpochsAndCached",
+        "crossEpochExceptionRequiresEveryFieldAndNeverResendsUnknownOutcomes",
+        "receiptsThatDoNotProveTheOutcomeAreUnknownAndNeverResent"
+      ],
+      "parameter_cases": {
+        "anyBlockedCodePreventsSave": 3,
+        "capabilitiesWithAFieldOfTheWrongType": 7,
+        "featureBlocksWithFieldsOfTheWrongType": 7,
+        "idlessOversizeRefusalIsDefiniteAcrossEpochsAndCached": 2
+      },
+      "method_count": 32,
+      "argument_execution_count": 47
+    }
+  },
+  "fifo_sha256": {
+    "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
+    "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "scope": "Pure typed values only; no adapter/UI/commanddispatch; newP1foundationproof is NOTV2runtime acceptance/no V1P0carry needed"
+}
