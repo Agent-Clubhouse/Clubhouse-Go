@@ -176,8 +176,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
         app.buttons["provider-review-change"].tap()
         let receipt = app.staticTexts["provider-saved"]
-        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
         XCTAssertTrue(scrollTo(receipt, in: app, maxSwipes: 12))
+        XCTAssertTrue(receipt.waitForExistence(timeout: 5))
         XCTAssertTrue(receipt.label.contains("historical") && receipt.label.contains("started no session"))
         captureProvider(app, "V2 historical Apply receipt before Start")
         let start = app.buttons["provider-start-new"]
@@ -220,9 +220,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     }
     private func checkV2Unknown(_ app: XCUIApplication, link: XCUIElement, choice: XCUIElement) {
         let review = app.buttons["provider-review-held-result"]
-        XCTAssertTrue(review.waitForExistence(timeout: 5))
         XCTAssertTrue(scrollTo(review, in: app, maxSwipes: 12))
+        XCTAssertTrue(review.waitForExistence(timeout: 5))
         XCTAssertFalse(app.buttons["provider-save"].isEnabled)
+        captureProvider(app, "V2 unresolved state and held review reached by native scrolling")
         app.navigationBars["Provider"].buttons.firstMatch.tap()
         XCTAssertTrue(link.waitForExistence(timeout: 5))
         waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
