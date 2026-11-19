@@ -1,0 +1,57 @@
+{
+  "head": "2b6406171cbea5189c0606dd218e298eb63064f8",
+  "tree": "d6ef33aeb72b8ebdbe1b7fd0800250e39105dc59",
+  "main_at_runtime": "cadce0a4575227a5ad24a6956f819f42913446d8",
+  "manifest_sha256": "b95f1ab47084b4d5ed144a17d8536cd9cc66b8a5123700ecb7f92e6723e71e84",
+  "receipt_sha256": "185a7fc6706c4258e2e1c294ff794b248d7df331a5b7d8961e3b39d18370fe45",
+  "raw_log_sha256": "d77f0d717d37608a8ddc0eb7aa2d00e205f029a0d7bb8726052d707dbca08d8a",
+  "actual_after_FIFO_seconds": 122.50163754075766,
+  "bound": 1200,
+  "rc": 0,
+  "coverage_rc": 0,
+  "framework": {
+    "reported": 1767,
+    "declared_opt_in_skips": 5,
+    "method_starts": 1762,
+    "intact_method_PASS_completions": 1762,
+    "suites": 210,
+    "XML_produced": false,
+    "full_suite_expanded_argument_census_claimed": false
+  },
+  "provider_subset": {
+    "methods": 43,
+    "expanded": 62,
+    "complete_checkpoints": 25,
+    "scenarios": 8,
+    "disjoint_mutation_IDs": 11
+  },
+  "coverage": {
+    "Transport": {
+      "covered": 5599,
+      "count": 5782,
+      "effective_floor": 95.6
+    },
+    "Domain": {
+      "covered": 15163,
+      "count": 16316,
+      "effective_floor": 92.9,
+      "nominal_baseline": 93.4,
+      "tolerance": 0.5
+    }
+  },
+  "independent_originals": {
+    "verdict": "PASS_SCOPED D prerequisite ONLY",
+    "report_sha256": "f4580d01461f8a7c946bb73bb86100f99f0cd9cb10c66e3b34f9c6e1e62d6bab"
+  },
+  "cleanup": {
+    "owned_worker_members": [],
+    "owned_supervisor_members": [],
+    "booted": []
+  },
+  "limitations": [
+    "Synthetic decoded production transport IO seam, not wire bytes or live provider evidence",
+    "Record-only runtime swap watcher; admission guard unchanged",
+    "No A/native acceptance from D; prior failed1953 retained rc1/STOP",
+    "Typed-foundation and prior phone functional proof separately attributable"
+  ]
+}
