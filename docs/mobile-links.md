@@ -13,6 +13,7 @@ load external resources automatically, or implement #595/#598/#599.
 | Dispatcher and relayed messages | Same conversation and message rows; `CompanionSentPartView` for routed parts | Same parser/routing. Unsourced and Clubhouse parts retain literal source. Link-bearing short parts expose child links to accessibility; closed long parts still do not construct/parse their detail. |
 | Saved sessions | Paired-host archive reader → `CompanionArchivedSessionView` → the same message/block views | Same native taps, with that archived conversation's own roots rather than live-chat hints. Read-only archive behavior is retained. |
 | Markdown headings, lists, quotes and tables | Shared attributed inline runs in native blocks/cells | Existing labeled destinations are retained. Linked table cells expose their native links instead of hiding every cell from accessibility. Table/code Open and Copy remain separate actions. |
+| Question prompts and approval summaries | Plain `Text` in decision cards and their saved-session presentations | Ordinary prose still lacks an independent link action. This is a remaining gap, distinct from intentional literal code; see the follow-up below. |
 | Rendered Markdown file | On-demand authorized content → `CompanionMarkdownFilePreview` → shared block renderer | File-only policy still permits HTTP(S)/mailto and internal fragments; relative/local document links and other schemes remain blocked. External actions forward through the inherited URL action. Source and Copy keep original bytes. |
 | Markdown Source, other source/code, tool logs and full-event review | Literal native text / read-only source view; code has its own Open/Copy surface | These are literal inspection surfaces, not rendered-link destinations. Code spans/fences, HTML source and image source are excluded from new automatic detection. |
 | PDF | Bounded bytes → `PDFView` with its existing `LinkGuard` | URL and remote-PDF delegate actions are deliberately intercepted. This change does not turn PDF links on or claim PDF navigation parity. |
@@ -27,7 +28,7 @@ destinations. Detection is separate from native hit testing and from authorizati
 explicit links, images and HTML. Only those URL spans are protected as CommonMark autolinks
 before the existing smart-punctuation pass. Surrounding prose retains its typography; URL
 double hyphens, query parameters and fragments retain their destination. Sent text is never
-reformatted. Ordinary messages without a URL marker skip the additional AST scan, and literal
+reformatted. Ordinary messages without URL or link-syntax markers skip the additional AST scan, and literal
 message results share the existing bounded Markdown cache; this is not a measured performance
 or memory-reduction claim.
 
@@ -53,6 +54,23 @@ Related existing tracking: #135 (availability and blocked previews), #153/#187 (
 Preview/Source), #599 (remaining document parity), and #603 (broader content roadmap). No
 duplicate generic transcript web-link issue or active PR was found in the initial search.
 
+## Remaining decision-card prose gap
+
+Question prompts in `CompanionQuestionCard` have no independent URL action, and the answer group
+is disabled for resolved questions or when `canRespond` is false. Approval summaries in
+`CompanionApprovalCard` are selectable plain text outside the decision buttons, but URLs are not
+tappable. Archive approval summaries and question prompts likewise remain plain text. These are
+ordinary prose gaps, not the intentional raw Review details/full-event inspection policy.
+
+The follow-up should expose independent, accessible prose links **outside** disabled answer groups
+and option/approval button hit regions. Native checks must cover pending, resolved, read-only/archive,
+`canRespond=false` and offline cards: one link tap delivers the exact destination once with **zero
+answer/approval command dispatch**, unchanged selections/free text/resolution and no reviewed or
+consent acknowledgment. Option/Allow/Send-answer taps must retain their existing confirmations and
+must not also open URLs. Keep code literals, source/copy and URL/file authorization unchanged.
+Initial searches found no specific existing question-link or approval-URL issue; the finding is
+recorded with this audit rather than claiming the transcript fix covers it.
+
 ## Proof and limits
 
 Focused package tests cover exact destinations, adjacent smart prose, sentence punctuation,
@@ -65,6 +83,6 @@ and the production routing modifier. Its DEBUG-only preview fixture intercepts o
 inherited system-open action and records the URL and count. It does not replace a link with a
 fixture button or open Safari/network destinations. Cases cover sent/received/relayed/Dispatcher,
 saved messages, tables, Markdown files, inert code, blocked schemes/outside paths and an
-authorized desktop-preview route. Native results remain pending until the exact candidate is
+authorized desktop-preview route. Native acceptance requires the exact candidate to be
 built, executed under shared resource admission and independently reviewed. No physical-device,
 installed-host, release or PDF-tap acceptance follows from these local checks.

@@ -37,7 +37,7 @@ import XCTest
     }
 
     func testReceivedAndDispatcherRowsKeepLabeledAndBareDestinations() {
-        for scenario in ["received", "dispatcher"] {
+        for scenario in ["received", "dispatcher", "received-underscore"] {
             let app = open(scenario)
             tap("Review PR", in: app)
             tap(destination, in: app, opens: 2)

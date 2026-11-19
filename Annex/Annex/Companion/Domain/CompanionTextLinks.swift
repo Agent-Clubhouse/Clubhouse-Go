@@ -6,7 +6,7 @@ import Markdown
 nonisolated enum CompanionTextLinks {
     // Explicit schemes, independent of detector language/TLD heuristics (which can miss a whole
     // code-adjacent paragraph). URI validation and Markdown exclusions are applied below.
-    private static let webURL = try! NSRegularExpression(pattern: #"(?i)(?<![\p{L}\p{N}_:/])https?://[^\s<>"`|]+"#)
+    private static let webURL = try! NSRegularExpression(pattern: #"(?i)(?<![\p{L}\p{N}:/])https?://[^\s<>"`|]+"#)
 
     private static func webLinks(in source: String) -> [(range: NSRange, url: URL)] {
         var links: [(NSRange, URL)] = []
@@ -79,8 +79,17 @@ nonisolated enum CompanionTextLinks {
 
     private static func bareLinks(in source: String, spans: Spans) -> [(range: NSRange, url: URL)] {
         guard source.localizedCaseInsensitiveContains("http") else { return [] }
+        let raw = source as NSString
         return webLinks(in: source).compactMap { match in
             guard !spans.excluded.contains(where: { NSIntersectionRange($0, match.range).length > 0 }) else { return nil }
+            if match.range.location > 0, raw.character(at: match.range.location - 1) == 95 {
+                // An underscore in an identifier is not an opening delimiter. Admit it only
+                // when cmark identifies an actual emphasis/strong opening at this position.
+                guard spans.formatting.contains(where: {
+                    $0.range.location + $0.delimiter == match.range.location
+                        && raw.substring(with: NSRange(location: $0.range.location, length: $0.delimiter)).allSatisfy { $0 == "_" }
+                }) else { return nil }
+            }
             var range = match.range
             // A surrounding emphasis delimiter is prose markup. Delimiters *inside* a URL are
             // URL characters, even if the first parse mistook them for emphasis.
@@ -88,7 +97,7 @@ nonisolated enum CompanionTextLinks {
                 let end = NSMaxRange(format.range) - format.delimiter
                 if NSMaxRange(range) > end { range.length = max(0, end - range.location) }
             }
-            guard range.length > 0, let url = URL(string: (source as NSString).substring(with: range)) else { return nil }
+            guard range.length > 0, let url = URL(string: raw.substring(with: range)), url.host?.isEmpty == false else { return nil }
             return (range, url)
         }
     }

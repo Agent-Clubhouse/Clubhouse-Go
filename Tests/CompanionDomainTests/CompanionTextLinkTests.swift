@@ -70,6 +70,35 @@ import Testing
         #expect(urls(table.rows[0][1]) == ["https://example.com/job--42?x=1#step"])
     }
 
+    @Test func underscoreEmphasisKeepsDestinationsAndStyleWithoutChangingLiteralText() throws {
+        let url = "https://example.com/a--b?q=1#f"
+        for (source, style) in [("_\(url)_", InlinePresentationIntent.emphasized), ("__\(url)__", .stronglyEmphasized)] {
+            let rich = try paragraph(source)
+            #expect(urls(rich) == [url])
+            #expect(String(rich.characters) == url)
+            #expect(rich.runs.contains { $0.link?.absoluteString == url && $0.inlinePresentationIntent == style })
+            let literal = CompanionMarkdown.literal(source)
+            #expect(Array(String(literal.characters).utf8) == Array(source.utf8))
+            #expect(urls(literal) == [url])
+        }
+    }
+
+    @Test func underscoreInsideAWordDoesNotStartALink() throws {
+        for source in ["prefix_https://example.com/a", "prefix__https://example.com/a__suffix"] {
+            #expect(urls(try paragraph(source)).isEmpty)
+            let literal = CompanionMarkdown.literal(source)
+            #expect(String(literal.characters) == source)
+            #expect(urls(literal).isEmpty)
+        }
+    }
+
+    @Test func trimmingMarkupCannotLeaveAnEmptyHost() throws {
+        let source = "**https://**"
+        #expect(urls(try paragraph(source)).isEmpty)
+        #expect(urls(CompanionMarkdown.literal(source)).isEmpty)
+        #expect(String(CompanionMarkdown.literal(source).characters) == source)
+    }
+
     @Test func markdownFileKeepsItsExistingSchemeAndLocalLinkPolicy() {
         let source = "https://example.com/a--b?x=1#f [mail](mailto:hello@example.com) [local](./secret.md) [bad](javascript:alert)"
         let preview = CompanionMarkdownFilePreview(source: source)

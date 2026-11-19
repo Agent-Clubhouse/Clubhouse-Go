@@ -29,7 +29,7 @@ struct CompanionLinkTapFixture: View {
         .environment(\.openURL, OpenURLAction { url in
             opens += 1
             lastURL = url.absoluteString
-            print("MOBILE_LINK_SYSTEM_OPEN count=\(opens) url=\(lastURL)")
+            print("MOBILE_LINK_SYSTEM_OPEN scenario=\(CompanionLinkTapScenario.name) count=\(opens) url=\(lastURL)")
             return .handled
         })
         .task {
@@ -40,6 +40,7 @@ struct CompanionLinkTapFixture: View {
             await store.load(target)
             store.apply(.timeline(target, items: CompanionLinkTapScenario.items, sequence: 100, reset: true, sessionID: "links"))
             agent = store.agent(for: target)
+            print("MOBILE_LINK_FIXTURE_READY scenario=\(CompanionLinkTapScenario.name) target=\(target.agentID)")
         }
     }
 }
@@ -66,6 +67,8 @@ enum CompanionLinkTapScenario {
             message = .init(id: "links-blocked", role: .assistant, text: "[Blocked route](javascript:alert) [Outside file](/outside-secret.md)")
         case "local-file":
             message = .init(id: "links-local", role: .assistant, text: "[Local file](Sources/Companion/Conversation.swift)")
+        case "received-underscore":
+            message = .init(id: "links-underscore", role: .assistant, text: "_[Review PR](\(destination))_\n\n_\(destination)_")
         default:
             message = .init(id: "links-received", role: .assistant, text: "\"Ready\" -- [Review PR](\(destination)).\n\nBare \(destination).")
         }
