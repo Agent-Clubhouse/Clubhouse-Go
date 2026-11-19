@@ -7,7 +7,7 @@ ROOT = Path(__file__).parent
 spec = importlib.util.spec_from_file_location('scoped', ROOT / 'verify-v2-scoped-native.py')
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
-SCOPES = json.loads((ROOT / 'v2-integration-r1-scopes.json').read_text())
+SCOPES = json.loads((ROOT / 'v2-integration-r2-scopes.json').read_text())
 PREFIX = module.PREFIX
 
 
@@ -44,10 +44,10 @@ class ScopedNativeTests(unittest.TestCase):
             self.assertEqual([group['event_count'] for group in result['groups']], [1, 2])
 
     def test_actual_frozen_packet_order_and_selectors(self):
-        manifest = json.loads((ROOT / 'v2-integration-r1-manifest.json').read_text())
+        manifest = json.loads((ROOT / 'v2-integration-r2-manifest.json').read_text())
         for phase, cases in SCOPES.items():
             config = manifest['phases'][phase]
-            order = json.loads((ROOT / ('v2-integration-r1-' + Path(config['order_file']).name)).read_text())
+            order = json.loads((ROOT / ('v2-integration-r2-' + Path(config['order_file']).name)).read_text())
             self.assertEqual(order, [case['method'] for case in cases])
             self.assertEqual(config['selectors'], ['ClubhouseGoUITests/' + method.removesuffix('()') for method in order])
             self.assertEqual(config['count'], len(order))
