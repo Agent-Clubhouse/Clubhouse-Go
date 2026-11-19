@@ -1,0 +1,17 @@
+{
+  "base614": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+  "main": "cadce0a4575227a5ad24a6956f819f42913446d8",
+  "main_tree": "f9c9e532ca60ed76977a364269043c4eff8eb77a",
+  "candidate_before_merge": "eb6677385de7aa2e1a58ed3ee12f96dc0deb3002",
+  "semantic_merge_tree": "871d5f800c3a04b4a36408782ba5a1248a174791",
+  "resolved_files": [
+    "docs/isolated-deinit.md",
+    "scripts/isolated-deinit-policy.json"
+  ],
+  "scope": "UNBUILT/UNRUN integrated source; independent exact source/config/identity review required",
+  "semantic_union_commit": "52c9f298e00e3e7495a15c0f6292fb98ec12b6a3",
+  "semantic_union_tree": "f69b430dfd1e1b48b57a5d0df64711b1b9c08617",
+  "combined_commit": "876e010eb0d03c24a1372e1bf2341a08c1c94059",
+  "resolved_tree": "d334c4a563235fc12e8d82f91faaa6d54a4aaacb",
+  "post_union_delta": "Two-file test/doc child of reviewed1953; no product/native/ratchet change"
+}

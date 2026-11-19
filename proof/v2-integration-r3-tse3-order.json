@@ -1,0 +1,5 @@
+[
+  "CompanionPreviewSmokeTests/testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable()",
+  "CompanionPreviewSmokeTests/testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead()",
+  "CompanionPreviewSmokeTests/testProviderV2LostStartNeverRequestsAnotherStart()"
+]
