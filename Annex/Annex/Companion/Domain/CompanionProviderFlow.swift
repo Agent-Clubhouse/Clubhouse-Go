@@ -15,6 +15,9 @@ import ClubhouseTransport
     private var outcomeUnknown = false
     private(set) var selectedProvider: String?
     private(set) var preview: AnnexProviderPreview?
+    /// Last matching host report, retained while a different proposal is checked.
+    /// This is neither a current-session fact nor a promise about the next wake.
+    private(set) var reportedSavedProvider: String?
     private(set) var savedProvider: String?
     private(set) var busy = false
     private(set) var error: String?
@@ -41,7 +44,11 @@ import ClubhouseTransport
         guard canRequest(), !busy, !blocksMutations, let selectedProvider else { return }
         busy = true; error = nil; preview = nil
         defer { busy = false }
-        do { preview = try await service.providerPreview(target, provider: selectedProvider) }
+        do {
+            let value = try await service.providerPreview(target, provider: selectedProvider)
+            preview = value
+            reportedSavedProvider = value.outcome.savedProvider
+        }
         catch { self.error = error.localizedDescription }
     }
     func save() async {
@@ -72,6 +79,7 @@ import ClubhouseTransport
                 case .changed(let value): savedProvider = value.savedProvider
                 case .alreadySelected(let value): savedProvider = value.outcome.savedProvider
                 }
+                reportedSavedProvider = savedProvider
                 self.operation = nil; self.preview = nil; busy = false
                 // A fresh read verifies the saved provider and current state before offering Start new.
                 await refresh()
@@ -101,6 +109,7 @@ enum CompanionProviderReason {
         case "incompatible_permissions": "The desktop cannot preserve the current permission settings with this provider."
         case "incompatible_runtime": "This provider cannot use the selected runtime on the desktop."
         case "instructions_not_equivalent": "The providers' native primary instruction files differ or could not be verified."
+        case "provider_change_requires_preview": "Use Provider Apply on a desktop that supports a checked provider change. A generic settings update cannot switch providers."
         case "session_capture_failed": "The desktop could not save the previous session. Resolve that on the desktop before changing providers."
         case "stale_state": "The agent or its settings changed. Refresh the preview before saving."
         case "agent_transition_busy": "Another agent operation is in progress. Refresh after it finishes."

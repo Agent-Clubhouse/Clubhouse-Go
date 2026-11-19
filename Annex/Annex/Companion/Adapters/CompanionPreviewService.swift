@@ -4,9 +4,16 @@ import ClubhouseTransport
 #endif
 
 /// Sample desktop for the welcome screen's "Look around first" demo (and App Review), and the DEBUG preview launch.
-/// Never selected by pairing; every command fails with "Preview only".
+/// Never selected by pairing; commands fail with "Preview only" except explicit
+/// DEBUG in-memory acceptance fixtures. Those never contact or configure a host.
 @MainActor final class CompanionPreviewService: CompanionService {
     #if DEBUG
+    private var providerApplySaved = "claude-code"
+    private var providerApplyReceipts: [String: AnnexProviderChangeResult] = [:]
+    private var providerApplyStarts: Set<String> = []
+    private var providerApplyFixture: Bool {
+        ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-fixture")
+    }
     /// Shared synthetic desktop payloads for normal and recovery-fixture appearance evidence.
     static var appearanceTheme: CompanionDesktopTheme? {
         let theme: CompanionDesktopTheme?
@@ -842,10 +849,49 @@ import ClubhouseTransport
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
-    func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult { throw previewError }
-    func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws { throw previewError }
+    func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
+        #if DEBUG
+        if providerApplyFixture, target == Self.sleepingTarget {
+            if let previous = providerApplyReceipts[clientCommandID] {
+                print("PROVIDER_APPLY_FIXTURE replay change id=\(clientCommandID)")
+                return previous
+            }
+            guard preview.outcome.permitsSave, preview.outcome.agentId == target.agentID,
+                  preview.expectedState == "preview-\(providerApplySaved)" else {
+                throw CompanionServiceError.rejected(CompanionProviderReason.message("stale_state"))
+            }
+            let same = providerApplySaved == preview.outcome.provider
+            providerApplySaved = preview.outcome.provider
+            let result = try providerApplyValue(target, provider: providerApplySaved, status: same ? "already_selected" : "changed")
+                .decode(AnnexProviderChangeResult.self)
+            providerApplyReceipts[clientCommandID] = result
+            print("PROVIDER_APPLY_FIXTURE change id=\(clientCommandID) saved=\(providerApplySaved) starts=\(providerApplyStarts.count)")
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-lost") {
+                throw CompanionServiceError.uncertain("Synthetic reply lost. Check the previous result.")
+            }
+            return result
+        }
+        #endif
+        throw previewError
+    }
+    func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws {
+        #if DEBUG
+        if providerApplyFixture, target == Self.sleepingTarget {
+            guard provider == providerApplySaved else { throw CompanionServiceError.rejected(CompanionProviderReason.message("stale_state")) }
+            providerApplyStarts.insert(clientCommandID)
+            print("PROVIDER_APPLY_FIXTURE start id=\(clientCommandID) expected=\(provider) starts=\(providerApplyStarts.count)")
+            // A synthetic command receipt, deliberately no running-session claim.
+            return
+        }
+        #endif
+        throw previewError
+    }
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview {
         #if DEBUG
+        if providerApplyFixture, target == Self.sleepingTarget {
+            print("PROVIDER_APPLY_FIXTURE preview proposed=\(provider) saved=\(providerApplySaved) starts=\(providerApplyStarts.count)")
+            return try providerApplyValue(target, provider: provider).decode(AnnexProviderPreview.self)
+        }
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") {
             let same = provider == "claude-code"
             return try AnnexJSON.object([
@@ -861,6 +907,24 @@ import ClubhouseTransport
         #endif
         throw previewError
     }
+    #if DEBUG
+    private func providerApplyValue(_ target: CompanionTarget, provider: String, status: String? = nil) -> AnnexJSON {
+        let same = provider == providerApplySaved
+        var value: [String: AnnexJSON] = [
+            "agentId": .string(target.agentID), "savedProvider": .string(providerApplySaved), "activeProvider": .null,
+            "provider": .string(provider), "state": .string("sleeping"), "available": .bool(true),
+            "availabilityMeaning": .string("local_cli_only"), "instructions": .string("equivalent"),
+            "instructionScope": .string("native_primary_only"),
+            "targetRuntime": .string(ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-runtime-mismatch") ? "terminal" : "chat"),
+            "blocked": .null, "canSave": .bool(true), "historyRetained": .bool(true), "contextTransferred": .bool(false),
+            "nextStart": .string(status == "changed" || !same ? "new_session" : "resume_requires_validation"),
+            "settingsReset": .array(same && status != "changed" ? [] : ["model", "effort", "contextWindow", "routing", "resumePointer"].map(AnnexJSON.string)),
+        ]
+        if status != "changed" { value["expectedState"] = .string("preview-\(providerApplySaved)") }
+        if let status { value["status"] = .string(status) }
+        return .object(value)
+    }
+    #endif
     /// River's composer controls, matching its session: every level is live, and model and effort changes apply from the next message.
     /// River's `/` menu: the CLI's own commands (start only), a skill and a custom command.
     static let slashCommands: [CompanionSlashCommand] = [
@@ -1136,6 +1200,11 @@ import ClubhouseTransport
                      workspace: sleeping ? Self.juniperWorkspace : Self.riverWorkspace,
                      orchestration: policy, parentAgentID: (showsHelperIdentity || showsHelperPresets) && sleeping ? Self.target.agentID : nil,
                      routing: showsHelperPresets && sleeping ? .init(mode: "preset", selection: .init(provider: "codex-cli", model: "gpt-6.1-sol", effort: "high", difficulty: "hard"), reason: "preset_on_cli", summary: "gpt-6.1-sol, high effort. From the helper settings for this difficulty.", displayReason: "From the helper settings for this difficulty") : nil)
+        #if DEBUG
+        if sleeping, providerApplyFixture, ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-runtime-mismatch") {
+            result.runtime.value = "chat"
+        }
+        #endif
         #if DEBUG && canImport(UIKit)
         if CompanionUnicodeFocusFixture.enabled, let draft = ProcessInfo.processInfo.environment["COMPANION_UNICODE_DRAFT"] {
             result.name.value = draft

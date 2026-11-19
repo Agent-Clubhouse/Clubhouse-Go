@@ -160,4 +160,71 @@ import Testing
         do { _ = try await harness.service.providerPreview(harness.target, provider: "codex-cli"); Issue.record("Must refuse") } catch {}
         #expect(await harness.transport.executed.isEmpty)
     }
+
+    @Test func lastReportedSavedProviderSurvivesAProposalAndFailedReadWithoutClaimingApply() async throws {
+        let harness = try await harness(); defer { harness.stop() }
+        let flow = harness.store.providerFlow(for: harness.target)
+        await select(flow, harness)
+        #expect(flow.reportedSavedProvider == "claude-code")
+        #expect(flow.selectedProvider == "codex-cli" && flow.savedProvider == nil && !flow.canStart)
+        await harness.transport.enqueue(.rejected(code: "stale_state", message: "not displayed"))
+        await flow.select("claude-code")
+        #expect(flow.reportedSavedProvider == "claude-code", "A failed check does not turn the proposal into a saved provider")
+        #expect(flow.preview == nil && flow.savedProvider == nil && !flow.canStart && !flow.canSave)
+        #expect(await harness.transport.executed.map(\.type) == ["agent.providerPreview", "agent.providerPreview"])
+    }
+
+    @Test(arguments: [false, true])
+    func matchingApplyReceiptNeedsAFreshMatchingReadBeforeStart(contradictory: Bool) async throws {
+        let harness = try await harness(); defer { harness.stop() }
+        // Isolate receipt/read ordering from Store catalog refresh scheduling. The
+        // real adapter still validates identity, capability and command envelopes.
+        let flow = CompanionProviderFlow(target: harness.target, service: harness.service, canRequest: { true })
+        await select(flow, harness)
+        await harness.transport.enqueue(.completed(Self.result(saved: "codex-cli", status: "changed")))
+        if contradictory {
+            await harness.transport.enqueue(.completed(Self.result(saved: "claude-code")))
+        } else {
+            await harness.transport.enqueue(.rejected(code: "stale_state", message: "not displayed"))
+        }
+        await flow.save()
+        #expect(flow.savedProvider == "codex-cli", "This is the last Apply receipt, not a running-session claim")
+        #expect(flow.reportedSavedProvider == (contradictory ? "claude-code" : "codex-cli"))
+        #expect(!flow.canStart && !flow.startRequested && !flow.blocksMutations)
+        await flow.startNew()
+        #expect(await harness.transport.executed.allSatisfy { $0.type != "agent.start" })
+    }
+
+    @Test(arguments: ["agentId", "provider"])
+    func wrongTargetOrProposalCannotPopulateLastReportedSavedProvider(_ field: String) async throws {
+        let harness = try await harness(); defer { harness.stop() }
+        let flow = harness.store.providerFlow(for: harness.target)
+        guard case .object(var values) = Self.result() else { return }
+        values[field] = .string("different-identity")
+        await harness.transport.enqueue(.completed(.object(values)))
+        await flow.select("codex-cli")
+        #expect(flow.preview == nil && flow.reportedSavedProvider == nil && flow.savedProvider == nil)
+        #expect(!flow.canSave && !flow.canStart)
+        #expect(await harness.transport.executed.map(\.type) == ["agent.providerPreview"])
+    }
+
+    @Test func strictWakeRefusalNeverFallsBackToAnUncheckedStart() async throws {
+        let harness = try await harness(); defer { harness.stop() }
+        let flow = CompanionProviderFlow(target: harness.target, service: harness.service, canRequest: { true })
+        await select(flow, harness)
+        await harness.transport.enqueue(.completed(Self.result(saved: "codex-cli", status: "changed")))
+        await harness.transport.enqueue(.completed(Self.result(saved: "codex-cli")))
+        await flow.save()
+        #expect(flow.canStart)
+        await harness.transport.enqueue(.rejected(code: "stale_state", message: "provider changed on desktop"))
+        await flow.startNew()
+        let starts = await harness.transport.executed.filter { $0.type == "agent.start" }
+        #expect(starts.count == 1 && !flow.startRequested && !flow.canStart)
+        let command = try #require(starts.first)
+        let payload = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
+        #expect(payload["expectedProvider"] == .string("codex-cli") && payload["resume"] == .bool(false))
+        await flow.startNew()
+        #expect(await harness.transport.executed.filter { $0.type == "agent.start" }.count == 1)
+    }
+
 }

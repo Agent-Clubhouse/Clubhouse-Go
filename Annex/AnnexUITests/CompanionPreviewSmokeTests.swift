@@ -1,7 +1,8 @@
 import XCTest
 
 /// Exercises the new SwiftUI navigation on a real simulator without enrolling
-/// any desktop, storing credentials, or pretending preview commands succeeded.
+/// any desktop or storing credentials. Provider Apply cases opt into a DEBUG-only
+/// in-memory transaction fixture; its receipts never claim an actual session.
 @MainActor
 final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// Opens River from Home; callers can bound tap attempts without changing the existing scroll limits.
@@ -58,9 +59,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["River"].exists, "Cancelling Sleep must leave the conversation open")
         waitAndTap(app.buttons["Conversation actions"], until: app.buttons["Agent settings"])
         waitAndTap(app.buttons["Agent settings"], until: app.descendants(matching: .any).matching(identifier: "agent-settings-summary").firstMatch)
-        let provider = app.buttons["agent-settings-orchestrator"]
+        let provider = app.descendants(matching: .any).matching(identifier: "agent-settings-orchestrator").firstMatch
         XCTAssertTrue(scrollUntilExists(provider, in: app))
-        XCTAssertFalse(provider.isEnabled)
+        XCTAssertFalse(app.buttons["agent-settings-orchestrator"].exists)
         // #452 moved Sleep to the last Form section. Swipe toward later rows;
         // the old downward swipe at the top dismissed the entire settings sheet.
         let sleep = app.buttons["agent-sleep"]
@@ -79,7 +80,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         refusal.name = "Sleep refused, provider remains locked"; refusal.lifetime = .keepAlways; add(refusal)
         // Return from the last Sleep section to the earlier Runtime provider row.
         XCTAssertTrue(scrollUntilExists(provider, in: app, up: false))
-        XCTAssertFalse(provider.isEnabled, "A refused stop cannot unlock the provider")
+        XCTAssertFalse(app.buttons["agent-settings-orchestrator"].exists, "A refused stop cannot create an unsafe provider menu")
     }
 
     func testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume() {
@@ -90,6 +91,102 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         checkGuidedProviderFlow(largeText: true)
     }
 
+    func testProviderApplyKeepsSavedProposalAndStartSeparate() {
+        checkProviderApply(largeText: false, lostReply: false)
+    }
+
+    func testProviderApplyAtAccessibilitySizeKeepsSavedProposalAndStartSeparate() {
+        checkProviderApply(largeText: true, lostReply: false)
+    }
+
+    func testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked() {
+        checkProviderApply(largeText: false, lostReply: true)
+    }
+
+    func testProviderApplyCannotSilentlyReplaceAnExplicitRuntime() {
+        let app = launchApp(["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-control",
+                             "--companion-preview-provider-apply-fixture", "--companion-preview-provider-apply-runtime-mismatch"], attempts: 1)
+        openAgentSettings(app, sleeping: true)
+        let link = app.buttons["agent-settings-provider-flow"]
+        XCTAssertTrue(scrollTo(link, in: app))
+        waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        tapVisibleProviderControl(app.buttons["provider-choice-codex-cli"], in: app)
+        let reason = app.staticTexts["provider-apply-reason"]
+        XCTAssertTrue(scrollTo(reason, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(reason.label.contains("does not preserve the requested runtime") && reason.label.contains("unsupported"))
+        XCTAssertFalse(app.buttons["provider-save"].isEnabled)
+        XCTAssertFalse(app.buttons["provider-start-new"].exists)
+    }
+
+    /// Synthetic only: main's fail-before uses the same launch and first assertion.
+    /// No real host/configuration/provider or session is started by these receipts.
+    private func checkProviderApply(largeText: Bool, lostReply: Bool) {
+        var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-control",
+                         "--companion-preview-provider-apply-fixture"]
+        if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
+        if lostReply { arguments += ["--companion-preview-provider-apply-lost"] }
+        let app = launchApp(arguments, attempts: 1)
+        openAgentSettings(app, sleeping: true)
+        let link = app.buttons["agent-settings-provider-flow"]
+        XCTAssertTrue(scrollTo(link, in: app))
+        let choice = app.buttons["provider-choice-codex-cli"]
+        waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        let apply = app.buttons["provider-save"]
+        XCTAssertTrue(scrollTo(apply, in: app), "Apply must be reachable before selecting, including at AX size")
+        XCTAssertEqual(apply.label, "Apply provider")
+        XCTAssertFalse(apply.isEnabled)
+        tapVisibleProviderControl(choice, in: app)
+        let saved = app.descendants(matching: .any).matching(identifier: "provider-saved-value").firstMatch
+        let proposed = app.descendants(matching: .any).matching(identifier: "provider-proposed-value").firstMatch
+        XCTAssertTrue(scrollUntilExists(saved, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(saved.label.contains("Claude"))
+        XCTAssertTrue(scrollUntilExists(proposed, in: app, maxSwipes: 8))
+        XCTAssertTrue(proposed.label.contains("Codex"))
+        XCTAssertFalse(app.buttons["provider-start-new"].exists, "A proposal cannot enable wake")
+        let resets = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Applying resets:")).firstMatch
+        XCTAssertTrue(scrollTo(resets, in: app, maxSwipes: 12))
+        for consequence in ["model", "effort", "context window", "provider routing", "resume selection"] {
+            XCTAssertTrue(resets.label.contains(consequence))
+        }
+        let scope = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "does not prepare or load skills or MCP")).firstMatch
+        XCTAssertTrue(scrollUntilExists(scope, in: app, up: false, maxSwipes: 8))
+        let proposalShot = XCTAttachment(screenshot: app.screenshot())
+        proposalShot.name = "Synthetic provider proposal remains separate from saved and runtime"; proposalShot.lifetime = .keepAlways; add(proposalShot)
+        tapVisibleProviderControl(apply, in: app, up: false)
+        if lostReply {
+            let check = app.buttons["provider-check-result"]
+            XCTAssertTrue(scrollTo(check, in: app, maxSwipes: 12))
+            XCTAssertFalse(app.buttons["provider-start-new"].exists)
+            XCTAssertFalse(choice.isEnabled, "An uncertain write cannot be replaced by another selection")
+            app.navigationBars["Provider"].buttons.firstMatch.tap()
+            XCTAssertTrue(link.waitForExistence(timeout: 5))
+            waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+            XCTAssertFalse(choice.isEnabled, "Reopening the screen cannot forget the unresolved action")
+            tapVisibleProviderControl(check, in: app)
+        }
+        let receipt = app.staticTexts["provider-saved"]
+        XCTAssertTrue(scrollUntilExists(receipt, in: app, up: false, maxSwipes: 12))
+        XCTAssertTrue(receipt.label.contains("Codex") && receipt.label.contains("No session was started by Apply"))
+        let start = app.buttons["provider-start-new"]
+        XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 8))
+        XCTAssertTrue(start.isEnabled)
+        XCTAssertFalse(app.staticTexts["provider-start-requested"].exists)
+        tapVisibleProviderControl(start, in: app)
+        let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Start new session", "provider-start-new")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.staticTexts["provider-start-requested"].exists)
+        tapVisibleProviderControl(start, in: app)
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.tap()
+        let requested = app.staticTexts["provider-start-requested"]
+        XCTAssertTrue(scrollTo(requested, in: app, maxSwipes: 12))
+        XCTAssertTrue(requested.label.contains("not verified here"), "A synthetic Start receipt must not claim a running provider")
+        let result = XCTAttachment(screenshot: app.screenshot())
+        result.name = "Synthetic Apply receipt and separately requested Start"; result.lifetime = .keepAlways; add(result)
+    }
+
     private func checkGuidedProviderFlow(largeText: Bool) {
         var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-control"]
         if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
@@ -98,8 +195,14 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let link = app.buttons["agent-settings-provider-flow"]
         XCTAssertTrue(scrollTo(link, in: app))
         let current = app.buttons["provider-choice-claude-code"]
-        waitAndTap(link, until: current)
-        XCTAssertFalse(app.buttons["provider-save"].exists, "Opening the flow must not preview or save a provider")
+        waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        let apply = app.buttons["provider-save"]
+        XCTAssertTrue(scrollUntilExists(apply, in: app), "Apply is discoverable before choosing, rather than hidden below Preview")
+        XCTAssertEqual(apply.label, "Apply provider")
+        XCTAssertFalse(apply.isEnabled, "Opening the flow must not preview or save a provider")
+        let reason = app.staticTexts["provider-apply-reason"]
+        XCTAssertTrue(scrollUntilExists(reason, in: app))
+        XCTAssertTrue(reason.label.contains("Nothing is saved or started by choosing"))
         let unavailable = app.buttons["provider-choice-codex"]
         XCTAssertTrue(scrollUntilExists(unavailable, in: app))
         XCTAssertFalse(unavailable.isEnabled)
@@ -107,21 +210,27 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Provider"].exists)
         XCTAssertTrue(waitFor(current, NSPredicate(format: "selected == true"), timeout: 5))
         let save = app.buttons["provider-save"]
-        XCTAssertTrue(scrollUntilExists(save, in: app, maxSwipes: 8))
+        XCTAssertTrue(scrollUntilExists(save, in: app, up: false, maxSwipes: 8))
         XCTAssertTrue(save.isEnabled)
         XCTAssertFalse(app.buttons["Resume"].exists, "Same-provider resume hint must not offer Resume")
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
         let alternative = app.buttons["provider-choice-codex-cli"]
-        tapVisibleProviderControl(alternative, in: app, up: false)
+        tapVisibleProviderControl(alternative, in: app)
         XCTAssertTrue(app.navigationBars["Provider"].exists, "Choosing a provider must stay on the Provider page")
         XCTAssertTrue(waitFor(alternative, NSPredicate(format: "selected == true"), timeout: 5), "Codex CLI must be selected before looking for Save")
-        XCTAssertTrue(scrollTo(save, in: app, maxSwipes: 8))
+        XCTAssertTrue(scrollTo(save, in: app, up: false, maxSwipes: 8))
         XCTAssertTrue(save.isEnabled)
+        let savedValue = app.descendants(matching: .any).matching(identifier: "provider-saved-value").firstMatch
+        let proposal = app.descendants(matching: .any).matching(identifier: "provider-proposed-value").firstMatch
+        XCTAssertTrue(scrollUntilExists(savedValue, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(savedValue.label.contains("Claude"), "A Codex proposal must not replace the last reported saved Claude")
+        XCTAssertTrue(scrollUntilExists(proposal, in: app, maxSwipes: 8))
+        XCTAssertTrue(proposal.label.contains("Codex"))
         let preview = XCTAttachment(screenshot: app.screenshot())
         preview.name = largeText ? "Guided provider preview at large text" : "Guided provider preview"; preview.lifetime = .keepAlways; add(preview)
         tapVisibleProviderControl(save, in: app)
         let refusal = app.staticTexts["provider-flow-error"]
-        XCTAssertTrue(scrollUntilExists(refusal, in: app, up: false, maxSwipes: 8))
+        XCTAssertTrue(scrollUntilExists(refusal, in: app, maxSwipes: 8))
         XCTAssertTrue(refusal.label.contains("Preview only"))
         XCTAssertFalse(app.buttons["provider-start-new"].exists, "Refused Save never enables Start")
         XCTAssertFalse(app.buttons["Resume"].exists)
@@ -174,37 +283,23 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertFalse(app.switches["agent-settings-orchestrate-dispatcher"].exists, "A known helper talks only to its parent")
     }
 
-    func testAgentSettingsConfirmsCliChangeAndCancelKeepsTheOldSelection() {
-        let app = launchApp(["--companion-preview", "--companion-preview-provider-options"])
+    func testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu() {
+        let app = launchApp(["--companion-preview", "--companion-preview-provider-options"], attempts: 1)
         openAgentSettings(app, sleeping: true)
-        let picker = app.buttons["agent-settings-orchestrator"]
-        let codex = app.buttons["Codex CLI"]
-        waitAndTap(picker, until: codex)
-        let unavailable = app.buttons["Codex (Not installed on this desktop)"]
-        XCTAssertTrue(unavailable.exists)
-        XCTAssertFalse(unavailable.isEnabled, "An unavailable provider cannot be selected")
-        let confirm = app.buttons["Change CLI"]
-        waitAndTap(codex, until: confirm)
-        XCTAssertTrue(app.staticTexts["Juniper starts a new session on Codex CLI the next time it wakes. Its current conversation can't move to another CLI."].exists)
-        let cancel = app.buttons["Cancel"]
-        if cancel.exists {
-            waitAndTap(cancel, untilGone: confirm)
-        } else {
-            // iOS 26 can present this as a popover, with cancellation by tapping outside it.
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.05, dy: 0.1)).tap()
-            XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
-        }
-        XCTAssertTrue(picker.label.contains("Claude Code"), picker.label)
-        XCTAssertFalse(app.staticTexts["agent-settings-error"].exists, "Cancel sends nothing")
-        waitAndTap(picker, until: codex)
-        waitAndTap(codex, until: confirm)
-        let error = app.staticTexts["agent-settings-error"]
-        waitAndTap(confirm, until: error)
-        XCTAssertTrue(error.label.contains("Preview only"), "Confirm attempts the update, which preview refuses")
-        XCTAssertTrue(picker.label.contains("Claude Code"), "A refused update keeps the desktop's value")
+        let saved = app.descendants(matching: .any).matching(identifier: "agent-settings-orchestrator").firstMatch
+        XCTAssertTrue(scrollTo(saved, in: app))
+        XCTAssertTrue(saved.label.contains("Claude Code"))
+        XCTAssertFalse(app.buttons["agent-settings-orchestrator"].exists, "Old hosts must not offer generic cross-provider writes")
+        let unsupported = app.staticTexts["agent-settings-provider-unsupported"]
+        XCTAssertTrue(scrollTo(unsupported, in: app))
+        XCTAssertTrue(unsupported.label.contains("unavailable") && unsupported.label.contains("Provider Apply"))
+        let model = app.buttons["agent-settings-model"]
+        XCTAssertTrue(scrollTo(model, in: app))
+        XCTAssertTrue(model.isEnabled, "Unrelated supported settings remain editable for this sleeping agent")
+        XCTAssertFalse(app.staticTexts["agent-settings-error"].exists)
         let orchestrate = app.switches["agent-settings-orchestrate"]
-        scrollTo(orchestrate, in: app)
-        XCTAssertFalse(app.switches["agent-settings-orchestrate-dispatcher"].exists, "Dispatcher off hides its connection switch")
+        XCTAssertTrue(scrollTo(orchestrate, in: app))
+        XCTAssertFalse(app.switches["agent-settings-orchestrate-dispatcher"].exists, "Dispatcher off still hides its connection switch")
     }
 
     /// Home's New agent button, which shows only on Home.
