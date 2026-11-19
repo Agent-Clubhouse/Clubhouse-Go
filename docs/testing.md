@@ -1031,6 +1031,8 @@ Accessibility XXXL, rather than treating its launch argument as proof.
 The complete value must remain unchanged after navigation/dismissal/reopening. No Redeem, Retry,
 release-held, clear or Send action is invoked. SDK enrollment, consent, queue and foreground-pump
 code is unchanged; the fixture is not a real enrollment, provider, device-install or release test.
+Local XCTest stdout records both state values and each reopen cycle's status/renewal target frames;
+a retained text attachment also includes both state values for independent runtime inspection.
 
 `CompanionFeedbackSettingsCaptureTests.renewalStatusDistinguishesCheckingUnavailableAndEnrollmentStates`
 covers pending, unavailable, rejected invitation and all six access states. The proof baseline
