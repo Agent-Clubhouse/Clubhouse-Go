@@ -1,0 +1,394 @@
+{
+  "CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 1.3 seconds",
+    "durationInSeconds": 1.3233619928359985,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent",
+    "testName": "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "1s",
+            "durationInSeconds": 1.3233619928359985,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "1s",
+        "durationInSeconds": 1.3233619928359985,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.0044 seconds",
+    "durationInSeconds": 0.004414081573486328,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+    "testName": "testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.0044s",
+            "durationInSeconds": 0.004414081573486328,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.0044s",
+        "durationInSeconds": 0.004414081573486328,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.0028 seconds",
+    "durationInSeconds": 0.0028009414672851562,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+    "testName": "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.0028s",
+            "durationInSeconds": 0.0028009414672851562,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.0028s",
+        "durationInSeconds": 0.0028009414672851562,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.0027 seconds",
+    "durationInSeconds": 0.0027129650115966797,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate",
+    "testName": "testNativeTopAdapterSurvivesItsOriginalDelegate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.0027s",
+            "durationInSeconds": 0.0027129650115966797,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.0027s",
+        "durationInSeconds": 0.0027129650115966797,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.63 seconds",
+    "durationInSeconds": 0.6315909624099731,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+    "testName": "testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.63s",
+            "durationInSeconds": 0.6315909624099731,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.63s",
+        "durationInSeconds": 0.6315909624099731,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.7 seconds",
+    "durationInSeconds": 0.7017320394515991,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+    "testName": "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.7s",
+            "durationInSeconds": 0.7017320394515991,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.7s",
+        "durationInSeconds": 0.7017320394515991,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.5 seconds",
+    "durationInSeconds": 0.5046550035476685,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+    "testName": "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.5s",
+            "durationInSeconds": 0.5046550035476685,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.5s",
+        "durationInSeconds": 0.5046550035476685,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPhone 17",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.64 seconds",
+    "durationInSeconds": 0.6362149715423584,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop",
+    "testName": "testNewHistoryRestorationCannotReclaimPendingNativeTop()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.64s",
+            "durationInSeconds": 0.6362149715423584,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.64s",
+        "durationInSeconds": 0.6362149715423584,
+        "name": "iPhone 17",
+        "nodeIdentifier": "2B5F11C4-09D7-4B94-ABE9-B1330A843B86",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  }
+}

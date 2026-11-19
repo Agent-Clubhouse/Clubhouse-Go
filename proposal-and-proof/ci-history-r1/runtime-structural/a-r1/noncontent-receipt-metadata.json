@@ -1,0 +1,94 @@
+{
+  "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+  "phase": "A",
+  "started_at": "2026-11-19T07:27:09.619709+00:00",
+  "source_provenance": {
+    "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+    "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+    "source_sha256": {
+      "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+      "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "d0d0fa43ef7361d21a1e81ee7ba908663f49f71533df0bbe0379d641418efb7f",
+      "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "02dee4efb081c672f9fad77dc6673bb9164dc5dac8d70530ef7f57920bc63e9b",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "89b48b6374b1cdb86e863b2d847fcc8525ede1fdd2b182c65f89d0e11b774df6",
+      "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "2c62cb35be43e7dc97d6cd58270b58c42d0a09083fb5f07012f734960b286f4f",
+      "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "0902bfc687af2eada91b57e59c57b13c7da914298f7f1020754c4b0e8d6af874",
+      "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "3bd2cd5ee56881fdb531796adee0a21ce1e64edea51317ec0e6c5462f8f80780",
+      "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+      "Annex/AnnexTests/CompanionReadingOpeningTests.swift": "3bd13add0dd03769db700ceba18472d9c61832f89f44ca44d21d3f58c279b49f",
+      "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+      "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "ffc7eb416ebba587ceb774d1b2e5a7b4eee7355f901753ec50a5bbde5dff17a7",
+      "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+      "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": "680f9945d643a8788a87264121241821fd3919fc98ba94c88d28e37c6ba36f0e",
+      "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift": "851c34b4c0e4237ce3f5b56480f5e3e0bcfdf67846396fcaafd10e159d372ca5",
+      "docs/isolated-deinit.md": "fe15e254fb78d098fb4de2848d57308e7594408321b76b709051c37a19ea1658",
+      "docs/reading-first-paint-extraction.json": "2d407fde7001c26e8662cd23fac7d2f7c88937e054204a2b4c402a2fcaf06d07",
+      "docs/reading-first-paint-plan.md": "27aee4033293ff64eb0c3a97058f2ba9b578b2986d392860850365db6bb22cf2",
+      "scripts/isolated-deinit-policy.json": "7eab1911ff20ef528dbad59f17f2ce5cad3ee48de5721c142c720474b002d295",
+      "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "b2739607bf03e17e356ad7d4e5fb0991387d160bb284b346629966c2e8316a42",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "c9b3813a7880bf8a429f373d9d41621dc4a731c03288f93e883fb10bd8963b28",
+      "Annex/AnnexTests/CompanionTranscriptEqualityTests.swift": "939ae0e1c0dd4514b637d70ce017babca074b0c29a20f797683440011b918dd2",
+      "Annex/AnnexTests/CompanionHistoryReadingTests.swift": "e362599697a6eb55907538584f3a3693d3f0e0cccfb71fddbf6a1f6d7fa76de1"
+    },
+    "full_diff_sha256": "6803b3feb1c69dd1e3a20ae0326bdd084f5e95f1e2b3e2639380f2bb4bb90c25"
+  },
+  "build_rc": 0,
+  "deinit_rc": 0,
+  "policy_rc": 0,
+  "test_rc": null,
+  "audit_rc": null,
+  "rc": 0,
+  "duration_seconds": 236.9399278331548,
+  "hard_bound_seconds": 900,
+  "artifact_sha256": {
+    "/tmp/ux-582-ipad-r1/tickets/a-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "8a1f155b23d82ca46d9b14eb423bc47b12d6e221a2a194f6eba47e3f9b683962",
+    "/tmp/ux-582-ipad-r1/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "5b64375084a8f9be334ac0ea2343ddaeb049beb0bc17fbd14c92748543e33179",
+    "/tmp/ux-582-ipad-r1/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "4894a46d3fa84351b16a015f59a2e1d676f5cc3efcd67d12ee3a7421be814cdb",
+    "/tmp/ux-582-ipad-r1/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-582-ipad-r1/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "b32c154790d2e8145ad6e10966c86ca23b189d1cbbcc50d4bc0f5ce23a1648eb"
+  },
+  "build_receipt": null,
+  "simulator_uuid": null,
+  "simulator_final_state_before_delete": null,
+  "simulator_deleted": null,
+  "booted_after": [],
+  "owned_process_group": 86442,
+  "owned_processes_after_cleanup": [],
+  "swap_watch": {
+    "record_only": true,
+    "samples": 16,
+    "growth_bytes": 0,
+    "start_bytes": 2034436669.44,
+    "max_bytes": 2034436669.44,
+    "exceeded_256MiB": false
+  },
+  "exact_identifiers_ok": null,
+  "declared_parameter_executions": null,
+  "admission": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 6576619520,
+      "inactive_bytes": 20904820736,
+      "free_plus_inactive_bytes": 27481440256
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 7007338496,
+      "inactive_bytes": 21122580480,
+      "free_plus_inactive_bytes": 28129918976
+    },
+    "cpu_idle_percent": 77.16,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "exact_observed_native_commands": [
+    "xcodebuild build-for-testing -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-ipad-r1/tickets/a-r1/DD -destination generic/platform=iOS Simulator"
+  ]
+}

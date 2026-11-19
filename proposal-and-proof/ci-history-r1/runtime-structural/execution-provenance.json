@@ -1,0 +1,12 @@
+{
+  "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+  "executed_manifest_sha256": "1d0cd4aa83ecca16dcffa236f0e4683748bc5b72b76abd50e5c19090fc3d8cde",
+  "actual_runner_sha256": "7d26aaccd195b6129441433d13383b3ef5ac08ddc4144849459cf5b273d4ea26",
+  "prebuild_review_runner_sha256": "7d26aaccd195b6129441433d13383b3ef5ac08ddc4144849459cf5b273d4ea26",
+  "inherited_manifest_runner_sha256": "bf3f2f7139f5412b22f06bf04841172a43b843612d8fb6e11a9c391cd38afe59",
+  "discrepancy": "Historical template digest remained in manifest.runner_sha256. Actual executed script is reviewed7d26; only ROOT changed from prior bf3 template. Original executed manifest is frozen, not corrected after the run. This document supplements provenance, not a new run/config.",
+  "runner_mtime_epoch": 1795073003.3749938,
+  "actual_auditor_sha256": "463ec47da1cb03e745e887ccb4f59d6a6da816b6f11d434e63fdfc5e1b1bef14",
+  "prefix": "env -u COPILOT_CONNECTION_TOKEN GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=safe.bareRepository GIT_CONFIG_VALUE_0=all",
+  "originals_review": "Raw xcresults/logs/screens remain private and are NOT in this structural packet. Independent original-container acceptance requires an already-authorized private-access auditor."
+}

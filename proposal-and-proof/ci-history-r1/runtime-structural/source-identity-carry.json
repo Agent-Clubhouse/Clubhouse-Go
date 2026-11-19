@@ -1,0 +1,10 @@
+{
+  "prior_head": "fab40073358820b4fcd75d73819ccb04fb096111",
+  "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+  "only_changed_file": [
+    "Annex/AnnexTests/CompanionHistoryReadingTests.swift"
+  ],
+  "focused_diff_sha256": "265018c004ab629463977bbe72f97e686b75066ef5b8aa4c36595262ded76883",
+  "product_UI_package_diff": "EMPTY",
+  "scope": "Prior product proof carries by independently reviewed source identity, not a new CI26.5 or device acceptance."
+}

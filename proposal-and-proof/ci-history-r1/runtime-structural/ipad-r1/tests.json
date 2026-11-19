@@ -1,0 +1,116 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "C9733098-105E-4197-BDE9-098A71AD8E56",
+      "deviceName" : "ux-582-history-proof",
+      "modelName" : "iPad Pro 11-inch (M4)",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "1s",
+                  "durationInSeconds" : 1.3500159978866577,
+                  "name" : "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0042s",
+                  "durationInSeconds" : 0.004206061363220215,
+                  "name" : "testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0034s",
+                  "durationInSeconds" : 0.0034170150756835938,
+                  "name" : "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.0031s",
+                  "durationInSeconds" : 0.003054022789001465,
+                  "name" : "testNativeTopAdapterSurvivesItsOriginalDelegate()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.73s",
+                  "durationInSeconds" : 0.7278659343719482,
+                  "name" : "testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.75s",
+                  "durationInSeconds" : 0.7455670833587646,
+                  "name" : "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.51s",
+                  "durationInSeconds" : 0.5072259902954102,
+                  "name" : "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "0.68s",
+                  "durationInSeconds" : 0.6816589832305908,
+                  "name" : "testNewHistoryRestorationCannotReclaimPendingNativeTop()",
+                  "nodeIdentifier" : "CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionHistoryReadingTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoTests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests",
+          "nodeType" : "Unit test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

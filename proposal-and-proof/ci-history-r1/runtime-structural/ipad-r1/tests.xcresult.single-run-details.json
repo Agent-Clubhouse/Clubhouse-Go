@@ -1,0 +1,394 @@
+{
+  "CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 1.4 seconds",
+    "durationInSeconds": 1.3500159978866577,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent",
+    "testName": "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "1s",
+            "durationInSeconds": 1.3500159978866577,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "1s",
+        "durationInSeconds": 1.3500159978866577,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.0042 seconds",
+    "durationInSeconds": 0.004206061363220215,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+    "testName": "testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.0042s",
+            "durationInSeconds": 0.004206061363220215,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.0042s",
+        "durationInSeconds": 0.004206061363220215,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.0034 seconds",
+    "durationInSeconds": 0.0034170150756835938,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+    "testName": "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.0034s",
+            "durationInSeconds": 0.0034170150756835938,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.0034s",
+        "durationInSeconds": 0.0034170150756835938,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.0031 seconds",
+    "durationInSeconds": 0.003054022789001465,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate",
+    "testName": "testNativeTopAdapterSurvivesItsOriginalDelegate()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.0031s",
+            "durationInSeconds": 0.003054022789001465,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.0031s",
+        "durationInSeconds": 0.003054022789001465,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.73 seconds",
+    "durationInSeconds": 0.7278659343719482,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+    "testName": "testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.73s",
+            "durationInSeconds": 0.7278659343719482,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.73s",
+        "durationInSeconds": 0.7278659343719482,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.75 seconds",
+    "durationInSeconds": 0.7455670833587646,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+    "testName": "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.75s",
+            "durationInSeconds": 0.7455670833587646,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.75s",
+        "durationInSeconds": 0.7455670833587646,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.51 seconds",
+    "durationInSeconds": 0.5072259902954102,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+    "testName": "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.51s",
+            "durationInSeconds": 0.5072259902954102,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.51s",
+        "durationInSeconds": 0.5072259902954102,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "deviceName": "ux-582-history-proof",
+        "modelName": "iPad Pro 11-inch (M4)",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 0.68 seconds",
+    "durationInSeconds": 0.6816589832305908,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop",
+    "testName": "testNewHistoryRestorationCannotReclaimPendingNativeTop()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0.68s",
+            "durationInSeconds": 0.6816589832305908,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0.68s",
+        "durationInSeconds": 0.6816589832305908,
+        "name": "iPad Pro 11-inch (M4)",
+        "nodeIdentifier": "C9733098-105E-4197-BDE9-098A71AD8E56",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  }
+}

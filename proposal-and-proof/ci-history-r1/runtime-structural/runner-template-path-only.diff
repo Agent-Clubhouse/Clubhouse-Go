@@ -1,0 +1,11 @@
+--- prior-reviewed-template
++++ executed-ci-history-runner
+@@ -2,7 +2,7 @@
+ """#582 exact-head guarded proof. No assertion retries. Hosted parameters need independent audit."""
+ import hashlib, importlib.util, json, os, re, signal, subprocess, sys, time, shutil
+ from pathlib import Path
+-R=Path('/tmp/ux-582-proof')
++R=Path('/tmp/ux-582-ipad-r1')
+ M=json.loads((R/'manifest.json').read_text())
+ PHASE,LABEL=sys.argv[1:3]
+ CFG=M['phases'][PHASE];LIMIT=CFG['bound']

@@ -1,0 +1,11 @@
+[
+  {
+    "source_log_sha256": "9bc5d2e4cf2220f0d7d231972afc1a8a00355f113e56f6324ee7b82ba007dda6",
+    "source_line": 70,
+    "entry_id": "message:reading-100",
+    "seed_distance": 8.0,
+    "measured_distance": 600.0,
+    "actual_displacement": 592.0,
+    "normalized_offset": 638.5
+  }
+]

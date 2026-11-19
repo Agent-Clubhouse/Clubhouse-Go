@@ -1,0 +1,10 @@
+[
+  "CompanionHistoryReadingTests/testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent()",
+  "CompanionHistoryReadingTests/testNativeTopAdapterPreservesTheEnclosingScrollDelegate()",
+  "CompanionHistoryReadingTests/testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate()",
+  "CompanionHistoryReadingTests/testNativeTopAdapterSurvivesItsOriginalDelegate()",
+  "CompanionHistoryReadingTests/testNativeTopBookmarkSurvivesYieldedHistoryRestore()",
+  "CompanionHistoryReadingTests/testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample()",
+  "CompanionHistoryReadingTests/testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt()",
+  "CompanionHistoryReadingTests/testNewHistoryRestorationCannotReclaimPendingNativeTop()"
+]
