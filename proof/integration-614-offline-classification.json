@@ -1,0 +1,22 @@
+{
+  "scope_sha256": "6c738a9fad7e06cbd9dd30f9920932391e8c1002cbf54a3e3005235cdf22ba22",
+  "verifier_sha256": "6b65e97de70a46f5b63089227c4ba4756f4e1dcdcd176f392b203693558351b5",
+  "classification": "scoped_one_group_trace_pass",
+  "original_ticket_rc": 1,
+  "original_ticket_stop": "Unexpected count/order/outcome; no executed test retry",
+  "native_selectors": [
+    "CompanionPreviewSmokeTests/testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked()",
+    "CompanionReadingOpeningUITests/testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming()"
+  ],
+  "counts": {
+    "preview": 2,
+    "change": 1,
+    "replay": 1,
+    "start": 1
+  },
+  "apply_id": "0BCEC526-32EB-4898-BF33-A17922AE69C8",
+  "replay_id": "0BCEC526-32EB-4898-BF33-A17922AE69C8",
+  "start_id": "D645DDC0-27EA-46AF-8411-D86F1946A7E7",
+  "scope_limits": "Offline synthetic trace only; original-container/visual/cleanup/main identity require separate review. No native rerun, V2 recovery, payload-byte, real-session or blanket ticket-PASS claim.",
+  "accepted": true
+}

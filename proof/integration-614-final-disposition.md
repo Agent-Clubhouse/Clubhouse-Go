@@ -1,0 +1,9 @@
+Integration with merged #584 independently accepted at combined commit `4601d1c97dc44637262d9ce98df1651ed2095447`, tree `f9c9e532ca60ed76977a364269043c4eff8eb77a`. Fresh remote main remains `cc1abcea17c53aff36869a9b04e0f7fc5c10db3e`; a fresh merge-tree with this PR’s unchanged `f76e1cc5` reproduces the tested tree.
+
+Fresh Debug, compiled deinit and policy passed. Two scoped first-execution UI cases passed once: lost Apply receipt/cancel/replay/separate Start, and paused transcript archive-header open/close after streaming. Actual post-FIFO closures were 218.171s/900s for build and 151.147s/600s for runtime; owned processes/simulator closed.
+
+The original runtime ticket remains **rc1/STOP**: its immutable checker incorrectly required the full three-group fixture map for this approved one-group run. No native rerun or receipt rewrite. Separately reviewed offline verifier `6b65e97de70a46f5b63089227c4ba4756f4e1dcdcd176f392b203693558351b5` and eight rejection/positive probes validate the retained original trace: 2 previews, 1 Apply, same-ID replay and separate frozen Start ID, exact order and no extra events. Exclusive classification SHA256 `24592d335d21b46636d2eb4e7674ce0e7d060e736cad93703ebb470632c435d3`; independent private-originals final audit SHA256 `cbf5097799c04908d574e82187d53be39734d8a44fa782846b8ae04d0b12b880` accepted this separate scoped disposition. Raw originals remain private.
+
+This is synthetic V1 intersection proof, without new CPU/first-frame/device/VoiceOver/V2 recovery credit. Hosted provider UI remains tied to job `135559800568`; results are pending. Hosted package 55 methods/84 cases passed; iPad lane succeeded but does not route provider UI.
+
+Independent offline verifier review: evidence bd0ccdc96726486ae8fe029448afc827b864c7e3, go-bug-pass. Original receipt SHA256 2f0bcfff2808c547a18d2186d3d2e7de6ef607b5bb48419c5b58761d2987c085 remains unchanged. Parent retains landing.
