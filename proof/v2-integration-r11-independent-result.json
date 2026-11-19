@@ -1,0 +1,37 @@
+{
+  "head": "37d5b595fef266131b71f00fed92c3a4ca59401a",
+  "tree": "93ff9ca9cc542dfbc5f9fec8cdd5ebee6f4113d5",
+  "verdict": "INDEPENDENT_SCOPED_AGGREGATE_ACCEPTED; parent accepted for exact-head follow-up PR; landing remains parent-owned",
+  "independent_report_sha256": "14c83389bfaee86dc91174f6c1df978d5e0df2c5338141cf907e19a560eb4cf6",
+  "fresh_components": {
+    "A11": "Independent build audit fc21b1eb224790e4a4d5e415753c91b414e1d0ff10021007062e4c6c2c6b3cfb; build/deinit/policy pass, same five artifacts bound all native components",
+    "VPHONE": "Two methods once PASS; all target row pixels/own AX identity/text/full native frame independently reviewed; separate strict three-event trace, zero Start/replay",
+    "VSE": "Two methods once PASS; all target row pixels/own AX identity/text/full native frame independently reviewed; separate strict three-event trace, zero Start/replay",
+    "TBOOKMARK": "One method once PASS; native header pan/tap and Done return with follow=0. Screenshot explicitly shows unsupported archive-content sheet. HEADER interaction only, not archive-content acceptance"
+  },
+  "images": "All 21 original PNG independently viewed: 14 target rows, six checked-control pictures, one unsupported archive sheet. No clipped-neighbor/heading/whole-page credit.",
+  "actual_pan_counts": {
+    "phone_readable_targets": 12,
+    "SE_readable_targets": 15,
+    "per_row_maximum": 8,
+    "saved_plus_proposed_actual_phone": 8,
+    "saved_plus_proposed_actual_SE": 9,
+    "saved_plus_proposed_maximum": 16,
+    "five_target_maximum": 40,
+    "selection_pans_actual_each_device": 0,
+    "selection_maximum": 4
+  },
+  "carry": {
+    "D": "Complete 416-input identity carry to accepted 2b6406171/f4580d01461f8a7c946bb73bb86100f99f0cd9cb10c66e3b34f9c6e1e62d6bab: 43 methods/62 expanded/25 checkpoints and unchanged coverage floors. Not a new D/P2 run.",
+    "single_Large": "Accepted 7e97563d/81b16e44c654df17b3adfb64a75086dd223140063b2190359be6abca82bd8948 by explicit unchanged semantic/product/helper identity. No fresh Large at37d5.",
+    "four_SE_controls": "Ordinary success and missing-Start at af714fd3/se-r1 (original strict3P2F); lost Apply and Start at2b6406171/se-r2 (original strict2P1F). Historical individual observations only, not fresh-five/current-copy geometry or repaired batches."
+  },
+  "cleanup": "All closed owned process groups and simulator UUIDs independently absent; original BootedAfter empty; true after-FIFO bounds independently checked.",
+  "limitations": [
+    "All prior strict failures, setup stop and old capture5be49409 remain unchanged",
+    "Runtime watch was record-only with256MiB flag/zero growth, not active64MiB stop; admission10s64MiB guard passed",
+    "Synthetic fixtures and decoded production IO-seam observations are not real desktop, installed-host, wire-byte, physical-device, VoiceOver, archive-content or full-security assurance",
+    "Partially obscured historical heading is outside single-Large readability claim",
+    "Source/current-main/tree parity must be refreshed before PR; no landing/release authorization inferred from this audit"
+  ]
+}
