@@ -1,0 +1,3 @@
+# Native logging-only head re-pin — unrun
+
+Same reviewed native plan as r5; only source/test logging pin, P2 predecessor, private root/name and actual cross-packet mock filename/hash re-pinned. Product/app/UI/hosted input closure byte-identical5a→043, five methods/order949b/verifierc83d/13preview5Apply3Start0replay/full guards/budgets unchanged. Mock reads ACTUAL r6 order/selectors/V2counts/no legacy fixture_counts and all9 pure probes PASS. No native or compiler credit; actual40/58 P2 originals including19 boundary proof records must independently pass before fresh A/phone/SE. All separate native originals/visual/cancel/local-review/unknown/trace/cleanup gates remain.
