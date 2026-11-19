@@ -1,0 +1,273 @@
+Exported 3 attachments for: CompanionCompactComposerUITests/testCircleMenuAccessibilityXXXL():
+File: 4BD740C0-8885-44C6-BD00-2DA388E6A1C9.png, suggested name: "Compact composer effort choices XXXL_0_C91ACD12-515C-4823-BB06-5615F06DB9B3.png"
+File: AA8A3715-6317-401F-80BF-02D6D626572F.png, suggested name: "Compact composer native controls menu XXXL_0_9308FAFB-3844-4925-9C5C-64FD013575F6.png"
+File: 7B02DF80-1B89-4EDA-B1D5-F674A7AC4350.png, suggested name: "Compact composer circle XXXL_0_CB2B46A2-6A43-4BDF-AE57-8AB71F994B3A.png"
+
+Exported 3 attachments for: CompanionCompactComposerUITests/testCircleMenuDark():
+File: 386262E5-B020-4161-99CF-547062D5218F.png, suggested name: "Compact composer effort choices dark_0_1CD0F91F-0169-47B7-B7D3-487FD7CD0477.png"
+File: 0C4EB25F-7B6A-4911-971E-5C5E1C6E2D73.png, suggested name: "Compact composer native controls menu dark_0_A9889182-92C9-4FBE-971A-B5589CC07B4A.png"
+File: 7AA50F06-3112-4BA7-8034-E63BC38E8027.png, suggested name: "Compact composer circle dark_0_554DEC5D-4F0A-496E-AB45-B0B549E330BC.png"
+
+Exported 3 attachments for: CompanionCompactComposerUITests/testCircleMenuLight():
+File: 848A1D54-935A-44E0-835F-EE7BEF00C9E2.png, suggested name: "Compact composer effort choices light_0_D4842596-D39C-4A5B-9E28-1A64EB58ADDC.png"
+File: E68F90C1-ECEE-4441-88EE-6462DF0A7CA1.png, suggested name: "Compact composer native controls menu light_0_E8C1222B-73C3-44D0-A33F-71C85E492985.png"
+File: 14312E6E-BA79-4026-ADEE-925B4C9C5E07.png, suggested name: "Compact composer circle light_0_A05A195B-9121-4602-A62F-0B9105CCF7C6.png"
+
+Exported 2 attachments for: CompanionCompactComposerUITests/testDarkModeDraftTextAndKeyboardStayDark():
+File: 8DC0B576-72F4-472B-A45D-387EEBC49076.png, suggested name: "Compact composer dark mode typed draft_0_BBCDC649-79B9-4C7F-9480-37AC0F0DE02E.png"
+File: 8D31CBAD-ACA0-42C4-9697-78A82CE36F37.png, suggested name: "Compact composer dark mode empty prompt_0_2A271A6B-6DEC-4966-B205-CEEA41C776EF.png"
+
+Skipped export for CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays(): no matching attachments
+
+Exported 4 attachments for: CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry():
+File: 8C928526-F26A-4D61-8358-D615BFB5F216.txt, suggested name: "Compact composer geometry forced --companion-ui-test-force-review-only_0_90EC53EF-5CB6-47F4-AEBD-AD36BE766C96.txt"
+File: 17AA3BE0-6AF1-4CB3-956A-B30466434509.png, suggested name: "Compact composer forced --companion-ui-test-force-review-only_0_F9B2F524-45DB-47FF-8961-EF151EA985D2.png"
+File: 27DB1C47-8B1D-43DC-981E-0661105939E5.txt, suggested name: "Compact composer geometry forced --companion-ui-test-force-full-rows_0_C3177EA4-F0EE-450A-B10C-093308AB473B.txt"
+File: FC4DB9F4-C174-4AC0-B04F-8AAD5261A0A3.png, suggested name: "Compact composer forced --companion-ui-test-force-full-rows_0_7C5DE25F-7A82-4740-9165-DE797EFF7919.png"
+
+Exported 4 attachments for: CompanionCompactComposerUITests/testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor():
+File: 3DC5964D-558B-457C-960D-7C829A08DC3B.txt, suggested name: "Compact composer geometry grant footer minimum floor fits_0_A8711FCB-1D37-48EB-B7BB-2B7D3B0ACEC5.txt"
+File: 014D5E12-35EE-4A45-87FD-5E667A4102E6.png, suggested name: "Compact composer grant footer minimum floor fits_0_019C91D2-A17F-4ADB-AF51-E0BE039CA186.png"
+File: E38258C2-4E56-45AC-830D-38D111A5D7B4.txt, suggested name: "Compact composer geometry grant footer minimum floor before scroll_0_A318BAB3-0739-48D3-9BDB-D6791797B24B.txt"
+File: 55A90580-0A3F-4E51-B6EA-17F0EA621068.png, suggested name: "Compact composer grant footer minimum floor before scroll_0_44453F03-441E-4BC8-9EB5-871DD1D27CB4.png"
+
+Exported 4 attachments for: CompanionCompactComposerUITests/testIdleControlsStayCollapsedBeforeAndAfterTyping():
+File: E238D5F3-DD2C-49CD-8116-43A5B840B0D6.txt, suggested name: "Compact composer geometry idle typed focused_0_ACFD58D3-20EA-47BA-A68D-B870C37F8B71.txt"
+File: 8AE9AD5F-76A2-4640-A82E-F54CAE899717.png, suggested name: "Compact composer idle typed focused_0_D7C4E497-2CBC-424B-9FBD-AB5A77A54F1D.png"
+File: 592776DE-50ED-463A-8E59-DD2778C186DA.txt, suggested name: "Compact composer geometry idle empty unfocused_0_19034E6A-DABE-4015-87A6-E9051C892574.txt"
+File: F696426E-16C2-449B-872F-2DA17251CB40.png, suggested name: "Compact composer idle empty unfocused_0_B72787D9-76B6-4B19-80A5-C3F599F2A447.png"
+
+Exported 13 attachments for: CompanionCompactComposerUITests/testLargestTextWorkingAttachmentRowFits():
+File: 1B91622A-A848-4CBE-A0E3-8DB74A374AE1.txt, suggested name: "Compact composer geometry working typed unfocused_0_36EF6D2D-B45E-43CC-8BB4-0AF6BB341D87.txt"
+File: F2A6E1C7-EC38-4140-8626-79BA6267893A.png, suggested name: "Compact composer working typed unfocused_0_FBE237BE-C0E3-4534-9211-E76318BA83F8.png"
+File: 20D50221-4FA7-4A11-ACBA-B5E477FACA43.png, suggested name: "Compact composer Interrupt confirmation largest true_0_01BD76A5-4F45-4BF1-BDF8-383101011CE5.png"
+File: 23A5B676-3834-4DCA-B20F-C6D2C8842774.png, suggested name: "Compact composer approval review Deny, editing true_0_1A9EF55C-FC99-48CC-8325-FE1671F98C26.png"
+File: B26D5935-573D-477C-930B-2B33F9171D62.png, suggested name: "Compact composer approval review Allow once, editing true_0_FF1AB296-F3CB-477C-BE05-317D466409ED.png"
+File: 3C324523-BF2B-446B-AD01-DACD2BC6A59D.txt, suggested name: "Compact composer geometry working typed focused_0_3F5DFB36-AB59-4EEA-99DE-40347BEC503C.txt"
+File: A4A529B4-9E10-4CF5-92D1-4003E3AE7DAC.png, suggested name: "Compact composer working typed focused_0_ACD75D7D-8D1D-4F8D-86CC-35C0BBD4A5A0.png"
+File: D9FD16B2-8922-4EFB-96DC-5EE74EE783F0.txt, suggested name: "Compact composer geometry working image-only unfocused_0_98A87884-7F82-4E86-A76D-7B630F073C2A.txt"
+File: 2A8EE6E4-9C3F-4897-9844-06287A00904E.png, suggested name: "Compact composer working image-only unfocused_0_031659A8-0304-4C72-AEAF-0E41E73F42AD.png"
+File: A2EA08BB-CB24-4A26-ACEA-334C67DFD2E9.png, suggested name: "Compact composer approval review Deny, editing false_0_58E59C28-6F05-4B7D-BDD3-588D20D773D1.png"
+File: C8757648-646D-42B9-9D81-8E7A81D5BE75.png, suggested name: "Compact composer approval review Allow once, editing false_0_3F0F5318-3069-4C69-99B4-2C2C0A009487.png"
+File: EF51D007-0765-4F12-AE55-B8F8CB7F7E61.txt, suggested name: "Compact composer geometry working empty unfocused_0_1B79C0D8-1005-4AAE-BC6E-84AD3928A21D.txt"
+File: 77894328-1F3F-4EAD-91B0-B91B00675E58.png, suggested name: "Compact composer working empty unfocused_0_FD5CB7E2-BB34-4142-8105-E8851515F6FA.png"
+
+Exported 2 attachments for: CompanionCompactComposerUITests/testLightModeDraftPromptAndTextStayReadable():
+File: 923EFF89-A580-444F-8332-61BC4A291033.png, suggested name: "Compact composer light mode typed draft_0_8FE46237-64D5-4E8D-9AE7-E1DB2425ED90.png"
+File: AFDBFB97-8638-4A07-8487-26CE65040AAD.png, suggested name: "Compact composer light mode empty prompt_0_5250FA44-7B59-479E-959B-FD4EC5480DEC.png"
+
+Exported 29 attachments for: CompanionCompactComposerUITests/testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit():
+File: 3520F129-9FFF-45B5-81C6-D7C79F797314.txt, suggested name: "Compact composer geometry ordinary after Cancel_0_9C665D12-09D9-4B23-9CC9-767CA4B4A0C4.txt"
+File: CCA5D4C1-79B8-4825-991D-6A17344FA693.png, suggested name: "Compact composer ordinary after Cancel_0_622E682C-AF7A-414D-AD63-DB509242F5CB.png"
+File: E5D5A8ED-F68B-489D-A3E7-C09337FE17D4.png, suggested name: "Compact composer ordinary long draft confirmation_0_912F630F-F35A-4BD1-A365-6048ECD581B2.png"
+File: A4D2B741-88C8-4EA7-B15A-1500219A18F2.txt, suggested name: "Compact composer geometry ordinary after Options_0_7C4C30A2-2EAE-49EF-B1D9-BCEA162E662E.txt"
+File: CA360909-28D9-4ED3-AEE6-75681BD11163.png, suggested name: "Compact composer ordinary after Options_0_410171AC-7134-4726-A62F-024856726AE0.png"
+File: 180B681F-7EA1-4DA0-A284-AB8993ADC4E8.txt, suggested name: "Compact composer geometry ordinary 8 lines_0_82678FE5-69AF-4B8F-A5BC-51AE77935712.txt"
+File: D068DACC-3558-4B01-9573-A980EAC85D4F.png, suggested name: "Compact composer ordinary 8 lines_0_44E2BFA0-0EE0-40A7-BE4D-207E3A440452.png"
+File: 71E9ABAC-ADAA-4496-97A3-73B81544309E.txt, suggested name: "Compact composer geometry ordinary 8 lines before growth check_0_11C7AFB6-67E3-4645-99B7-B2AF51183D93.txt"
+File: AC07F699-C18D-4B55-96D1-4CC3375D8D72.txt, suggested name: "Compact composer geometry ordinary 7 lines_0_36A91CC3-D1AA-4527-AFA0-FBE4DDDD8A33.txt"
+File: E6C22193-E712-48FF-812C-B2DB51CB885D.png, suggested name: "Compact composer ordinary 7 lines_0_CE6BB73B-FD6F-49E9-A4E5-94FCD00457EF.png"
+File: 5558B185-CBBE-44D6-8393-C07D39686DC9.txt, suggested name: "Compact composer geometry ordinary 7 lines before growth check_0_621E4C1B-F1EF-439A-9119-503896BAFC64.txt"
+File: 286B81F2-4A34-4993-A7F2-D9A1EFF5253A.txt, suggested name: "Compact composer geometry ordinary 6 lines_0_46D4DAFA-32AC-4CF5-9CC4-8B4E34DD06CF.txt"
+File: 8C744FEC-9CE9-417F-86AD-6B9C82CD2B05.png, suggested name: "Compact composer ordinary 6 lines_0_4239C1E4-389A-4507-96C3-CA76E489A112.png"
+File: 3B0B1E2F-DDB1-466E-A2FB-F964522582CC.txt, suggested name: "Compact composer geometry ordinary 6 lines before growth check_0_FADC4A61-A9C4-404E-A255-55EC60195E59.txt"
+File: EFE18350-E660-49E8-B2A1-4C11AF41BE4C.txt, suggested name: "Compact composer geometry ordinary 5 lines_0_80A3D0C5-F291-4ACE-A0A6-5BEC37D82313.txt"
+File: 55AFCF1F-2318-4353-B91B-FE4BE7251900.png, suggested name: "Compact composer ordinary 5 lines_0_8C261A1A-1086-4D17-A134-EDC4B835E44B.png"
+File: 804C8504-68CD-4E43-9A86-55AA6528917C.txt, suggested name: "Compact composer geometry ordinary 5 lines before growth check_0_63F19108-8FEE-49CA-A89E-767E94670FC4.txt"
+File: 20994167-4FE3-4416-97BD-02E48D2FB970.txt, suggested name: "Compact composer geometry ordinary 4 lines_0_0902E4BB-188C-44D4-AB94-395A9904F4C7.txt"
+File: DD9D4FF0-54FD-441C-A276-B9E35672AC22.png, suggested name: "Compact composer ordinary 4 lines_0_7E623D09-0019-4C48-8170-902D226B79C4.png"
+File: EE396DFC-5CA4-4AF6-93D7-EFC1F2D2B566.txt, suggested name: "Compact composer geometry ordinary 4 lines before growth check_0_3B10D71B-4AEF-4ED8-8770-81D248729F90.txt"
+File: 0A8EE8C5-94FA-435E-8F99-F5D3A7C4B824.txt, suggested name: "Compact composer geometry ordinary 3 lines_0_AB1ABCC6-2F4D-437F-BC9D-7E8DF679175A.txt"
+File: BEBF11D3-3BC4-4AEF-A927-4324D09E0F42.png, suggested name: "Compact composer ordinary 3 lines_0_47958823-6D33-4DDC-9692-FD8B99A3CEF3.png"
+File: 7F11B2C7-307C-48BC-BE82-39F046AA8734.txt, suggested name: "Compact composer geometry ordinary 3 lines before growth check_0_A6BA8842-1D2A-41E4-8318-5B90F578B2A1.txt"
+File: 2C524CD7-0FC4-4B61-833A-FE012D79D88A.txt, suggested name: "Compact composer geometry ordinary 2 lines_0_9EF4D512-99A4-473C-9CF9-C5F66C2CDAB0.txt"
+File: 5A554B21-73AF-42C9-A4E5-0641544641F7.png, suggested name: "Compact composer ordinary 2 lines_0_FB74B40A-3FA7-43FD-B9EA-446820EC7ED3.png"
+File: 76937A3D-6668-4FA4-A470-2FE70579C53F.txt, suggested name: "Compact composer geometry ordinary 2 lines before growth check_0_11FFCD79-1251-4E83-BB84-C1E8A87BCED4.txt"
+File: 922EC4B5-BCC4-4481-A3D0-02258673DCE1.txt, suggested name: "Compact composer geometry ordinary 1 line_0_E595AB19-8F00-480D-BDA6-DCDB24704A02.txt"
+File: 889DA307-8F9A-4F73-A353-7C489A704195.png, suggested name: "Compact composer ordinary 1 line_0_95EF2783-E583-4FAC-AFBA-3258164CCB91.png"
+File: 365FC861-1543-470D-9C9B-C6210AC38BF7.txt, suggested name: "Compact composer geometry ordinary 1 line before growth check_0_64940427-B482-4F40-AF40-291341B30D0E.txt"
+
+Exported 8 attachments for: CompanionCompactComposerUITests/testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit():
+File: 6D6F9B78-E42B-4698-8D1F-35C143083701.txt, suggested name: "Compact composer geometry ordinary after Cancel_0_F474F0D1-CCFE-4547-9812-F9BF86393469.txt"
+File: 5B4A0BAE-E1B4-4D68-BE75-C60696073D90.png, suggested name: "Compact composer ordinary after Cancel_0_7D444ECB-64A9-40B7-B3FC-E8FF9382A684.png"
+File: ABFC447E-C917-40D0-A0DB-C34FC03F5EE4.png, suggested name: "Compact composer ordinary long draft confirmation_0_00D0C399-CFFC-440A-9449-7CF0C498947E.png"
+File: 54107DB1-E6E4-4990-9C59-EEB717A80A74.txt, suggested name: "Compact composer geometry ordinary after Options_0_BA80C5FD-80BA-4A80-9284-1E358EB79D86.txt"
+File: F14F2C28-EEC6-4410-B10C-6A77D20D9F7F.png, suggested name: "Compact composer ordinary after Options_0_E3A70E1F-ADCE-4D73-BCDE-42E49BA8990F.png"
+File: 3228D46C-9C5C-42A9-8FF0-7D0F4FA223A0.txt, suggested name: "Compact composer geometry ordinary soft wrapped_0_4F34559E-A59B-4AB0-B441-2FCE0106F8D9.txt"
+File: 4CEA56A9-78D0-45DB-A00C-DF2503F23456.png, suggested name: "Compact composer ordinary soft wrapped_0_9D16AD20-31D1-453D-AB61-D037BB5772B2.png"
+File: DA4A5B80-CDC8-4F18-9A36-7CC85BE49DB8.txt, suggested name: "Compact composer geometry ordinary soft wrapped before growth check_0_0D029DF0-D05A-4F49-8FCD-7878F9CB5F67.txt"
+
+Exported 4 attachments for: CompanionCompactComposerUITests/testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard():
+File: 079AA63E-48DE-4A85-A004-9ADB4376A45C.txt, suggested name: "Compact composer geometry pending grant after Review_0_F2ADEBAE-A3C3-4F24-86E7-BCBEA4E1E46D.txt"
+File: 9FC7DEF4-93E4-4A50-8CED-A037087E01EB.png, suggested name: "Compact composer pending grant after Review_0_1E8C39FE-4772-4220-AFFA-08668C6F5B04.png"
+File: 75A7A01A-EC11-4392-B144-3A27FE579AD9.txt, suggested name: "Compact composer geometry pending grant eight lines_0_2A57A8BC-6983-4EE9-86C3-9E71E96ABF69.txt"
+File: BB4B4294-1371-4ACE-AFEB-9D89F3A9FD6E.png, suggested name: "Compact composer pending grant eight lines_0_F53D85FE-94DB-4BF6-BF0D-16E778502653.png"
+
+Exported 9 attachments for: CompanionCompactComposerUITests/testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation():
+File: 93774C49-0177-4E26-84C6-2D6A19E21667.txt, suggested name: "Compact composer geometry working typed unfocused_0_D9A8B80E-6CEA-4368-B441-ED66839B2529.txt"
+File: 4C6C52DD-7B41-448F-B022-B350ECDFA5DD.png, suggested name: "Compact composer working typed unfocused_0_16C1D2C2-D280-465F-BF2E-D5785417CFA6.png"
+File: 8185D79E-45C0-435A-8107-95A78ED87D15.png, suggested name: "Compact composer Interrupt confirmation largest false_0_E226E492-60ED-478C-80FB-B956C0768F1D.png"
+File: BE1D5699-ABD6-4221-876F-83A73B25EF17.txt, suggested name: "Compact composer geometry working typed focused_0_841A9B46-BDA8-4239-B31B-8DF150A7A685.txt"
+File: 5DC6AE63-E6EF-49D3-86D4-3D66285CDB67.png, suggested name: "Compact composer working typed focused_0_31574817-7816-4818-B449-4C2A15A5106B.png"
+File: 69752873-D00A-4F7E-9C0E-F8B3807B20F2.txt, suggested name: "Compact composer geometry working image-only unfocused_0_1A1802EA-9723-4B8E-8837-BBF0DCB4DD8F.txt"
+File: 992A0FF4-0EB4-479F-A94B-7F7710ECACDC.png, suggested name: "Compact composer working image-only unfocused_0_1FEDB5E3-01BA-41DD-93B3-0426C0BF5540.png"
+File: F863E333-35F4-4B82-91CF-977FCA2E6043.txt, suggested name: "Compact composer geometry working empty unfocused_0_27D58277-B066-400E-894F-6858D576BE29.txt"
+File: 7B2DC0AC-F542-42F8-BF90-E84D9F15F516.png, suggested name: "Compact composer working empty unfocused_0_EA6F8BEA-387C-467B-A310-30DFA72D4CFB.png"
+
+Exported 10 attachments for: CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt():
+File: 8E5FCC4E-3655-4A54-8D16-BDEE53A991AB.png, suggested name: "Footer surface dark after tap dismissal_0_EA7D2839-33E0-4F26-91E4-7B48BBA27672.png"
+File: 638C18E4-EBB9-45F2-9CB7-9B38F1BFCF79.png, suggested name: "Footer final line dark after tap dismissal_0_DBC62343-F2BE-45A2-A402-295A43781988.png"
+File: AA9D5406-7D05-49B1-B442-FD47D3DC2E07.png, suggested name: "Footer surface dark after drag dismissal_0_5BFE6D3F-B14E-4006-9033-1ECA6552FAC5.png"
+File: B80702B1-9972-48EA-847E-B7D99CBA77A4.png, suggested name: "Footer final line dark after drag dismissal_0_B99CD3D9-6AD9-4EF1-BB6C-C9E8903B761B.png"
+File: B8469014-C14B-44BF-86A9-6117B8557DA1.png, suggested name: "Footer surface dark keyboard up, content under footer_0_2184D132-8364-4B4A-B1CB-58D349D623DC.png"
+File: 3C0E75C1-7F89-4C95-BC03-2CCCD675986C.png, suggested name: "Footer surface dark keyboard up_0_645AADB0-8935-49B5-A0AD-986AFE1CAE4F.png"
+File: EB9B9D68-6E74-4934-948A-ACEC15D65F68.png, suggested name: "Footer final line dark keyboard up_0_0539F522-9C48-4ECE-84D1-37D7247912F5.png"
+File: 74583E0C-4166-4208-B9F8-FFFC7E39667D.png, suggested name: "Footer surface dark keyboard down, content under footer_0_60D1A3D2-6D3D-41E4-9D02-3F840E455BF2.png"
+File: 39FD3108-48BF-4667-8307-89AD0C7DBEB0.png, suggested name: "Footer surface dark keyboard down_0_88E1C345-29BA-4908-A3B6-57FC81843C7A.png"
+File: 1AC385FE-AEDC-48C7-B496-612023CAA2AB.png, suggested name: "Footer final line dark keyboard down_0_51CD061C-17BF-4E47-B76D-BCF76EB59DB5.png"
+
+Exported 10 attachments for: CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt():
+File: 790918FF-B604-4315-AAF4-AF6474A1450F.png, suggested name: "Footer surface light after tap dismissal_0_F9BFA097-32F7-4150-806D-0A049B47484F.png"
+File: 0FBA2FF9-384E-4AAA-9F47-B001462E0E33.png, suggested name: "Footer final line light after tap dismissal_0_7F9FA521-FF23-45C1-BEB9-578315AD9F69.png"
+File: 0C1E65BE-78A7-4BF0-912B-1B1F846DC57B.png, suggested name: "Footer surface light after drag dismissal_0_839C843D-037F-4B06-B833-D1660177B8DA.png"
+File: 9B201808-5ACC-4F39-9A8A-80FA6EBAE6C3.png, suggested name: "Footer final line light after drag dismissal_0_D116D349-101B-4DBD-8F4D-E45186B481C2.png"
+File: 285F51A3-87D4-43A5-8907-59E828D83B82.png, suggested name: "Footer surface light keyboard up, content under footer_0_6682808E-CEFB-4EFC-AE3F-40E1BC6D9F1C.png"
+File: A4A72D68-A53C-43AC-B200-72BD4CA60220.png, suggested name: "Footer surface light keyboard up_0_10D2C6D6-F919-41DD-AC5B-2F08088C5960.png"
+File: 2B2CA6B2-34DE-4F15-8DAF-5DF85E0CEEC3.png, suggested name: "Footer final line light keyboard up_0_9068D368-236E-4088-93FC-509813077F93.png"
+File: C718A5D1-0055-4865-A8F6-2CE266002CF7.png, suggested name: "Footer surface light keyboard down, content under footer_0_13841740-EAF8-497B-A603-59F501A430EF.png"
+File: AC658AB6-9DB1-4F4A-B1BB-FE369E2583E4.png, suggested name: "Footer surface light keyboard down_0_B926720C-B320-4B84-B983-2B1DB82DD29C.png"
+File: 5050D857-5748-41A2-8ED9-11C05BC8A52D.png, suggested name: "Footer final line light keyboard down_0_80E45182-6459-4F80-83B5-DF9E7984CDF3.png"
+
+Exported 2 attachments for: CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark():
+File: 6236C1A9-9CAB-4835-9B8A-B159E4D618CE.png, suggested name: "Footer surface --companion-preview-dark overflow footer, keyboard up_0_78FC6106-95C9-429B-B1D2-A9B49BCD600A.png"
+File: BCA0AFDD-6BA9-413A-93BB-583A31B5776F.png, suggested name: "Footer surface --companion-preview-light overflow footer, keyboard up_0_764CFCEF-C339-4B0E-85E4-60FB461F5D8F.png"
+
+Exported 4 attachments for: CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark():
+File: 8FD1FB17-272D-480B-9B62-CF41735676B3.png, suggested name: "Footer surface --companion-preview-dark pending, keyboard up_0_436AD288-7263-448C-9B70-8DD4509AB3E5.png"
+File: 19F38F7E-E96F-47FD-9D8B-BB0D2BB1F63A.png, suggested name: "Footer surface --companion-preview-dark pending, keyboard down_0_10417438-EEA8-464C-8FB3-600BED05A0E0.png"
+File: 5D8CE9F7-B826-4A32-887A-1CD1F4C7A021.png, suggested name: "Footer surface --companion-preview-light pending, keyboard up_0_16061F29-0E74-4D67-8792-AB23B4781495.png"
+File: 53077E6F-2B69-4499-9E2C-BBD2E938CFD0.png, suggested name: "Footer surface --companion-preview-light pending, keyboard down_0_EDBC655B-0577-4CFC-AE51-03777761C890.png"
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testAccessibilityDecisionBar():
+File: 0564D27C-B88B-4B08-943F-B0C8666C26E2.png, suggested name: "Decision bar — accessibility XXXL_0_18BBB494-C6F8-48E0-B74B-23EF3E44BF68.png"
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow():
+File: 6A22E562-56B7-4B6D-8700-1BFAA2CD65BB.png, suggested name: "After approval stays pinned after 30 streaming tool updates_0_FF5C7D8A-4A19-4D91-9C86-D9C68BB7E107.png"
+
+Skipped export for CompanionPinnedDecisionUITests/testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation(): no matching attachments
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testDarkDecisionBar():
+File: 885A70D7-D192-47F2-8E74-9E7E8ED95D2D.png, suggested name: "Decision bar — dark_0_629F4E13-55E3-4DD9-A94B-5A9E849F76A0.png"
+
+Skipped export for CompanionPinnedDecisionUITests/testIncompleteRequestDisablesAllowButKeepsDenyAvailable(): no matching attachments
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones():
+File: CE2EE3B6-C4D8-4F4A-B794-36783A2A4F65.png, suggested name: "Small phone pending approval above composer and keyboard_0_0888DC9B-8A5B-4489-AEAB-55AFBB2D82C1.png"
+File: 0BD5C32A-6489-425C-B62F-92FC58456A2B.png, suggested name: "Roomy expanded tray before keyboard_0_B7E91BD8-C53B-4F14-B16A-412392B921FD.png"
+
+Exported 5 attachments for: CompanionPinnedDecisionUITests/testLandscapeAndAX5KeepReviewContextAndDecisionsReachable():
+File: 75A71DC6-3BDD-42C7-B956-46A65C084AEC.png, suggested name: "AX5 landscape scrollable approval decisions_0_8D5B4D3B-2803-49FE-A9FA-D84252065A31.png"
+File: 12028080-C83E-496B-94F6-4DD375243E74.png, suggested name: "Native Review menu before ONE measured touch_0_F820A888-F65E-422E-B11F-38F325E3CCF4.png"
+File: 6525AF8E-75C9-4D33-A709-AF328292F0EA.txt, suggested name: "Native Review readiness before ONE measured touch_0_69967BC4-09E5-4169-99B4-A4B2098F33BD.txt"
+File: 0308E928-359E-46E6-9341-AD98A7DD56ED.png, suggested name: "AX5 landscape pending bar and composer containment_0_C7733F82-7D7E-4351-8B26-0E9145766B0B.png"
+File: 948816EF-7FA7-4A3F-A238-5A2880AECD11.png, suggested name: "AX5 bounded pending request and composer_0_B0BACAE6-ABA0-459E-9E6C-D165605498D6.png"
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testLatteDecisionBar():
+File: 94AB5A52-4414-4FFE-860F-4E549B71F06D.png, suggested name: "Decision bar — Catppuccin Latte_0_F33FA55D-6248-43B7-88DF-015A84269B64.png"
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testLightDecisionBar():
+File: F0616CFF-B659-4205-A046-AD7F7AF383F7.png, suggested name: "Decision bar — light_0_07F806C0-B42D-4EB9-A4A8-A857B4258AE4.png"
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testMochaDecisionBar():
+File: D97CDF14-3BF7-4786-9962-9D94232E5962.png, suggested name: "Decision bar — Catppuccin Mocha_0_9A484A43-250C-4215-B25A-CDCD4E8DED8A.png"
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch():
+File: 6A34600F-FBBC-4596-9957-A7E7A808C4DA.png, suggested name: "Stable native Review menu before ONE touch_0_7890358F-737A-42C4-B11B-FDBD88DE2300.png"
+File: BDFD0B13-A09A-41B3-8AA9-2B8227025781.txt, suggested name: "Native Review finite unchanged frames across two former ticks_0_6AA22497-1FE4-4244-9033-CEBEDE5F3079.txt"
+
+Skipped export for CompanionPinnedDecisionUITests/testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState(): no matching attachments
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard():
+File: F8F3DE2C-6556-4300-B6DF-828FE6B7D86C.png, suggested name: "Request arrived while typing_0_DEB4332B-28E9-48B8-8CBF-EEEDF432DEB6.png"
+File: 15DCFEC5-0D1F-4507-90D3-6F35F8F90D92.txt, suggested name: "Tray state per activity tick_0_C60D5D34-259A-4C97-898C-F7F2405B6376.txt"
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard():
+File: 35063E8F-DEFA-4E59-9528-789C4C2AD9D4.png, suggested name: "Request arrived while typing_0_1202023E-6444-429A-BBDE-723E559A18DB.png"
+File: 66C7A7C9-CBFB-473A-9BB8-8DB289639B6D.txt, suggested name: "Tray state per activity tick_0_C37EE069-E208-4434-9A85-5B8E4034E245.txt"
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray():
+File: F4421686-68D7-4725-8632-7E3D6EA3A1F0.png, suggested name: "Request arrived while typing_0_C6742707-A831-4651-BBD7-73556452F8F9.png"
+File: 37C530D3-3741-4EF1-B1AE-2CB4D574151A.txt, suggested name: "Tray state per activity tick_0_5BAE9EE1-CAEC-4373-9DCC-D1D951601BB5.txt"
+
+Exported 1 attachment for: CompanionPinnedDecisionUITests/testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow():
+File: 83C58980-1F4F-4BEC-8A98-22C2A63AAA9D.png, suggested name: "Show in chat original request and pinned decisions_0_E6952618-E764-4C08-A8C0-921B4D8F5E78.png"
+
+Exported 3 attachments for: CompanionPinnedDecisionUITests/testSwipesAndTitleTapsNeverSendADecision():
+File: 53272AB2-BCFB-406C-8BD4-73DD6C2BBFC0.png, suggested name: "Swipe selection and title jump send no decision_0_1565746E-30C7-42C6-AC13-4B9446E06DB6.png"
+File: E260E5EB-CBD6-4526-9EB9-BF0F87CBC10E.png, suggested name: "Native Review menu before ONE measured touch_0_0E4468F2-DA7E-48D6-8817-5E54FBF7B8E3.png"
+File: A0B58443-4271-4408-A4EC-AD6562674889.txt, suggested name: "Native Review readiness before ONE measured touch_0_037E1777-9E32-4F24-8BFB-839D2F2A5A49.txt"
+
+Exported 1 attachment for: CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible():
+File: B44CF87F-D41F-4DB2-BE35-0DF516C88436.png, suggested name: "Failed tool status remains visible with folded output_0_C44F7F85-06DA-47E6-9B7F-B4F4158DB86A.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact():
+File: D87D6287-EFD0-4893-9FB1-C64F214B56BC.png, suggested name: "Inline helper reply with compact Clubhouse statuses_0_A246A2C6-824F-402B-93BB-BFE2670DC6A7.png"
+
+Exported 5 attachments for: CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry():
+File: DB1A2EC2-1E2A-49A4-A185-42D4056F41A7.png, suggested name: "Reading controls above the composer_0_3EB333A3-C59A-4B7E-92D1-F51953ADD5D0.png"
+File: 0341B52B-8099-4EF6-8655-535483567EE9.png, suggested name: "Chat reopen restoration readiness_0_D33F6379-6A4C-4473-A3C7-8808DBCBFFC1.png"
+File: 65FB2768-F06A-428A-AA0A-D755BEF8DF1D.txt, suggested name: "Chat reopen restoration frame timeline_0_27BC2C4F-7E6B-4447-A8DD-B83421B9BE10.txt"
+File: 2CAD60F7-96C5-41ED-A701-C8CCB85D228F.png, suggested name: "Tab return restoration readiness_0_7D1EC77F-BC8E-4A5B-AD66-75AE5A89D72F.png"
+File: D359794A-7D44-4EE5-945A-B69CC8AB66B6.txt, suggested name: "Tab return restoration frame timeline_0_83138B8C-A11A-4A1D-868E-A2B2F57B0548.txt"
+
+Exported 2 attachments for: CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction():
+File: BAA3C57F-D301-4581-9AE4-3CE1E6DD87CE.png, suggested name: "Last reply Latest action arrives_0_184C7A40-BCC1-445C-9C99-F10D271CD576.png"
+File: B3477BFF-F9D8-4107-BD89-24E60E9A9289.png, suggested name: "Last reply announces Latest before tap_0_D11035DA-2209-443C-AB99-810C4698C559.png"
+
+Exported 3 attachments for: CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate():
+File: 21AB85D3-BB15-4461-A5B7-1BB7899351CB.png, suggested name: "Latest follows explicitly released update_0_F01D1182-8EFA-42A7-8888-5F5C0FE960BA.png"
+File: 1B26C16E-39CE-48E6-9BEC-F60F5A28ED0C.png, suggested name: "Latest immediate stationary arrival_0_7757A23B-A7CD-413C-A738-101A619B6168.png"
+File: 869E85CC-E809-4CB1-B0F4-1AC6275BC427.png, suggested name: "Latest before stationary tap_0_FF24EEF8-A785-4053-8965-76DB5B7A7855.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout():
+File: 7809CA6D-037A-4ECD-A465-E07CE486CC15.png, suggested name: "Latest hidden at the actual bottom with keyboard open_0_7093FBD6-D9DD-4EC7-BFDF-35F601902877.png"
+File: 06CB02E0-3A0F-429B-AE27-653B94825E64.png, suggested name: "Latest offered after a slow tiny upscroll_0_AC5E9E2A-1D60-4CD7-90F5-1FBC7B59E033.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing():
+File: 989F31C1-EC1A-4EFF-BB8D-9A0BC7881F55.png, suggested name: "At actual bottom remains stationary and following_0_86DA1EB1-5DAF-417F-BA77-112503378F53.png"
+File: D6EC1717-312E-4845-AE80-BFED940CBEF7.png, suggested name: "At actual bottom without a floating control_0_FF6F610B-0DCA-4802-BD97-1BE75879D617.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail():
+File: B4D8FA55-A081-4FA3-AFCC-79219F72EBD5.png, suggested name: "Latest follows the streaming tail_0_87FC6F4A-D218-4E7C-89CE-74B0D8D7AFE8.png"
+File: 0C9C59F0-BDE4-40AD-9266-ADDB250739AE.png, suggested name: "Streaming reader has one centered Latest pill_0_356B7A4A-7C71-45A4-9C56-CA37D4A04BCF.png"
+
+Skipped export for CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused(): no matching attachments
+
+Exported 2 attachments for: CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming():
+File: CE23EB6C-3961-43DC-AC87-0298A2A159C3.png, suggested name: "Native top remains with streaming true_0_C45CC59B-AEE2-440E-BFDA-FCA7AC56124A.png"
+File: 5A6D4753-019E-49EB-8813-B52CE9AE2D11.png, suggested name: "Native top remains with streaming false_0_26902F14-2657-4213-8349-7D6DC16C5EFA.png"
+
+Skipped export for CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming(): no matching attachments
+
+Exported 10 attachments for: CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing():
+File: 560866BB-FCA9-4BC4-8A0E-D8C4A8F3DFB3.txt, suggested name: "Rotated landscape with keyboard already open hierarchy_0_96B603B7-9EE8-435C-BB02-7490A93441B5.txt"
+File: 4E39C0D2-C6D4-45B1-8C5E-4A965C476443.png, suggested name: "Rotated landscape with keyboard already open_0_0D0B00F0-3F0E-406F-BEE2-CD9239067125.png"
+File: 77F948FB-B7A9-4458-8783-03529F16F81A.txt, suggested name: "Rotated portrait editing tail hierarchy_0_266FE99B-FBD1-475A-B23A-9AB87ECE31B2.txt"
+File: 24B3E784-DF3A-46F8-8172-9DDED1CC881D.png, suggested name: "Rotated portrait editing tail_0_9D8364D6-CC8B-43F8-AC35-FC245C7066EA.png"
+File: A2FD5112-5507-4E07-9E07-F41B2D2F8081.txt, suggested name: "Rotated landscape editing tail hierarchy_0_258F36A2-D7F4-474D-8080-8AFF3A1A8EF7.txt"
+File: 58FA9009-6F4B-4AA4-B1D0-4327E8BF505E.png, suggested name: "Rotated landscape editing tail_0_054E1672-6716-4330-8429-51C5183ABD40.png"
+File: A33B8879-D087-41D2-BC07-9A73FE518C41.txt, suggested name: "Rotated landscape tail hierarchy_0_FA7E87C8-91BB-463C-B858-FFC763499651.txt"
+File: 01E0B43F-10B0-49BD-BD03-9137311A74FF.png, suggested name: "Rotated landscape tail_0_410FEF2A-F2E3-4636-90E9-85EC3614B1A5.png"
+File: D370F5F1-D6EB-4F59-9312-11C09040D3C0.txt, suggested name: "Portrait tail hierarchy_0_206D9ED5-A789-4A0F-85E9-83E56EC1D4FC.txt"
+File: AAF67063-1452-414F-92E2-9C05D2E4835C.png, suggested name: "Portrait tail_0_C8474FCB-641F-45EA-8DB2-E78220F98CCE.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testRotationPreservesAScrolledUpReader():
+File: 7D2D3EAF-D194-4376-A5E7-A7F46FBEE9F1.png, suggested name: "Scrolled-up reader after landscape rotation_0_77A56060-CD4C-49CF-B749-26525E23515B.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls():
+File: 337B6AD6-0073-409D-B16E-2F6B932FFE35.png, suggested name: "Streaming continues following with no scroll_0_0E48196D-ABBC-4219-AC3B-06E7D72125DC.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming():
+File: A048301D-A029-4A4C-A8B3-83A8511C2FA8.png, suggested name: "User-positioned reply stays under streaming_0_5BD89FD6-6A62-4BDE-BF49-7459A4D79785.png"
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/c50-r1/attachments/manifest.json
