@@ -115,7 +115,10 @@ reads on capability loss and exactly one per project switch. A held-response reg
 then releases the cancelled first B response while the newer B read is pending: it must neither publish
 old options nor finish the newer loading state. The remaining old A response cannot reset the loaded
 name or template selection. The task captures its project ID and cancelled tasks cannot start a read
-or publish options, errors or loading completion. Workspace-and-tools round-trip coverage remains in
+or publish options, errors or loading completion. Try again increments the same task's retry identity,
+not an unstructured task. A second held-response regression starts from a failed B read, retries B,
+switches A-B, and requires the cancelled retry to leave the newer B load and later edits intact.
+Workspace-and-tools round-trip coverage remains in
 `CompanionAgentSheetsTests.testWorkspaceAndToolsPreservesChangesWhenReturningToTheForm`.
 
 ### Linked projects

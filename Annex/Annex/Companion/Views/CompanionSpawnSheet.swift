@@ -24,6 +24,7 @@ struct CompanionSpawnSheet: View {
     @State private var pendingAccess: CompanionPermissionLevel?
     @State private var kind: Kind = .durable
     @State private var durable = DurableForm()
+    @State private var optionsRetry = 0
     @FocusState private var promptFocused: Bool
 
     #if DEBUG
@@ -100,7 +101,9 @@ struct CompanionSpawnSheet: View {
             kind = supportsDurable ? .durable : .quick
             promptFocused = kind == .quick
         }
-        .task(id: durableProject) { [project = durableProject] in await loadOptions(for: project) }
+        .task(id: OptionsReadID(project: durableProject, retry: optionsRetry)) { [project = durableProject] in
+            await loadOptions(for: project)
+        }
         .presentationDetents([.large])
         .onChange(of: store.projectEntries) { reconcileSelection($1) }
     }
@@ -348,6 +351,11 @@ struct CompanionSpawnSheet: View {
     /// The project to read create options for, while the durable form is offered.
     private var durableProject: CompanionProjectTarget? { supportsDurable ? project : nil }
 
+    private struct OptionsReadID: Equatable {
+        let project: CompanionProjectTarget?
+        let retry: Int
+    }
+
     private func loadOptions(for project: CompanionProjectTarget?) async {
         guard !Task.isCancelled, durableProject == project else { return }
         guard let project else { durable = DurableForm(); return }
@@ -371,7 +379,7 @@ struct CompanionSpawnSheet: View {
     }
 
     private func retryOptions() {
-        Task { await loadOptions(for: durableProject) }
+        optionsRetry += 1
     }
 
     private var durableForm: some View {
