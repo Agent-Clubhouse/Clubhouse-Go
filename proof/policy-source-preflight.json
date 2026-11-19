@@ -10,7 +10,8 @@
     "providerApplyStarts": "Set < String >"
   },
   "compiled_app_gate_still_required": true,
-  "head": "1c48f7c8c2021f714141ac0d0aa7b332701cf530",
-  "policy_sha256": "cd91dc6b8c561182f4297f7a869e5afd143754f7d260dfb6c694c20bcf1ba560",
-  "preview_service_sha256": "d3b690ae85c28940e238070b234b4ccc342ba2e501119e73c9cd56c9c8391dce"
+  "head": "760efb1985c12ef180975b65f3a73c42d21aa0f8",
+  "policy_sha256": "acf67b2b194b57d4c92fb4f19798e066871d7df3b03d83ea8be325318bc12a6a",
+  "preview_service_sha256": "6d1b80c3119f2824862fdb58ac2ce8fb4e64befd528989d0686fb99b8e9928e9",
+  "fixture_scope": "DEBUG && canImport(UIKit); same lexical value surface"
 }

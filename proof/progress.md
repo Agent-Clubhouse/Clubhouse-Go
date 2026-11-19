@@ -1,6 +1,6 @@
 # #610 proof progress
 
-Candidate `1c48f7c8c2021f714141ac0d0aa7b332701cf530`, branch `ux-root/provider-apply-610`, base `85ee757ae`. Independent source/UX-authority/value-ownership and executable prebuild review PASS. This is not native/runtime/backend/device acceptance.
+Candidate `760efb1985c12ef180975b65f3a73c42d21aa0f8`, branch `ux-root/provider-apply-610`, base `85ee757ae`. Prior1c48 source/UX-authority/value-ownership and executable prebuild review PASS; final DEBUG/UIKit-only fixture delta is pending narrow independent review before head execution. This is not native/runtime/backend/device acceptance.
 
 ## Completed P0 only
 
