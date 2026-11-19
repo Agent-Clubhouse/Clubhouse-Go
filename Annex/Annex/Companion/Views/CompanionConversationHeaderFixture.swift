@@ -259,7 +259,7 @@ private struct CompanionSendPaletteEvidence: View {
         Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
             .accessibilityElement()
             .accessibilityLabel("Send contrast palette")
-            .accessibilityValue("\(palette.onTint.hex)/\(palette.secondaryLabel.hex)")
+            .accessibilityValue("\(palette.onTint.hex)/\(palette.label.hex)")
             .accessibilityIdentifier("header-fixture-send-palette")
     }
 }

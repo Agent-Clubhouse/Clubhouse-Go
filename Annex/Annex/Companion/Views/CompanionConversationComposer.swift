@@ -593,8 +593,8 @@ private struct CompanionComposerSendButtonStyle: ButtonStyle {
         var body: some View {
             configuration.label
                 .frame(width: 44, height: 44)
-                .foregroundStyle(Color(isEnabled ? palette.onTint : palette.secondaryLabel))
-                // secondaryLabel is contrast-fitted against card, not the native disabled glass fill.
+                // label's higher contrast leaves room for rendered sRGB rounding on the neutral disabled card.
+                .foregroundStyle(Color(isEnabled ? palette.onTint : palette.label))
                 .background(Color(isEnabled ? palette.tint : palette.card), in: Circle())
                 .overlay {
                     Circle().strokeBorder(Color(isEnabled ? palette.tint : palette.separator), lineWidth: 1)
