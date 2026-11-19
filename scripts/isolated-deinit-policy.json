@@ -994,6 +994,21 @@
         "storageMacros": []
       }
     },
+    "CompanionReadingSeed": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Views/CompanionConversationView.swift",
+      "reason": "Immutable CompanionReadingOpening value only (Bool, Int and optional String). Store and target are constructor inputs and are not retained. No callback, task, client, timer, UIKit object or mutable ScrollPosition is owned; StateObject evaluates the constructor lazily once per mounted target.",
+      "surface": {
+        "bases": [
+          "ObservableObject"
+        ],
+        "nestedValueProperties": {},
+        "properties": {
+          "value": "CompanionReadingOpening"
+        },
+        "storageMacros": []
+      }
+    },
     "CompanionProviderV2Flow": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Domain/CompanionProviderV2Flow.swift",
@@ -1171,6 +1186,20 @@
           "producers": {
             "service": "CompanionRecoveryFixtureService ( )"
           }
+        }
+      ]
+    },
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": {
+      "constructor:CompanionStateLifetime": [
+        {
+          "expression": "CompanionStateLifetime { CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) ) }",
+          "producers": {}
+        }
+      ],
+      "constructor:CompanionStore": [
+        {
+          "expression": "CompanionStore ( service : CompanionPreviewService ( showsReadingScenario : true ) )",
+          "producers": {}
         }
       ]
     }

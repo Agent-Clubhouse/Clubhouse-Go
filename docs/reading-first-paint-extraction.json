@@ -1,0 +1,26 @@
+{
+  "source_base": "77b24899",
+  "timeline_transforms": [
+    "timeline -> child.body",
+    "timelineHeader -> header()",
+    "timelineEntry -> entry closure",
+    "isVisible==nil -> !isVisibilityManaged"
+  ],
+  "moved_state": [
+    "followLatest",
+    "atLatest",
+    "readingScrollPosition",
+    "shownEntries",
+    "nextAssistantMessageID",
+    "followPauseCount(DEBUG)",
+    "followSawDeceleration(DEBUG)",
+    "navigationClearance(ScaledMetric)"
+  ],
+  "parent_remaining_uses": {
+    "decisionChatJump": "parent owns request; child consumes the same optional request",
+    "readingBookmark/Viewport": "parent clears geometry on managed visibility=false",
+    "header/entry builders": "parent supplies closures without reading moved State",
+    "dismissComposer": "child invokes parent action"
+  },
+  "reading_helpers_source_sha256": "eef20df7870da3b5baa12bab474af1e76dcf7dda92fb5c5b176f3991c28bc5f0"
+}

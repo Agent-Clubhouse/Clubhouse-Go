@@ -8,6 +8,13 @@ For linked projects, All → Terminal / Wake opens an explicit machine chooser; 
 
 Old hosts without the linked-state contract keep per-machine submenus using the existing single-project state policy: desktop state where available, local preferences otherwise. A migrated group with unavailable authority stays disabled with its connection hint; it never silently falls back to per-copy changes.
 
+Every per-copy callback re-resolves its captured link identity through the same Store resolver as Home,
+even when the current project is no longer linked. A menu captured before unlinking, relinking or
+shared-state migration cannot mutate local preferences or invoke the remote command callback.
+Hosted `CompanionProjectPageVisualTests` calls this exact production action gate with local preference
+mutations and remote callback spies; unchanged single-project and old-host linked menus remain positive
+controls. Native menu presentation and command reachability stay covered by `CompanionProjectPageUITests`.
+
 ## Root integration completed
 
 - #439/#440 adopted shared desktop chips/filtering, row host context, offline placeholders, the retained-run fold, and project-header long press in Home. The header overflow is removed; the name link, disclosure and + remain.
