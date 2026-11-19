@@ -254,7 +254,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(apply.exists && apply.isHittable && pixelContains(app.frame, apply.frame))
         XCTAssertFalse(apply.isEnabled)
         let choice = app.buttons["provider-choice-codex-cli"]
-        tapVisibleProviderControl(choice, in: app)
+        tapVisibleProviderControl(choice, in: app, slowNativePan: largeText)
         XCTAssertTrue(waitFor(apply, NSPredicate(format: "enabled == true"), timeout: 5))
         // Actual selection path: no identifier-search scrolling to make Apply visible.
         XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame))
@@ -282,7 +282,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertTrue(resets.label.contains("model") && resets.label.contains("effort"))
         captureProvider(app, "V2 proposed provider defaults and reset impacts before Apply")
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
-        tapVisibleProviderControl(apply, in: app)
+        tapVisibleProviderControl(apply, in: app, slowNativePan: largeText)
         if mode == "lost-apply" {
             checkV2Unknown(app, link: link, choice: choice)
             XCTAssertFalse(app.buttons["provider-start-new"].exists)
@@ -311,7 +311,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             return
         }
         XCTAssertTrue(start.isEnabled)
-        tapVisibleProviderControl(start, in: app)
+        tapVisibleProviderControl(start, in: app, slowNativePan: largeText)
         let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Start new session", "provider-start-new")).firstMatch
         XCTAssertTrue(confirm.waitForExistence(timeout: 5))
         captureProvider(app, "V2 explicit Start confirmation before cancellation")
@@ -326,7 +326,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper")
         XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "provider-v2-start-evidence").firstMatch.exists)
         captureProvider(app, "V2 Cancel returns to same Juniper without a Start receipt")
-        tapVisibleProviderControl(start, in: app)
+        tapVisibleProviderControl(start, in: app, slowNativePan: largeText)
         XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
         if mode == "lost-start" {
             checkV2Unknown(app, link: link, choice: choice)
@@ -519,7 +519,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
     /// A partially obscured Form row can be reported hittable and tap Back instead.
     /// Reveal the entire control below this sheet's navigation bar, then tap once at its checked center.
-    private func tapVisibleProviderControl(_ control: XCUIElement, in app: XCUIApplication, up: Bool = true) {
+    private func tapVisibleProviderControl(_ control: XCUIElement, in app: XCUIApplication, up: Bool = true,
+                                           slowNativePan: Bool = false) {
         let navigation = app.navigationBars["Provider"]
         XCTAssertTrue(navigation.exists)
         XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
@@ -567,7 +568,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 .withOffset(CGVector(dx: origin.x - app.frame.minX, dy: origin.y - app.frame.minY))
             precedingFrame = frame; precedingDrag = dy
             XCTContext.runActivity(named: "Measured provider scroll \(control.identifier): row \(frame), band \(top)...\(bottom), drag \(dy), response \(observedResponse)") { _ in
-                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+                if slowNativePan {
+                    print("PROVIDER_CONTROL_VELOCITY id=\(control.identifier) velocity=slow initialPress=0.05 endHold=0")
+                    start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)),
+                                withVelocity: .slow, thenHoldForDuration: 0)
+                } else {
+                    start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: dy)))
+                }
             }
         }
         let frame = control.frame
