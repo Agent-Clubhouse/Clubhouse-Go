@@ -1,0 +1,56 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6DCC4DED-4B60-4F67-859C-FF6CB338EDAE",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "A1880DC7-D178-41CA-924B-70EC017AB872.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home after measured step-scroll diagnostic_0_C5246F3B-E312-4C53-B842-1AAB0A9B2AF1.png",
+        "timestamp" : 1795053971.961
+      },
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6DCC4DED-4B60-4F67-859C-FF6CB338EDAE",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "E6EB2EA7-C50D-4C72-B4AE-DC3CA9235987.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Home step-scroll redraw measurement JSON_0_95709C56-1576-4541-8D31-93A4EB3BA23E.json",
+        "timestamp" : 1795053971.899
+      }
+    ],
+    "testIdentifier" : "CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6DCC4DED-4B60-4F67-859C-FF6CB338EDAE",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "FD9B26FF-2FA8-486A-A071-C1C1E48BDD23.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Deep paused opening work JSON_0_269D472B-E8F3-475F-8F45-92877E22B687.json",
+        "timestamp" : 1795053974.329
+      }
+    ],
+    "testIdentifier" : "CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts"
+  },
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "6DCC4DED-4B60-4F67-859C-FF6CB338EDAE",
+        "deviceName" : "ux-582-cpu-main",
+        "exportedFileName" : "C8A3CF6B-4B3A-495E-9496-7CA52277A1ED.json",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Paused streaming conversation work JSON_0_EDA44931-3E46-4BE5-B1A7-EA11D3B95FF1.json",
+        "timestamp" : 1795053977.011
+      }
+    ],
+    "testIdentifier" : "CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork"
+  }
+]

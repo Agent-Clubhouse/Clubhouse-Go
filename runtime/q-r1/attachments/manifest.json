@@ -1,0 +1,17 @@
+[
+  {
+    "attachments" : [
+      {
+        "configurationName" : "Test Scheme Action",
+        "deviceId" : "044AF7D3-A11C-4655-8DCC-7E39DA7F726F",
+        "deviceName" : "ux-582-first-paint",
+        "exportedFileName" : "9C9DC369-372B-4D5D-A286-47F52C7AA9D6.png",
+        "isAssociatedWithFailure" : false,
+        "suggestedHumanReadableName" : "Actual paused transcript header opened parent archive sheet_0_4DD7C20F-20AD-4354-BD38-FCC0DBA839E7.png",
+        "timestamp" : 1795053659.237
+      }
+    ],
+    "testIdentifier" : "CompanionReadingOpeningUITests/testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming()",
+    "testIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoUITests/CompanionReadingOpeningUITests/testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming"
+  }
+]

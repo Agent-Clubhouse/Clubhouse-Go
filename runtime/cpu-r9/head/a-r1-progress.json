@@ -1,0 +1,61 @@
+{
+  "head": "ec69fc4390b43dbf4be6c8c6e4b9996969d00b14",
+  "phase": "A",
+  "started_at": "2026-11-19T02:06:38.495807+00:00",
+  "guard": {
+    "policy": "global-vm-stat-free-plus-inactive-8GiB",
+    "authority": "Orchestrator t_mwkvyvft global guard update before C2",
+    "top": "Processes: 877 total, 4 running, 873 sleeping, 6265 threads \n2026/11/18 18:06:39\nLoad Avg: 31.55, 23.97, 22.24 \nCPU usage: 20.65% user, 10.58% sys, 68.75% idle \nSharedLibs: 1156M resident, 201M data, 147M linkedit.\nMemRegions: 1266407 total, 14G resident, 491M private, 4188M shared.\nPhysMem: 50G used (7227M wired, 7378M compressor), 13G unused.\nVM: 456T vsize, 6144M framework vsize, 9861200(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1409581272/1653G in, 581641767/445G out.\nDisks: 2191577605/26T read, 3057856297/35T written.\n\n\nProcesses: 875 total, 4 running, 871 sleeping, 6249 threads \n2026/11/18 18:06:49\nLoad Avg: 26.00, 23.12, 21.96 \nCPU usage: 18.66% user, 5.44% sys, 75.88% idle \nSharedLibs: 1156M resident, 201M data, 147M linkedit.\nMemRegions: 0 total, 0B resident, 491M private, 4188M shared.\nPhysMem: 50G used (7226M wired, 7378M compressor), 13G unused.\nVM: 456T vsize, 6144M framework vsize, 9861200(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1409587108/1653G in, 581646680/445G out.\nDisks: 2191578806/26T read, 3057875108/35T written.\n\n\n",
+    "top_unused_informational_only": true,
+    "vm_stat_before": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   831097.\nPages active:                                1184324.\nPages inactive:                              1159906.\nPages speculative:                             23678.\nPages throttled:                                   0.\nPages wired down:                             462504.\nPages purgeable:                                6336.\n\"Translation faults\":                   112777634516.\nPages copy-on-write:                     10785648302.\nPages zero filled:                       57061331341.\nPages reactivated:                       11748939695.\nPages purged:                              291080334.\nFile-backed pages:                           1067155.\nAnonymous pages:                             1300753.\nPages stored in compressor:                  1231220.\nPages occupied by compressor:                 472221.\nDecompressions:                           6117616866.\nCompressions:                             6819778974.\nPageins:                                  1540535763.\nPageouts:                                   12482864.\nSwapins:                                     9861200.\nSwapouts:                                   17305435.\n",
+    "vm_stat_after": "Mach Virtual Memory Statistics: (page size of 16384 bytes)\nPages free:                                   826061.\nPages active:                                1186941.\nPages inactive:                              1161946.\nPages speculative:                             24250.\nPages throttled:                                   0.\nPages wired down:                             462453.\nPages purgeable:                                6341.\n\"Translation faults\":                   112777710110.\nPages copy-on-write:                     10785650586.\nPages zero filled:                       57061380047.\nPages reactivated:                       11748939695.\nPages purged:                              291080334.\nFile-backed pages:                           1067714.\nAnonymous pages:                             1305423.\nPages stored in compressor:                  1231154.\nPages occupied by compressor:                 472210.\nDecompressions:                           6117616932.\nCompressions:                             6819778974.\nPageins:                                  1540536264.\nPageouts:                                   12482864.\nSwapins:                                     9861200.\nSwapouts:                                   17305435.\n",
+    "vm_memory_before": {
+      "page_size_bytes": 16384,
+      "free_bytes": 13616693248,
+      "inactive_bytes": 19003899904,
+      "free_plus_inactive_bytes": 32620593152
+    },
+    "vm_memory_after": {
+      "page_size_bytes": 16384,
+      "free_bytes": 13534183424,
+      "inactive_bytes": 19037323264,
+      "free_plus_inactive_bytes": 32571506688
+    },
+    "swap_before": "vm.swapusage: total = 3072.00M  used = 1988.25M  free = 1083.75M  (encrypted)\n",
+    "swap_after": "vm.swapusage: total = 3072.00M  used = 1988.25M  free = 1083.75M  (encrypted)\n",
+    "cpu_idle_percent": 75.88,
+    "swap_growth_bytes": 0.0,
+    "window_seconds": 10,
+    "thresholds": {
+      "cpu_idle_percent": 40,
+      "vm_free_plus_inactive_bytes": 8589934592,
+      "swap_growth_bytes": 67108864
+    },
+    "accepted": true
+  },
+  "source": "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/source",
+  "DD": "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD",
+  "source_provenance": {
+    "head": "ec69fc4390b43dbf4be6c8c6e4b9996969d00b14",
+    "base": "fab40073358820b4fcd75d73819ccb04fb096111",
+    "source_sha256": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "0368c022f9c78a5b6da275233dd27cf9275346b970d140fbc6b9c1297192beb3",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "9a92a6846daab6a0b1bdad3e26f985bba0016760dec7bd6e572ad7ce82958144",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "d4abb8582c714d8fcf6cb21441047d90b4dc1754c886fa78cdc569e38a12d205"
+    },
+    "full_diff_sha256": "346a4b7ce37fafffdc43e065644e24e32fac6dcf203277f4972539d23e974f5a"
+  },
+  "runner_sha256": "36f8fcee029b1a1b8928c005d5303a3d708d2f33a4e089deb0864775a2eb9f72",
+  "build_rc": 0,
+  "rc": 0,
+  "artifact_sha256": {
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "567ed15f773a4330d1ff188822af5e51c12103f8c9e14ae1d40fba1257eaa7c0",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "9a0462937192ae17adfa1db49afbbab0680dda45eaf3956ef9f8b6caaada4919",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "792f7ad7d8d55b7fb9d62c371763e6ef80d731daba59ff6722107f7d7f2646f1",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "5181b218a54ee6e31c35b461299ca265b4183a79b2d766c105752b85d64d3ce8"
+  },
+  "deinit_rc": 0,
+  "policy_rc": 0
+}

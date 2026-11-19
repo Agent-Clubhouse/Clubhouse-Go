@@ -1,0 +1,11 @@
+Exported 2 attachments for: CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork():
+File: D4BB90C2-A7F5-4DEA-B3E7-369DD43BF282.png, suggested name: "Home after measured step-scroll diagnostic_0_3FC861D6-23A3-4415-9C4F-A2C5866C5EB7.png"
+File: 7E12D908-F1B9-4646-B469-D78CC47F01EC.json, suggested name: "Home step-scroll redraw measurement JSON_0_DD974B39-2EF6-4631-91C8-551600BC7895.json"
+
+Exported 1 attachment for: CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts():
+File: B221AA55-0413-41FE-BB96-E63BD6CC3477.json, suggested name: "Deep paused opening work JSON_0_F6DB06EC-0221-409D-AC26-730E1869EE80.json"
+
+Exported 1 attachment for: CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork():
+File: 01D795BA-D7CD-4AFD-8699-8D17C6E57FA9.json, suggested name: "Paused streaming conversation work JSON_0_A38BDC42-5130-466B-9131-BA55443B7CF1.json"
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/attachments/manifest.json

@@ -1,0 +1,105 @@
+GUARD {"policy": "global-vm-stat-free-plus-inactive-8GiB", "authority": "Orchestrator t_mwkvyvft global guard update before C2", "top_unused_informational_only": true, "vm_memory_before": {"page_size_bytes": 16384, "free_bytes": 7121272832, "inactive_bytes": 20065779712, "free_plus_inactive_bytes": 27187052544}, "vm_memory_after": {"page_size_bytes": 16384, "free_bytes": 7100727296, "inactive_bytes": 20060995584, "free_plus_inactive_bytes": 27161722880}, "cpu_idle_percent": 81.53, "swap_growth_bytes": 0.0, "window_seconds": 10, "thresholds": {"cpu_idle_percent": 40, "vm_free_plus_inactive_bytes": 8589934592, "swap_growth_bytes": 67108864}, "accepted": true}
++ xcrun simctl boot 0B36872F-7BB2-466F-86B4-F6B042975E87
++ xcrun simctl bootstatus 0B36872F-7BB2-466F-86B4-F6B042975E87 -b
++ xcrun simctl spawn 0B36872F-7BB2-466F-86B4-F6B042975E87 defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
++ xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD -destination platform=iOS Simulator,id=0B36872F-7BB2-466F-86B4-F6B042975E87 -resultBundlePath /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 -only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork -only-testing:ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork -only-testing:ClubhouseGoTests/CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts
++ xcrun xcresulttool get test-results summary --path /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult
++ xcrun xcresulttool get test-results tests --path /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult
++ python3 /tmp/ux-582-proof/cpu-head-r9/audit-native.py /tmp/ux-582-proof/cpu-head-r9/manifest.json P /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult
++ xcrun xcresulttool export attachments --path /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult --output-path /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/attachments
++ xcrun xcresulttool export diagnostics --path /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult --output-path /tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/diagnostics
+{
+  "head": "ec69fc4390b43dbf4be6c8c6e4b9996969d00b14",
+  "phase": "P",
+  "started_at": "2026-11-19T02:10:42.773973+00:00",
+  "source_provenance": {
+    "head": "ec69fc4390b43dbf4be6c8c6e4b9996969d00b14",
+    "base": "fab40073358820b4fcd75d73819ccb04fb096111",
+    "source_sha256": {
+      "Annex/AnnexTests/CompanionHomeVisibilityTests.swift": "7d78b3b7bd4c8c4517a97245a6738f86c9f549de6ea11b61562d9402ccce85c0",
+      "Annex/AnnexTests/CompanionReadingPausedCostTests.swift": "0368c022f9c78a5b6da275233dd27cf9275346b970d140fbc6b9c1297192beb3",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "9a92a6846daab6a0b1bdad3e26f985bba0016760dec7bd6e572ad7ce82958144",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "d4abb8582c714d8fcf6cb21441047d90b4dc1754c886fa78cdc569e38a12d205"
+    },
+    "full_diff_sha256": "346a4b7ce37fafffdc43e065644e24e32fac6dcf203277f4972539d23e974f5a"
+  },
+  "source": "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/source",
+  "DD": "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD",
+  "build_receipt": "/tmp/ux-582-proof/cpu-head-r9/a-r1-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "567ed15f773a4330d1ff188822af5e51c12103f8c9e14ae1d40fba1257eaa7c0",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "9a0462937192ae17adfa1db49afbbab0680dda45eaf3956ef9f8b6caaada4919",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "792f7ad7d8d55b7fb9d62c371763e6ef80d731daba59ff6722107f7d7f2646f1",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-582-proof/cpu-head-r9/tickets/a-r1/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "5181b218a54ee6e31c35b461299ca265b4183a79b2d766c105752b85d64d3ce8"
+  },
+  "simulator_uuid": "0B36872F-7BB2-466F-86B4-F6B042975E87",
+  "quickpath_suppression": true,
+  "postboot_resources_record_only": "Processes: 1105 total, 110 running, 995 sleeping, 8190 threads \n2026/11/18 18:11:14\nLoad Avg: 30.79, 18.53, 19.67 \nCPU usage: 55.70% user, 42.91% sys, 1.37% idle \nSharedLibs: 1160M resident, 201M data, 148M linkedit.\nMemRegions: 1304639 total, 17G resident, 2284M private, 4620M shared.\nPhysMem: 60G used (8973M wired, 7349M compressor), 2764M unused.\nVM: 544T vsize, 6144M framework vsize, 9861200(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1409820788/1653G in, 581819527/446G out.\nDisks: 2191746964/26T read, 3058617262/35T written.\n\n\n",
+  "result_bundle": "/tmp/ux-582-proof/cpu-head-r9/tickets/p-r1/tests.xcresult",
+  "test_command_started_epoch_seconds": 1795054274.214388,
+  "test_rc": 0,
+  "summary_rc": 0,
+  "tests_rc": 0,
+  "audit_rc": 0,
+  "attachments_rc": 0,
+  "diagnostics_rc": 0,
+  "summary": {
+    "devicesAndConfigurations": [
+      {
+        "device": {
+          "architecture": "arm64",
+          "deviceId": "0B36872F-7BB2-466F-86B4-F6B042975E87",
+          "deviceName": "ux-582-cpu-head",
+          "modelName": "iPhone 17 Pro Max",
+          "osBuildNumber": "23A343",
+          "osVersion": "26.0",
+          "platform": "iOS Simulator"
+        },
+        "expectedFailures": 0,
+        "failedTests": 0,
+        "passedTests": 3,
+        "skippedTests": 0,
+        "testPlanConfiguration": {
+          "configurationId": "1",
+          "configurationName": "Test Scheme Action"
+        }
+      }
+    ],
+    "environmentDescription": "ClubhouseGo \u00b7 Built with macOS 26.5.2",
+    "expectedFailures": 0,
+    "failedTests": 0,
+    "finishTime": 1795054294.067,
+    "passedTests": 3,
+    "result": "Passed",
+    "skippedTests": 0,
+    "startTime": 1795054278.842,
+    "statistics": [],
+    "testFailures": [],
+    "title": "Test - ClubhouseGo",
+    "topInsights": [],
+    "totalTestCount": 3
+  },
+  "exact_identifiers_ok": true,
+  "declared_parameter_executions": 3,
+  "rc": 0,
+  "owned_process_group": 9545,
+  "owned_processes_before_cleanup": [],
+  "owned_processes_after_cleanup": [],
+  "admitted_at": "2026-11-19T02:10:42.752197+00:00",
+  "closed_at": "2026-11-19T02:11:35.739550+00:00",
+  "duration_seconds": 52.98768462520093,
+  "hard_bound_seconds": 480,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 4,
+    "growth_bytes": 0,
+    "start_bytes": 2084831232.0,
+    "max_bytes": 2084831232.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-582-proof/cpu-head-r9/p-r1-receipt.json",
+  "simulator_final_state_before_delete": "Shutdown",
+  "simulator_deleted": true,
+  "booted_after": []
+}

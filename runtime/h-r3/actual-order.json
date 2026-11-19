@@ -1,0 +1,17 @@
+[
+  "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+  "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+  "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+  "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+  "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+  "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+  "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+  "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+  "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+  "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+  "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+  "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+  "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+  "CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+  "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()"
+]

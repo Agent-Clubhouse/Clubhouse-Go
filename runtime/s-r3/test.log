@@ -1,0 +1,194 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r9/DD -destination "platform=iOS Simulator,id=87B4D385-3C00-4116-B071-450C0A7A506F" -resultBundlePath /tmp/ux-582-proof/tickets/s-r3/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry" "-only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r9/source @ local
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  Framebriar: /tmp/ux-582-proof/tickets/a-r9/source/Vendor/Framebriar @ local
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/s-r3/tests.xcresult
+
+2026-11-18 17:58:45.740769-0800 ClubhouseGoUITests-Runner[85849:460767594] [Default] Running tests...
+2026-11-18 17:58:45.819650-0800 ClubhouseGoUITests-Runner[85849:460767673] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-18 17:58:45.859640-0800 ClubhouseGoUITests-Runner[85849:460767675] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+    t =      nans Interface orientation changed to Portrait
+Test Suite 'Selected tests' started at 2026-11-18 17:58:48.318.
+Test Suite 'ClubhouseGoUITests.xctest' started at 2026-11-18 17:58:48.318.
+Test Suite 'CompanionReadingRestoreUITests' started at 2026-11-18 17:58:48.318.
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry]' started.
+    t =     0.00s Start Test at 2026-11-18 17:58:48.319
+    t =     0.18s Set Up
+    t =     0.18s Getting device orientation
+    t =     0.23s Setting device orientation to Portrait
+    t =     0.25s     Device orientation changed to Portrait
+    t =     0.29s     Wait for com.apple.springboard to idle
+    t =     0.46s Open com.Agent-Clubhouse.Go
+    t =     0.46s     Launch com.Agent-Clubhouse.Go
+    t =     1.50s         Setting up automation session
+    t =     2.26s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.90s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.90s Waiting 10.0s for "reading-prefix-trim-state" StaticText to exist
+    t =     4.97s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-prefix-trim-state" StaticText`
+    t =     4.98s         Checking existence of `"reading-prefix-trim-state" StaticText`
+    t =     5.06s Waiting 10.0s for "companion-transcript" ScrollView to exist
+    t =     6.14s     Checking `Expect predicate `existsNoRetry == 1` for object "companion-transcript" ScrollView`
+    t =     6.14s         Checking existence of `"companion-transcript" ScrollView`
+    t =     6.18s Find the "reading-prefix-trim-state" StaticText
+    t =     6.22s Press "companion-transcript" ScrollView[0.50, 0.30] for 0.1 seconds, then drag to "companion-transcript" ScrollView[0.50, 0.75] with velocity of 250.00 pixels per second, and then hold for 0.1 seconds 
+    t =     6.22s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.22s     Find the "companion-transcript" ScrollView
+    t =     6.26s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =     6.30s     Synthesize event
+    t =     6.30s         Find the "companion-transcript" ScrollView
+    t =     6.33s         Find the "companion-transcript" ScrollView
+    t =     6.37s         Find the "companion-transcript" ScrollView
+    t =     6.41s         Find the "companion-transcript" ScrollView
+    t =     6.45s         Find the "companion-transcript" ScrollView
+    t =     8.62s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     8.63s Find the "reading-prefix-trim-state" StaticText
+    t =     9.73s Checking `Expect predicate `label CONTAINS "follow=0"` for object "reading-prefix-trim-state" StaticText`
+    t =     9.73s     Find the "reading-prefix-trim-state" StaticText
+    t =     9.77s Checking existence of `Button (First Match)`
+    t =     9.79s Find the NavigationBar (First Match)
+    t =     9.80s Find the "companion-composer" Any
+    t =     9.97s Get all elements bound by index for: Elements matching predicate 'label BEGINSWITH "Reading marker "'
+    t =    10.00s Find the StaticText (Element at index 0)
+    t =    10.04s Find the StaticText (Element at index 1)
+    t =    10.08s Find the StaticText (Element at index 2)
+    t =    10.13s Find the StaticText (Element at index 3)
+    t =    10.17s Find the StaticText (Element at index 4)
+    t =    10.21s Find the StaticText (Element at index 5)
+    t =    10.25s Find the StaticText (Element at index 6)
+    t =    10.29s Find the StaticText (Element at index 7)
+    t =    10.33s Find the StaticText (Element at index 8)
+    t =    10.38s Find the StaticText (Element at index 9)
+    t =    10.41s Find the StaticText (Element at index 10)
+    t =    10.50s Find the StaticText (Element at index 11)
+    t =    10.54s Find the "Reading marker 174." StaticText
+    t =    10.58s Find the "Reading marker 174." StaticText
+    t =    10.62s Find the "Reading marker 174." StaticText
+    t =    10.66s Find the "Reading marker 174." StaticText
+    t =    10.96s Find the "Reading marker 174." StaticText
+    t =    11.26s Find the "Reading marker 174." StaticText
+    t =    11.30s Find the "Reading marker 174." StaticText
+    t =    11.34s Tap "reading-prefix-trim-begin" Button
+    t =    11.34s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    11.34s     Find the "reading-prefix-trim-begin" Button
+    t =    11.37s     Check for interrupting elements affecting "reading-prefix-trim-begin" Button
+    t =    11.41s     Synthesize event
+    t =    11.70s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    12.77s Checking `Expect predicate `BLOCKPREDICATE(0x600000d558f0)` for object "reading-prefix-trim-state" StaticText`
+    t =    12.77s     Find the "reading-prefix-trim-state" StaticText
+    t =    12.81s     Find the "reading-prefix-trim-state" StaticText
+    t =    12.85s Find the "reading-prefix-trim-state" StaticText
+    t =    12.89s Find the "reading-prefix-trim-state" StaticText
+    t =    12.93s Find the "Reading marker 174." StaticText
+    t =    13.22s Find the "Reading marker 174." StaticText
+    t =    13.52s Find the "Reading marker 174." StaticText
+    t =    13.56s Find the "reading-prefix-trim-state" StaticText
+    t =    13.60s Find the "reading-prefix-trim-state" StaticText
+    t =    13.63s Find the "reading-prefix-trim-state" StaticText
+    t =    13.67s Find the "reading-prefix-trim-state" StaticText
+    t =    13.70s Find the "reading-prefix-trim-state" StaticText
+    t =    13.74s Find the "reading-prefix-trim-state" StaticText
+    t =    13.78s Find the "reading-prefix-trim-state" StaticText
+    t =    13.81s Find the "Reading marker 174." StaticText
+    t =    13.85s Checking existence of `Button (First Match)`
+    t =    13.88s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    14.01s Added attachment named 'Deterministic prefix trim after the restore pin'
+    t =    14.02s Find the "Reading marker 174." StaticText
+    t =    14.06s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry]' passed (14.310 seconds).
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition]' started.
+    t =     0.00s Start Test at 2026-11-18 17:59:02.629
+    t =     0.01s Set Up
+    t =     0.01s Getting device orientation
+    t =     0.01s Terminate com.Agent-Clubhouse.Go:86023
+    t =     1.11s Wait for com.Agent-Clubhouse.Go to become Not Running
+    t =     1.11s Open com.Agent-Clubhouse.Go
+    t =     1.11s     Launch com.Agent-Clubhouse.Go
+    t =     1.32s         Setting up automation session
+    t =     1.98s         Wait for com.Agent-Clubhouse.Go to idle
+    t =     3.86s Wait for com.Agent-Clubhouse.Go to become Running Foreground
+    t =     3.86s Waiting 10.0s for "reading-restore-fixture" StaticText to exist
+    t =     4.94s     Checking `Expect predicate `existsNoRetry == 1` for object "reading-restore-fixture" StaticText`
+    t =     4.94s         Checking existence of `"reading-restore-fixture" StaticText`
+    t =     6.20s Checking `Expect predicate `label CONTAINS "outcome=exhausted"` for object "reading-restore-fixture" StaticText`
+    t =     6.21s     Find the "reading-restore-fixture" StaticText
+    t =     6.32s Find the "reading-restore-fixture" StaticText
+    t =     6.43s Find the "reading-restore-fixture" StaticText
+    t =     6.55s Find the "reading-restore-fixture" StaticText
+    t =     6.67s Find the "reading-restore-fixture" StaticText
+    t =     6.78s Checking existence of `"companion-transcript" ScrollView`
+    t =     6.89s Press "companion-transcript" ScrollView[0.50, 0.25] for 0.1 seconds, then drag to "companion-transcript" ScrollView[0.50, 0.75] with velocity of 500.00 pixels per second, and then hold for 0.0 seconds 
+    t =     6.89s     Wait for com.Agent-Clubhouse.Go to idle
+    t =     6.89s     Find the "companion-transcript" ScrollView
+    t =     6.99s     Check for interrupting elements affecting "companion-transcript" ScrollView
+    t =     7.08s     Synthesize event
+    t =     7.09s         Find the "companion-transcript" ScrollView
+    t =     7.20s         Find the "companion-transcript" ScrollView
+    t =     7.31s         Find the "companion-transcript" ScrollView
+    t =     7.41s         Find the "companion-transcript" ScrollView
+    t =     7.52s         Find the "companion-transcript" ScrollView
+    t =     8.87s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    11.45s Checking `Expect predicate `BLOCKPREDICATE(0x600000d608a0)` for object "reading-restore-fixture" StaticText`
+    t =    11.45s     Find the "reading-restore-fixture" StaticText
+    t =    11.56s     Find the "reading-restore-fixture" StaticText
+    t =    11.70s     Find the "reading-restore-fixture" StaticText
+    t =    11.81s     Find the "reading-restore-fixture" StaticText
+    t =    11.92s     Find the "reading-restore-fixture" StaticText
+    t =    12.03s Find the "reading-restore-fixture" StaticText
+    t =    12.25s Find the "reading-restore-fixture" StaticText
+    t =    12.46s Find the "reading-restore-fixture" StaticText
+    t =    12.68s Find the "reading-restore-fixture" StaticText
+    t =    12.79s Find the "reading-restore-fixture" StaticText
+    t =    12.90s Find the "reading-restore-fixture" StaticText
+    t =    13.01s Find the "reading-restore-fixture" StaticText
+    t =    13.13s Find the "reading-restore-fixture" StaticText
+    t =    13.26s Find the "reading-restore-fixture" StaticText
+    t =    13.40s Find the "reading-restore-fixture" StaticText
+    t =    13.51s Tap "reading-restore-remount" Button
+    t =    13.51s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    13.51s     Find the "reading-restore-remount" Button
+    t =    13.62s     Check for interrupting elements affecting "reading-restore-remount" Button
+    t =    13.72s     Synthesize event
+    t =    14.01s     Wait for com.Agent-Clubhouse.Go to idle
+    t =    15.10s Checking `Expect predicate `label CONTAINS "outcome=arrived"` for object "reading-restore-fixture" StaticText`
+    t =    15.10s     Find the "reading-restore-fixture" StaticText
+    t =    15.14s Find the "reading-restore-fixture" StaticText
+    t =    15.17s Find the "reading-restore-fixture" StaticText
+    t =    15.21s Find the "reading-restore-fixture" StaticText
+    t =    15.24s Find the "reading-restore-fixture" StaticText
+    t =    15.28s Find the "reading-restore-fixture" StaticText
+    t =    15.31s Added attachment named 'Timeout drag remount entry-relative two-point contract'
+    t =    15.31s Find the "reading-restore-fixture" StaticText
+    t =    15.34s Find the Target Application 'com.Agent-Clubhouse.Go'
+    t =    15.47s Added attachment named 'Real drag after timeout restores its new bookmark'
+    t =    15.47s Tear Down
+Test Case '-[ClubhouseGoUITests.CompanionReadingRestoreUITests testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition]' passed (15.715 seconds).
+Test Suite 'CompanionReadingRestoreUITests' passed at 2026-11-18 17:59:18.345.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 30.026 (30.027) seconds
+Test Suite 'ClubhouseGoUITests.xctest' passed at 2026-11-18 17:59:18.345.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 30.026 (30.027) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 17:59:18.345.
+	 Executed 2 tests, with 0 failures (0 unexpected) in 30.026 (30.028) seconds
+2026-11-18 17:59:18.649 xcodebuild[85691:460766477] [MT] IDETestOperationsObserverDebug: 35.179 elapsed -- Testing started completed.
+2026-11-18 17:59:18.649 xcodebuild[85691:460766477] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 17:59:18.649 xcodebuild[85691:460766477] [MT] IDETestOperationsObserverDebug: 35.179 sec, +35.179 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/s-r3/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

@@ -1,0 +1,125 @@
+GUARD {"policy": "global-vm-stat-free-plus-inactive-8GiB", "authority": "Orchestrator t_mwkvyvft global guard update before C2", "top_unused_informational_only": true, "vm_memory_before": {"page_size_bytes": 16384, "free_bytes": 12605079552, "inactive_bytes": 18941460480, "free_plus_inactive_bytes": 31546540032}, "vm_memory_after": {"page_size_bytes": 16384, "free_bytes": 12700106752, "inactive_bytes": 18923978752, "free_plus_inactive_bytes": 31624085504}, "cpu_idle_percent": 81.12, "swap_growth_bytes": 0.0, "window_seconds": 10, "thresholds": {"cpu_idle_percent": 40, "vm_free_plus_inactive_bytes": 8589934592, "swap_growth_bytes": 67108864}, "accepted": true}
++ xcrun simctl boot 87B4D385-3C00-4116-B071-450C0A7A506F
++ xcrun simctl bootstatus 87B4D385-3C00-4116-B071-450C0A7A506F -b
++ xcrun simctl spawn 87B4D385-3C00-4116-B071-450C0A7A506F defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
++ xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r9/DD -destination platform=iOS Simulator,id=87B4D385-3C00-4116-B071-450C0A7A506F -resultBundlePath /tmp/ux-582-proof/tickets/s-r3/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 -only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testPrefixTrimDuringPinnedRestorePreservesTheReadingEntry -only-testing:ClubhouseGoUITests/CompanionReadingRestoreUITests/testRealDragAfterTimeoutSavesAndRemountsTheNewReadingPosition
++ xcrun xcresulttool get test-results summary --path /tmp/ux-582-proof/tickets/s-r3/tests.xcresult
++ xcrun xcresulttool get test-results tests --path /tmp/ux-582-proof/tickets/s-r3/tests.xcresult
++ python3 /tmp/ux-582-proof/audit-native.py /tmp/ux-582-proof/manifest.json S /tmp/ux-582-proof/tickets/s-r3/tests.xcresult
++ xcrun xcresulttool export attachments --path /tmp/ux-582-proof/tickets/s-r3/tests.xcresult --output-path /tmp/ux-582-proof/tickets/s-r3/attachments
++ xcrun xcresulttool export diagnostics --path /tmp/ux-582-proof/tickets/s-r3/tests.xcresult --output-path /tmp/ux-582-proof/tickets/s-r3/diagnostics
+{
+  "head": "fab40073358820b4fcd75d73819ccb04fb096111",
+  "phase": "S",
+  "started_at": "2026-11-19T01:58:07.185953+00:00",
+  "source_provenance": {
+    "head": "fab40073358820b4fcd75d73819ccb04fb096111",
+    "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+    "source_sha256": {
+      "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+      "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "d0d0fa43ef7361d21a1e81ee7ba908663f49f71533df0bbe0379d641418efb7f",
+      "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "02dee4efb081c672f9fad77dc6673bb9164dc5dac8d70530ef7f57920bc63e9b",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "89b48b6374b1cdb86e863b2d847fcc8525ede1fdd2b182c65f89d0e11b774df6",
+      "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "2c62cb35be43e7dc97d6cd58270b58c42d0a09083fb5f07012f734960b286f4f",
+      "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "0902bfc687af2eada91b57e59c57b13c7da914298f7f1020754c4b0e8d6af874",
+      "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "3bd2cd5ee56881fdb531796adee0a21ce1e64edea51317ec0e6c5462f8f80780",
+      "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+      "Annex/AnnexTests/CompanionReadingOpeningTests.swift": "3bd13add0dd03769db700ceba18472d9c61832f89f44ca44d21d3f58c279b49f",
+      "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+      "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "ffc7eb416ebba587ceb774d1b2e5a7b4eee7355f901753ec50a5bbde5dff17a7",
+      "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+      "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+      "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": "680f9945d643a8788a87264121241821fd3919fc98ba94c88d28e37c6ba36f0e",
+      "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift": "851c34b4c0e4237ce3f5b56480f5e3e0bcfdf67846396fcaafd10e159d372ca5",
+      "docs/isolated-deinit.md": "fe15e254fb78d098fb4de2848d57308e7594408321b76b709051c37a19ea1658",
+      "docs/reading-first-paint-extraction.json": "2d407fde7001c26e8662cd23fac7d2f7c88937e054204a2b4c402a2fcaf06d07",
+      "docs/reading-first-paint-plan.md": "27aee4033293ff64eb0c3a97058f2ba9b578b2986d392860850365db6bb22cf2",
+      "scripts/isolated-deinit-policy.json": "7eab1911ff20ef528dbad59f17f2ce5cad3ee48de5721c142c720474b002d295",
+      "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "b2739607bf03e17e356ad7d4e5fb0991387d160bb284b346629966c2e8316a42",
+      "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "c9b3813a7880bf8a429f373d9d41621dc4a731c03288f93e883fb10bd8963b28",
+      "Annex/AnnexTests/CompanionTranscriptEqualityTests.swift": "939ae0e1c0dd4514b637d70ce017babca074b0c29a20f797683440011b918dd2"
+    },
+    "full_diff_sha256": "18c0150d65dea84d0221a035761b8872ade14f003b0d6b46ca4ebd2783413ff0"
+  },
+  "source": "/tmp/ux-582-proof/tickets/a-r9/source",
+  "DD": "/tmp/ux-582-proof/tickets/a-r9/DD",
+  "build_receipt": "/tmp/ux-582-proof/a-r9-receipt.json",
+  "artifact_sha256": {
+    "/tmp/ux-582-proof/tickets/a-r9/DD/Build/Products/ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "03669a5738eca7b1130a6b414ebe465669c7440c1d1f2f29c8cdb26fbbd5b17f",
+    "/tmp/ux-582-proof/tickets/a-r9/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib": "e862b7d9db69e5314158bed2f1e22a4f68c7e84b967c1f74e9dece2558a39454",
+    "/tmp/ux-582-proof/tickets/a-r9/DD/Build/Products/Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests": "55eb5a718c42ccf93a56449900f9543133cbe32ae0278cebf600d34443390954",
+    "/tmp/ux-582-proof/tickets/a-r9/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+    "/tmp/ux-582-proof/tickets/a-r9/DD/Build/Products/Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests": "69ab3fd15aab55078c1b60c9846e730e43c6617fd734db2bdab6318cd760b8c9"
+  },
+  "simulator_uuid": "87B4D385-3C00-4116-B071-450C0A7A506F",
+  "quickpath_suppression": true,
+  "postboot_resources_record_only": "Processes: 1115 total, 59 running, 1 stuck, 1055 sleeping, 7856 threads \n2026/11/18 17:58:38\nLoad Avg: 37.28, 23.92, 19.84 \nCPU usage: 55.74% user, 42.1% sys, 2.24% idle \nSharedLibs: 1155M resident, 201M data, 147M linkedit.\nMemRegions: 1303571 total, 17G resident, 2380M private, 4589M shared.\nPhysMem: 58G used (8653M wired, 7512M compressor), 5703M unused.\nVM: 548T vsize, 6144M framework vsize, 9861200(0) swapins, 17305435(0) swapouts.\nNetworks: packets: 1407616430/1650G in, 581177240/445G out.\nDisks: 2190310578/26T read, 3056103525/35T written.\n\n\n",
+  "result_bundle": "/tmp/ux-582-proof/tickets/s-r3/tests.xcresult",
+  "test_command_started_epoch_seconds": 1795053518.907267,
+  "test_rc": 0,
+  "summary_rc": 0,
+  "tests_rc": 0,
+  "audit_rc": 0,
+  "attachments_rc": 0,
+  "diagnostics_rc": 0,
+  "summary": {
+    "devicesAndConfigurations": [
+      {
+        "device": {
+          "architecture": "arm64",
+          "deviceId": "87B4D385-3C00-4116-B071-450C0A7A506F",
+          "deviceName": "ux-582-first-paint",
+          "modelName": "iPhone 17 Pro Max",
+          "osBuildNumber": "23A343",
+          "osVersion": "26.0",
+          "platform": "iOS Simulator"
+        },
+        "expectedFailures": 0,
+        "failedTests": 0,
+        "passedTests": 2,
+        "skippedTests": 0,
+        "testPlanConfiguration": {
+          "configurationId": "1",
+          "configurationName": "Test Scheme Action"
+        }
+      }
+    ],
+    "environmentDescription": "ClubhouseGo \u00b7 Built with macOS 26.5.2",
+    "expectedFailures": 0,
+    "failedTests": 0,
+    "finishTime": 1795053558.658,
+    "passedTests": 2,
+    "result": "Passed",
+    "skippedTests": 0,
+    "startTime": 1795053523.052,
+    "statistics": [],
+    "testFailures": [],
+    "title": "Test - ClubhouseGo",
+    "topInsights": [],
+    "totalTestCount": 2
+  },
+  "exact_identifiers_ok": true,
+  "order_ok": true,
+  "outcome_map_ok": true,
+  "known_skip_review_required": false,
+  "rc": 0,
+  "owned_process_group": 84943,
+  "owned_processes_before_cleanup": [],
+  "owned_processes_after_cleanup": [],
+  "admitted_at": "2026-11-19T01:58:07.160268+00:00",
+  "closed_at": "2026-11-19T01:59:20.135484+00:00",
+  "duration_seconds": 72.97559658298269,
+  "hard_bound_seconds": 600,
+  "swap_watch": {
+    "record_only": true,
+    "samples": 5,
+    "growth_bytes": 0,
+    "start_bytes": 2084831232.0,
+    "max_bytes": 2084831232.0,
+    "exceeded_256MiB": false
+  },
+  "receipt_path": "/tmp/ux-582-proof/s-r3-receipt.json",
+  "simulator_final_state_before_delete": "Shutdown",
+  "simulator_deleted": true,
+  "booted_after": []
+}
