@@ -29,6 +29,10 @@ the median rendered fill. Exact synthetic screenshots, central crops, high-contr
 and core mean RGB comparisons to the actual palette foreground are retained. The core mean must
 be nearer the enabled on-tint or disabled secondary label than the fill, excluding glass-highlight passes.
 The Terminal and queue-only flags are DEBUG fixture inputs, not production theme or send-policy changes.
+Send alone uses an opaque circular button style: the selected theme's on-tint/tint roles when enabled,
+and secondary-label/card roles with a separator outline when disabled. This avoids native glass dimming
+without changing the palette, the 44pt target, native disabled/keyboard semantics or other controls.
+Pressed feedback changes scale, not foreground opacity. Both states retain the same 4.5:1 rendered requirement.
 
 `CompanionContextLimitsUITests` exercises the production “Context and limits” sheet with synthetic
 `--companion-context-sheet-fixture` inputs inside the existing header preview. It checks the

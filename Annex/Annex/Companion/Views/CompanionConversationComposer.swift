@@ -167,9 +167,8 @@ struct CompanionConversationComposer: View {
                                     .font(.system(size: 20, weight: .bold))
                                     .frame(width: 30, height: 30)
                             }
-                            .buttonStyle(.glassProminent).buttonBorderShape(.circle).controlSize(.regular)
-                            .companionProminentLabel()
-                            // Match Options' native 44pt circle and shared row inset at every text size.
+                            .buttonStyle(CompanionComposerSendButtonStyle())
+                            // Keep Send's 44pt circle and shared row inset at every text size.
                             .frame(width: 44, height: 44)
                             .contentShape(.circle)
                             .disabled(!sendEnabled)
@@ -580,6 +579,29 @@ struct CompanionConversationComposer: View {
         }
         if agent.status == .working { return steers ? "Steer \(agent.displayName)…" : "Queue a message for \(agent.displayName)…" }
         return agent.slashCommands == nil ? "Message \(agent.displayName)…" : "Message \(agent.displayName)… / for commands"
+    }
+}
+
+private struct CompanionComposerSendButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { SendCircle(configuration: configuration) }
+
+    private struct SendCircle: View {
+        let configuration: Configuration
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.companionPalette) private var palette
+
+        var body: some View {
+            configuration.label
+                .frame(width: 44, height: 44)
+                .foregroundStyle(Color(isEnabled ? palette.onTint : palette.secondaryLabel))
+                // secondaryLabel is contrast-fitted against card, not the native disabled glass fill.
+                .background(Color(isEnabled ? palette.tint : palette.card), in: Circle())
+                .overlay {
+                    Circle().strokeBorder(Color(isEnabled ? palette.tint : palette.separator), lineWidth: 1)
+                }
+                .contentShape(Circle())
+                .scaleEffect(configuration.isPressed ? 0.96 : 1)
+        }
     }
 }
 
