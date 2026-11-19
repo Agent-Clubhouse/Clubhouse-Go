@@ -1,0 +1,18 @@
+{
+  "verification": "PASS",
+  "methods": 15,
+  "executions": 19,
+  "arguments": {
+    "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)": [
+      "tab",
+      "desktop"
+    ],
+    "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)": [
+      "touch",
+      "scrollPhase",
+      "navigation",
+      "unmounted"
+    ]
+  },
+  "order_verified": false
+}

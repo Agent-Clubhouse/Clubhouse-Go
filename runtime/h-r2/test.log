@@ -1,0 +1,203 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/tickets/a-r7/DD -destination "platform=iOS Simulator,id=154D4591-A0F9-482D-86C3-2082747FE8E4" -resultBundlePath /tmp/ux-582-proof/tickets/h-r2/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoTests/CompanionReadingRestorationTests" "-only-testing:ClubhouseGoTests/CompanionHiddenConversationTests"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  Framebriar: /tmp/ux-582-proof/tickets/a-r7/source/Vendor/Framebriar @ local
+  ClubhouseTransport: /tmp/ux-582-proof/tickets/a-r7/source @ local
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/tickets/h-r2/tests.xcresult
+
+Test Suite 'Selected tests' started at 2026-11-18 16:17:45.471.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-18 16:17:45.471.
+Test Suite 'ClubhouseGoTests.xctest' passed at 2026-11-18 16:17:45.472.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.000) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 16:17:45.472.
+	 Executed 0 tests, with 0 failures (0 unexpected) in 0.000 (0.001) seconds
+◇ Test run started.
+↳ Testing Library Version: 1085
+↳ Target Platform: arm64-apple-ios13.0-simulator
+◇ Suite CompanionHiddenConversationTests started.
+◇ Test prefixTrimDuringPinnedRestorePreservesTheReadingEntry() started.
+2026-11-18 16:17:45.597919-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=ready follow=1 entry=nil offset=-1.0 lower=-1.0 beforeOffset=-1.0 pin=-1.0 reloadShift=0.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:17:45.876975-0800 ClubhouseGo[3282:459053966] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=815.6666666666666 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=815.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=761.6666666666666 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+2026-11-18 16:17:46.018145-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=ready follow=1 entry=nil offset=14032.666666666666 lower=-1.0 beforeOffset=-1.0 pin=-1.0 reloadShift=0.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:17:46.146321-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=ready follow=0 entry=message:reading-33 offset=0.0 lower=38.33333333334788 beforeOffset=-1.0 pin=-1.0 reloadShift=0.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:17:46.265989-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=ready follow=0 entry=message:reading-46 offset=1324.0 lower=1295.0000000000146 beforeOffset=-1.0 pin=-1.0 reloadShift=0.0 shift=0.0 miss=0.0 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:17:46.384139-0800 ClubhouseGo[3282:459053966] READING569_RELOAD edited=message:reading-45 oldFrame=1198.3333333333478...1295.0000000000146 bookmark=message:reading-46 oldLower=1295.000000 oldOffset=1324.000000 oldRevision=39A62DE2-EDC8-4B3A-925F-D8DFB0D9963E newRevision=AE89C977-C350-4E18-B6B3-6009A1646C0F
+2026-11-18 16:17:46.427023-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=1324.0 lower=1349.333333333347 beforeOffset=1324.0 pin=-1.0 reloadShift=0.0 shift=0.0 miss=-54.33333333333235 attempts=0 elapsed=0.0 outcome=pending
+2026-11-18 16:17:46.443809-0800 ClubhouseGo[3282:459053966] READING569_PIN edited=message:reading-45 changedFrame=1198.333333333347...1349.333333333347 bookmark=message:reading-46 newLower=1349.333333 reloadShift=54.333333 pin=1378.333333 revision=AE89C977-C350-4E18-B6B3-6009A1646C0F
+2026-11-18 16:17:46.444146-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=1324.0 lower=1349.333333333347 beforeOffset=1324.0 pin=1378.3333333333323 reloadShift=54.33333333333235 shift=0.0 miss=-54.33333333333235 attempts=1 elapsed=0.0 outcome=pending
+2026-11-18 16:17:46.482871-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=waiting follow=0 entry=message:reading-46 offset=1324.0 lower=1252.6666666666802 beforeOffset=1324.0 pin=1378.3333333333323 reloadShift=54.33333333333235 shift=0.0 miss=42.333333333334394 attempts=1 elapsed=0.0 outcome=pending
+2026-11-18 16:17:46.498489-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1324.0 lower=1252.6666666666802 beforeOffset=1324.0 pin=1378.3333333333323 reloadShift=54.33333333333235 shift=-96.66666666666674 miss=42.333333333334394 attempts=2 elapsed=0.05424770852550864 outcome=pending
+2026-11-18 16:17:46.525937-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1281.6666666666667 lower=1252.6666666666802 beforeOffset=1324.0 pin=1378.3333333333323 reloadShift=54.33333333333235 shift=-96.66666666666674 miss=1.1368683772161603e-12 attempts=2 elapsed=0.05424770852550864 outcome=pending
+READING_RESTORE outcome=arrived attempts=2 durationMs=123.34804143756628
+2026-11-18 16:17:46.571829-0800 ClubhouseGo[3282:459053966] READING569_FIXTURE phase=released follow=0 entry=message:reading-46 offset=1281.6666666666667 lower=1252.6666666666802 beforeOffset=1324.0 pin=1378.3333333333323 reloadShift=54.33333333333235 shift=-96.66666666666674 miss=1.1368683772161603e-12 attempts=2 elapsed=0.05424770852550864 outcome=arrived
+READING569_REGRESSION phase=released follow=0 entry=message:reading-46 offset=1281.6666666666667 lower=1252.6666666666802 beforeOffset=1324.0 pin=1378.3333333333323 reloadShift=54.33333333333235 shift=-96.66666666666674 miss=1.1368683772161603e-12 attempts=2 elapsed=0.05424770852550864 outcome=arrived beforeOffset=1324.0 beforeLower=1295.0000000000146
+✔ Test prefixTrimDuringPinnedRestorePreservesTheReadingEntry() passed after 1.114 seconds.
+◇ Test hiddenStreamsDoNoTimelineWork(hidden:) started.
+◇ Test case passing 1 argument hidden → .tab to hiddenStreamsDoNoTimelineWork(hidden:) started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:17:46.956951-0800 ClubhouseGo[3282:459053966] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.031250063329935074
+READING_RESTORE outcome=generation attempts=0 durationMs=0.08158339187502861
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=216.280167 observedCompletionMs=216.3025 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=188.33333333333337
+HIDDEN_ENTRY_MEASUREMENT case=tab dropFirst=false timeout=false entry=message:dispatcher-long-reply#4 beforeOffset=1380.3333333333335 beforeLower=1230.3333333333387 restoredOffset=188.33333333333337 restoredLower=38.333333333338786 rawShift=-1192.0 relativeDelta=-1.7053025658242404e-13
+READING_RESTORE outcome=arrived attempts=1 durationMs=202.94116670265794
+​◇ Test case passing 1 argument hidden → .desktop to hiddenStreamsDoNoTimelineWork(hidden:) started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:17:51.565192-0800 ClubhouseGo[3282:459053966] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+2026-11-18 16:17:51.605506-0800 ClubhouseGo[3282:459053966] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x10983b200>.
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=desktop visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=1 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=desktop stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_RESTORE_DIAGNOSTIC case=desktop stage=200ms geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_RESTORE_TIMING case=desktop firstObservedReadyMs=209.456333 observedCompletionMs=209.483708 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=desktop stage=completed geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_SCROLL_MEASUREMENT case=desktop before=1380.3333333333335 restored=188.33333333333337
+HIDDEN_ENTRY_MEASUREMENT case=desktop dropFirst=false timeout=false entry=message:dispatcher-long-reply#4 beforeOffset=1380.3333333333335 beforeLower=1230.3333333333387 restoredOffset=188.33333333333337 restoredLower=38.333333333338786 rawShift=-1192.0 relativeDelta=-1.7053025658242404e-13
+READING_RESTORE outcome=arrived attempts=1 durationMs=211.99891669675708
+​✔ Test hiddenStreamsDoNoTimelineWork(hidden:) with 2 test cases passed after 9.480 seconds.
+◇ Test lostRestoreCommandRecoversWhileStreaming() started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:17:56.394653-0800 ClubhouseGo[3282:459053966] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=taskCancelled attempts=0 durationMs=132.51995807513595
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=2.842170943040401e-14 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=false restoring=true ready=false restoreOffset=-1.0
+READING_RESTORE outcome=generation attempts=0 durationMs=0.17512496560811996
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=299.106667 observedCompletionMs=299.110333 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=188.33333333333337 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=188.33333333333354
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=188.33333333333337
+HIDDEN_ENTRY_MEASUREMENT case=tab dropFirst=true timeout=false entry=message:dispatcher-long-reply#4 beforeOffset=1380.3333333333335 beforeLower=1230.3333333333387 restoredOffset=188.33333333333337 restoredLower=38.333333333338786 rawShift=-1192.0 relativeDelta=-1.7053025658242404e-13
+READING_RESTORE outcome=arrived attempts=2 durationMs=253.218499943614
+✔ Test lostRestoreCommandRecoversWhileStreaming() passed after 4.601 seconds.
+◇ Test touchDuringRetryWindowKeepsTheUsersPosition() started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:18:00.992655-0800 ClubhouseGo[3282:459053966] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.03970833495259285
+READING_RESTORE outcome=generation attempts=0 durationMs=0.09395834058523178
+READING_RESTORE outcome=touch attempts=1 durationMs=154.97641637921333
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=2400.0 saved=2400.0 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=-1.0
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=519.126959 observedCompletionMs=519.14875 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=2400.0 saved=2400.0 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=-1.0
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=2400.0
+✔ Test touchDuringRetryWindowKeepsTheUsersPosition() passed after 4.839 seconds.
+◇ Test timeoutPreservesBookmarkAndTheNextMountRetriesIt() started.
+2026-11-18 16:18:05.584203-0800 ClubhouseGo[3282:459053966] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x113813800>.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=749.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:18:05.837039-0800 ClubhouseGo[3282:459053966] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+HIDDEN_STREAM_MEASUREMENT case=tab visibleEvents=5 visibleBody=5 visibleTimeline=5 hiddenEvents=20 hiddenBody=3 hiddenTimeline=0
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=hidden geometryOffset=-1.0 saved=1380.3333333333335 follows=false entryPresent=false frames=0 initialized=false restoring=false ready=false restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.042333267629146576
+READING_RESTORE outcome=generation attempts=0 durationMs=0.106041319668293
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=200ms geometryOffset=2.842170943040401e-14 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=true ready=true restoreOffset=188.33333333333354
+READING_RESTORE outcome=exhausted attempts=20 durationMs=1046.9007920473814
+HIDDEN_RESTORE_TIMING case=tab firstObservedReadyMs=1246.3765 observedCompletionMs=1246.380125 ready=true
+HIDDEN_RESTORE_DIAGNOSTIC case=tab stage=completed geometryOffset=2.842170943040401e-14 saved=1380.3333333333335 follows=false entryPresent=true frames=62 initialized=true restoring=false ready=true restoreOffset=-1.0
+ACTIVITY_FIT available=855.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=855.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+ACTIVITY_FIT available=801.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=generation attempts=0 durationMs=0.3852914087474346
+HIDDEN_SCROLL_MEASUREMENT case=tab before=1380.3333333333335 restored=188.33333333333337
+HIDDEN_ENTRY_MEASUREMENT case=tab dropFirst=true timeout=true entry=message:dispatcher-long-reply#4 beforeOffset=1380.3333333333335 beforeLower=1230.3333333333387 restoredOffset=188.33333333333337 restoredLower=38.333333333338786 rawShift=-1192.0 relativeDelta=-1.7053025658242404e-13
+READING_RESTORE outcome=arrived attempts=1 durationMs=204.72279144451022
+✔ Test timeoutPreservesBookmarkAndTheNextMountRetriesIt() passed after 5.983 seconds.
+✔ Suite CompanionHiddenConversationTests passed after 26.021 seconds.
+◇ Suite CompanionReadingRestorationTests started.
+◇ Test droppedDeliveryRetriesButStreamingCannotChangeItsTarget() started.
+2026-11-18 16:18:11.577594-0800 ClubhouseGo[3282:459053966] Unbalanced calls to begin/end appearance transitions for <SwiftUI.TabHostingController: 0x1140c9000>.
+✔ Test droppedDeliveryRetriesButStreamingCannotChangeItsTarget() passed after 0.086 seconds.
+◇ Test prefixShiftRetargetsBeforeStaleNumericArrival() started.
+✔ Test prefixShiftRetargetsBeforeStaleNumericArrival() passed after 0.001 seconds.
+◇ Test prependIncreasesTheTargetByTheMeasuredEntryShift() started.
+✔ Test prependIncreasesTheTargetByTheMeasuredEntryShift() passed after 0.001 seconds.
+◇ Test halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget() started.
+✔ Test halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget() passed after 0.001 seconds.
+◇ Test inconsistentGeometryCannotRepinTheTarget() started.
+✔ Test inconsistentGeometryCannotRepinTheTarget() passed after 0.001 seconds.
+◇ Test severalEntryShiftsConvergeWithinTheOriginalBudget() started.
+✔ Test severalEntryShiftsConvergeWithinTheOriginalBudget() passed after 0.001 seconds.
+◇ Test continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits() started.
+✔ Test continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits() passed after 0.001 seconds.
+◇ Test userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+◇ Test case passing 1 argument outcome → .touch to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=touch attempts=1 durationMs=10.0
+​◇ Test case passing 1 argument outcome → .scrollPhase to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=scrollPhase attempts=1 durationMs=10.0
+​◇ Test case passing 1 argument outcome → .navigation to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=navigation attempts=1 durationMs=10.0
+​◇ Test case passing 1 argument outcome → .unmounted to userAndNavigationCancellationPreventEveryLateReissue(outcome:) started.
+READING_RESTORE outcome=unmounted attempts=1 durationMs=10.0
+​✔ Test userAndNavigationCancellationPreventEveryLateReissue(outcome:) with 4 test cases passed after 0.002 seconds.
+◇ Test generationAndLatestPreventReissue() started.
+✔ Test generationAndLatestPreventReissue() passed after 0.001 seconds.
+◇ Test attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry() started.
+READING_RESTORE outcome=exhausted attempts=20 durationMs=1100.0
+✔ Test attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry() passed after 0.002 seconds.
+✔ Suite CompanionReadingRestorationTests passed after 0.093 seconds.
+✔ Test run with 15 tests in 2 suites passed after 26.114 seconds.
+2026-11-18 16:18:11.866 xcodebuild[3128:459052585] [MT] IDETestOperationsObserverDebug: 31.171 elapsed -- Testing started completed.
+2026-11-18 16:18:11.866 xcodebuild[3128:459052585] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 16:18:11.866 xcodebuild[3128:459052585] [MT] IDETestOperationsObserverDebug: 31.171 sec, +31.171 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/tickets/h-r2/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

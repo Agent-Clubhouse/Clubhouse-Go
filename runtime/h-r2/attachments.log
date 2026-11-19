@@ -1,0 +1,31 @@
+Skipped export for CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry(): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming(): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition(): no matching attachments
+
+Skipped export for CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/generationAndLatestPreventReissue(): no matching attachments
+
+Skipped export for CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry(): no matching attachments
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/h-r2/attachments/manifest.json

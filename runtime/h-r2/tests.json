@@ -1,0 +1,213 @@
+{
+  "devices" : [
+    {
+      "architecture" : "arm64",
+      "deviceId" : "154D4591-A0F9-482D-86C3-2082747FE8E4",
+      "deviceName" : "ux-582-first-paint",
+      "modelName" : "iPhone 17 Pro Max",
+      "osBuildNumber" : "23A343",
+      "osVersion" : "26.0",
+      "platform" : "iOS Simulator"
+    }
+  ],
+  "testNodes" : [
+    {
+      "children" : [
+        {
+          "children" : [
+            {
+              "children" : [
+                {
+                  "duration" : "1s",
+                  "durationInSeconds" : 1,
+                  "name" : "prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+                  "nodeIdentifier" : "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "children" : [
+                    {
+                      "duration" : "5s",
+                      "durationInSeconds" : 5,
+                      "name" : ".desktop",
+                      "nodeType" : "Arguments",
+                      "result" : "Passed"
+                    },
+                    {
+                      "duration" : "5s",
+                      "durationInSeconds" : 5,
+                      "name" : ".tab",
+                      "nodeType" : "Arguments",
+                      "result" : "Passed"
+                    }
+                  ],
+                  "duration" : "5s",
+                  "durationInSeconds" : 5,
+                  "name" : "hiddenStreamsDoNoTimelineWork(hidden:)",
+                  "nodeIdentifier" : "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "4s",
+                  "durationInSeconds" : 4,
+                  "name" : "lostRestoreCommandRecoversWhileStreaming()",
+                  "nodeIdentifier" : "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "5s",
+                  "durationInSeconds" : 5,
+                  "name" : "touchDuringRetryWindowKeepsTheUsersPosition()",
+                  "nodeIdentifier" : "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "duration" : "6s",
+                  "durationInSeconds" : 6,
+                  "name" : "timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+                  "nodeIdentifier" : "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionHiddenConversationTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            },
+            {
+              "children" : [
+                {
+                  "name" : "droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "prefixShiftRetargetsBeforeStaleNumericArrival()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "prependIncreasesTheTargetByTheMeasuredEntryShift()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "inconsistentGeometryCannotRepinTheTarget()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "severalEntryShiftsConvergeWithinTheOriginalBudget()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "children" : [
+                    {
+                      "duration" : "0s",
+                      "durationInSeconds" : 0,
+                      "name" : ".navigation",
+                      "nodeType" : "Arguments",
+                      "result" : "Passed"
+                    },
+                    {
+                      "duration" : "0s",
+                      "durationInSeconds" : 0,
+                      "name" : ".scrollPhase",
+                      "nodeType" : "Arguments",
+                      "result" : "Passed"
+                    },
+                    {
+                      "duration" : "0s",
+                      "durationInSeconds" : 0,
+                      "name" : ".touch",
+                      "nodeType" : "Arguments",
+                      "result" : "Passed"
+                    },
+                    {
+                      "duration" : "0s",
+                      "durationInSeconds" : 0,
+                      "name" : ".unmounted",
+                      "nodeType" : "Arguments",
+                      "result" : "Passed"
+                    }
+                  ],
+                  "name" : "userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "generationAndLatestPreventReissue()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                },
+                {
+                  "name" : "attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+                  "nodeIdentifier" : "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+                  "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+                  "nodeType" : "Test Case",
+                  "result" : "Passed"
+                }
+              ],
+              "name" : "CompanionReadingRestorationTests",
+              "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests",
+              "nodeType" : "Test Suite",
+              "result" : "Passed"
+            }
+          ],
+          "name" : "ClubhouseGoTests",
+          "nodeIdentifierURL" : "test://com.apple.xcode/Annex/ClubhouseGoTests",
+          "nodeType" : "Unit test bundle",
+          "result" : "Passed"
+        }
+      ],
+      "name" : "ClubhouseGo",
+      "nodeType" : "Test Plan",
+      "result" : "Passed"
+    }
+  ],
+  "testPlanConfigurations" : [
+    {
+      "configurationId" : "1",
+      "configurationName" : "Test Scheme Action"
+    }
+  ]
+}

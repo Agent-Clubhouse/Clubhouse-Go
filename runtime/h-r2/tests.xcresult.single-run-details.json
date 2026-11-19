@@ -1,0 +1,841 @@
+{
+  "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 1 seconds",
+    "durationInSeconds": 1,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testName": "prefixTrimDuringPinnedRestorePreservesTheReadingEntry()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "1s",
+            "durationInSeconds": 1,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "1s",
+        "durationInSeconds": 1,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)": {
+    "arguments": [
+      {
+        "value": ".tab"
+      },
+      {
+        "value": ".desktop"
+      }
+    ],
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Average duration 5.0 seconds",
+    "durationInSeconds": 5,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 2 runs",
+    "testIdentifier": "CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/hiddenStreamsDoNoTimelineWork(hidden:)",
+    "testName": "hiddenStreamsDoNoTimelineWork(hidden:)",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGoTests.CompanionHiddenConversationTests.Hidden",
+                "name": "hidden : .tab",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "5s",
+        "durationInSeconds": 5,
+        "name": ".tab",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGoTests.CompanionHiddenConversationTests.Hidden",
+                "name": "hidden : .desktop",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "5s",
+        "durationInSeconds": 5,
+        "name": ".desktop",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 4.0 seconds",
+    "durationInSeconds": 4,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/lostRestoreCommandRecoversWhileStreaming()",
+    "testName": "lostRestoreCommandRecoversWhileStreaming()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "4s",
+            "durationInSeconds": 4,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "4s",
+        "durationInSeconds": 4,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 5.0 seconds",
+    "durationInSeconds": 5,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/touchDuringRetryWindowKeepsTheUsersPosition()",
+    "testName": "touchDuringRetryWindowKeepsTheUsersPosition()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "5s",
+            "durationInSeconds": 5,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "5s",
+        "durationInSeconds": 5,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "Ran for 6.0 seconds",
+    "durationInSeconds": 6,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionHiddenConversationTests/timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+    "testName": "timeoutPreservesBookmarkAndTheNextMountRetriesIt()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "6s",
+            "durationInSeconds": 6,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "6s",
+        "durationInSeconds": 6,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+    "testName": "droppedDeliveryRetriesButStreamingCannotChangeItsTarget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/prefixShiftRetargetsBeforeStaleNumericArrival()",
+    "testName": "prefixShiftRetargetsBeforeStaleNumericArrival()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/prependIncreasesTheTargetByTheMeasuredEntryShift()",
+    "testName": "prependIncreasesTheTargetByTheMeasuredEntryShift()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+    "testName": "halfPointNoiseAndMissingEntryMeasurementsDoNotRetarget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/inconsistentGeometryCannotRepinTheTarget()",
+    "testName": "inconsistentGeometryCannotRepinTheTarget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/severalEntryShiftsConvergeWithinTheOriginalBudget()",
+    "testName": "severalEntryShiftsConvergeWithinTheOriginalBudget()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+    "testName": "continuousEntryShiftsExhaustTheUnchangedAttemptAndTimeLimits()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)": {
+    "arguments": [
+      {
+        "value": ".unmounted"
+      },
+      {
+        "value": ".touch"
+      },
+      {
+        "value": ".navigation"
+      },
+      {
+        "value": ".scrollPhase"
+      }
+    ],
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 4 runs",
+    "testIdentifier": "CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+    "testName": "userAndNavigationCancellationPreventEveryLateReissue(outcome:)",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .touch",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".touch",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .scrollPhase",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".scrollPhase",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .navigation",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".navigation",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      },
+      {
+        "children": [
+          {
+            "children": [
+              {
+                "details": "ClubhouseGo.CompanionReadingRestoration.Outcome",
+                "name": "outcome : .unmounted",
+                "nodeType": "Test Value"
+              }
+            ],
+            "name": "Arguments",
+            "nodeType": "Arguments"
+          }
+        ],
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": ".unmounted",
+        "nodeType": "Arguments",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/generationAndLatestPreventReissue()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/generationAndLatestPreventReissue()",
+    "testName": "generationAndLatestPreventReissue()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  },
+  "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()": {
+    "devices": [
+      {
+        "architecture": "arm64",
+        "deviceId": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "deviceName": "ux-582-first-paint",
+        "modelName": "iPhone 17 Pro Max",
+        "osBuildNumber": "23A343",
+        "osVersion": "26.0",
+        "platform": "iOS Simulator"
+      }
+    ],
+    "duration": "",
+    "durationInSeconds": 0,
+    "hasMediaAttachments": false,
+    "hasPerformanceMetrics": false,
+    "testDescription": "Test case with 1 run",
+    "testIdentifier": "CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+    "testIdentifierURL": "test://com.apple.xcode/Annex/ClubhouseGoTests/CompanionReadingRestorationTests/attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+    "testName": "attemptAndTimeBoundsEndRestoringEvenWithoutAnyGeometry()",
+    "testPlanConfigurations": [
+      {
+        "configurationId": "1",
+        "configurationName": "Test Scheme Action"
+      }
+    ],
+    "testResult": "Passed",
+    "testRuns": [
+      {
+        "children": [
+          {
+            "duration": "0s",
+            "durationInSeconds": 0,
+            "name": "Test Scheme Action",
+            "nodeIdentifier": "1",
+            "nodeType": "Test Plan Configuration",
+            "result": "Passed"
+          }
+        ],
+        "details": "iOS Simulator 26.0",
+        "duration": "0s",
+        "durationInSeconds": 0,
+        "name": "iPhone 17 Pro Max",
+        "nodeIdentifier": "154D4591-A0F9-482D-86C3-2082747FE8E4",
+        "nodeType": "Device",
+        "result": "Passed"
+      }
+    ]
+  }
+}
