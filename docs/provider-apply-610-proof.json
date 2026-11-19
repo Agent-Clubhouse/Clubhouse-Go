@@ -12,7 +12,7 @@
     "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
     "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
     "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
-    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "e9f580c03a6a88ee85b3fe3b6e1457704d5a64909cf712c36231f137bfde9bfe",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "aa3989b820852e63e7657a31a5b854484243f83423ba5bcd459728fa32a7cddc",
     "scripts/isolated-deinit-policy.json": "acf67b2b194b57d4c92fb4f19798e066871d7df3b03d83ea8be325318bc12a6a",
     "docs/isolated-deinit.md": "8ea3af82c9004d902d0ef970094b8cbc860c92e6022538707ee21a27562a8ca1"
   },

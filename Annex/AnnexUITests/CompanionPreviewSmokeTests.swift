@@ -317,6 +317,12 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             let travel = min(120, (bottom - top) / 2 - 8)
             guard travel > 0 else { XCTFail("The protected viewport must permit a native scroll"); return }
             let dy = min(travel, max(-travel, ((top + bottom) / 2 - frame.midY) / observedResponse))
+            // A sub-pan correction could activate a row before the checked tap.
+            // Refuse it rather than trade the original clearances for a tap.
+            guard abs(dy) >= 24 else {
+                XCTFail("The measured correction must establish a native scroll, not an unchecked tap: drag \(dy), row \(frame), band \(top)...\(bottom)")
+                return
+            }
             let origin = CGPoint(x: app.frame.midX, y: (top + bottom) / 2)
             let start = app.coordinate(withNormalizedOffset: .zero)
                 .withOffset(CGVector(dx: origin.x - app.frame.minX, dy: origin.y - app.frame.minY))
