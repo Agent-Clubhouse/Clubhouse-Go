@@ -1,0 +1,7 @@
+# Fail closed before sub-pan correction
+
+Delta from independently scope-reviewed fca52a796 is exactly a guard before the existing native gesture: abs(dy) must be at least24pt or XCTFail and return. No gesture or checked tap occurs after this refusal. Review's concrete band[112,446], rowmin111.5,height333.5,response1 example computes0.75pt and now refuses before activation. This conservative minimum is a driver safety bound, not an increased visibility tolerance or a rounded correction. It can reduce reachability credit; it cannot grant it.
+
+All four correction attempts/MAX120/protected origin+endpoint/0.05duration/default velocity and hold/full-frame12pt top and inset clearance/34pt screen bottom/hittability/non-nav checked tap remain unchanged. No product/authority/transport/policy/package/test-semantic edits, extra waits or prior-head reruns. New exact source/pins/fullDiff are in head-r5 identity+manifest. fca prebuild HOLD/no runtime credit is preserved; head-r4 files are immutable.
+
+Same independently reviewed six affected callers per device, freshA900 then phone6 and SE6 once each hard1800, then current-mainD1200/jobs2. Runner5e10/auditor7eee and all guards/budgets unchanged. Same explicit two unchanged control carry from882, package55/84 carry and baselineT0-prefix identity as head-r4. Prior882 phonePASS8/8 and SESTRICTFAIL7/8 remain on their actual head, not fresh8/8. No ticket queued pending independent exact delta review.
