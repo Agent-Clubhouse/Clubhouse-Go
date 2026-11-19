@@ -25,7 +25,9 @@ The three Send-glyph contrast methods in `CompanionChatHeaderVisualUITests` use 
 keyboard open, with Terminal, a light-accent dark Mocha theme and light Latte. Each checks enabled
 and empty-draft disabled Send, Queue and Steer states without sending. The screenshot's central
 24pt square excludes the glass rim; at least 5% of those pixels must contrast at 4.5:1 against
-the median rendered fill. Exact synthetic screenshots and measured contrast are retained.
+the median rendered fill. Exact synthetic screenshots, central crops, high-contrast pixel fractions,
+and core mean RGB comparisons to the actual palette foreground are retained. The core mean must
+be nearer the enabled on-tint or disabled secondary label than the fill, excluding glass-highlight passes.
 The Terminal and queue-only flags are DEBUG fixture inputs, not production theme or send-policy changes.
 
 `CompanionContextLimitsUITests` exercises the production “Context and limits” sheet with synthetic

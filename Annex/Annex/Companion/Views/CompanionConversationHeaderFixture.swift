@@ -131,6 +131,11 @@ struct CompanionConversationHeaderFixture: View {
                     .accessibilityIdentifier("header-fixture-capture-image")
             }
         }
+        .overlay(alignment: .topLeading) {
+            if arguments.contains("--companion-header-send-contrast") {
+                CompanionSendPaletteEvidence()
+            }
+        }
         .companionTheme(theme)
         .preferredColorScheme(isLight ? .light : .dark)
         .task {
@@ -244,6 +249,18 @@ struct CompanionConversationHeaderFixture: View {
         hosts[0].projects[0].agents[0].icon = icon
         store.apply(.hosts(hosts))
         imageVersion = next
+    }
+}
+
+private struct CompanionSendPaletteEvidence: View {
+    @Environment(\.companionPalette) private var palette
+
+    var body: some View {
+        Color.clear.frame(width: 1, height: 1).allowsHitTesting(false)
+            .accessibilityElement()
+            .accessibilityLabel("Send contrast palette")
+            .accessibilityValue("\(palette.onTint.hex)/\(palette.secondaryLabel.hex)")
+            .accessibilityIdentifier("header-fixture-send-palette")
     }
 }
 #endif

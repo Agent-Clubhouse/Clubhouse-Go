@@ -176,7 +176,7 @@ import XCTest
             ("queue", ["--companion-header-queue"], "Queue message"),
             ("steering", [], "Send steering message")
         ] {
-            let app = launch(theme + flags)
+            let app = launch(theme + flags + ["--companion-header-send-contrast"])
             defer { app.terminate() }
             let composer = element(app, "companion-composer")
             focus(app)
@@ -203,6 +203,13 @@ import XCTest
         // Stay inside the glass rim: neither the circle's edge nor neighbouring controls can pass as the arrow.
         let center = CGRect(x: frame.midX - 12, y: frame.midY - 12, width: 24, height: 24)
         let crop = try XCTUnwrap(image.cropping(to: center.applying(.init(scaleX: scale, y: scale)).integral))
+        let croppedAttachment = XCTAttachment(image: UIImage(cgImage: crop, scale: screenshot.image.scale, orientation: .up))
+        croppedAttachment.name = "Send glyph 24pt crop \(state)"; croppedAttachment.lifetime = .keepAlways; add(croppedAttachment)
+        let palette = try XCTUnwrap(element(app, "header-fixture-send-palette").value as? String).split(separator: "/")
+        XCTAssertEqual(palette.count, 2)
+        let expectedHex = try XCTUnwrap(palette.indices.contains(1) ? palette[app.buttons["companion-send"].isEnabled ? 0 : 1] : nil)
+        let expectedValue = try XCTUnwrap(UInt32(expectedHex.dropFirst(), radix: 16))
+        let expected = [16, 8, 0].map { Double((expectedValue >> $0) & 255) / 255 }
         var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
         try bytes.withUnsafeMutableBytes { buffer in
             let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
@@ -216,11 +223,32 @@ import XCTest
         }
         let luminances = stride(from: 0, to: bytes.count, by: 4).map {
             0.2126 * linear(bytes[$0]) + 0.7152 * linear(bytes[$0 + 1]) + 0.0722 * linear(bytes[$0 + 2])
-        }.sorted()
-        let fill = luminances[luminances.count / 2]
-        let contrasts = luminances.map { (max($0, fill) + 0.05) / (min($0, fill) + 0.05) }.sorted()
-        let coreContrast = contrasts[Int(Double(contrasts.count - 1) * 0.95)]
-        print("SEND_GLYPH \(state) frame=\(frame) fill=\(fill) coreContrast=\(coreContrast)")
+        }
+        let fill = luminances.sorted()[luminances.count / 2]
+        let contrasts = luminances.map { (max($0, fill) + 0.05) / (min($0, fill) + 0.05) }
+        let coreContrast = contrasts.sorted()[Int(Double(contrasts.count - 1) * 0.95)]
+        let core = contrasts.indices.filter { contrasts[$0] >= 4.5 }
+        let fraction = Double(core.count) / Double(contrasts.count)
+        let fillRGB = (0..<3).map { channel in
+            stride(from: channel, to: bytes.count, by: 4).map { Double(bytes[$0]) / 255 }.sorted()[contrasts.count / 2]
+        }
+        var metrics = "SEND_GLYPH \(state) frame=\(frame) fill=\(fill) fillRGB=\(fillRGB) coreContrast=\(coreContrast) highContrastFraction=\(fraction) expected=\(expectedHex)"
+        if !core.isEmpty {
+            let mean = (0..<3).map { channel in
+                core.reduce(0.0) { $0 + Double(bytes[$1 * 4 + channel]) / 255 } / Double(core.count)
+            }
+            func distance(_ first: [Double], _ second: [Double]) -> Double {
+                zip(first, second).reduce(0) { $0 + pow($1.0 - $1.1, 2) }
+            }
+            let expectedDistance = distance(mean, expected), fillDistance = distance(mean, fillRGB)
+            metrics += " coreMeanRGB=\(mean) expectedDistance=\(expectedDistance) fillDistance=\(fillDistance)"
+            XCTAssertLessThan(expectedDistance, fillDistance, "\(state): the contrasted pixels must resemble the actual palette foreground, not glass highlights")
+        } else {
+            metrics += " coreMeanRGB=none"
+        }
+        print(metrics)
+        let measurements = XCTAttachment(string: metrics)
+        measurements.name = "Send glyph measurements \(state)"; measurements.lifetime = .keepAlways; add(measurements)
         XCTAssertGreaterThanOrEqual(coreContrast, 4.5,
                                     "\(state): at least 5% of the central pixels must form a contrast-safe glyph, not a few isolated pixels")
     }
