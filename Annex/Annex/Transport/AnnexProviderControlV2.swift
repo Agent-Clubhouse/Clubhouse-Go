@@ -277,11 +277,14 @@ nonisolated public struct AnnexProviderApplyReceiptV2: Decodable, Sendable, Equa
     }
     public func matches(_ preview: AnnexProviderPreviewV2) -> Bool {
         contract.version == 2 && contract.target == preview.contract.target && contract.selection == preview.contract.selection
+            && contract.current == preview.contract.current
             && contract.proposed == preview.contract.proposed && contract.saved == preview.contract.proposed
             && ["changed", "already_selected"].contains(contract.result.status) && contract.result.persisted && !contract.result.started
             && status == contract.result.status
             && outcome.agentId == contract.target.agentId && outcome.provider == contract.saved.provider
             && outcome.savedProvider == contract.saved.provider && outcome.state == .sleeping && outcome.activeProvider == nil
+            && outcome.targetRuntime == preview.preview.outcome.targetRuntime
+            && outcome.instructionScope == preview.preview.outcome.instructionScope
     }
 }
 
