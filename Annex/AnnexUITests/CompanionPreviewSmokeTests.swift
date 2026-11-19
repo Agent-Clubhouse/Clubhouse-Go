@@ -261,9 +261,18 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let navigation = app.navigationBars["Provider"]
         XCTAssertTrue(navigation.exists)
         XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
+        func clearBottom() -> CGFloat {
+            let bottom = app.frame.maxY - 34
+            guard !["provider-save", "provider-review-change"].contains(control.identifier) else { return bottom }
+            // Form rows must clear the persistent action inset, even when a
+            // partially covered row reports hittable. Keep the full-frame check.
+            let apply = app.buttons["provider-save"], review = app.buttons["provider-review-change"]
+            guard apply.exists && review.exists else { return bottom }
+            return min(bottom, min(apply.frame.minY, review.frame.minY) - 12)
+        }
         for _ in 0..<4 {
             let top = navigation.frame.maxY + 12
-            let bottom = app.frame.maxY - 34
+            let bottom = clearBottom()
             let frame = control.frame
             if frame.minY >= top && frame.maxY <= bottom { break }
             let start = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5))
@@ -274,7 +283,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         let point = CGPoint(x: frame.midX, y: frame.midY)
         XCTAssertTrue(control.exists && control.isHittable)
         XCTAssertGreaterThanOrEqual(frame.minY, navigation.frame.maxY + 12)
-        XCTAssertLessThanOrEqual(frame.maxY, app.frame.maxY - 34)
+        XCTAssertLessThanOrEqual(frame.maxY, clearBottom())
         XCTAssertFalse(navigation.frame.contains(point))
         XCTContext.runActivity(named: "Tap visible provider control at \(point), frame \(frame), navigation \(navigation.frame)") { _ in
             let shot = XCTAttachment(screenshot: app.screenshot())
