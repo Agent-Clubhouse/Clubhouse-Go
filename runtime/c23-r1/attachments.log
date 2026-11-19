@@ -1,0 +1,114 @@
+Skipped export for CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays(): no matching attachments
+
+Exported 4 attachments for: CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry():
+File: 106FE45B-B6A3-4160-914D-CCE5242467AF.txt, suggested name: "Compact composer geometry forced --companion-ui-test-force-review-only_0_29C6C737-DD0C-4D6A-921F-087A20C30E90.txt"
+File: C9A353BC-B243-4DAD-A6B0-202A1982516C.png, suggested name: "Compact composer forced --companion-ui-test-force-review-only_0_CC64E702-FBA3-4D54-87E2-C76CC8FE5E10.png"
+File: FA6A16DB-AA3E-45B3-8F79-EEF8987B4C93.txt, suggested name: "Compact composer geometry forced --companion-ui-test-force-full-rows_0_7565F297-3A62-4590-A7C2-0387DB6B33D6.txt"
+File: B0761B89-948B-47FD-A332-DEF98216C5CD.png, suggested name: "Compact composer forced --companion-ui-test-force-full-rows_0_AE7AD3CD-9E1A-4054-994C-95E37ACBE69E.png"
+
+Exported 10 attachments for: CompanionComposerFooterSurfaceUITests/testDarkFooterMatchesChatSurfaceAndFinalLineRestsAboveIt():
+File: 1D1C990B-F841-4E51-9EE2-35E8C120128E.png, suggested name: "Footer surface dark after tap dismissal_0_CBA547DD-4895-4FD5-B8C7-BAE7E4E0B411.png"
+File: 1D663817-AE9F-40A5-9ABC-3C7D340B5CF3.png, suggested name: "Footer final line dark after tap dismissal_0_F4E06D68-66AD-42F8-912A-74171642F612.png"
+File: 07E15EDC-CBF9-465E-94F7-EECDE9D093F8.png, suggested name: "Footer surface dark after drag dismissal_0_265FE775-8778-4911-A37E-DFF822DF213A.png"
+File: 22B1CA38-8EF0-433E-9581-9D6A911D203C.png, suggested name: "Footer final line dark after drag dismissal_0_229F1AD4-858B-4F71-A19A-28747DBDF8CB.png"
+File: 6B75635B-C8FD-4C52-AA86-C8271A2DA581.png, suggested name: "Footer surface dark keyboard up, content under footer_0_4D376A50-9924-4699-A16D-ABC67BEF55B0.png"
+File: AF319CCD-3984-4118-AAB0-083790101D84.png, suggested name: "Footer surface dark keyboard up_0_2D07C26B-98BB-46C0-A241-2A7F7F7BE815.png"
+File: B12DB627-960D-4433-B86A-FC1967524033.png, suggested name: "Footer final line dark keyboard up_0_FB03006A-2497-42FD-A8CE-A51FD1E1A522.png"
+File: 7C90A60B-83E4-46D4-9F61-725F2C6737DF.png, suggested name: "Footer surface dark keyboard down, content under footer_0_41A88F1E-5A62-4DAE-BCA1-F7D0999FD58B.png"
+File: 858ED844-906E-4C9D-B886-1DC167848002.png, suggested name: "Footer surface dark keyboard down_0_6396ACED-813A-410A-9664-2CB4C0C9E22C.png"
+File: 6CEF39DD-DB28-468A-B8B3-AA06A42E289C.png, suggested name: "Footer final line dark keyboard down_0_CA373B5B-1F78-4C81-9AD3-06B4A26408D1.png"
+
+Exported 10 attachments for: CompanionComposerFooterSurfaceUITests/testLightFooterMatchesChatSurfaceAndFinalLineRestsAboveIt():
+File: 2BEBF331-2BB1-4F2A-8CD1-7DCF8D5FBE73.png, suggested name: "Footer surface light after tap dismissal_0_8AB0D3DD-9B59-4A5E-B93E-174D328FB4DC.png"
+File: 211AA93A-BF9E-41C1-9B8A-F87C1EAB5E1A.png, suggested name: "Footer final line light after tap dismissal_0_E49565BB-B3CE-4994-ABC9-BE6399B3617F.png"
+File: B9E9A102-2E4B-4634-851D-B97B46D12FD8.png, suggested name: "Footer surface light after drag dismissal_0_F5B24C46-BC7B-43C3-8992-6AC079357FE6.png"
+File: 65CA2B13-30FA-4ECF-ADA9-6EFD0B4B2FA0.png, suggested name: "Footer final line light after drag dismissal_0_17AFFA99-84BA-4E43-93A4-77FD9FB6274F.png"
+File: D35B8838-7B36-4913-A83A-00A79E9AB02C.png, suggested name: "Footer surface light keyboard up, content under footer_0_E3619E9D-FE7C-4192-96EE-EBAA60AB153C.png"
+File: DB067619-F0B6-47C7-B5C1-02E7BBE93D4E.png, suggested name: "Footer surface light keyboard up_0_C0E96ECE-6E54-4BAC-B5FB-8601E73B2377.png"
+File: AF9B06D6-6716-4F6E-9A42-6A26696C4363.png, suggested name: "Footer final line light keyboard up_0_451FC10A-FA0E-4D31-83AC-AC7F8CF2C168.png"
+File: E8452805-073A-4C41-AFEC-30D72B632258.png, suggested name: "Footer surface light keyboard down, content under footer_0_0966C35F-E90A-4EB7-89AB-38E9E26B318A.png"
+File: C042D0EB-A060-4FB0-9BA6-14079BFCA451.png, suggested name: "Footer surface light keyboard down_0_AC8C04EB-D97C-479E-84BF-3433BE88C546.png"
+File: 91059061-09A4-4292-9D09-2FC2C76E7255.png, suggested name: "Footer final line light keyboard down_0_5E55CE48-66E0-49F8-844D-3250FB4395F4.png"
+
+Exported 2 attachments for: CompanionComposerFooterSurfaceUITests/testOverflowFooterWithKeyboardUpEvidenceInLightAndDark():
+File: A3DF2B0A-402B-4FDA-A346-8AE06A948877.png, suggested name: "Footer surface --companion-preview-dark overflow footer, keyboard up_0_49CE6FFD-0F0F-4DA1-B8DF-DE653FA30A09.png"
+File: 62BCFD27-71D4-418E-969F-A8D96DC27789.png, suggested name: "Footer surface --companion-preview-light overflow footer, keyboard up_0_38D54079-3B01-4F1E-8A54-5FA868CFEE06.png"
+
+Exported 4 attachments for: CompanionComposerFooterSurfaceUITests/testPendingTrayFooterMatchesChatSurfaceInLightAndDark():
+File: C5FEF71B-5B37-461F-AAEC-70D9BBA04991.png, suggested name: "Footer surface --companion-preview-dark pending, keyboard up_0_D7D8EB69-8A94-4B82-96F9-C5F6E658B243.png"
+File: DA902F91-65C9-4BE7-A8AE-A37D7EAF03BD.png, suggested name: "Footer surface --companion-preview-dark pending, keyboard down_0_5F7711DF-1089-4FEB-AB5D-07475C930521.png"
+File: D4BE74BD-A164-40E8-81F2-A27F5D0A0D4B.png, suggested name: "Footer surface --companion-preview-light pending, keyboard up_0_B26C9BBE-D85C-437B-B49B-7D729887D72C.png"
+File: D2BA7F4C-452C-45BD-A79D-2C29BF5B1306.png, suggested name: "Footer surface --companion-preview-light pending, keyboard down_0_F1EF2C92-841A-4576-B921-E39E1D533424.png"
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard():
+File: C546CD04-6E25-4169-8561-C750349CEC04.png, suggested name: "Request arrived while typing_0_F371D0DF-2CBD-4783-9C25-D481B889AC1B.png"
+File: AFB7F057-8749-4BD2-A68C-0D05969B19AB.txt, suggested name: "Tray state per activity tick_0_4F6026C9-EF00-4BC8-823A-5F3EFEAD08D4.txt"
+
+Exported 2 attachments for: CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard():
+File: 44841DDA-4A4A-48CA-BBFC-FAAAFE11404C.png, suggested name: "Request arrived while typing_0_0B33F494-D1BA-4C06-9BB0-FAC41DEAF0BE.png"
+File: 6D3428F8-78FE-4C77-A85D-0DECF1746BAF.txt, suggested name: "Tray state per activity tick_0_BF8FAF2F-FAEF-4B11-8EE6-1AE91D1B105A.txt"
+
+Exported 1 attachment for: CompanionReadingUITests/testFailedOutputFoldsButErrorStatusStaysVisible():
+File: 6879FE14-9733-4C0F-93ED-82DAC9923432.png, suggested name: "Failed tool status remains visible with folded output_0_AC583DC2-6BAC-45E9-842C-38171EBAABFC.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact():
+File: D1F3717E-75A3-458E-A95F-1294C72DA608.png, suggested name: "Inline helper reply with compact Clubhouse statuses_0_B44F390D-0FD1-4356-9ADA-978AE84B1DA3.png"
+
+Exported 5 attachments for: CompanionReadingUITests/testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry():
+File: 00208D20-76A5-45F4-9DB5-FFFCECD8B45D.png, suggested name: "Reading controls above the composer_0_CB9BA50C-98A3-4DFC-B0F1-C2470C9EC7B3.png"
+File: AE9FC379-03FF-47FF-8BC1-241FB8E58495.png, suggested name: "Chat reopen restoration readiness_0_C42CEE8B-4BFD-46D0-8795-24467E9A669F.png"
+File: 42B7013D-A61D-4607-85D2-02EEA75E7D80.txt, suggested name: "Chat reopen restoration frame timeline_0_E2BEF058-FC6B-4D14-923F-B645D94AE671.txt"
+File: EA84B00E-36A4-4A91-9C13-7281A308C06F.png, suggested name: "Tab return restoration readiness_0_C91E99D7-A6E9-4EE3-97C9-778DFD26CFCF.png"
+File: B3642DEC-3311-4C85-96E5-DC4553296309.txt, suggested name: "Tab return restoration frame timeline_0_14D5DF76-8FE9-49EB-BF69-AC42FE576B23.txt"
+
+Exported 2 attachments for: CompanionReadingUITests/testLastReplyLabelMatchesTheActualStationaryAction():
+File: 40124615-8B5C-4D19-874B-0909FDC193FD.png, suggested name: "Last reply Latest action arrives_0_EF2DF4F2-4D7F-4B77-A365-DC503B38E29F.png"
+File: A324DE95-1423-44C1-8B10-93FDF265AC03.png, suggested name: "Last reply announces Latest before tap_0_8FBDDCDE-62BF-488D-B99C-EE0D10D8C12A.png"
+
+Exported 3 attachments for: CompanionReadingUITests/testLatestArrivesGeometricallyWithoutAnIncomingUpdate():
+File: D1387886-DF5E-4425-91DD-61622CBEA1B2.png, suggested name: "Latest follows explicitly released update_0_61685763-E33B-42A5-9872-E41FD8ED7D78.png"
+File: D30D3BD6-F111-4B39-B811-ED3B39C5156F.png, suggested name: "Latest immediate stationary arrival_0_A7B86A45-057B-4AF0-B868-46CE088B70C6.png"
+File: 41824661-177E-4165-806C-E2B3677D9D13.png, suggested name: "Latest before stationary tap_0_7199D486-298F-4BEC-AB64-0DFFC79F0B25.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout():
+File: 22C52792-0045-47FD-B5AE-E1DA77491A5A.png, suggested name: "Latest hidden at the actual bottom with keyboard open_0_44920A3D-8435-46A6-9647-A008473A8DDA.png"
+File: E5D59C44-DE0E-478A-9CB3-2664C54BE69B.png, suggested name: "Latest offered after a slow tiny upscroll_0_5AAC4269-DCC3-4ACB-99FE-A1D0FB1B9461.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestIsAbsentAtActualBottomWithoutPausingFollowing():
+File: A8330699-0ECF-42B5-97F2-78C2526DCAA5.png, suggested name: "At actual bottom remains stationary and following_0_A9B1E224-87B3-4E1A-BFB5-905184935D35.png"
+File: EB01C3B6-D048-4B8B-86BE-1D0A067A13E1.png, suggested name: "At actual bottom without a floating control_0_8F3C51AD-D48F-4696-9F7D-6FF5FA4F7F1F.png"
+
+Exported 2 attachments for: CompanionReadingUITests/testLatestIsOneCenteredActionAndReachesStreamingTail():
+File: 05A36187-C253-49E2-8FF6-0DD5A2B821FA.png, suggested name: "Latest follows the streaming tail_0_2163C02C-EAD5-4441-8199-D079FF2144A8.png"
+File: 7FF40BF3-D863-43B5-8F70-E907ADBCBF80.png, suggested name: "Streaming reader has one centered Latest pill_0_6D30D085-6203-437B-84D2-777E4FE0DC12.png"
+
+Skipped export for CompanionReadingUITests/testMomentumAfterAShortUpwardPanKeepsFollowingPaused(): no matching attachments
+
+Exported 2 attachments for: CompanionReadingUITests/testNativeScrollToTopSticksWithAndWithoutStreaming():
+File: 410A5F05-F0B0-4C47-B60B-7727743F1C76.png, suggested name: "Native top remains with streaming true_0_8AD9388E-DCCD-46D6-8FA9-C78F5B718F3B.png"
+File: 3A1FB890-AE9D-4407-BB06-4EF02F5BE595.png, suggested name: "Native top remains with streaming false_0_61A5908F-0499-4164-B71A-1317DC80239B.png"
+
+Skipped export for CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming(): no matching attachments
+
+Exported 10 attachments for: CompanionReadingUITests/testRotationKeepsNewestLineInsideViewportWhileFollowing():
+File: 1582993B-F0DC-4879-8FB5-138E1BFE7FD6.txt, suggested name: "Rotated landscape with keyboard already open hierarchy_0_19986C79-B267-4EA2-B01C-49793FAF1CA6.txt"
+File: 35712295-58AB-4253-9EF1-E0ED6CA8BC9D.png, suggested name: "Rotated landscape with keyboard already open_0_227DB0B5-8A90-446B-9E11-9F5EABA3D60F.png"
+File: 744793DD-1D84-4006-85B6-3D1EFAE16563.txt, suggested name: "Rotated portrait editing tail hierarchy_0_C58889C2-5C67-4448-BF8B-32F6BE4CD11C.txt"
+File: E2638076-6722-4132-9A91-289F20B1024A.png, suggested name: "Rotated portrait editing tail_0_544006B8-F3E9-4E61-BCEC-A7C39A91B420.png"
+File: 30C73CD1-4A37-4950-907C-0C2B0C4E2894.txt, suggested name: "Rotated landscape editing tail hierarchy_0_18BA37DC-3CB6-4506-B6B3-ABA66859BE26.txt"
+File: F2336F58-90DD-427A-9CA7-7D59A77EEB3F.png, suggested name: "Rotated landscape editing tail_0_38CA9CF5-63D0-4973-90D1-F8DE2D65D126.png"
+File: 8D5D5FEB-DDB3-4AEB-91A2-569913A917E8.txt, suggested name: "Rotated landscape tail hierarchy_0_BA7D8EC1-D29B-4ACA-A311-A1CA1DA5D02E.txt"
+File: 459C160F-4400-44DD-BAD5-9D17A993AA61.png, suggested name: "Rotated landscape tail_0_07F4DFFE-D3DA-4955-9782-278089AD9306.png"
+File: 2C66F186-554D-4E54-AF25-1A2D69C847DE.txt, suggested name: "Portrait tail hierarchy_0_B21E477F-0252-4D5C-9418-87EA0EDF1338.txt"
+File: FCD77219-A9DA-46D3-95DB-26CED3088B60.png, suggested name: "Portrait tail_0_C7C11F17-AF66-41BB-A018-3BAF17126BCE.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testRotationPreservesAScrolledUpReader():
+File: 1DDB1C38-C641-4D55-977A-96D2D6773C9F.png, suggested name: "Scrolled-up reader after landscape rotation_0_5DF4F8D0-080E-4E5C-A5E3-194E0FFC083D.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls():
+File: EB4D2A01-51C3-4B90-95F0-99E05677614B.png, suggested name: "Streaming continues following with no scroll_0_6990470E-1277-40EE-A0CA-E2E973609A35.png"
+
+Exported 1 attachment for: CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming():
+File: 2434A97E-A871-46F0-8BFD-FAB2CBC1E280.png, suggested name: "User-positioned reply stays under streaming_0_EFBAA7F2-1267-4DAE-AEBD-27B641BA1CFD.png"
+
+Generated manifest file with attachment details: /tmp/ux-582-proof/tickets/c23-r1/attachments/manifest.json
