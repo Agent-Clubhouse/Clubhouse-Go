@@ -59,7 +59,7 @@ import Vision
         }
         XCTAssertEqual(service.reads, initialReads + 3, "Each actual project switch starts one read")
         service.finishHeldRead(initialReads + 1, name: "obsolete-second")
-        await Task.yield()
+        try await waitUntil { service.completedReads.contains(initialReads + 1) }
         controller.view.layoutIfNeeded()
         XCTAssertTrue(try XCTUnwrap(observed).loading, "A cancelled same-project completion cannot finish the current read")
         XCTAssertFalse(try XCTUnwrap(observed).optionsLoaded, "Its older options must not replace the current in-flight form")
@@ -69,7 +69,7 @@ import Vision
         try XCTUnwrap(observed).selectTemplate(.template("helper"))
         try await waitUntil { observed?.selection == .template("helper") }
         service.finishHeldRead(initialReads + 2, name: "obsolete-first")
-        await Task.yield()
+        try await waitUntil { service.completedReads.contains(initialReads + 2) }
         controller.view.layoutIfNeeded()
         XCTAssertEqual(try XCTUnwrap(observed).name, "latest-second")
         XCTAssertEqual(try XCTUnwrap(observed).selection, .template("helper"))
@@ -205,6 +205,7 @@ import Vision
     var plainRead: CheckedContinuation<Void, Never>?
     var holdsReads = false
     var heldReads: [Int: CheckedContinuation<CompanionCreateOptions, Never>] = [:]
+    var completedReads: Set<Int> = []
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { throw CompanionServiceError.unavailable("Test only") }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { throw CompanionServiceError.unavailable("No sends") }
@@ -216,7 +217,9 @@ import Vision
         reads += 1
         if holdsReads {
             let read = reads
-            return await withCheckedContinuation { heldReads[read] = $0 }
+            let options = await withCheckedContinuation { heldReads[read] = $0 }
+            completedReads.insert(read)
+            return options
         }
         if project.hostID == "plain-host" {
             await withCheckedContinuation { plainRead = $0 }
