@@ -195,7 +195,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             let frame: CGRect? = row.exists ? row.frame : nil
             print("PROVIDER_CAPTURE_GEOMETRY id=\(identifier) attempt=\(attempt) row=\(String(describing: frame)) band=\(top)...\(bottom)")
             if let frame {
-                guard frame.width > 0 && frame.height > 0 && frame.height <= bottom - top else {
+                guard frame.width > 0 && frame.height > 0 && frame.height <= bottom - top,
+                      frame.minX >= max(app.frame.minX, form.frame.minX),
+                      frame.maxX <= min(app.frame.maxX, form.frame.maxX) else {
                     XCTFail("The complete text row must fit in the native readable band: \(frame), \(top)...\(bottom)"); return false
                 }
                 if frame.minY >= top && frame.maxY <= bottom {
