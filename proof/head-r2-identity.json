@@ -1,0 +1,22 @@
+{
+  "prior_head": "760efb1985c12ef180975b65f3a73c42d21aa0f8",
+  "head": "e1c6fcf1c2c87f3e757542d047bb84c7eca5505c",
+  "full_diff_sha256": "40b50d0c7b7083b7d9e76938c4e39e8b03758b97aac3d78d82c35c86454b3fdf",
+  "manifest_sha256": "2f6a45399b6ec6c9484099a57f33fca6acabe659a17efd01c8ee3c6328857cdd",
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "package_all_input_tree_sha256": "1d5b54c41130a8961a8d6c66b925a98d02e2991e164b600a07116374fbcbef0e",
+  "package_paths": [
+    "Package.swift",
+    "Package.resolved",
+    "Annex/Annex/Transport",
+    "Annex/Annex/Companion/Domain",
+    "Annex/Annex/Companion/Adapters",
+    "Tests"
+  ],
+  "package_inputs_byte_identical": true,
+  "P1_carry": "prior55methods/84expanded, original receipt preserved; final D remains fresh current-main fullcoverage",
+  "checkProviderApply_body_sha256": "b769d1fe3da0e4c0c7acb6f78793ba7132dcd1944a2aca13779d519517c70057",
+  "checkProviderApply_byte_identical": true,
+  "prior_native": "1P7F once; no candidateApply/Start credit; sourcefix before new runtime; original packet immutable",
+  "review_before_build": true
+}
