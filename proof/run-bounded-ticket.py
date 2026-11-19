@@ -116,7 +116,7 @@ def supervise(process, *, root, phase, label, limit, started, clock, inspect_row
         elapsed = clock() - started
         report = dict(phase=phase, label=label, runner_pid=process.pid, worker_group=worker,
                       runner_rc=supervisor_rc, deadline_stop=deadline_stop, errors=errors, notes=notes,
-                      outer_duration_seconds=elapsed, outer_bound_seconds=limit,
+                      outer_started_monotonic=started, outer_duration_seconds=elapsed, outer_bound_seconds=limit,
                       closed_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
                       final_process_inspection_known=final_rows is not None,
                       owned_worker_members_after=members, owned_supervisor_members_after=supervisor_members)
