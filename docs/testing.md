@@ -1009,8 +1009,9 @@ Toolbar presentation (#429): `CompanionToolbarUITests` checks Home, New agent, C
 
 ### Feedback renewal stays in Settings (#609)
 
-`FeedbackTriggersUITests` adds four renewal cases: expired enrollment with the keyboard,
-expired enrollment at Accessibility XXXL, offline enrollment, and access-required enrollment.
+`FeedbackTriggersUITests` adds five renewal cases: expired enrollment with the keyboard,
+expired enrollment at Accessibility XXXL, offline enrollment, access-required enrollment, and
+ordinary registered/connected enrollment.
 Each launches `--feedback-renewal-ui-testing --companion-root-ui-testing` once, mounts the real
 AppRoot/Settings/chat, records keyboard/composer/Send/banner geometry, and rejects the old global
 renewal inset. It then opens Invitation & enrollment twice, focuses its native field, and navigates
@@ -1018,11 +1019,15 @@ back, dismisses and reopens Settings. The existing Settings status must be spoke
 and renewal remains a reachable 44-point target at both text sizes.
 
 The DEBUG fixture installs its feedback factory before Runtime construction. Enrollment and two
-explicitly held reports are in memory; its transport counts attempts and throws without sockets.
-Its frozen clock keeps the preparatory offline failure in backoff. Expired/access-required launch
-must make zero requests; offline must retain exactly its one preparatory synthetic refresh attempt.
+explicitly held reports are in memory; its transport counts attempts without sockets. Only registered
+mode answers a valid synthetic refresh; other requests throw. Its frozen clock keeps the preparatory
+offline failure in backoff. Expired/access-required launch must make zero requests; offline/registered
+must retain exactly one preparatory synthetic refresh attempt (failure/success respectively).
 An accessibility evidence value hashes enrollment/queued bytes and includes request count, queued
-report count, diagnostics mode and the three false shortcut preferences from a dedicated test suite.
+report count, diagnostics mode and the three false shortcut preferences. The same per-launch UUID
+test suite supplies all runtime preferences, so even an intended baseline failure cannot leave cached
+navigation for another launch. The evidence also asserts whether actual SwiftUI Dynamic Type is
+Accessibility XXXL, rather than treating its launch argument as proof.
 The complete value must remain unchanged after navigation/dismissal/reopening. No Redeem, Retry,
 release-held, clear or Send action is invoked. SDK enrollment, consent, queue and foreground-pump
 code is unchanged; the fixture is not a real enrollment, provider, device-install or release test.
@@ -1033,7 +1038,7 @@ covers pending, unavailable, rejected invitation and all six access states. The 
 helper extraction, accessibility IDs and DEBUG fixture seams. Identical tests/fixtures are retained
 in the candidate. Baseline execution targets the state test and both expired UI methods: expected
 failures are the three inaccurate fallback/error labels and the actual global inset, after a keyboard
-screenshot/geometry record. Candidate execution targets that state test and all four UI methods.
+screenshot/geometry record. Candidate execution targets that state test and all five UI methods.
 Exact-head independent prebuild review and native fail-before/pass-after evidence remain required;
 syntax parsing is not native build/runtime proof.
 
