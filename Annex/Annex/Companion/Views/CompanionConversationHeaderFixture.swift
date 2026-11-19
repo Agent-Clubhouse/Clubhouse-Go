@@ -21,6 +21,13 @@ struct CompanionConversationHeaderFixture: View {
     private var pushed: Bool { arguments.contains("--companion-header-pushed") }
 
     private var theme: CompanionDesktopTheme {
+        if arguments.contains("--companion-header-terminal") {
+            return .init(id: "terminal", name: "Terminal", source: "Desktop fixture", mode: .dark,
+                         colors: ["base": "#0a0a0a", "mantle": "#050505", "crust": "#000000", "text": "#00ff00",
+                                  "subtext0": "#00aa00", "surface0": "#1a1a1a", "surface1": "#252525", "accent": "#00ff00",
+                                  "accent2": "#00ffff", "warning": "#ffff00", "error": "#ff3333", "success": "#00ff00",
+                                  "info": "#00aaff"], gradient: [])
+        }
         if arguments.contains("--companion-header-latte") {
             return .init(id: "latte", name: "Catppuccin Latte", source: "Desktop fixture", mode: .light,
                          colors: ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69", "subtext0": "#6c6f85",
@@ -136,6 +143,10 @@ struct CompanionConversationHeaderFixture: View {
                 // One unbroken word, like the #554 report.
                 : arguments.contains("--companion-header-orchestrator-name") ? "Clubhouse-Orchestrator" : "Header worker"
             agent.status = arguments.contains("--companion-header-idle") ? .idle : .working
+            if arguments.contains("--companion-header-queue") {
+                agent.capabilities.remove(.steer)
+                agent.capabilities.insert(.queue)
+            }
             agent.turnStartedAt = agent.status == .working && !arguments.contains("--companion-header-activity-transitions")
                 ? Date().addingTimeInterval(-65) : nil
             agent.freeAgentMode = true

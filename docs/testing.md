@@ -21,6 +21,13 @@ The native header balances measured side origins with at least 44pt leading and 
 The header matrix checks centering immediately, waits at most five seconds if needed within the existing 1pt tolerance, logs the measured wait,
 and samples each avatar screenshot once, retaining that exact image and its sample geometry.
 
+The three Send-glyph contrast methods in `CompanionChatHeaderVisualUITests` use the real composer,
+keyboard open, with Terminal, a light-accent dark Mocha theme and light Latte. Each checks enabled
+and empty-draft disabled Send, Queue and Steer states without sending. The screenshot's central
+24pt square excludes the glass rim; at least 5% of those pixels must contrast at 4.5:1 against
+the median rendered fill. Exact synthetic screenshots and measured contrast are retained.
+The Terminal and queue-only flags are DEBUG fixture inputs, not production theme or send-policy changes.
+
 `CompanionContextLimitsUITests` exercises the production “Context and limits” sheet with synthetic
 `--companion-context-sheet-fixture` inputs inside the existing header preview. It checks the
 “84k of 200k tokens” format, the usage event's reported time (or explicit unknown), only the
