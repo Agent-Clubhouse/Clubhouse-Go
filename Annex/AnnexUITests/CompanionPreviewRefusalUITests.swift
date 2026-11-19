@@ -14,11 +14,14 @@ import XCTest
             link.tap()
             XCTAssertTrue(app.staticTexts["Preview unavailable"].waitForExistence(timeout: 10))
             XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", reason)).firstMatch.exists)
+            let done = app.buttons["companion-preview-done"]
+            XCTAssertEqual(done.label, "Done")
+            XCTAssertTrue(done.isHittable && app.frame.contains(done.frame))
             let screenshot = XCTAttachment(screenshot: app.screenshot())
             screenshot.name = "Explicit local preview refusal - \(scenario)"
             screenshot.lifetime = .keepAlways
             add(screenshot)
-            app.buttons["companion-preview-done"].tap()
+            done.tap()
             XCTAssertTrue(app.buttons["companion-preview-done"].waitForNonExistence(timeout: 5))
             XCTAssertEqual(app.staticTexts["mobile-link-open-receipt"].label, "opens=0;url=")
             app.terminate()

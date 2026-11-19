@@ -70,6 +70,8 @@ A recognized local-link tap opens the shared preview destination even when the c
 
 ### Native actions
 
+The shared preview uses a standard labeled **Done** toolbar control, retaining its existing dismissal action and accessibility identifier. It does not force the conversation palette's icon-only foreground onto a system-presented sheet, whose appearance can differ. The common toolbar helper and other sheets are unchanged. Refusal UI checks require the labeled control to be fully on screen and tappable; both refusal screenshots still require actual visible-text review.
+
 PDFView.h (iOS 26.0 SDK) documents the URL-link callback's default as opening the URL with the system, and the remote go-to default as a beep. `CompanionPDFPreview.LinkGuard` implements both as separate no-ops. PDFView holds its delegate weakly; SwiftUI keeps the coordinator from `makeCoordinator` until `dismantleUIView`.
 
 | Surface | Handling | Evidence |
