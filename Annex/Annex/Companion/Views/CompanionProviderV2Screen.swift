@@ -111,6 +111,7 @@ private struct CompanionProviderV2Form: View {
                 if let start = flow.lastStart {
                     Section("Historical Start evidence") {
                         Text(start.start.wasObserved ? "The host observed PTY creation with \(name(start.start.providerSelection ?? "unknown")). This is not a provider handshake." : "Runtime creation is unknown.")
+                            .accessibilityIdentifier("provider-v2-start-creation")
                         LabeledContent("Command outcome", value: start.result.status)
                         LabeledContent("Observed at", value: start.start.observedAt ?? "Not reported")
                         LabeledContent("Running at that command", value: start.running.state)

@@ -290,12 +290,18 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         }
         app.buttons["provider-review-change"].tap()
         let receipt = app.staticTexts["provider-saved"]
-        XCTAssertTrue(scrollTo(receipt, in: app, maxSwipes: 12))
+        if largeText {
+            XCTAssertTrue(captureReadableProviderRow("provider-saved", in: app,
+                containing: ["historical", "started no session"], name: "V2 Large historical Apply receipt fully readable before Start"))
+        } else { XCTAssertTrue(scrollTo(receipt, in: app, maxSwipes: 12)) }
         XCTAssertTrue(receipt.waitForExistence(timeout: 5))
         XCTAssertTrue(receipt.label.contains("historical") && receipt.label.contains("started no session"))
         captureProvider(app, "V2 historical Apply receipt before Start")
         let start = app.buttons["provider-start-new"]
-        XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 12))
+        if largeText {
+            XCTAssertTrue(captureReadableProviderRow("provider-start-new", in: app,
+                containing: ["Start new session"], name: "V2 Large Start control fully readable before separate confirmation"))
+        } else { XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 12)) }
         if mode == "no-start" {
             XCTAssertFalse(start.isEnabled)
             let explanation = app.staticTexts["provider-start-reason"]
@@ -327,7 +333,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 12)); XCTAssertFalse(start.isEnabled)
         } else {
             let creation = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "This is not a provider handshake")).firstMatch
-            XCTAssertTrue(scrollTo(creation, in: app, maxSwipes: 12))
+            if largeText {
+                XCTAssertTrue(captureReadableProviderRow("provider-v2-start-creation", in: app,
+                    containing: ["host observed PTY creation", "This is not a provider handshake"], name: "V2 Large historical creation fully readable after confirmed Start"))
+            } else { XCTAssertTrue(scrollTo(creation, in: app, maxSwipes: 12)) }
             XCTAssertTrue(creation.label.contains("host observed PTY creation"))
             captureProvider(app, "V2 held historical creation is not a current runtime claim")
         }
