@@ -1,0 +1,180 @@
+{
+  "status": "Independent source/UX/authority and assigned original-results aggregate PASS; parent owns integration/landing/device acceptance",
+  "head": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "manifest_sha256": "38e3b139fcaddbd2204f03987ef89583cc24fd6eae303d2851a67c12677e1703",
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
+  "source_sha256": {
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "2eebd11929aa1eed300d7a8b2db6470da4bd3d9a5ab0bf04837ac75443ca5449",
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "c46e0ea1995b34818a78f7ca93b69c87a71ae8c118213b09b33f1d6302451cef",
+    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": "0dc21c9e0534ab83aeb4976e3229ed6c396785e03b19ffe2e19c8cecf5e02cd6",
+    "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift": "0580e14b3796219b52d1cafbe5e5daee5783b9639d6a5ba3f52916df7f607e2a",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "6d1b80c3119f2824862fdb58ac2ce8fb4e64befd528989d0686fb99b8e9928e9",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "aa3989b820852e63e7657a31a5b854484243f83423ba5bcd459728fa32a7cddc",
+    "scripts/isolated-deinit-policy.json": "acf67b2b194b57d4c92fb4f19798e066871d7df3b03d83ea8be325318bc12a6a",
+    "docs/isolated-deinit.md": "8ea3af82c9004d902d0ef970094b8cbc860c92e6022538707ee21a27562a8ca1"
+  },
+  "full_diff_sha256": "2cf0686e0fbf8acde9b96dd9214d4409e63ada693023cc7614e3d8b1e0a9472c",
+  "private_originals_uploaded": false,
+  "runtime_os": "iOS26.0 (23A343) simulator; not hosted26.5 or physical device",
+  "fresh_native_methods_per_device": 6,
+  "carried_individual_controls_per_device": 2,
+  "carried_head": "882f2d1b9308efc97173a82240dc45580cd0a1d6",
+  "package_carry": {
+    "methods": 55,
+    "expanded_executions": 84,
+    "files_byte_identical": 407,
+    "fresh_execution": false
+  },
+  "tickets": {
+    "a-r5": {
+      "head": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+      "phase": "A",
+      "rc": 0,
+      "duration_seconds": 227.05266675027087,
+      "hard_bound_seconds": 900,
+      "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+      "manifest_sha256": "38e3b139fcaddbd2204f03987ef89583cc24fd6eae303d2851a67c12677e1703",
+      "build_rc": 0,
+      "deinit_rc": 0,
+      "policy_rc": 0,
+      "booted_after": [],
+      "owned_processes_after_cleanup": [],
+      "receipt_sha256": "f811d11b8e866ecbddec639f34ef46e49567f28d619f4a2f06e885b9b799ba24",
+      "artifact_sha256": {
+        "ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "98d9569b7567b6878a37e638b2a3adb7f78d094b959a569fe25f5a4099fda29d",
+        "ClubhouseGo.debug.dylib": "2786e114e3ac18182851499df83406baa5aefd2fc78879c5bfee430f22a2e619",
+        "ClubhouseGoTests": "544a6204fb1cbdf5305592b3946824507b0d174790a7b3db3fa77a6084cd6dee",
+        "ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+        "ClubhouseGoUITests": "90516dc6309f1a70f40d8139a963eddaad434bc26fde850a3a3e0e21ecd94c0d"
+      }
+    },
+    "phone-r5": {
+      "head": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+      "phase": "TPHONE",
+      "rc": 0,
+      "duration_seconds": 362.02205179072917,
+      "hard_bound_seconds": 1800,
+      "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+      "manifest_sha256": "38e3b139fcaddbd2204f03987ef89583cc24fd6eae303d2851a67c12677e1703",
+      "test_rc": 0,
+      "audit_rc": 0,
+      "exact_identifiers_ok": true,
+      "order_ok": true,
+      "outcome_map_ok": true,
+      "fixture_counts": {
+        "preview": 7,
+        "change": 3,
+        "replay": 1,
+        "start": 3
+      },
+      "fixture_order_identity_ok": true,
+      "simulator_deleted": true,
+      "booted_after": [],
+      "owned_processes_after_cleanup": [],
+      "receipt_sha256": "350f8cff034b145057ff02402344bab68d7bf7606a2af373c476ab7ec46df735",
+      "summary": {
+        "totalTestCount": 6,
+        "passedTests": 6,
+        "failedTests": 0,
+        "expectedFailures": 0,
+        "skippedTests": 0
+      },
+      "artifact_sha256": {
+        "ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "98d9569b7567b6878a37e638b2a3adb7f78d094b959a569fe25f5a4099fda29d",
+        "ClubhouseGo.debug.dylib": "2786e114e3ac18182851499df83406baa5aefd2fc78879c5bfee430f22a2e619",
+        "ClubhouseGoTests": "544a6204fb1cbdf5305592b3946824507b0d174790a7b3db3fa77a6084cd6dee",
+        "ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+        "ClubhouseGoUITests": "90516dc6309f1a70f40d8139a963eddaad434bc26fde850a3a3e0e21ecd94c0d"
+      }
+    },
+    "se-r5": {
+      "head": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+      "phase": "TSE",
+      "rc": 0,
+      "duration_seconds": 365.7265962078236,
+      "hard_bound_seconds": 1800,
+      "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+      "manifest_sha256": "38e3b139fcaddbd2204f03987ef89583cc24fd6eae303d2851a67c12677e1703",
+      "test_rc": 0,
+      "audit_rc": 0,
+      "exact_identifiers_ok": true,
+      "order_ok": true,
+      "outcome_map_ok": true,
+      "fixture_counts": {
+        "preview": 7,
+        "change": 3,
+        "replay": 1,
+        "start": 3
+      },
+      "fixture_order_identity_ok": true,
+      "simulator_deleted": true,
+      "booted_after": [],
+      "owned_processes_after_cleanup": [],
+      "receipt_sha256": "589d8fcc58f70dc02ef9158edb4a2068c834c0f053a54cb5fcd0faedf6db38cc",
+      "summary": {
+        "totalTestCount": 6,
+        "passedTests": 6,
+        "failedTests": 0,
+        "expectedFailures": 0,
+        "skippedTests": 0
+      },
+      "artifact_sha256": {
+        "ClubhouseGo_ClubhouseGo_iphonesimulator26.0-arm64-x86_64.xctestrun": "98d9569b7567b6878a37e638b2a3adb7f78d094b959a569fe25f5a4099fda29d",
+        "ClubhouseGo.debug.dylib": "2786e114e3ac18182851499df83406baa5aefd2fc78879c5bfee430f22a2e619",
+        "ClubhouseGoTests": "544a6204fb1cbdf5305592b3946824507b0d174790a7b3db3fa77a6084cd6dee",
+        "ClubhouseGoUITests-Runner": "58e18213241569a95a90bf6175823b036e26663c4e4db1a78401d9bab9c8ae8c",
+        "ClubhouseGoUITests": "90516dc6309f1a70f40d8139a963eddaad434bc26fde850a3a3e0e21ecd94c0d"
+      }
+    },
+    "d-r5": {
+      "head": "f76e1cc5aa95bef77c76f15536d8457a24802b8b",
+      "phase": "D",
+      "rc": 0,
+      "duration_seconds": 128.25419604079798,
+      "hard_bound_seconds": 1200,
+      "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+      "manifest_sha256": "38e3b139fcaddbd2204f03987ef89583cc24fd6eae303d2851a67c12677e1703",
+      "booted_after": [],
+      "owned_processes_after_cleanup": [],
+      "main_at_runtime": "f85c3ca940b2f8804abc534e0df867298bbd3434",
+      "combined_head": "2018ac00fc0d0af3cced9e0c1b2f58b848bac41b",
+      "combined_tree": "f0220f11d8660cfdf06086bf38ff3ec1da9b519b",
+      "fresh_merge_tree": "f0220f11d8660cfdf06086bf38ff3ec1da9b519b",
+      "main_product_overlap": [],
+      "coverage_rc": 0,
+      "swift_jobs": 2,
+      "receipt_sha256": "4ac5d8d26c250ccd31474de2926296d5b20a4ee50a38f3b678ebdbde9b5cda42"
+    }
+  },
+  "coverage": {
+    "reported_methods": 1728,
+    "executed_passed_methods": 1723,
+    "unchanged_opt_in_skips": 5,
+    "suites": 206,
+    "Transport": {
+      "covered": 5274,
+      "executable": 5449
+    },
+    "Domain": {
+      "covered": 14784,
+      "executable": 15905
+    },
+    "unchanged_ratchet_pass": true,
+    "nominal_domain_percent": 93.4,
+    "unchanged_tolerance_points": 0.5,
+    "effective_domain_floor_percent": 92.9
+  },
+  "independent_review_sha256": {
+    "D": "345c2fae86d1001c01c376bb8672b70f31482148e13d7e8e81d9e7790a9e4f4c",
+    "aggregate": "d9ce18bbb45028d3da40d0c0f6716255917f67cf92fe31edb23532ab5be2ea56",
+    "PHONE": "c1dc074a5fae69fd6770815a5245cd8f6b359080293c5e8adec6d67634094cf1",
+    "SE": "c840070c292390df91325099074a71380b0b8486d20dc8bcbab7e20b95313351",
+    "P1carry": "4bb2500e551ee8f588bcfa904d9d97a26a358b5d0f1d0918318cebb162b88770"
+  }
+}
