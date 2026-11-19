@@ -3,7 +3,7 @@
   "private_simulator": {
     "name": "ux-610-provider-apply"
   },
-  "runner_sha256": "79c052a52a56f4d5f755fe3e3250439739775705433a667a9c7f3095327265f7",
+  "runner_sha256": "6970c9258aed43b897cd54510fce7d3abdb64f0a44b6d056ef99f42e8b1c9420",
   "auditor_sha256": "7eee630c891019cc52d0ccad4b1edad42ba681ed4a048d08ed37265d48e3af74",
   "review_required_before_execution": true,
   "originals_private": true,
@@ -162,5 +162,11 @@
   "fifo_sha256": {
     "/tmp/clubhouse-go-run.sh": "2959958efdcaf6fb2e8095639c864f18392ce1977817ae0873fce647c2b65b27",
     "/tmp/clubhouse-go-run-pkg.sh": "88370c0b67e423f4cfcdd79b50529facd7b1d5bb696c57b8ba2648b9320d0b9e"
+  },
+  "independent_p0_gate": {
+    "manifest_path": "/tmp/ux-610-proof/baseline/manifest.json",
+    "receipt_path": "/tmp/ux-610-proof/baseline/p0-r1-receipt.json",
+    "review_path": "/tmp/ux-610-proof/baseline/independent-P0-review.json",
+    "package_log": "/tmp/ux-610-proof/baseline/tickets/p0-r1/package.log"
   }
 }

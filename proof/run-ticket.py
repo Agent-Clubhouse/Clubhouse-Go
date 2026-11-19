@@ -215,13 +215,15 @@ def test(state):
         if 'testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry' in key:
             state['reading_activity_rc']=run(['xcrun','xcresulttool','get','test-results','activities','--path',str(result),'--test-id',key],OUT/'reading-activities.json',source)
     if CFG.get('expected_fail_before'):
-        failures=json.dumps(summary.get('testFailures',[]))
-        state['intended_failure_observed']=('Apply must be reachable before selecting' in failures)
+        failures=summary.get('testFailures',[])
+        state['intended_failure_observed']=(len(failures)==1 and re.fullmatch(
+            r'XCTAssertTrue failed\s*-\s*Apply must be reachable before selecting, including at AX size\s*',
+            failures[0].get('failureText','')) is not None)
         state['rc']=0 if (state['test_rc']!=0 and summary['failedTests']==1 and summary['passedTests']==0
             and summary['skippedTests']==0 and summary['expectedFailures']==0 and state['intended_failure_observed']
             and state['exact_identifiers_ok'] and all(state[k]==0 for k in ['summary_rc','tests_rc','audit_rc','attachments_rc','diagnostics_rc'])) else 1
     else:
-        state['rc']=0 if (state['test_rc']==0 and summary['failedTests']==0 and state['exact_identifiers_ok']
+        state['rc']=0 if (state['test_rc']==0 and summary['failedTests']==summary['expectedFailures']==summary['skippedTests']==0 and state['exact_identifiers_ok']
             and state['order_ok'] and state['outcome_map_ok'] and state.get('fixture_order_identity_ok',True) and all(state[k]==0 for k in ['summary_rc','tests_rc','audit_rc','attachments_rc','diagnostics_rc'])) else 1
     if state['rc']:state['stop']='Unexpected count/order/outcome; no executed test retry'
     save(state);return state['rc']
@@ -278,12 +280,16 @@ def package(state):
     state['expected_fail_before']=CFG.get('expected_fail_before',False)
     if state['expected_fail_before']:
         # A nonzero compile/crash/fixture result is never the intended failure.
-        state['intended_failure_observed']=(state['package_rc']==1 and len(state['swift_test_completions'])==1
+        state['intended_failure_signal_only']=(state['package_rc']==1 and len(state['swift_test_completions'])==1
             and 'genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport' in log
             and 'A generic update must not switch providers' in log
             and len([x for x in state['argument_starts'] if 'genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport' in x])==2
             and 'error: emit-module' not in log and 'crashed' not in log.lower())
-        state['rc']=0 if state['intended_failure_observed'] else 1
+        # Aggregate text cannot attribute every argument's issue. Always stop for
+        # an independent per-argument raw-results review before any next phase.
+        state['independent_per_argument_review_required']=True
+        state['acceptance']='PENDING independent false/true outcome-and-cause audit; no fail-before credit'
+        state['rc']=3 if state['intended_failure_signal_only'] else 1
     else:
         method_counts={name:state['method_starts'].count(name) for name in state['method_starts']}
         argument_methods=[re.search(r' to (\w+)\(',line)[1] for line in state['argument_starts']]
@@ -296,12 +302,30 @@ def package(state):
     save(state);return state['rc']
 
 
+def verify_independent_p0_gate():
+    gate_cfg=M.get('independent_p0_gate')
+    if not gate_cfg or PHASE=='P0':return None
+    reference_path=Path(gate_cfg['manifest_path'])
+    reference=json.loads(reference_path.read_text())
+    receipt=json.loads(Path(gate_cfg['receipt_path']).read_text())
+    gate=json.loads(Path(gate_cfg['review_path']).read_text())
+    assert receipt['phase']=='P0' and receipt['package_rc']==1 and receipt['rc']==3
+    assert receipt['head']==reference['head'] and receipt['manifest_sha256']==digest(reference_path)
+    assert gate['accepted'] is True and gate['head']==reference['head']
+    assert gate['manifest_sha256']==digest(reference_path) and gate['runner_sha256']==reference['runner_sha256']
+    assert gate['raw_package_log_sha256']==digest(Path(gate_cfg['package_log']))
+    assert gate['argument_outcomes']=={'supported=false':'intended fail-before only','supported=true':'intended fail-before only'}
+    assert gate['unexpected_failures']==[] and gate['setup_or_crash'] is False
+    assert gate['reviewer'] in ['go-bug-pass','go-bug-runner','Clubhouse-Go-Orchestrator'] and gate['review_task_id']
+    return {'path':gate_cfg['review_path'],'sha256':digest(Path(gate_cfg['review_path'])),'reviewer':gate['reviewer'],'review_task_id':gate['review_task_id']}
+
 def worker():
     state={'head':M['head'],'phase':PHASE,'started_at':g.utc(),'runner_sha256':digest(Path(__file__)),'manifest_sha256':digest(R/'manifest.json')}
     try:
         assert digest(Path(__file__))==M['runner_sha256'],'Executed runner differs from reviewed pin'
         assert all(digest(Path(path))==value for path,value in M['fifo_sha256'].items()),'FIFO helper changed; re-review before admission'
         assert digest(R/'audit-native.py')==M['auditor_sha256'],'Auditor differs from reviewed pin'
+        state['independent_p0_gate']=verify_independent_p0_gate()
         state['guard']=admission_guard();save(state)
         print('GUARD '+json.dumps({k:v for k,v in state['guard'].items() if k not in ['top','vm_stat_before','vm_stat_after','swap_before','swap_after']}),flush=True)
         if not state['guard']['accepted']:state['rc']=4;save(state);return 4
