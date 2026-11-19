@@ -1,0 +1,32 @@
+{
+  "current_head": "5b1995e8fbffd0e2d497fd5477e40a3121190c23",
+  "never_claim": "No fresh-five SE run or repaired prior batch",
+  "individual_controls": [
+    {
+      "method": "testProviderV2ApplyAndStartStaySeparate",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2ApplyDoesNotImplyStartCapability",
+      "origin": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2/se-r1",
+      "scope": "individualPASS in3P2Fbatch"
+    },
+    {
+      "method": "testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    },
+    {
+      "method": "testProviderV2LostStartNeverRequestsAnotherStart",
+      "origin": "2b6406171cbea5189c0606dd218e298eb63064f8/se-r2",
+      "scope": "individualPASS in2P1Fbatch"
+    }
+  ],
+  "basis": "The four retained individual methods have unchanged falseLarge test operations/guards and original default control-pan behavior; domain/adapter/flow inputs remain identical. Current View changes only receipt literal, preserving IDs/conditions/actions and historical/started-no-session predicates, but receipt geometry/copy pixels differ. Old outcomes are historical functional observations, NOT current-copy navigation/geometry or a fresh-five run. Current plan freshly tests worst-size Large and normal unsupported capture on each device; exact reviewer must disposition sufficiency of this carry.",
+  "originals_reports": [
+    "2dad856bbe891b2719dc436c4d0e3e4540f3d9f85269964c8396dcdf3248daa6",
+    "3c3a2775bc56b3d36e75f3a40b97ae4bdb74d7f3cac1d0d77c1e2e2ddedee7fe"
+  ],
+  "current_copy_geometry": "UNPROVEN. Actual prior349.5>302 receipt source change must receive fresh native fit/pixel acceptance."
+}
