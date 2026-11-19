@@ -1,0 +1,45 @@
+{
+  "head": "fca52a79641d181686e2f3873835a534c907acab",
+  "prior_head": "882f2d1b9308efc97173a82240dc45580cd0a1d6",
+  "full_diff_sha256": "e34a99061b70d5239448ce411f68ac54e66654956b073ac648e05034b572622e",
+  "manifest_sha256": "a3ac9612c7ffc22d54ece09ae50d91831c2e3968f2bb4ff9a29f38aeef9c204b",
+  "runner_sha256": "5e10b26fcb5990ec6ba57d39b3e141c63f8567055106958c25597e5543959ec5",
+  "package_tree_sha256": "1d5b54c41130a8961a8d6c66b925a98d02e2991e164b600a07116374fbcbef0e",
+  "T0_prefix_through_assert_sha256": "608b545d173af6f391d279ec56889ff3069947b13adc7945d8521999ac948c89",
+  "unchanged_member_sha256": {
+    "testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal": "ea1882fb5ec2bac404c5759f6490742ea9b094e40eb5e65ded02f5cc554e4b9b",
+    "testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu": "52fcf63bb8ee47a913a2221fec0b0922731e7cd96c934530b5535dac329bdba2",
+    "openRiver": "7bca7e55b06989e201c91ba9214c3d82f2b77d111b4640b04dad1f39cd46803c",
+    "openAgentSettings": "b1cf209a8cde1065c3c0003d6ea4d81f769e1029c8f2ca0d6a61984c2909a6ec",
+    "captureProvider": "1461d44238fa079a8d4e2d8de91233b535690c535a088be9ffb9a5f6ee6824d8"
+  },
+  "carried_individual_outcomes": {
+    "phone": {
+      "testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal": {
+        "result": "Passed",
+        "description": "Test case with 1 run",
+        "duration": 34.02813100814819
+      },
+      "testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu": {
+        "result": "Passed",
+        "description": "Test case with 1 run",
+        "duration": 19.43081796169281
+      }
+    },
+    "se": {
+      "testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal": {
+        "result": "Passed",
+        "description": "Test case with 1 run",
+        "duration": 37.53927505016327
+      },
+      "testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu": {
+        "result": "Passed",
+        "description": "Test case with 1 run",
+        "duration": 19.101381063461304
+      }
+    }
+  },
+  "product_delta": "none; native helper/docs only",
+  "new_native_selectors_per_device": 6,
+  "prior_SE_overall": "STRICTFAIL7/8 unchanged"
+}
