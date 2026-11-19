@@ -1,0 +1,162 @@
+{
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "source": "/tmp/ux-582-first-paint",
+  "status": "Test-only CI history-fixture adjustment; static review required before local build",
+  "guard": "normal FIFO; vm_stat free+inactive>=8GiB, idle>=40%, swap growth<=64MiB/10s, mid-run record-only",
+  "phases": {
+    "A": {
+      "kind": "fresh-build-for-testing",
+      "bound": 900,
+      "jobs": 2,
+      "parallel_testing": false,
+      "code_signing": false,
+      "policy_tests": true,
+      "compiled_deinit_gate": true
+    },
+    "HISTORY_PHONE": {
+      "kind": "hosted",
+      "bound": 600,
+      "device": "iPhone-17",
+      "selectors": [
+        "ClubhouseGoTests/CompanionHistoryReadingTests"
+      ],
+      "methods": 8,
+      "count": 8,
+      "parameter_executions": 8,
+      "method_names": {
+        "CompanionHistoryReadingTests": [
+          "testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+          "testNativeTopAdapterSurvivesItsOriginalDelegate",
+          "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+          "testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+          "testNewHistoryRestorationCannotReclaimPendingNativeTop",
+          "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+          "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+          "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent"
+        ]
+      },
+      "acceptance": "All8once, no skipped/expected failures or repetitions. Same actual entry100, measured relative8 within1pt after remount/refresh. Native-top fixture same unsliced entry, actual600pt native movement, original>500/0offset1pt authority assertions. Five live items/full182/followLatest reset checks remain. New failure STOP; no timing retries."
+    },
+    "HISTORY_IPAD": {
+      "kind": "hosted",
+      "bound": 600,
+      "device": "iPad-Pro-11-inch-M4-8GB",
+      "selectors": [
+        "ClubhouseGoTests/CompanionHistoryReadingTests"
+      ],
+      "methods": 8,
+      "count": 8,
+      "parameter_executions": 8,
+      "method_names": {
+        "CompanionHistoryReadingTests": [
+          "testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+          "testNativeTopAdapterSurvivesItsOriginalDelegate",
+          "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+          "testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+          "testNewHistoryRestorationCannotReclaimPendingNativeTop",
+          "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+          "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+          "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent"
+        ]
+      },
+      "acceptance": "All8once, no skipped/expected failures or repetitions. Same actual entry100, measured relative8 within1pt after remount/refresh. Native-top fixture same unsliced entry, actual600pt native movement, original>500/0offset1pt authority assertions. Five live items/full182/followLatest reset checks remain. New failure STOP; no timing retries."
+    }
+  },
+  "order": [
+    "A",
+    "F/FSE/FAX/FL fresh videos and independent review",
+    "N16",
+    "H15/19",
+    "S2",
+    "Q1 native archive",
+    "CPU fresh main A900/P3 + head A900/P3 unchanged bars",
+    "C23",
+    "C50",
+    "R0",
+    "RSE",
+    "D current-main combined coverage"
+  ],
+  "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+  "full_diff_sha256": "6803b3feb1c69dd1e3a20ae0326bdd084f5e95f1e2b3e2639380f2bb4bb90c25",
+  "private_simulator": {
+    "name": "ux-582-history-proof"
+  },
+  "source_sha256": {
+    "Annex/Annex/AnnexApp.swift": "bdb3d0db2cb9691d7893e212675f61ca625d10d723176396c5fd9dc904a9c118",
+    "Annex/Annex/Companion/Domain/CompanionMessageSlices.swift": "d0d0fa43ef7361d21a1e81ee7ba908663f49f71533df0bbe0379d641418efb7f",
+    "Annex/Annex/Companion/Domain/CompanionReadingPosition.swift": "02dee4efb081c672f9fad77dc6673bb9164dc5dac8d70530ef7f57920bc63e9b",
+    "Annex/Annex/Companion/Views/CompanionConversationView.swift": "89b48b6374b1cdb86e863b2d847fcc8525ede1fdd2b182c65f89d0e11b774df6",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningFixture.swift": "2c62cb35be43e7dc97d6cd58270b58c42d0a09083fb5f07012f734960b286f4f",
+    "Annex/Annex/Companion/Views/CompanionReadingOpeningProbe.swift": "0902bfc687af2eada91b57e59c57b13c7da914298f7f1020754c4b0e8d6af874",
+    "Annex/Annex/Companion/Views/CompanionReadingRestoreFixture.swift": "3bd2cd5ee56881fdb531796adee0a21ce1e64edea51317ec0e6c5462f8f80780",
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+    "Annex/AnnexTests/CompanionReadingOpeningTests.swift": "3bd13add0dd03769db700ceba18472d9c61832f89f44ca44d21d3f58c279b49f",
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4",
+    "Annex/AnnexUITests/CompanionReadingOpeningUITests.swift": "ffc7eb416ebba587ceb774d1b2e5a7b4eee7355f901753ec50a5bbde5dff17a7",
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+    "Tests/CompanionDomainTests/CompanionReadingOpeningTests.swift": "680f9945d643a8788a87264121241821fd3919fc98ba94c88d28e37c6ba36f0e",
+    "Tests/CompanionDomainTests/CompanionReadingPositionTests.swift": "851c34b4c0e4237ce3f5b56480f5e3e0bcfdf67846396fcaafd10e159d372ca5",
+    "docs/isolated-deinit.md": "fe15e254fb78d098fb4de2848d57308e7594408321b76b709051c37a19ea1658",
+    "docs/reading-first-paint-extraction.json": "2d407fde7001c26e8662cd23fac7d2f7c88937e054204a2b4c402a2fcaf06d07",
+    "docs/reading-first-paint-plan.md": "27aee4033293ff64eb0c3a97058f2ba9b578b2986d392860850365db6bb22cf2",
+    "scripts/isolated-deinit-policy.json": "7eab1911ff20ef528dbad59f17f2ce5cad3ee48de5721c142c720474b002d295",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "b2739607bf03e17e356ad7d4e5fb0991387d160bb284b346629966c2e8316a42",
+    "Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift": "c9b3813a7880bf8a429f373d9d41621dc4a731c03288f93e883fb10bd8963b28",
+    "Annex/AnnexTests/CompanionTranscriptEqualityTests.swift": "939ae0e1c0dd4514b637d70ce017babca074b0c29a20f797683440011b918dd2",
+    "Annex/AnnexTests/CompanionHistoryReadingTests.swift": "e362599697a6eb55907538584f3a3693d3f0e0cccfb71fddbf6a1f6d7fa76de1"
+  },
+  "unchanged_contract_sha256": {
+    "Annex/AnnexUITests/CompanionReadingUITests.swift": "6c5749d41ba1670ac001c65428016333d7c0818af7f9ea44d3579f980c7784b5",
+    "Annex/AnnexTests/CompanionReadingRestorationTests.swift": "2296431c2a5c33b7afa9843eec0a39d85c9a5f0c4131662f760409c5caca7bd4"
+  },
+  "known_native_outcomes": {
+    "CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays()": [
+      "Expected Failure"
+    ],
+    "CompanionCompactComposerUITests/testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry()": [
+      "Expected Failure",
+      "Skipped"
+    ],
+    "CompanionReadingUITests/testPointerWheelScrollPausesFollowingWhileStreaming()": [
+      "Skipped"
+    ]
+  },
+  "proof_stop": "Unexpected count/order/result -> STOP, no assertion retry. No broad suite before new hosted+recorded first-frame proof accepted. Refusal rc4 is zero execution, not a test failure.",
+  "runner_sha256": "bf3f2f7139f5412b22f06bf04841172a43b843612d8fb6e11a9c391cd38afe59",
+  "native_auditor_sha256": "463ec47da1cb03e745e887ccb4f59d6a6da816b6f11d434e63fdfc5e1b1bef14",
+  "proposal_authority": "User optionA t_mwmomzr7; QA qa-582-bookmark-start, including clarified movement bound and separate epsilon correction",
+  "contract_repin_authority": "Orchestrator t_mwmomzr7 + QA: rebase85ee757a, ONLY original Reading file re-pin to merged #587; rebase-85ee-identity.json proves exact merged delta and unchanged #582 core product. Separate disclosed H/S edits after H-r1 STOP: relative2pt replaces raw-origin2pt, measured reload displacement augments pin check, all other controls/tolerances intact.",
+  "disclosed_contract_changes": {
+    "Annex/AnnexTests/CompanionHiddenConversationTests.swift": {
+      "prior_sha256": "3aa40a60ac135bc124e7eb5992dbbfd77d93d20e0614afc6966cd13d26c562ab",
+      "current_sha256": "7dc4131e1362b14b343b4297bdc878baba4dbcbfbec0632cf25e07e83f8ae478",
+      "diff_sha256": "561aff2f910d684bfe0e86e39c22a27a211c67e377613df3d822d1d8096131f9",
+      "authority": "QA qa-582-bookmark-start explicitly approved entry-relative2pt and real preceding-row resync proposal; cumulative diff review required before build"
+    },
+    "Annex/AnnexUITests/CompanionReadingRestoreUITests.swift": {
+      "prior_sha256": "6628a79aac1fdf5e00422b7e3156aa934a1b1a2cb73563f8d98d75788336fbd1",
+      "current_sha256": "09e2bf8f0cc573272c25365beeb70d7469e8c48433e7f05e7292035b4e9fd9b7",
+      "diff_sha256": "afb03fd27e8d75efc6faa4cd033ddaa7d417edf7b84867be62a56264f28ce7ad",
+      "authority": "QA qa-582-bookmark-start explicitly approved entry-relative2pt and real preceding-row resync proposal; cumulative diff review required before build"
+    }
+  },
+  "proof_order_after_review": [
+    "A fresh900",
+    "S2/600 once",
+    "CPU main/head freshA900 +3methods480 each",
+    "C23/1200",
+    "C50/2400",
+    "coldR0/480",
+    "RSE15/1200",
+    "D current-main1200"
+  ],
+  "carry_request": {
+    "F": "QA accepted on5c785b; opening source/fixture untouched",
+    "N13": "passed on fresh a291; N source and every exercised product path byte-identical",
+    "H15methods19executions": "QA accepted on a291; hidden/value test files and entire PrefixTrimFixture tail byte-identical; only unused timeout fixture changed",
+    "condition": "Independent QA identity/carry review required; not assumed"
+  },
+  "prior_product_head": "fab40073358820b4fcd75d73819ccb04fb096111",
+  "proof_carry_request": "Product+allotherUI/test sources byte-identical to prior fully reviewed fab. Carry prior F/N/H/S/Q/CPU/C23/C50/R0/RSE/D only with independent identity review; new hosted fixture class must pass phone+iPad on new build. CI26.5 remains distinct from local26.0."
+}

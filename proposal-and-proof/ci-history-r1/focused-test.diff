@@ -1,0 +1,126 @@
+diff --git a/Annex/AnnexTests/CompanionHistoryReadingTests.swift b/Annex/AnnexTests/CompanionHistoryReadingTests.swift
+index 62e4cf017..d90675171 100644
+--- a/Annex/AnnexTests/CompanionHistoryReadingTests.swift
++++ b/Annex/AnnexTests/CompanionHistoryReadingTests.swift
+@@ -10,12 +10,21 @@ import UIKit
+     var historyRequested = false
+     var releaseHistory = false
+     var hasEarlierMessages = false
++    var hasLongNativeTopEntry = false
+     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
+     func history(for target: CompanionTarget) async throws -> CompanionHistory {
+         historyRequested = true
+         while !releaseHistory { try await Task.sleep(for: .milliseconds(10)) }
+         var history = try await preview.history(for: target)
+         history.hasEarlierMessages = hasEarlierMessages
++        if hasLongNativeTopEntry {
++            history.items = history.items.map { item in
++                guard case .message(var message) = item, message.id == "reading-100" else { return item }
++                // Hard line breaks make one real entry tall on iPad without exceeding the slice budget.
++                message.text = "Reading marker 100.\n\n" + (1...40).map { "Native top line \($0).  " }.joined(separator: "\n")
++                return .message(message)
++            }
++        }
+         return history
+     }
+     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { try await preview.send(request) }
+@@ -47,6 +56,26 @@ import UIKit
+         XCTAssertTrue(condition(), "The hosted reading fixture must settle")
+     }
+ 
++    private func visibleEntryDistance(_ entryID: String, bookmark: CompanionReadingBookmark) -> Double? {
++        let viewport = bookmark.viewport
++        guard let metrics = viewport.metrics, let frame = viewport.frames[entryID] else { return nil }
++        let offset = metrics.normalizedOffset
++        let height = max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset)
++        guard frame.upperBound > offset + CompanionReadingPosition.minimumVisibleExtent,
++              frame.lowerBound < offset + height else { return nil }
++        return offset - frame.lowerBound
++    }
++
++    private func isRestored(_ expected: CompanionReadingPosition, bookmark: CompanionReadingBookmark) -> Bool {
++        let viewport = bookmark.viewport
++        guard viewport.hasInitialized, !viewport.isRestoring, viewport.restoration?.outcome == .arrived,
++              !bookmark.position.followsLatest, let id = expected.entryID, bookmark.position.entryID == id,
++              let distance = visibleEntryDistance(id, bookmark: bookmark) else { return false }
++        // Bookmark-first remounts change the content origin, not the saved entry or its pixel alignment.
++        return abs(distance - expected.distanceFromEntry) <= 1
++            && abs(bookmark.position.distanceFromEntry - expected.distanceFromEntry) <= 1
++    }
++
+     func testNativeTopAdapterPreservesTheEnclosingScrollDelegate() throws {
+         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
+         let window = UIWindow(windowScene: scene); window.frame = scene.screen.bounds
+@@ -149,6 +178,7 @@ import UIKit
+     func testNativeTopBookmarkSurvivesYieldedHistoryRestore() async throws {
+         let service = HistoryReadingService()
+         service.releaseHistory = true
++        service.hasLongNativeTopEntry = true
+         let store = CompanionStore(service: service), target = CompanionPreviewService.target
+         let hosts = CompanionPreviewService.hosts(now: .now)
+         store.apply(.hosts(hosts))
+@@ -165,6 +195,8 @@ import UIKit
+         let bookmark = store.readingBookmark(for: target)
+         try await waitUntil { bookmark.viewport.hasInitialized && bookmark.viewport.metrics?.isAtTrueBottom == true }
+         let entry = "message:reading-100"
++        XCTAssertEqual(CompanionTimelineEntry.entries(for: store.timelineRows(for: target).filter { $0.contains(entryID: entry) }).map(\.id),
++                       [entry], "Native travel must stay within the same actual, unsliced semantic entry")
+         let frame = try XCTUnwrap(bookmark.viewport.frames[entry])
+         let seed = CompanionReadingPosition(followsLatest: false, entryID: entry,
+             distanceFromEntry: 8, offset: frame.lowerBound + 8, shownEntries: bookmark.position.shownEntries)
+@@ -172,10 +204,24 @@ import UIKit
+         try await Task.sleep(for: .milliseconds(50))
+         bookmark.position = seed
+         mount()
++        try await waitUntil { self.isRestored(seed, bookmark: bookmark) }
++        XCTAssertEqual(try XCTUnwrap(visibleEntryDistance(entry, bookmark: bookmark)), seed.distanceFromEntry, accuracy: 1)
++
++        // The approved opening starts at this row, so its old global offset is no longer meaningful.
++        // Establish real >500pt native travel inside the SAME measured entry before testing top's authority.
++        let openedFrame = try XCTUnwrap(bookmark.viewport.frames[entry])
++        let travel = 600.0
++        XCTAssertGreaterThan(openedFrame.upperBound - openedFrame.lowerBound,
++                             travel + CompanionReadingPosition.minimumVisibleExtent)
++        let openedScroll = try XCTUnwrap(transcript(window))
++        openedScroll.setContentOffset(CGPoint(x: 0, y: openedFrame.lowerBound + travel - openedScroll.adjustedContentInset.top), animated: false)
+         try await waitUntil {
+-            bookmark.viewport.hasInitialized && !bookmark.viewport.isRestoring
+-                && abs((bookmark.viewport.metrics?.normalizedOffset ?? -1) - seed.offset) <= 1
++            !bookmark.viewport.isRestoring && bookmark.position.entryID == entry
++                && abs((self.visibleEntryDistance(entry, bookmark: bookmark) ?? -1) - travel) <= 1
++                && abs(bookmark.position.distanceFromEntry - travel) <= 1
+         }
++        XCTAssertGreaterThan(openedScroll.contentOffset.y + openedScroll.adjustedContentInset.top, 500)
++        print("HISTORY_NATIVE_TOP entry=\(entry) seedDistance=\(seed.distanceFromEntry) measuredDistance=\(try XCTUnwrap(visibleEntryDistance(entry, bookmark: bookmark))) offset=\(openedScroll.contentOffset.y + openedScroll.adjustedContentInset.top)")
+         var interceptedYield = false
+         let monitor = Task { @MainActor in
+             let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+@@ -384,10 +430,8 @@ import UIKit
+         bookmark.position = seed
+         window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: loading, agent: agent) })
+         window.makeKeyAndVisible()
+-        try await waitUntil {
+-            !bookmark.viewport.isRestoring && bookmark.position.entryID == entry
+-                && abs((bookmark.viewport.metrics?.normalizedOffset ?? -1) - seed.offset) <= 1
+-        }
++        try await waitUntil { self.isRestored(seed, bookmark: bookmark) }
++        XCTAssertEqual(try XCTUnwrap(visibleEntryDistance(entry, bookmark: bookmark)), seed.distanceFromEntry, accuracy: 1)
+         let saved = bookmark.position
+         XCTAssertFalse(saved.followsLatest)
+         XCTAssertEqual(saved.entryID, seed.entryID)
+@@ -408,13 +452,13 @@ import UIKit
+         defer { CompanionConversationBuildProbe.record = nil }
+         await loading.load(target, force: true)
+         try await waitUntil {
+-            resetDuringRefresh && !bookmark.viewport.isRestoring && bookmark.position.entryID == saved.entryID
+-                && abs((bookmark.viewport.metrics?.normalizedOffset ?? -1) - saved.offset) <= 1
++            resetDuringRefresh && self.isRestored(saved, bookmark: bookmark)
+         }
+         XCTAssertTrue(resetDuringRefresh)
+         XCTAssertFalse(bookmark.position.followsLatest)
+         XCTAssertEqual(bookmark.position.entryID, saved.entryID)
+         XCTAssertEqual(bookmark.position.distanceFromEntry, saved.distanceFromEntry, accuracy: 1)
++        XCTAssertEqual(try XCTUnwrap(visibleEntryDistance(entry, bookmark: bookmark)), saved.distanceFromEntry, accuracy: 1)
+         XCTAssertEqual(bookmark.viewport.metrics?.normalizedOffset ?? -1, saved.offset, accuracy: 1)
+         let retained = saved.entryID != nil && bookmark.position.entryID == saved.entryID
+             && abs(bookmark.position.distanceFromEntry - saved.distanceFromEntry) <= 1

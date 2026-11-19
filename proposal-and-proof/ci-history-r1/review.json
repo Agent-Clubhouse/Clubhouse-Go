@@ -1,0 +1,27 @@
+{
+  "head": "d526b066e72c698625192feffafd0b693b3f4e91",
+  "base": "fab40073358820b4fcd75d73819ccb04fb096111",
+  "focused_diff_sha256": "265018c004ab629463977bbe72f97e686b75066ef5b8aa4c36595262ded76883",
+  "manifest_sha256": "1d0cd4aa83ecca16dcffa236f0e4683748bc5b72b76abd50e5c19090fc3d8cde",
+  "runner_sha256": "7d26aaccd195b6129441433d13383b3ef5ac08ddc4144849459cf5b273d4ea26",
+  "auditor_sha256": "463ec47da1cb03e745e887ccb4f59d6a6da816b6f11d434e63fdfc5e1b1bef14",
+  "product_UI_package_test_diff": "EMPTY",
+  "local_runtime": "iOS26.0 only; no install permitted",
+  "ci_fail_before": {
+    "head": "fab40073358820b4fcd75d73819ccb04fb096111",
+    "run": 44436981995,
+    "ipad_job": 135300317904,
+    "phone_job": 135300318198,
+    "failure": "Old raw global-offset waits and>500 precondition after bookmark-first remount"
+  },
+  "methods": [
+    "testNativeTopAdapterPreservesTheEnclosingScrollDelegate",
+    "testNativeTopAdapterSurvivesItsOriginalDelegate",
+    "testNativeTopAdapterPreservesUIKitDefaultsWithoutAnOriginalDelegate",
+    "testNativeTopBookmarkSurvivesYieldedHistoryRestore",
+    "testNewHistoryRestorationCannotReclaimPendingNativeTop",
+    "testNativeTopRepairIsOneShotAndNewUserIntentDisarmsIt",
+    "testNativeTopOwnsTheViewportBeforeTheFirstAnimationSample",
+    "testFiveLiveItemsThenHistoryCannotSaveAnOffsetResetAsReadingIntent"
+  ]
+}
