@@ -1,0 +1,132 @@
+{
+  "scope": "original FAILED first P2; structural metadata only, raw bodies/logs remain private",
+  "head": "0a204d135c216f507432a2b807c34b49d28f74df",
+  "native_admitted": false,
+  "method_count": 40,
+  "expanded_starts": 58,
+  "method_pass": 36,
+  "method_failed": 4,
+  "failing_executions": 5,
+  "issues": 10,
+  "record_expected": 25,
+  "record_actual": 21,
+  "observed_checkpoint_metadata": [
+    {
+      "scenario": "contradictory-Apply/target",
+      "stage": "after-contradictory-Apply",
+      "count": 1
+    },
+    {
+      "scenario": "contradictory-Apply/saved",
+      "stage": "after-contradictory-Apply",
+      "count": 1
+    },
+    {
+      "scenario": "contradictory-Apply/target",
+      "stage": "after-blocked-Start",
+      "count": 1
+    },
+    {
+      "scenario": "contradictory-Apply/saved",
+      "stage": "after-blocked-Start",
+      "count": 1
+    },
+    {
+      "scenario": "lost/agent.providerChange/changedEpoch=false",
+      "stage": "after-loss",
+      "count": 1
+    },
+    {
+      "scenario": "lost/agent.providerChange/changedEpoch=true",
+      "stage": "after-loss",
+      "count": 1
+    },
+    {
+      "scenario": "contradictory-Apply/selection",
+      "stage": "after-contradictory-Apply",
+      "count": 1
+    },
+    {
+      "scenario": "contradictory-Apply/selection",
+      "stage": "after-blocked-Start",
+      "count": 1
+    },
+    {
+      "scenario": "lost/agent.providerChange/changedEpoch=false",
+      "stage": "after-reopen-and-equal-read",
+      "count": 1
+    },
+    {
+      "scenario": "lost/agent.providerChange/changedEpoch=true",
+      "stage": "after-reopen-and-equal-read",
+      "count": 1
+    },
+    {
+      "scenario": "lost/agent.start/changedEpoch=false",
+      "stage": "after-loss",
+      "count": 2
+    },
+    {
+      "scenario": "lost/agent.start/changedEpoch=true",
+      "stage": "after-loss",
+      "count": 2
+    },
+    {
+      "scenario": "failed-after-creation",
+      "stage": "historical-observed-failure",
+      "count": 2
+    },
+    {
+      "scenario": "lost/agent.start/changedEpoch=false",
+      "stage": "after-reopen-and-equal-read",
+      "count": 2
+    },
+    {
+      "scenario": "lost/agent.start/changedEpoch=true",
+      "stage": "after-reopen-and-equal-read",
+      "count": 2
+    },
+    {
+      "scenario": "failed-after-creation",
+      "stage": "after-generic-Store-edit-and-wake",
+      "count": 2
+    },
+    {
+      "scenario": "lost/agent.providerChange/changedEpoch=false",
+      "stage": "after-replacement-reconnect-equal-read-and-local-review",
+      "count": 1
+    },
+    {
+      "scenario": "lost/agent.start/changedEpoch=false",
+      "stage": "after-replacement-reconnect-equal-read-and-local-review",
+      "count": 2
+    },
+    {
+      "scenario": "lost/agent.providerChange/changedEpoch=false",
+      "stage": "after-direct-new-ID-attempts",
+      "count": 1
+    },
+    {
+      "scenario": "failed-after-creation",
+      "stage": "after-reopen-equal-read-and-direct-new-IDs",
+      "count": 2
+    },
+    {
+      "scenario": "lost/agent.start/changedEpoch=false",
+      "stage": "after-direct-new-ID-attempts",
+      "count": 2
+    }
+  ],
+  "original_rc": 1,
+  "postFIFO_seconds": 131.82495212508366,
+  "original_hashes": {
+    "manifest.json": "baa2d64fe0adcd1d03988296c71695a3ad6115a303bd861f717d36d24f578cea",
+    "p2-r1-receipt.json": "d6fdd9e35dbbdfeb6631076205543019eafd9001d19cc6d0d64013fe979b4123",
+    "p2-r1-outer-closure.json": "7b07aef46146e2202cf36b4fe4c5f4511383d3a0d29d64a1a8135e831a88f77e",
+    "p2-r1-external-closure.json": "87b1b25ccdd8308c24b64f9170a3473ba01cf19de282f7a2c77651de5636334d",
+    "tickets/p2-r1/package.log": "8e121bc38b7a19f044ac3107c9f014c2effbde75161bfc707c08cc40dd85fb46",
+    "tickets/p2-r1/tests-swift-testing.xml": "69aeb8747468096eceb690e463780b06b99426392efc1fc48065e79379a100fe"
+  },
+  "independent_failed_originals_report_sha256": "b9f3eb9651f463b30f9dcae7b2bccffacafa0875bf25ca907d37a792efac7dd6",
+  "attribution_limit": "Source lifecycle mismatch is consistent; original full runtime event/read-route trace absent, no exhaustive product finding or successor validation."
+}
