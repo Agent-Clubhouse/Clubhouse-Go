@@ -86,6 +86,30 @@ import UIKit
         return app
     }
 
+    /// A real header action retained across equivalent parent values must still write the parent's live State storage.
+    func testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming() {
+        let app = launchFixture(extra: ["--companion-reading-equality-archive"])
+        control("paused", in: app)
+        waitState("outcome=arrived", in: app)
+        control("stream", in: app)
+        waitState("case=streamed", in: app)
+        let transcript = app.scrollViews["companion-transcript"]
+        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        // Native movement reaches the inline header after the accepted numeric restore, without an action seam.
+        transcript.swipeDown()
+        let archive = app.buttons["Read earlier messages in archive"]
+        XCTAssertTrue(archive.waitForExistence(timeout: 5) && archive.isHittable)
+        archive.tap()
+        let navigation = app.navigationBars["Conversation archive"]
+        XCTAssertTrue(navigation.waitForExistence(timeout: 5))
+        let pixels = XCTAttachment(screenshot: app.screenshot())
+        pixels.name = "Actual paused transcript header opened parent archive sheet"; pixels.lifetime = .keepAlways; add(pixels)
+        navigation.buttons["Done"].tap()
+        XCTAssertTrue(transcript.waitForExistence(timeout: 5))
+        XCTAssertFalse(navigation.exists)
+        XCTAssertTrue(state(app).label.contains("follow=0"), "Opening the archive must not make the chat follow latest")
+    }
+
     func testRecordedBookmarkFirstFramesKeepPausedAndLatestChoicesAcrossMountsAndChats() {
         let app = launchFixture()
         control("latest", in: app)

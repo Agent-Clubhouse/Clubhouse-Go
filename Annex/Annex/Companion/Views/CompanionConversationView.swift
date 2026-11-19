@@ -465,8 +465,9 @@ struct CompanionConversationView: View {
     private var timeline: some View {
         CompanionReadingSeedScope(store: store, target: target) { opening in
             CompanionConversationTranscript(store: store, target: target, opening: opening,
-                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump, dismissComposer: dismissComposer,
-                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) })
+                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump,
+                entryCapabilities: agent.capabilities, dismissComposer: dismissComposer,
+                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) }).equatable()
         }
         .id(target)
     }
@@ -494,10 +495,16 @@ struct CompanionConversationView: View {
     }
 
     private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
-        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
+        let canRemoveQueued = store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target)
+        let hasRemoveQueuedAction = agent.capabilities.contains(.removeQueued)
+        #if DEBUG
+        CompanionTranscriptActionProbe.record?(target, message.id,
+            .queued(canRemove: canRemoveQueued, hasAction: hasRemoveQueuedAction))
+        #endif
+        return CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
             Task { await store.retry(messageID: message.id, target: target) }
-        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
-           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
+        }, canRemoveQueued: canRemoveQueued,
+           removeQueued: hasRemoveQueuedAction ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
            slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
     }
 
@@ -524,8 +531,12 @@ struct CompanionConversationView: View {
             CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
             CompanionContentLinks(references: CompanionContentReference.references(in: item))
         case .approval(let approval):
+            let rowCanRespond = canRespond
+            #if DEBUG
+            let _ = CompanionTranscriptActionProbe.record?(target, approval.id, .approval(canRespond: rowCanRespond))
+            #endif
             CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
-                                  canRespond: canRespond, actionsArePinned: true,
+                                  canRespond: rowCanRespond, actionsArePinned: true,
                                   persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
                 Task { await store.respond(approval, option: option, target: target) }
             }
@@ -603,9 +614,12 @@ private struct CompanionReadingSeedScope<Content: View>: View {
 }
 
 /// Only the transcript unmounts when a retained chat is hidden. Composer/header State stays above this boundary.
-private struct CompanionConversationTranscript<Header: View, Entry: View>: View {
+private struct CompanionConversationTranscript<Header: View, Entry: View>: View, Equatable {
     @Bindable var store: CompanionStore
     let target: CompanionTarget
+    let opening: CompanionReadingOpening
+    // The entry builder captures the parent's Agent value; capability changes must replace that closure.
+    let entryCapabilities: CompanionCapabilities
     let isVisibilityManaged: Bool
     let decisionChatJump: CompanionDecisionChatJump?
     let dismissComposer: () -> Void
@@ -628,11 +642,14 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
     @State private var shownEntries = CompanionTimelineWindow.pageSize
 
     init(store: CompanionStore, target: CompanionTarget, opening: CompanionReadingOpening, isVisibilityManaged: Bool,
-         decisionChatJump: CompanionDecisionChatJump?, dismissComposer: @escaping () -> Void,
+         decisionChatJump: CompanionDecisionChatJump?, entryCapabilities: CompanionCapabilities,
+         dismissComposer: @escaping () -> Void,
          @ViewBuilder header: @escaping () -> Header,
          @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
         self.store = store
         self.target = target
+        self.opening = opening
+        self.entryCapabilities = entryCapabilities
         self.isVisibilityManaged = isVisibilityManaged
         self.decisionChatJump = decisionChatJump
         self.dismissComposer = dismissComposer
@@ -644,6 +661,16 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View 
         _shownEntries = State(initialValue: opening.shownEntries)
         _openingWindowStartID = State(initialValue: opening.entryID)
         _readingScrollPosition = State(initialValue: ScrollPosition(edge: opening.entryID == nil ? .bottom : .top))
+    }
+
+    // Ignore generated closures, not their display inputs. Builders resolve Store values when invoked,
+    // and their parent State wrappers keep the same storage. Own Observation/State/environment updates
+    // still invalidate this view; only identical parent-to-child values skip the duplicate projection.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.store === rhs.store && lhs.target == rhs.target && lhs.opening == rhs.opening
+            && lhs.isVisibilityManaged == rhs.isVisibilityManaged
+            && lhs.decisionChatJump?.id == rhs.decisionChatJump?.id
+            && lhs.entryCapabilities == rhs.entryCapabilities
     }
 
     private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }

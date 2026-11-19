@@ -310,6 +310,10 @@ import UIKit
         f.navigation.jump = second
         try await f.wait { samples.filter { $0.phase == .jump }.count == 2 }
         #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
+        // Equality excludes the action closures, but a new request id must propagate and the same id must not replay.
+        f.navigation.jump = second
+        for _ in 0..<3 { f.navigation.revision += 1; try await f.settle() }
+        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
         f.navigation.visible = false
         try await f.settle()
         #expect(samples.filter { $0.phase == .jump }.count == 2)
