@@ -50,7 +50,7 @@ private struct CompanionContentPreviews: ViewModifier {
             .environment(\.openURL, OpenURLAction { url in
                 let reference = CompanionContentReference.link(url.absoluteString)
                 if !CompanionContentReference.linkPaths(url.absoluteString, windows: roots.windows).isEmpty {
-                    if store.richContentAvailable(for: target), reference.isOffered(roots: roots) { selected = reference }
+                    selected = reference
                     return .handled
                 }
                 // External web/mail links keep their system behavior. Anchors,

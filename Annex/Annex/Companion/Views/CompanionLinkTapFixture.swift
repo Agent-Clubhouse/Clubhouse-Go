@@ -39,6 +39,14 @@ struct CompanionLinkTapFixture: View {
             let target = CompanionLinkTapScenario.name == "dispatcher" ? CompanionPreviewService.dispatcherTarget : CompanionPreviewService.target
             await store.load(target)
             store.apply(.timeline(target, items: CompanionLinkTapScenario.items, sequence: 100, reset: true, sessionID: "links"))
+            if CompanionLinkTapScenario.name == "local-sharing-off" {
+                var hosts = store.hosts
+                guard let index = hosts.firstIndex(where: { $0.id == target.hostID }) else {
+                    preconditionFailure("Missing synthetic link fixture host")
+                }
+                hosts[index].richContentAvailable = false
+                store.apply(.hosts(hosts))
+            }
             agent = store.agent(for: target)
             print("MOBILE_LINK_FIXTURE_READY scenario=\(CompanionLinkTapScenario.name) target=\(target.agentID)")
         }
@@ -65,8 +73,10 @@ enum CompanionLinkTapScenario {
             message = .init(id: "links-code", role: .user, text: "`\(destination)`")
         case "blocked":
             message = .init(id: "links-blocked", role: .assistant, text: "[Blocked route](javascript:alert) [Outside file](/outside-secret.md)")
-        case "local-file":
+        case "local-file", "local-sharing-off":
             message = .init(id: "links-local", role: .assistant, text: "[Local file](Sources/Companion/Conversation.swift)")
+        case "local-roots-denied":
+            message = .init(id: "links-outside", role: .assistant, text: "[Local file](/outside-secret.md)")
         case "received-underscore":
             message = .init(id: "links-underscore", role: .assistant, text: "_[Review PR](\(destination))_\n\n_\(destination)_")
         default:
