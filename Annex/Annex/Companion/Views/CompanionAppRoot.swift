@@ -294,10 +294,6 @@ struct CompanionAppRoot: View {
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
 
-    private func openSettings() {
-        $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
-    }
-
     init(runtimeLifetime: CompanionStateLifetime<CompanionRuntime>) {
         self.runtimeLifetime = runtimeLifetime
         #if DEBUG
@@ -395,18 +391,6 @@ struct CompanionAppRoot: View {
                     await feedback.tick()
                     runtime.appTelemetry?.tick()
                     do { try await Task.sleep(for: .seconds(15)) } catch { return }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Only when the person must act. Offline is temporary: reports stay queued and
-                // retry on their own, and Settings shows the state.
-                if let feedback = runtime.feedback, let status = feedback.status,
-                   status.canSubmit && [.expired, .accessRequired].contains(status.access) {
-                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") {
-                        CompanionUIActions.record(.openSettings, on: .feedbackPrompt)
-                        openSettings()
-                    }
-                        .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
                 }
             }
             // A recreated root must apply its current phase to the surviving runtime,

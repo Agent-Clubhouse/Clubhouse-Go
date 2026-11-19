@@ -109,7 +109,9 @@ struct CompanionFeedbackSettings: View {
     static let telemetryDisclosure = "Enrolling in developer feedback also sends usage and diagnostic telemetry to the developer while you stay enrolled: performance data, crash and hang reports, and events such as connection, pairing and chat timings, error types and counts. Automated telemetry excludes prompts, agent content, names, file paths, addresses and URLs. Notes and images you choose to submit can contain private information; review them first. Reports may also include reviewed incident trace references. Clearing enrollment stops automatic telemetry; saved feedback stays on this device until delivered or explicitly cleared. Your own tracing collector, in Connection diagnostics, is separate."
     static let feedbackOnlyDisclosure = "Feedback shares the notes and optional image you choose to submit, plus optional reviewed incident trace references. Notes and images can contain private information; review them first. Automatic developer telemetry is unavailable in this session. Your own tracing collector, in Connection diagnostics, is separate."
     static func label(_ access: AccessState?, configured: Bool = true, responseRejected: Bool = false) -> String {
-        guard let access else { return "Not enrolled" }
+        guard configured else { return "Unavailable" }
+        if responseRejected { return "Invitation not accepted" }
+        guard let access else { return "Checking" }
         return switch access {
         case .connected: "Connected"
         case .disconnected: "Not enrolled"
@@ -156,7 +158,7 @@ private struct CompanionFeedbackOptions: View {
                     if showsSend && model.status?.canSubmit == true {
                         NavigationLink("Send feedback") { CompanionFeedbackCapturedComposer(model: model, capture: initialCapture) }
                     }
-                    Text("Feedback access: \(model.status.map { CompanionFeedbackSettings.label($0.access) } ?? "Checking")")
+                    Text("Feedback access: \(CompanionFeedbackSettings.label(model.status?.access, responseRejected: model.status?.notice == "enrollment-response-rejected"))")
                         .accessibilityIdentifier("feedback-access-status")
                     Text(model.telemetry == nil ? CompanionFeedbackSettings.feedbackOnlyDisclosure : CompanionFeedbackSettings.telemetryDisclosure)
                         .font(.caption).foregroundStyle(.secondary).accessibilityIdentifier("feedback-telemetry-disclosure")

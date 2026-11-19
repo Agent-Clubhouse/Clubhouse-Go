@@ -1007,6 +1007,36 @@ value-type CompanionHost; no owning class field or isolated-deinit policy change
 
 Toolbar presentation (#429): `CompanionToolbarUITests` checks Home, New agent, Chat, context-sheet close and Agent settings confirmation in light, dark, Latte and Mocha. Inspect the attached screenshots for monochrome secondary glyphs and the single filled primary action. The close/confirmation controls retain their existing accessibility labels and identifiers. `FeedbackTriggersUITests.testSendFeedbackInSettingsAndChatMenu` replaces the removed Home overflow-menu route and keeps the Settings/chat attachment assertions. Dispatch's toolbar is owned by #444 and is validated there.
 
+### Feedback renewal stays in Settings (#609)
+
+`FeedbackTriggersUITests` adds four renewal cases: expired enrollment with the keyboard,
+expired enrollment at Accessibility XXXL, offline enrollment, and access-required enrollment.
+Each launches `--feedback-renewal-ui-testing --companion-root-ui-testing` once, mounts the real
+AppRoot/Settings/chat, records keyboard/composer/Send/banner geometry, and rejects the old global
+renewal inset. It then opens Invitation & enrollment twice, focuses its native field, and navigates
+back, dismisses and reopens Settings. The existing Settings status must be spoken with the row,
+and renewal remains a reachable 44-point target at both text sizes.
+
+The DEBUG fixture installs its feedback factory before Runtime construction. Enrollment and two
+explicitly held reports are in memory; its transport counts attempts and throws without sockets.
+Its frozen clock keeps the preparatory offline failure in backoff. Expired/access-required launch
+must make zero requests; offline must retain exactly its one preparatory synthetic refresh attempt.
+An accessibility evidence value hashes enrollment/queued bytes and includes request count, queued
+report count, diagnostics mode and the three false shortcut preferences from a dedicated test suite.
+The complete value must remain unchanged after navigation/dismissal/reopening. No Redeem, Retry,
+release-held, clear or Send action is invoked. SDK enrollment, consent, queue and foreground-pump
+code is unchanged; the fixture is not a real enrollment, provider, device-install or release test.
+
+`CompanionFeedbackSettingsCaptureTests.renewalStatusDistinguishesCheckingUnavailableAndEnrollmentStates`
+covers pending, unavailable, rejected invitation and all six access states. The proof baseline
+`bold-gazelle/proof-609-tests` preserves main's banner/fallback, with only a behavior-neutral status
+helper extraction, accessibility IDs and DEBUG fixture seams. Identical tests/fixtures are retained
+in the candidate. Baseline execution targets the state test and both expired UI methods: expected
+failures are the three inaccurate fallback/error labels and the actual global inset, after a keyboard
+screenshot/geometry record. Candidate execution targets that state test and all four UI methods.
+Exact-head independent prebuild review and native fail-before/pass-after evidence remain required;
+syntax parsing is not native build/runtime proof.
+
 ### Composed chat menu feedback capture (#294)
 
 The chat menu label carries an explicit UIKit marker because SwiftUI exposes the menu's accessibility identifier as a virtual element in its composed toolbar. The capture adapter resolves that marker's enclosing UIControl before the opening press, and installs the existing native menu event hook there. It freezes the underlying screen before the menu, preserving the existing highlight/cancel, scene and secure-field cleanup; selecting feedback never takes a late image of the menu.
