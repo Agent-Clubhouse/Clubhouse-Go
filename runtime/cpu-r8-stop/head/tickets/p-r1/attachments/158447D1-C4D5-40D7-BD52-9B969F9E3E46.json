@@ -1,0 +1,67 @@
+{
+  "chunks" : 100,
+  "notes" : "Paused actual transcript, identical fixture on main\/head, 10 separately rendered batches; compare body\/timeline batch by batch. Per-mount seed\/slicing count proven separately on the production head.",
+  "samples" : [
+    {
+      "batch" : 0,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 1,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 2,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 3,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 4,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 5,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 6,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 7,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 8,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    },
+    {
+      "batch" : 9,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 2
+    }
+  ],
+  "uncredited" : true
+}

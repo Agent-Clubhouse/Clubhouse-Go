@@ -1,0 +1,38 @@
+[
+  {
+    "body" : 4,
+    "bookmarkIndex" : 60,
+    "iteration" : 0,
+    "preparedRowCount" : 540,
+    "preparedRowCountByBuild" : [
+      540,
+      540,
+      540,
+      540,
+      540
+    ],
+    "preparedRowCountTotal" : 2700,
+    "processCPUSeconds" : 1.4622110000000004,
+    "rows" : 600,
+    "timeline" : 5,
+    "wallSeconds" : 1.2570222080685198
+  },
+  {
+    "body" : 4,
+    "bookmarkIndex" : 60,
+    "iteration" : 1,
+    "preparedRowCount" : 540,
+    "preparedRowCountByBuild" : [
+      540,
+      540,
+      540,
+      540,
+      540
+    ],
+    "preparedRowCountTotal" : 2700,
+    "processCPUSeconds" : 0.92696100000000037,
+    "rows" : 600,
+    "timeline" : 5,
+    "wallSeconds" : 1.1016998747363687
+  }
+]

@@ -1,0 +1,176 @@
+Command line invocation:
+    /Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild test-without-building -project Annex/Annex.xcodeproj -scheme ClubhouseGo -configuration Debug -jobs 2 -parallel-testing-enabled NO CODE_SIGNING_ALLOWED=NO -derivedDataPath /tmp/ux-582-proof/cpu-main-r8/tickets/a-r1/DD -destination "platform=iOS Simulator,id=4AE10B50-9D34-474F-B708-715DDCDF1C31" -resultBundlePath /tmp/ux-582-proof/cpu-main-r8/tickets/p-r1/tests.xcresult -test-timeouts-enabled YES -default-test-execution-time-allowance 180 -maximum-test-execution-time-allowance 180 "-only-testing:ClubhouseGoTests/CompanionHomeVisibilityTests/testDiagnosticHomeScrollStepsReportExpensiveWork" "-only-testing:ClubhouseGoTests/CompanionReadingPausedCostTests/testPausedStreamingReportsPerBatchConversationWork" "-only-testing:ClubhouseGoTests/CompanionReadingDeepOpeningCostTests/testDeepPausedOpeningReportsWorkForTwoFreshMounts"
+
+Build settings from command line:
+    CODE_SIGNING_ALLOWED = NO
+
+Resolve Package Graph
+
+
+Resolved source packages:
+  Framebriar: /tmp/ux-582-proof/cpu-main-r8/tickets/a-r1/source/Vendor/Framebriar @ local
+  ClubhouseTransport: /tmp/ux-582-proof/cpu-main-r8/tickets/a-r1/source @ local
+  swift-markdown: https://github.com/swiftlang/swift-markdown.git @ 0.9.0
+  cmark-gfm: https://github.com/swiftlang/swift-cmark.git @ 0.9.0
+  opentelemetry-swift-core: https://github.com/open-telemetry/opentelemetry-swift-core.git @ 2.6.0
+  swift-atomics: https://github.com/apple/swift-atomics.git @ 1.3.1
+
+Writing result bundle at path:
+	/tmp/ux-582-proof/cpu-main-r8/tickets/p-r1/tests.xcresult
+
+2026-11-18 16:49:32.549702-0800 ClubhouseGo[85491:459728035] [General] Failed to send CA Event for app launch measurements for ca_event_type: 0 event_name: com.apple.app_launch_measurement.FirstFramePresentationMetric
+2026-11-18 16:49:32.600527-0800 ClubhouseGo[85491:459728030] [General] Failed to send CA Event for app launch measurements for ca_event_type: 1 event_name: com.apple.app_launch_measurement.ExtendedLaunchMetrics
+Test Suite 'Selected tests' started at 2026-11-18 16:49:33.005.
+Test Suite 'ClubhouseGoTests.xctest' started at 2026-11-18 16:49:33.006.
+Test Suite 'CompanionHomeVisibilityTests' started at 2026-11-18 16:49:33.006.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testDiagnosticHomeScrollStepsReportExpensiveWork]' started.
+Test Case '-[ClubhouseGoTests.CompanionHomeVisibilityTests testDiagnosticHomeScrollStepsReportExpensiveWork]' passed (4.203 seconds).
+Test Suite 'CompanionHomeVisibilityTests' passed at 2026-11-18 16:49:37.210.
+	 Executed 1 test, with 0 failures (0 unexpected) in 4.203 (4.204) seconds
+Test Suite 'CompanionReadingDeepOpeningCostTests' started at 2026-11-18 16:49:37.210.
+Test Case '-[ClubhouseGoTests.CompanionReadingDeepOpeningCostTests testDeepPausedOpeningReportsWorkForTwoFreshMounts]' started.
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:49:37.521557-0800 ClubhouseGo[85491:459727895] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=850.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=351.3225419446826
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:49:38.503353-0800 ClubhouseGo[85491:459727895] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=850.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=341.8037914671004
+READING_DEEP_OPEN_COST [
+  {
+    "body" : 6,
+    "bookmarkIndex" : 60,
+    "iteration" : 0,
+    "preparedRowCount" : 540,
+    "preparedRowCountByBuild" : [
+      150,
+      150,
+      150,
+      540,
+      540,
+      540
+    ],
+    "preparedRowCountTotal" : 2070,
+    "processCPUSeconds" : 1.221311,
+    "rows" : 600,
+    "timeline" : 6,
+    "wallSeconds" : 1.0268068751320243
+  },
+  {
+    "body" : 6,
+    "bookmarkIndex" : 60,
+    "iteration" : 1,
+    "preparedRowCount" : 540,
+    "preparedRowCountByBuild" : [
+      150,
+      150,
+      150,
+      540,
+      540,
+      540
+    ],
+    "preparedRowCountTotal" : 2070,
+    "processCPUSeconds" : 0.64554899999999993,
+    "rows" : 600,
+    "timeline" : 6,
+    "wallSeconds" : 0.82973929168656468
+  }
+]
+Test Case '-[ClubhouseGoTests.CompanionReadingDeepOpeningCostTests testDeepPausedOpeningReportsWorkForTwoFreshMounts]' passed (2.064 seconds).
+Test Suite 'CompanionReadingDeepOpeningCostTests' passed at 2026-11-18 16:49:39.274.
+	 Executed 1 test, with 0 failures (0 unexpected) in 2.064 (2.064) seconds
+Test Suite 'CompanionReadingPausedCostTests' started at 2026-11-18 16:49:39.274.
+Test Case '-[ClubhouseGoTests.CompanionReadingPausedCostTests testPausedStreamingReportsPerBatchConversationWork]' started.
+2026-11-18 16:49:39.437785-0800 ClubhouseGo[85491:459727895] [Invalid Configuration] No symbol named 'person.crop.circle.badge.gearshape' found in system symbol set
+ACTIVITY_FIT available=44.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+ACTIVITY_FIT available=798.0 editor=0.0 line=0.0 requests=0.0 needed=0.0 measured=false shown=true
+2026-11-18 16:49:39.512480-0800 ClubhouseGo[85491:459727895] [Invalid Configuration] <OnScrollGeometryChange Modifier> tried to update multiple times per frame.
+ACTIVITY_FIT available=850.0 editor=120.0 line=14.333333333333332 requests=0.0 needed=134.33333333333334 measured=true shown=true
+READING_RESTORE outcome=arrived attempts=1 durationMs=110.37237523123622
+READING_PAUSED_COST {
+  "chunks" : 100,
+  "notes" : "Paused actual transcript, identical fixture on main\/head, 10 separately rendered batches; compare body\/timeline batch by batch. Per-mount seed\/slicing count proven separately on the production head.",
+  "samples" : [
+    {
+      "batch" : 0,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 1,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 2,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 3,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 4,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 5,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 6,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 7,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 8,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    },
+    {
+      "batch" : 9,
+      "body" : 1,
+      "chunks" : 10,
+      "timeline" : 1
+    }
+  ],
+  "uncredited" : true
+}
+Test Case '-[ClubhouseGoTests.CompanionReadingPausedCostTests testPausedStreamingReportsPerBatchConversationWork]' passed (2.562 seconds).
+Test Suite 'CompanionReadingPausedCostTests' passed at 2026-11-18 16:49:41.837.
+	 Executed 1 test, with 0 failures (0 unexpected) in 2.562 (2.562) seconds
+Test Suite 'ClubhouseGoTests.xctest' passed at 2026-11-18 16:49:41.837.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 8.829 (8.831) seconds
+Test Suite 'Selected tests' passed at 2026-11-18 16:49:41.837.
+	 Executed 3 tests, with 0 failures (0 unexpected) in 8.829 (8.832) seconds
+2026-11-18 16:49:42.161 xcodebuild[85346:459726551] [MT] IDETestOperationsObserverDebug: 14.419 elapsed -- Testing started completed.
+2026-11-18 16:49:42.161 xcodebuild[85346:459726551] [MT] IDETestOperationsObserverDebug: 0.000 sec, +0.000 sec -- start
+2026-11-18 16:49:42.161 xcodebuild[85346:459726551] [MT] IDETestOperationsObserverDebug: 14.419 sec, +14.419 sec -- end
+
+Test session results, code coverage, and logs:
+	/tmp/ux-582-proof/cpu-main-r8/tickets/p-r1/tests.xcresult
+
+** TEST EXECUTE SUCCEEDED **
+
+Testing started

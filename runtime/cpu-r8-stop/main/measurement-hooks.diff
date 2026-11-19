@@ -1,0 +1,26 @@
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+index 8a6eb4905..1dab7a102 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationBuildProbe.swift
+@@ -3,6 +3,7 @@
+ @MainActor enum CompanionConversationBuildProbe {
+     enum Kind { case body, timeline }
+     static var record: ((Kind, CompanionTarget) -> Void)?
++    static var preparedRows: ((CompanionTarget, Int) -> Void)?
+ }
+ 
+ /// Optional lifecycle evidence for hosted focus regressions. No draft/selection observation or focus mutation.
+diff --git a/Annex/Annex/Companion/Views/CompanionConversationView.swift b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+index b1121daa9..70c2f32b2 100644
+--- a/Annex/Annex/Companion/Views/CompanionConversationView.swift
++++ b/Annex/Annex/Companion/Views/CompanionConversationView.swift
+@@ -486,6 +486,9 @@ struct CompanionConversationView: View {
+         let viewport = readingViewport
+         let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+         let entries = window.entries
++        #if DEBUG
++        let _ = CompanionConversationBuildProbe.preparedRows?(target, window.preparedRowCount)
++        #endif
+         let stops = CompanionAssistantNavigation.targets(in: entries)
+         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
+         return ScrollViewReader { proxy in
