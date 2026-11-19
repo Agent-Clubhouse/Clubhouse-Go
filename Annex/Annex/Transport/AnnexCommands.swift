@@ -14,6 +14,10 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         /// providerControl v1. Callers must gate these on the advertised capability.
         case providerPreview(agentID: String, provider: String)
         case providerChange(agentID: String, provider: String, expectedState: String)
+        /// Separately negotiated opt-in; model/effort omissions remain omissions.
+        case providerPreviewV2(agentID: String, provider: String, selection: AnnexProviderSelectionV2)
+        case providerChangeV2(agentID: String, provider: String, selection: AnnexProviderSelectionV2, expectedState: String)
+        case providerStartV2(agentID: String, expected: AnnexProviderNextWakeV2, expectedState: String)
         case spawn(projectID: String, prompt: String, model: String? = nil, orchestrator: String? = nil)
         case create(AnnexAgentCreate)
         case update(AnnexAgentUpdate)
@@ -70,7 +74,8 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         switch kind {
         case .send(let agent, _, _, _, _), .interrupt(let agent, _), .removeQueued(let agent, _, _), .permission(let agent, _, _, _, _),
              .question(let agent, _, _, _), .start(let agent, _, _, _, _), .stop(let agent, _), .providerPreview(let agent, _),
-             .providerChange(let agent, _, _), .setModel(let agent, _, _, _), .setLevel(let agent, _, _), .dismissFinishedQuick(_, let agent):
+             .providerChange(let agent, _, _), .providerPreviewV2(let agent, _, _),
+             .providerChangeV2(let agent, _, _, _), .providerStartV2(let agent, _, _), .setModel(let agent, _, _, _), .setLevel(let agent, _, _), .dismissFinishedQuick(_, let agent):
             agent
         case .update(let update): update.agentID
         case .spawn, .create, .setProjectPinned, .setProjectInactive, .clearFinishedQuick, .helperApprove, .helperDecline,
@@ -86,10 +91,10 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .removeQueued: "chat.queue.remove"
         case .permission: "chat.permission"
         case .question: "chat.question"
-        case .start: "agent.start"
+        case .start, .providerStartV2: "agent.start"
         case .stop: "agent.stop"
-        case .providerPreview: "agent.providerPreview"
-        case .providerChange: "agent.providerChange"
+        case .providerPreview, .providerPreviewV2: "agent.providerPreview"
+        case .providerChange, .providerChangeV2: "agent.providerChange"
         case .spawn: "agent.spawn"
         case .create: "agent.create"
         case .update: "agent.update"
@@ -161,6 +166,19 @@ nonisolated public struct AnnexCommand: Sendable, Equatable {
         case .providerChange(let agent, let provider, let expectedState):
             guard !provider.isEmpty, provider.count <= 256, !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
             target(agent); v["provider"] = .string(provider); v["expectedState"] = .string(expectedState)
+        case .providerPreviewV2(let agent, let provider, let selection):
+            guard !provider.isEmpty, provider.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            target(agent); v["provider"] = .string(provider)
+            v.merge(try selection.fields) { _, new in new }
+        case .providerChangeV2(let agent, let provider, let selection, let expectedState):
+            guard !provider.isEmpty, provider.count <= 256, !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            target(agent); v["provider"] = .string(provider); v["expectedState"] = .string(expectedState)
+            v.merge(try selection.fields) { _, new in new }
+        case .providerStartV2(let agent, let expected, let expectedState):
+            guard !expectedState.isEmpty, expectedState.count <= 256 else { throw AnnexTransportError.malformedResponse }
+            target(agent); v["contractVersion"] = .integer(2); v["resume"] = .bool(false)
+            v["expectedProvider"] = .string(expected.provider); v["expectedNextWake"] = try expected.json
+            v["expectedState"] = .string(expectedState)
         case .spawn(let project, let prompt, let model, let orchestrator):
             v["projectId"] = .string(project); v["prompt"] = .string(prompt)
             if let model { v["model"] = .string(model) }; if let orchestrator { v["orchestrator"] = .string(orchestrator) }

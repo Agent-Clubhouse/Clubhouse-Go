@@ -480,7 +480,7 @@ struct CompanionAgentSettingsForm: View {
         }
 
         Section {
-            if store.host(for: target)?.canControlProvider == true || store.hasPendingProviderAction(target) {
+            if store.host(for: target)?.canControlProvider == true || store.host(for: target)?.providerV2Advertised == true || store.hasPendingProviderAction(target) {
                 NavigationLink {
                     CompanionGuidedProviderScreen(store: store, target: target, settings: settings)
                 } label: {

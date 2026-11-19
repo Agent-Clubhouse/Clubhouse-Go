@@ -126,6 +126,116 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
     }
 
+    func testProviderV2ApplyAndStartStaySeparate() { checkProviderV2(largeText: false, mode: "success") }
+    func testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable() { checkProviderV2(largeText: true, mode: "success") }
+    func testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead() { checkProviderV2(largeText: false, mode: "lost-apply") }
+    func testProviderV2LostStartNeverRequestsAnotherStart() { checkProviderV2(largeText: false, mode: "lost-start") }
+    func testProviderV2ApplyDoesNotImplyStartCapability() { checkProviderV2(largeText: false, mode: "no-start") }
+
+    private func checkProviderV2(largeText: Bool, mode: String) {
+        var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-v2"]
+        if largeText { arguments += ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityL"] }
+        if mode != "success" { arguments += ["--companion-preview-provider-v2-" + mode] }
+        let app = launchApp(arguments, attempts: 1)
+        openAgentSettings(app, sleeping: true)
+        let link = app.buttons["agent-settings-provider-flow"]
+        XCTAssertTrue(scrollTo(link, in: app))
+        waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        captureProvider(app, largeText ? "V2 Accessibility Large first session report" : "V2 standard first session report")
+        let apply = app.buttons["provider-save"], reason = app.staticTexts["provider-apply-reason"]
+        XCTAssertTrue(apply.exists && apply.isHittable && pixelContains(app.frame, apply.frame))
+        XCTAssertFalse(apply.isEnabled)
+        let choice = app.buttons["provider-choice-codex-cli"]
+        tapVisibleProviderControl(choice, in: app)
+        XCTAssertTrue(waitFor(apply, NSPredicate(format: "enabled == true"), timeout: 5))
+        // Actual selection path: no identifier-search scrolling to make Apply visible.
+        XCTAssertTrue(apply.isHittable && pixelContains(app.frame, apply.frame))
+        XCTAssertTrue(reason.exists && pixelContains(app.frame, reason.frame))
+        captureProvider(app, "V2 actual selection leaves Apply and reason visible")
+        app.buttons["provider-review-change"].tap()
+        let saved = app.descendants(matching: .any).matching(identifier: "provider-v2-saved-model").firstMatch
+        let proposed = app.descendants(matching: .any).matching(identifier: "provider-v2-proposed-model").firstMatch
+        XCTAssertTrue(scrollTo(saved, in: app, up: false, maxSwipes: 12))
+        XCTAssertTrue(saved.label.contains("fixture-current-model") && saved.label.contains("saved agent override"))
+        captureProvider(app, "V2 host-reported saved model before Apply")
+        XCTAssertTrue(scrollTo(proposed, in: app, maxSwipes: 12))
+        XCTAssertTrue(proposed.label.contains("Provider default"))
+        let resets = app.staticTexts["provider-reset-impacts"]
+        XCTAssertTrue(scrollTo(resets, in: app, maxSwipes: 12))
+        XCTAssertTrue(resets.label.contains("model") && resets.label.contains("effort"))
+        captureProvider(app, "V2 proposed provider defaults and reset impacts before Apply")
+        XCTAssertFalse(app.buttons["provider-start-new"].exists)
+        tapVisibleProviderControl(apply, in: app)
+        if mode == "lost-apply" {
+            checkV2Unknown(app, link: link, choice: choice)
+            XCTAssertFalse(app.buttons["provider-start-new"].exists)
+            return
+        }
+        app.buttons["provider-review-change"].tap()
+        let receipt = app.staticTexts["provider-saved"]
+        XCTAssertTrue(scrollTo(receipt, in: app, maxSwipes: 12))
+        XCTAssertTrue(receipt.label.contains("historical") && receipt.label.contains("started no session"))
+        captureProvider(app, "V2 historical Apply receipt before Start")
+        let start = app.buttons["provider-start-new"]
+        XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 12))
+        if mode == "no-start" {
+            XCTAssertFalse(start.isEnabled)
+            let explanation = app.staticTexts["provider-start-reason"]
+            XCTAssertTrue(scrollTo(explanation, in: app, maxSwipes: 8))
+            XCTAssertTrue(explanation.label.contains("does not separately support"))
+            captureProvider(app, "V2 Apply receipt with Start explicitly unsupported")
+            return
+        }
+        XCTAssertTrue(start.isEnabled)
+        tapVisibleProviderControl(start, in: app)
+        let confirm = app.buttons.matching(NSPredicate(format: "label == %@ AND identifier != %@", "Start new session", "provider-start-new")).firstMatch
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        captureProvider(app, "V2 explicit Start confirmation before cancellation")
+        if app.buttons["Cancel"].exists {
+            XCTAssertTrue(app.buttons["Cancel"].isHittable); app.buttons["Cancel"].tap()
+        } else {
+            let dismiss = app.otherElements["PopoverDismissRegion"]
+            XCTAssertEqual(dismiss.label, "dismiss popup"); XCTAssertTrue(dismiss.isHittable); dismiss.tap()
+        }
+        XCTAssertTrue(confirm.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(app.navigationBars["Provider"].exists)
+        XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper")
+        XCTAssertFalse(app.descendants(matching: .any).matching(identifier: "provider-v2-start-evidence").firstMatch.exists)
+        captureProvider(app, "V2 Cancel returns to same Juniper without a Start receipt")
+        tapVisibleProviderControl(start, in: app)
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5)); confirm.tap()
+        if mode == "lost-start" {
+            checkV2Unknown(app, link: link, choice: choice)
+            XCTAssertTrue(scrollTo(start, in: app, maxSwipes: 12)); XCTAssertFalse(start.isEnabled)
+        } else {
+            let creation = app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", "This is not a provider handshake")).firstMatch
+            XCTAssertTrue(scrollTo(creation, in: app, maxSwipes: 12))
+            XCTAssertTrue(creation.label.contains("host observed PTY creation"))
+            captureProvider(app, "V2 held historical creation is not a current runtime claim")
+        }
+    }
+    private func checkV2Unknown(_ app: XCUIApplication, link: XCUIElement, choice: XCUIElement) {
+        let review = app.buttons["provider-review-held-result"]
+        XCTAssertTrue(scrollTo(review, in: app, maxSwipes: 12))
+        XCTAssertFalse(app.buttons["provider-save"].isEnabled)
+        app.navigationBars["Provider"].buttons.firstMatch.tap()
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        waitAndTap(link, until: app.navigationBars["Provider"], attempts: 1)
+        XCTAssertTrue(scrollTo(choice, in: app, maxSwipes: 12)); XCTAssertFalse(choice.isEnabled)
+        XCTAssertTrue(scrollTo(review, in: app, maxSwipes: 12)); review.tap()
+        let error = app.staticTexts["provider-flow-error"]
+        XCTAssertTrue(scrollTo(error, in: app, up: false, maxSwipes: 12))
+        XCTAssertTrue(error.label.contains("will not send it again"))
+        let refresh = app.buttons["provider-refresh"]
+        tapVisibleProviderControl(refresh, in: app)
+        let saved = app.descendants(matching: .any).matching(identifier: "provider-v2-saved-provider").firstMatch
+        app.buttons["provider-review-change"].tap()
+        XCTAssertTrue(scrollTo(saved, in: app, up: false, maxSwipes: 12)); XCTAssertTrue(saved.label.contains("Codex"))
+        XCTAssertFalse(app.buttons["provider-save"].isEnabled)
+        XCTAssertTrue(scrollTo(choice, in: app, maxSwipes: 12)); XCTAssertFalse(choice.isEnabled)
+        captureProvider(app, "V2 reopened unknown action stays locked after equal fresh state")
+    }
+
     /// Synthetic only: main's fail-before uses the same launch and first assertion.
     /// No real host/configuration/provider or session is started by these receipts.
     private func checkProviderApply(largeText: Bool, lostReply: Bool) {
