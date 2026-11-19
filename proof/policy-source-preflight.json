@@ -1,0 +1,16 @@
+{
+  "static_only": true,
+  "parser_cached": true,
+  "parser_sha256": "e2606ff681d2102e2a266d9c925bc92cd89610e1c5f3394031f423ed4cb151a5",
+  "class_surface_mismatches": [],
+  "capture_site_mismatches": [],
+  "reviewed_added_properties": {
+    "providerApplyReceipts": "[ String : AnnexProviderChangeResult ]",
+    "providerApplySaved": "String",
+    "providerApplyStarts": "Set < String >"
+  },
+  "compiled_app_gate_still_required": true,
+  "head": "1c48f7c8c2021f714141ac0d0aa7b332701cf530",
+  "policy_sha256": "cd91dc6b8c561182f4297f7a869e5afd143754f7d260dfb6c694c20bcf1ba560",
+  "preview_service_sha256": "d3b690ae85c28940e238070b234b4ccc342ba2e501119e73c9cd56c9c8391dce"
+}

@@ -1,6 +1,6 @@
 # #610 exact-head synthetic proof (not yet executed)
 
-Candidate `d5285e7105a41da80f24492ee45c5771135ad16d` on `ux-root/provider-apply-610`; base main `85ee757ae3de9d962d0cafab81ad0011314522ab`. Baseline overlay `4deda61265ab373c7a7a4eed5ec7407cf946b221` on `evidence/ux-610-baseline` changes only `CompanionProviderBoundaryTests.swift` and `CompanionPreviewSmokeTests.swift`; those two files are byte-identical to candidate. Baseline product sources remain main. The source branch has no PR yet.
+Candidate `1c48f7c8c2021f714141ac0d0aa7b332701cf530` on `ux-root/provider-apply-610`; base main `85ee757ae3de9d962d0cafab81ad0011314522ab`. Baseline overlay `4deda61265ab373c7a7a4eed5ec7407cf946b221` on `evidence/ux-610-baseline` changes only `CompanionProviderBoundaryTests.swift` and `CompanionPreviewSmokeTests.swift`; those two files are byte-identical to candidate. Baseline product sources remain main. The source branch has no PR yet.
 
 Execution is HOLD until independent review of the exact candidate capture delta, scripts and both frozen manifests. The prior review accepted source/UX authority at 48861e060, not native results. The new capture delta adds actual top/session and Review comparison screenshots; these still require observed local visual acceptance. This packet contains only synthetic source/configuration; original native screenshots/logs/xcresults stay private.
 
@@ -28,3 +28,5 @@ Each head UI invocation expects exactly7 synthetic previews,3 Apply transactions
 The runner preserves an intended baseline test failure as raw nonzero test rc even when its classification succeeds; compile/crash/unexpected assertion never counts as fail-before. No physical-device install, release, real endpoint enrollment, external provider call or configuration mutation is part of this proof. Parent retains device/landing acceptance.
 
 Pre-execution revision: the provider tap helper now requires complete Form-row clearance above the persistent action inset, preserving its full-frame tap assertion. Both baseline and head contain the identical helper; no tests have executed and all manifests were re-pinned before admission.
+
+Pre-execution ownership revision: independent review found the PreviewService surface was stale. Candidate now documents and pins only its three DEBUG value properties, with no change of teardown/enforcement mode. A cached SwiftParser preflight independently reports zero protected-class or capture-site mismatches; see policy-source-preflight.json. Actual compiled-symbol/policy proof remains mandatory in A. Baseline policy/product is unchanged.
