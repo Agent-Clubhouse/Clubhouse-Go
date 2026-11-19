@@ -1,0 +1,25 @@
+{
+  "original_head": "af714fd343010dbbb48e5eb9b60623b9a0d1dff2",
+  "original_container_result": "Failed: 3P/2F, preserved",
+  "original_receipt_sha256": "97a25e19c03625eb0d0c034ca8353ac6fcd6e1546fbda2a510bed7c8e951f708",
+  "original_details_sha256": "cd1714cb78964b62dbceff7fef6a5976daabe74d7e80a95cc542e188adfddd37",
+  "original_independent_audit_sha256": "2dad856bbe891b2719dc436c4d0e3e4540f3d9f85269964c8396dcdf3248daa6",
+  "controls": {
+    "CompanionPreviewSmokeTests/testProviderV2ApplyAndStartStaySeparate()": {
+      "original_result": "Passed",
+      "run_count": 1,
+      "largeText": false,
+      "mode": "success",
+      "basis": "New Large-only reveal is not executed. Neither mode calls checkV2Unknown. Old native checked-tap/launch helpers and all production provider statements are unchanged; the integrated DEBUG reading guard is inactive for these arguments."
+    },
+    "CompanionPreviewSmokeTests/testProviderV2ApplyDoesNotImplyStartCapability()": {
+      "original_result": "Passed",
+      "run_count": 1,
+      "largeText": false,
+      "mode": "no-start",
+      "basis": "New Large-only reveal is not executed. Neither mode calls checkV2Unknown. Old native checked-tap/launch helpers and all production provider statements are unchanged; the integrated DEBUG reading guard is inactive for these arguments."
+    }
+  },
+  "current_head": "1953d306c0702f6ff9a3bf774926d1dbb9db1c95",
+  "acceptance": "Carry proposed for ONLY these two individual controls, subject to exact independent source-path review; no five-fresh or whole-SE-pass claim. Three affected cases require new actual execution."
+}
