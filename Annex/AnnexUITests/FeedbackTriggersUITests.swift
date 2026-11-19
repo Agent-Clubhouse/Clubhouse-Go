@@ -57,6 +57,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             (evidence.value as? String)?.contains("queued=2;enrolled=true;diagnostics=off") == true
         }, timeout: 5))
         let original = try XCTUnwrap(evidence.value as? String)
+        print("RENEWAL_STATE phase=before status=\(expected) AX=\(largeText) \(original)")
         XCTAssertTrue(original.contains("preferences=[false, false, false]"))
         XCTAssertTrue(original.hasSuffix("accessibilityXXXL=\(largeText)"), "The requested AX category must actually reach the fixture")
         let refresh = flags.contains("--feedback-renewal-offline") || flags.contains("--feedback-renewal-registered")
@@ -79,7 +80,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.tabBars.buttons["Home"].isHittable)
 
-        for _ in 0..<2 {
+        for cycle in 1...2 {
             waitAndTap(app.buttons["Settings"], until: app.navigationBars["Settings"], attempts: 1)
             let options = app.buttons["settings-feedback-options"]
             try revealFeedbackRow(options, in: app, title: "Settings")
@@ -87,9 +88,11 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             options.tap()
             let status = app.staticTexts["feedback-access-status"]
             try revealFeedbackRow(status, in: app, title: "Feedback options")
+            print("RENEWAL_SETTINGS cycle=\(cycle) AX=\(largeText) status=\(status.label) frame=\(status.frame)")
             XCTAssertEqual(status.label, "Feedback access: \(expected)")
             let renewal = app.buttons["feedback-enrollment"]
             try revealFeedbackRow(renewal, in: app, title: "Feedback options")
+            print("RENEWAL_TARGET cycle=\(cycle) AX=\(largeText) label=\(renewal.label) frame=\(renewal.frame) hittable=\(renewal.isHittable)")
             XCTAssertTrue(renewal.isHittable)
             XCTAssertGreaterThanOrEqual(renewal.frame.height, 44)
             renewal.tap()
@@ -106,7 +109,11 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             app.buttons["settings-close"].tap()
             XCTAssertTrue(app.buttons["Settings"].waitForExistence(timeout: 5))
         }
-        XCTAssertEqual(evidence.value as? String, original,
+        let final = try XCTUnwrap(evidence.value as? String)
+        print("RENEWAL_STATE phase=after status=\(expected) AX=\(largeText) \(final)")
+        let states = XCTAttachment(string: "before=\(original)\nafter=\(final)")
+        states.name = "Renewal state \(expected) AX=\(largeText)"; states.lifetime = .keepAlways; add(states)
+        XCTAssertEqual(final, original,
                        "Navigation/dismiss/reopen must preserve enrollment, queued bytes, preferences, diagnostics choice and request count")
     }
 
