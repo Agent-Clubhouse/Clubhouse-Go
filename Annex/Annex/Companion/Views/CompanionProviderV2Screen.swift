@@ -77,6 +77,19 @@ private struct CompanionProviderV2Form: View {
                     }
                 }
                 .id("provider-v2-review")
+                if let start = flow.lastStart {
+                    Section("Historical Start evidence") {
+                        Text(start.start.wasObserved ? "The host observed PTY creation with \(name(start.start.providerSelection ?? "unknown")). This is not a provider handshake." : "Runtime creation is unknown.")
+                            .accessibilityIdentifier("provider-v2-start-creation")
+                        LabeledContent("Command outcome", value: start.result.status)
+                        LabeledContent("Observed at", value: start.start.observedAt ?? "Not reported")
+                        LabeledContent("Running at that command", value: start.running.state)
+                        LabeledContent("App session ID", value: start.running.appSessionId ?? "Not reported")
+                        LabeledContent("Native provider session ID", value: start.running.nativeProviderSessionId ?? "Not reported")
+                        Text("Current running provider, model and effort remain unverified. The observation above is historical.")
+                    }
+                    .accessibilityIdentifier("provider-v2-start-evidence")
+                }
                 Section("Choose a provider") {
                     ForEach(settings.options.orchestrators, id: \.id) { provider in
                         Button { Task { await flow.select(provider.id) } } label: {
@@ -107,19 +120,6 @@ private struct CompanionProviderV2Form: View {
                             .accessibilityIdentifier("provider-refresh")
                         Text("Read-only. This cannot confirm an unresolved Apply or Start.")
                     }
-                }
-                if let start = flow.lastStart {
-                    Section("Historical Start evidence") {
-                        Text(start.start.wasObserved ? "The host observed PTY creation with \(name(start.start.providerSelection ?? "unknown")). This is not a provider handshake." : "Runtime creation is unknown.")
-                            .accessibilityIdentifier("provider-v2-start-creation")
-                        LabeledContent("Command outcome", value: start.result.status)
-                        LabeledContent("Observed at", value: start.start.observedAt ?? "Not reported")
-                        LabeledContent("Running at that command", value: start.running.state)
-                        LabeledContent("App session ID", value: start.running.appSessionId ?? "Not reported")
-                        LabeledContent("Native provider session ID", value: start.running.nativeProviderSessionId ?? "Not reported")
-                        Text("Current running provider, model and effort remain unverified. The observation above is historical.")
-                    }
-                    .accessibilityIdentifier("provider-v2-start-evidence")
                 }
                 Section { Text("Resume is unavailable here. The requested runtime is kept. If the desktop cannot preserve it, this change is unavailable. Provider sign-in and quota are not verified here.") }
             }
