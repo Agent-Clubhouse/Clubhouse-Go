@@ -212,7 +212,10 @@ private actor ProviderV2Transport: AnnexTransporting {
         }
         let altered = try changed(result, "contract", changed(contract, field, wrong))
         await io.override("agent.providerChange", body: try changed(body, "result", altered))
-        await flow.apply(); await flow.startNew()
+        await flow.apply()
+        try retainBoundary("contradictory-Apply/\(field)", stage: "after-contradictory-Apply", mutations: await io.mutations())
+        await flow.startNew()
+        try retainBoundary("contradictory-Apply/\(field)", stage: "after-blocked-Start", mutations: await io.mutations())
         #expect(flow.blocksMutations && flow.lastApply == nil && flow.lastStart == nil)
         #expect(await io.mutations().count == 1)
     }
