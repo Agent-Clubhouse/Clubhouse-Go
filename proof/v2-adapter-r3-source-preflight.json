@@ -1,0 +1,10 @@
+{
+  "head": "29fc71b2a8e2fd68a872f6a74e54eae31761a37c",
+  "scope": "cached parser source properties/captures only; no compiled deinit claim",
+  "source_count": 187,
+  "parser_sha256": "e2606ff681d2102e2a266d9c925bc92cd89610e1c5f3394031f423ed4cb151a5",
+  "errors": [],
+  "new_owner_delta": {
+    "CompanionLiveService.providerV2CapabilityRevisions": "[ String : UUID ]"
+  }
+}
