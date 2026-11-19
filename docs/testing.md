@@ -110,8 +110,13 @@ it uses the production template/project selection methods, the exact button-disa
 hint, and the same guarded Create action (also invoked while disabled to prove defense in depth).
 This avoids private in-process SwiftUI accessibility traversal. Visible loss text is verified by OCR;
 real control reachability remains in the managed UI tests. The seam is absent from Release builds.
-Initial cancelled-task duplicate options reads are inherited from #453 and tracked in #480; transition
-assertions require zero additional reads on capability loss and exactly one on project switch.
+`CompanionManagedSpawnCapabilityTests` requires exactly one initial create-options read, zero additional
+reads on capability loss and exactly one per project switch. A held-response regression switches B-A-B,
+then releases the cancelled first B response while the newer B read is pending: it must neither publish
+old options nor finish the newer loading state. The remaining old A response cannot reset the loaded
+name or template selection. The task captures its project ID and cancelled tasks cannot start a read
+or publish options, errors or loading completion. Workspace-and-tools round-trip coverage remains in
+`CompanionAgentSheetsTests.testWorkspaceAndToolsPreservesChangesWhenReturningToTheForm`.
 
 ### Linked projects
 

@@ -95,7 +95,7 @@ struct CompanionSpawnSheet: View {
             kind = supportsDurable ? .durable : .quick
             promptFocused = kind == .quick
         }
-        .task(id: durableProject) { await loadOptions() }
+        .task(id: durableProject) { [project = durableProject] in await loadOptions(for: project) }
         .presentationDetents([.large])
         .onChange(of: store.projectEntries) { reconcileSelection($1) }
     }
@@ -343,20 +343,23 @@ struct CompanionSpawnSheet: View {
     /// The project to read create options for, while the durable form is offered.
     private var durableProject: CompanionProjectTarget? { supportsDurable ? project : nil }
 
-    private func loadOptions() async {
-        guard let project = durableProject else { durable = DurableForm(); return }
+    private func loadOptions(for project: CompanionProjectTarget?) async {
+        guard !Task.isCancelled, durableProject == project else { return }
+        guard let project else { durable = DurableForm(); return }
         let hadManagedIntent = durable.managedOn
         durable.loading = true
         durable.options = nil
         durable.error = nil
-        defer { durable.loading = false }
+        defer {
+            if !Task.isCancelled, durableProject == project { durable.loading = false }
+        }
         do {
             let options = try await store.createOptions(for: project)
-            guard durableProject == project else { return }
+            guard !Task.isCancelled, durableProject == project else { return }
             durable.reset(to: options, supportsManaged: selectedHost?.canCreateManaged == true)
             if hadManagedIntent && !offersManaged { durable.managedOn = true }
         } catch {
-            guard durableProject == project else { return }
+            guard !Task.isCancelled, durableProject == project else { return }
             durable.options = nil
             durable.error = error.localizedDescription
         }
@@ -395,7 +398,7 @@ struct CompanionSpawnSheet: View {
             } else if let error = durable.error {
                 Section {
                     Label(error, systemImage: "exclamationmark.circle").foregroundStyle(Color(palette.error))
-                    Button("Try again") { Task { await loadOptions() } }
+                    Button("Try again") { Task { await loadOptions(for: durableProject) } }
                 }
             } else {
                 Section { ProgressView("Loading the desktop's options…").frame(maxWidth: .infinity) }
