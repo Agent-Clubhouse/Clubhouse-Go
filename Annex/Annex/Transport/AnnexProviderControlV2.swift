@@ -22,6 +22,20 @@ nonisolated public struct AnnexProviderApplyV2Capability: Decodable, Sendable, E
     public let applyStartsAgent: Bool
     public let managedDelivery: String
     public let managedPlatform: AnnexManagedProviderPlatform?
+    private enum CodingKeys: String, CodingKey { case version, requestContractVersion, preview, change, selection, applyStartsAgent, managedDelivery, managedPlatform }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        version = try c.decode(Int.self, forKey: .version)
+        requestContractVersion = try c.decode(Int.self, forKey: .requestContractVersion)
+        preview = try c.decode(String.self, forKey: .preview)
+        change = try c.decode(String.self, forKey: .change)
+        selection = try c.decode(String.self, forKey: .selection)
+        applyStartsAgent = try c.decode(Bool.self, forKey: .applyStartsAgent)
+        managedDelivery = try c.decode(String.self, forKey: .managedDelivery)
+        // This advisory block gates managed delivery only. A malformed block
+        // cannot authorize managed work or disable an independently valid native edit.
+        managedPlatform = (try? c.decodeIfPresent(AnnexManagedProviderPlatform.self, forKey: .managedPlatform)) ?? nil
+    }
     public var isSupported: Bool {
         version == 2 && requestContractVersion == 2 && preview == "agent.providerPreview"
             && change == "agent.providerChange" && selection == "tagged_model_nullable_effort"

@@ -80,13 +80,16 @@ import Testing
 
     @Test func missingUnknownOrMalformedPlatformCannotGrantManagedStart() throws {
         let raw = try capabilities(), apply = try #require(raw["providerControlV2"]), start = try #require(raw["providerStartV2"])
+        let unmanaged = try at(fixture(), "windowsRefusals/unmanaged/preview/body/result").decode(AnnexProviderPreviewV2.self)
         let platforms: [AnnexJSON?] = [nil, .null, .string("darwin"), .object(["supported": .bool(true)])]
         for platform in platforms {
             let a = try replace(apply, key: "managedPlatform", with: platform)
             let s = try replace(start, key: "managedPlatform", with: platform)
             let caps = try replace(replace(raw, key: "providerControlV2", with: a), key: "providerStartV2", with: s).decode(AnnexCapabilities.self)
             #expect(caps.providerControlV2Advertised && !caps.supportsProviderStartV2)
+            #expect(caps.supportsProviderApplyV2)
             #expect(caps.providerControlV2?.managedPlatform?.permitsManaged != true)
+            #expect(unmanaged.permitsApply(capability: try #require(caps.providerControlV2)))
         }
         let unknown = AnnexJSON.object(["current": .string("unknown"), "supported": .bool(true), "supportedPlatforms": .array([.string("darwin"), .string("linux")]), "refusalCode": .string("managed_platform_unsupported")])
         #expect(try !unknown.decode(AnnexManagedProviderPlatform.self).permitsManaged)
