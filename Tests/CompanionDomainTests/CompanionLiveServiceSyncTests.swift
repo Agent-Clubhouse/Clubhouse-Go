@@ -399,7 +399,7 @@ import Testing
             return await serviceErrorText { _ = try await harness.service.content(reference, target: harness.target) }
         }
         #expect(await refused(.rejected(status: 404, code: "agent_not_found"), .file("a.txt")) == "This agent is no longer on Fixture.")
-        #expect(await refused(.rejected(status: 404, code: "not_found"), .image(Self.mediaRef)) == "This image is no longer available on Fixture.")
+        #expect(await refused(.rejected(status: 404, code: "not_found"), .image(Self.mediaRef)) == "This image can't be previewed from Fixture. Open it on your desktop to check.")
         #expect(await refused(.rejected(status: 404, code: nil), .file("a.txt"))
                 == CompanionContentReference.unavailableLinkMessage(hostName: "Fixture"))
         #expect(await refused(.responseTooLarge, .file("a.txt")) == "This file is too large to preview on your phone. Open it on Fixture.")
