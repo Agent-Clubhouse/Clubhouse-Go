@@ -19,6 +19,10 @@ Both cancelled other-shard bundles contain Staging/Data but lack final metadata.
 
 ## Current CI1139
 
-[Run 44479002209](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44479002209) pins d526. At this update, Plan and Release have passed, Debug has started, and packages remain queued. Hosted 26.5 lanes and inherited/cancelled signature attribution remain outstanding. Ready is a review state, not a claim that CI passed.
+[Run 44479002209](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44479002209) pins d526. Plan, Debug/deinit, packages, Release, composer and preview/project shards have passed. iPad, Home, Reading and other shards are still active at this update. Hosted 26.5 acceptance is outstanding. Ready is a review state, not a claim that CI passed.
+
+Permission job135424229063 repeats the identical :74 title mismatch three times, as on main job135269619022 (#588). Dispatcher job135424229055 is cancelled: sender-fold reaches :654 time allowance three times before refresh or return; main passes that same method once in300.362s. The head failure is not identical-main-failure proof, although #553 tracks this timing class. Its grant-to-Needs-you :179 failures do match main three times. Partial passes cannot establish a completed lane map.
+
+Feedback job135424229069 is cancelled. The diagnostics-toggle method fails once at :80 in58.288s, then passes its automatic retry in193.587s. The failure records before=1/expected=0 and a later actual=Optional(0). Main job135269619060 passes the same method once in66.330s with no matching :80 issue. A delayed transition or predicate mismatch is only a hypothesis; this signature remains unclassified, with no baseline-failure or passing-lane credit. Official per-job API logs were read, not inferred from aggregate conclusions.
 
 Artifact collection and read-only extraction used separate bounded guarded FIFO tickets; both closed with no owned processes, simulator actions or swap growth. No runtime installation, manual CI retry/cancel, assertion weakening or product change was used.
