@@ -10,7 +10,7 @@ import XCTest
         let recovery = app.buttons["dispatcher-recovery-menu"]
         XCTAssertTrue(recovery.waitForExistence(timeout: 5)); recovery.tap()
         XCTAssertTrue(app.navigationBars["Dispatcher recovery"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Studio Mac"].exists)
+        XCTAssertTrue(app.staticTexts["Desktop, Studio Mac"].exists)
         return app
     }
 
