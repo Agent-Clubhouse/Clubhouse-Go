@@ -1,5 +1,5 @@
 {
-  "scope": "Two serial iPad jobs using the existing iPhone-built products; same suite and three UI methods, no retry or deadline change",
+  "scope": "Two serial iPad jobs using the existing iPhone-built products; same suite and three UI methods, no retry or per-job deadline change; aggregate allowance increases",
   "original": {
     "source_head": "ab6c7149416e50ca259aa135289e5d7b668427dc",
     "run": 44685281882,
@@ -33,7 +33,10 @@
     "additional_setup_count": 1,
     "peak_ipad_concurrency_before": 1,
     "peak_ipad_concurrency_after": 1,
-    "ci_result_dependency": "ipad-tests (aggregates both matrix entries)"
+    "ci_result_dependency": "ipad-tests (aggregates both matrix entries)",
+    "aggregate_job_allowance_minutes_before": 25,
+    "aggregate_job_allowance_minutes_after": 50,
+    "budget_authority": "Clubhouse-Go-Orchestrator explicitly authorized two serial standard-runner jobs for the next normal integration revision; no paid capacity or account changes."
   },
   "forecast": {
     "basis": "One observed setup/handoff/cleanup, observed hosted duration including its failures, and all three existing dynamic UI allowances. Arithmetic planning only; not measured successor CI or a guarantee.",
@@ -41,6 +44,8 @@
     "ui_smoke_job_seconds": 1167.9650000000001,
     "aggregate_job_seconds": 2454.514,
     "additional_setup_cleanup_seconds": 317,
-    "required_actual_acceptance": "Both complete results, the full hosted suite and the same three UI methods each once, strict no-retries verification and cleanup; each job below unchanged 25-minute limit. Underlying first failures remain separate blockers."
+    "required_actual_acceptance": "Both complete results, the full hosted suite and the same three UI methods each once, strict no-retries verification and cleanup; each job below unchanged 25-minute limit. Underlying first failures remain separate blockers.",
+    "aggregate_runner_minutes": 40.908566666666665,
+    "additional_setup_cleanup_minutes": 5.283333333333333
   }
 }
