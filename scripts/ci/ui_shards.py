@@ -42,6 +42,8 @@ SHARDS = [
         "name": "UI tests (feedback diagnostics)",
         "tests": [
             "FeedbackDiagnosticsWireUITests",
+            # Same lane, runs after the wire class: a stalled pinch cannot fail those reveals.
+            "FeedbackEditorPinchUITests",
             "CompanionNeedsYouActionCardUITests",
         ],
     },

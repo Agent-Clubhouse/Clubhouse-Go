@@ -3,17 +3,7 @@ import UIKit
 import CryptoKit
 
 /// Actual SDK FeedbackView, Go entry points and memory-only fake HTTP/telemetry. No live endpoint.
-final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
-    @MainActor private func launch(image: Bool = false) -> XCUIApplication {
-        let app = launchApp(["--framebriar-shake-ui-testing", "--framebriar-wire-ui-testing"] + (image ? ["--framebriar-wire-image"] : []))
-        XCTAssertTrue(app.buttons["fixture-shake"].waitForExistence(timeout: 10))
-        return app
-    }
-    @MainActor private func wire(_ app: XCUIApplication) throws -> [String: Any] {
-        let text = app.staticTexts["fixture-wire-summary"]
-        XCTAssertTrue(scrollUntilExists(text, in: app, maxSwipes: 8, wait: 0.3))
-        return try JSONSerialization.jsonObject(with: Data(text.label.utf8)) as! [String: Any]
-    }
+final class FeedbackDiagnosticsWireUITests: ReliableUITestCase, FeedbackWireUITesting {
     @MainActor private func settings(_ app: XCUIApplication, beforeOpen: (() -> Void)? = nil) {
         XCTAssertTrue(scrollTo(app.buttons["Settings"], in: app, maxSwipes: 8))
         beforeOpen?()
@@ -257,17 +247,6 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         snapshot = try wire(app)
         XCTAssertEqual((snapshot["captures"] as? [Any])?.count, 2)
         XCTAssertEqual((snapshot["reports"] as? [Any])?.count, 1)
-    }
-
-    @MainActor private func menu(_ app: XCUIApplication, captureMenu: ((CGRect, Data) -> Void)? = nil) {
-        let menu = app.buttons["fixture-feedback-menu"]
-        XCTAssertTrue(scrollTo(menu, in: app, up: false, maxSwipes: 6))
-        menu.tap()
-        let send = app.buttons["Send feedback"]
-        XCTAssertTrue(send.waitForExistence(timeout: 5))
-        if let captureMenu { captureMenu(send.frame, app.screenshot().pngRepresentation) }
-        send.tap()
-        XCTAssertTrue(app.navigationBars["Send feedback"].waitForExistence(timeout: 5))
     }
 
     /// The sampled pixels come from the PNG PUT to the fake endpoint; its SHA/length must match
@@ -626,51 +605,6 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
-    /// Keep taps between the SDK's pinned summary and navigation bars, including at accessibility sizes.
-    @MainActor private func revealComposerElement(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
-        // Observation only (#620 L2 stall): the form's first row is read before each drag, so
-        // consecutive entries show whether each drag moved the form. The search is unchanged.
-        var movement: [String] = []
-        var reference: XCUIElement?
-        for attempt in 0..<16 {
-            var top = app.navigationBars["Send feedback"].frame.maxY
-            for id in ["framebriar-error", "framebriar-send-reason"] where app.staticTexts[id].exists {
-                top = max(top, app.staticTexts[id].frame.maxY)
-            }
-            let explanation = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Start your note with ‘Diagnostics test’")).firstMatch
-            if explanation.exists { top = max(top, explanation.frame.maxY) }
-            let bottom = app.staticTexts["framebriar-included"].frame.minY
-            if element.exists, element.frame.midY > top + 10, element.frame.midY < bottom - 10 { break }
-            let form = app.collectionViews.element(boundBy: app.collectionViews.count - 1)
-            let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: form.frame.maxX - 12, dy: (top + bottom) / 2))
-            let delta: CGFloat = element.exists ? (element.frame.midY < top + 10 ? 110 : -110) : (attempt < 8 ? -110 : 110)
-            let row = form.cells.firstMatch
-            reference = row
-            movement.append("before drag \(attempt + 1) delta=\(delta) band=\(top)...\(bottom) reference=\(probedFrame(row)) target=\(probedFrame(element))")
-            start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
-        }
-        let hittable = element.isHittable
-        if !hittable {
-            movement.append("final reference=\(reference.map(probedFrame) ?? "none") target=\(probedFrame(element))")
-            attachMovement(movement, named: "Feedback composer reveal drag movement")
-        }
-        XCTAssertTrue(hittable)
-        return element
-    }
-    @MainActor private func probedFrame(_ element: XCUIElement) -> String {
-        element.exists ? NSCoder.string(for: element.frame) : "absent"
-    }
-    @MainActor private func attachMovement(_ movement: [String], named name: String) {
-        print("GESTURE_MOVEMENT \(name)\n" + movement.joined(separator: "\n"))
-        let attachment = XCTAttachment(string: movement.joined(separator: "\n"))
-        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
-    }
-    @MainActor private func editor(_ app: XCUIApplication) -> XCUIElement {
-        revealComposerElement(app.images["framebriar-attachment"], in: app).tap()
-        let canvas = app.descendants(matching: .any)["framebriar-editor-canvas"]
-        XCTAssertTrue(canvas.waitForExistence(timeout: 5))
-        return canvas
-    }
     /// The synthetic image is square, fitted inside a possibly tall canvas.
     @MainActor private func mark(_ canvas: XCUIElement, from: CGPoint, to: CGPoint) {
         let side = min(canvas.frame.width, canvas.frame.height)
@@ -707,44 +641,6 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
         context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
         return (image.width, image.height, bytes)
-    }
-
-    @MainActor func testEditorPinchZoomOnHostCapturedScreen() throws {
-        let app = launch()
-        menu(app)
-        let canvas = editor(app)
-        func capture(_ name: String) throws -> (Int, Int, [UInt8]) {
-            let shot = canvas.screenshot()
-            let attachment = XCTAttachment(screenshot: shot)
-            attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
-            let cg = try XCTUnwrap(UIImage(data: shot.pngRepresentation)?.cgImage)
-            var pixels = [UInt8](repeating: 0, count: cg.width * cg.height * 4)
-            let context = try XCTUnwrap(CGContext(data: &pixels, width: cg.width, height: cg.height,
-                bitsPerComponent: 8, bytesPerRow: cg.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
-                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue))
-            context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
-            return (cg.width, cg.height, pixels)
-        }
-        let beforeAX = canvas.value as? String ?? "", before = try capture("before-pinch")
-        XCTAssertTrue(beforeAX.hasSuffix("100% zoom"))
-        canvas.pinch(withScale: 2, velocity: 2)
-        let after = try capture("after-pinch"), afterAX = canvas.value as? String ?? ""
-        XCTAssertEqual(before.0, after.0); XCTAssertEqual(before.1, after.1)
-        let changed = zip(before.2, after.2).filter { $0 != $1 }.count
-        let evidence: [String: Any] = ["beforeAX": beforeAX, "afterAX": afterAX,
-            "width": before.0, "height": before.1, "changedChannels": changed, "channels": before.2.count]
-        print("PINCH_EVIDENCE \(evidence)")
-        let attachment = XCTAttachment(data: try JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys, .prettyPrinted]), uniformTypeIdentifier: "public.json")
-        attachment.name = "pinch-pixel-evidence"; attachment.lifetime = .keepAlways; add(attachment)
-        expectation(for: NSPredicate(format: "NOT value ENDSWITH ' 100% zoom'"), evaluatedWith: canvas)
-        waitForExpectations(timeout: 5)
-        XCTAssertGreaterThan(changed, 0, "Zoom must change rendered pixels independently of the AX value")
-        canvas.doubleTap()
-        expectation(for: NSPredicate(format: "value ENDSWITH '100% zoom'"), evaluatedWith: canvas)
-        waitForExpectations(timeout: 5)
-        app.buttons["framebriar-editor-cancel"].tap()
-        app.buttons["Cancel"].tap()
-        XCTAssertEqual((try wire(app)["reports"] as? [Any])?.count, 0)
     }
 
     @MainActor func testEditorUploadsFourInksAndDestructiveOpaqueRedaction() throws {
