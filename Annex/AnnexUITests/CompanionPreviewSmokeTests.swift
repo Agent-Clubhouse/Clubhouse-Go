@@ -181,35 +181,80 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertEqual(app.navigationBars["Provider"].buttons.firstMatch.label, "Juniper")
     }
 
+    /// One native snapshot per observation keeps all bounds from the same hierarchy revision.
+    /// Reading each element attribute separately re-queried the whole AX tree on hosted iOS 26.5.
+    private struct ProviderRowObservation {
+        let window: CGRect
+        let navigation: CGRect
+        let form: CGRect
+        let apply: CGRect
+        let review: CGRect
+        let row: XCUIElementSnapshot?
+
+        var top: CGFloat { max(navigation.maxY + 12, form.minY) }
+        var bottom: CGFloat { min(min(window.maxY - 34, form.maxY), min(apply.minY, review.minY) - 12) }
+        func contains(_ frame: CGRect) -> Bool {
+            frame.width > 0 && frame.height > 0 && frame.minY >= top && frame.maxY <= bottom
+                && frame.minX >= max(window.minX, form.minX) && frame.maxX <= min(window.maxX, form.maxX)
+        }
+    }
+
+    private func providerRowObservation(_ identifier: String, in app: XCUIApplication) -> ProviderRowObservation? {
+        do {
+            let snapshot = try app.snapshot()
+            var elements: [XCUIElementSnapshot] = []
+            func visit(_ node: XCUIElementSnapshot) {
+                elements.append(node)
+                node.children.forEach(visit)
+            }
+            visit(snapshot)
+            func unique(_ predicate: (XCUIElementSnapshot) -> Bool, _ name: String) throws -> XCUIElementSnapshot {
+                let matches = elements.filter(predicate)
+                return try XCTUnwrap(matches.count == 1 ? matches.first : nil, "Exactly one native \(name) is required")
+            }
+            let navigation = try unique({ $0.elementType == .navigationBar && ($0.identifier == "Provider" || $0.label == "Provider") }, "Provider navigation bar")
+            let form = try unique({ $0.elementType == .collectionView && $0.identifier == "provider-flow" }, "Provider Form")
+            let apply = try unique({ $0.elementType == .button && $0.identifier == "provider-save" }, "Apply action")
+            let review = try unique({ $0.elementType == .button && $0.identifier == "provider-review-change" }, "Review action")
+            let rows = elements.filter { $0.identifier == identifier }
+            guard rows.count <= 1 else { XCTFail("The native row identifier must be unique: \(identifier)"); return nil }
+            return .init(window: snapshot.frame, navigation: navigation.frame, form: form.frame,
+                         apply: apply.frame, review: review.frame, row: rows.first)
+        } catch {
+            XCTFail("Cannot observe the native Provider hierarchy: \(error)")
+            return nil
+        }
+    }
+
     /// Full-row visual proof and Large-only navigation inside the protected native Form.
     private func captureReadableProviderRow(_ identifier: String, in app: XCUIApplication,
                                             containing expected: [String], name: String) -> Bool {
         let navigation = app.navigationBars["Provider"]
-        let form = app.collectionViews.matching(identifier: "provider-flow").firstMatch
         let row = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
-        guard navigation.exists && form.exists else { XCTFail("Native Provider navigation and Form must exist"); return false }
         var previousFrame: CGRect?
         var previousDrag: CGFloat?
         var response: CGFloat = 1
         // Initial observation plus at most eight native pans, not nine gestures.
         for attempt in 0...8 {
-            let apply = app.buttons["provider-save"], review = app.buttons["provider-review-change"]
-            guard apply.exists && review.exists else { XCTFail("Persistent actions must define the protected content band"); return false }
-            let top = max(navigation.frame.maxY + 12, form.frame.minY)
-            let bottom = min(min(app.frame.maxY - 34, form.frame.maxY), min(apply.frame.minY, review.frame.minY) - 12)
-            let frame: CGRect? = row.exists ? row.frame : nil
+            guard let observation = providerRowObservation(identifier, in: app) else { return false }
+            let top = observation.top, bottom = observation.bottom
+            let frame = observation.row?.frame
             print("PROVIDER_CAPTURE_GEOMETRY id=\(identifier) attempt=\(attempt) row=\(String(describing: frame)) band=\(top)...\(bottom)")
             if let frame {
                 guard frame.width > 0 && frame.height > 0 && frame.height <= bottom - top,
-                      frame.minX >= max(app.frame.minX, form.frame.minX),
-                      frame.maxX <= min(app.frame.maxX, form.frame.maxX) else {
+                      frame.minX >= max(observation.window.minX, observation.form.minX),
+                      frame.maxX <= min(observation.window.maxX, observation.form.maxX) else {
                     XCTFail("The complete text row must fit in the native readable band: \(frame), \(top)...\(bottom)"); return false
                 }
                 if frame.minY >= top && frame.maxY <= bottom {
-                    guard row.waitForExistence(timeout: 5), row.identifier == identifier,
-                          expected.allSatisfy({ row.label.contains($0) }), navigation.buttons.firstMatch.label == "Juniper" else {
-                        XCTFail("The realized row must retain its expected identity, text and Juniper context"); return false
-                    }
+                    guard row.waitForExistence(timeout: 5) else { XCTFail("The realized row must still exist"); return false }
+                    do {
+                        let realized = try row.snapshot()
+                        guard realized.identifier == identifier, expected.allSatisfy({ realized.label.contains($0) }),
+                              observation.contains(realized.frame), navigation.buttons.firstMatch.label == "Juniper" else {
+                            XCTFail("The realized row must retain its full fit, expected identity, text and Juniper context"); return false
+                        }
+                    } catch { XCTFail("Cannot recheck the realized row before capture: \(error)"); return false }
                     captureProvider(app, name)
                     return true
                 }
@@ -226,7 +271,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             let dy = frame.map { min(travel, max(-travel, ((top + bottom) / 2 - $0.midY) / response)) } ?? -travel
             guard abs(dy) >= 24 else { XCTFail("Refusing a sub-pan correction before capture: \(dy)"); return false }
             let origin = app.coordinate(withNormalizedOffset: .zero)
-                .withOffset(CGVector(dx: form.frame.midX - app.frame.minX, dy: (top + bottom) / 2 - app.frame.minY))
+                .withOffset(CGVector(dx: observation.form.midX - observation.window.minX,
+                                     dy: (top + bottom) / 2 - observation.window.minY))
             previousFrame = frame; previousDrag = dy
             XCTContext.runActivity(named: "Reveal readable provider row \(identifier), band \(top)...\(bottom), drag \(dy)") { _ in
                 origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: dy)),
@@ -529,7 +575,16 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                                            slowNativePan: Bool = false) {
         let navigation = app.navigationBars["Provider"]
         XCTAssertTrue(navigation.exists)
-        XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
+        if slowNativePan {
+            guard let observation = providerRowObservation(control.identifier, in: app) else { return }
+            // A full-fit row already observed by the Large reading path needs no second search.
+            // The unchanged checked-tap guards below still remeasure its actual control frame.
+            if observation.row.map({ observation.contains($0.frame) }) != true {
+                XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
+            }
+        } else {
+            XCTAssertTrue(scrollTo(control, in: app, up: up, maxSwipes: 8))
+        }
         func clearBottom() -> CGFloat {
             let bottom = app.frame.maxY - 34
             guard !["provider-save", "provider-review-change"].contains(control.identifier) else { return bottom }
