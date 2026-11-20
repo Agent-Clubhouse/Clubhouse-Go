@@ -36,6 +36,28 @@ import XCTest
         add(attachment)
     }
 
+    /// A different choice can be tappable while this one is clipped by the navigation bar.
+    /// Reveal the action itself with bounded native pans, requiring its entire current frame.
+    private func revealUpdateChoice(_ choice: XCUIElement, in app: XCUIApplication) -> Bool {
+        for attempt in 0...6 {
+            let window = app.frame
+            let top = app.navigationBars["Desktop update"].frame.maxY + 12
+            let bottom = rowContentBottom(in: app)
+            let frame = choice.exists ? choice.frame : nil
+            print("APP_UPDATE_CHOICE attempt=\(attempt) frame=\(String(describing: frame)) band=\(top)...\(bottom)")
+            if let frame, frame.width > 0, frame.height > 0,
+               frame.minX >= window.minX, frame.maxX <= window.maxX,
+               frame.minY >= top, frame.maxY <= bottom, choice.isHittable { return true }
+            guard attempt < 6, bottom - top > 260 else { return false }
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: window.midX, dy: (top + bottom) / 2))
+            let delta: CGFloat = frame.map { $0.minY < top ? 120 : -120 } ?? -120
+            origin.press(forDuration: 0.05, thenDragTo: origin.withOffset(CGVector(dx: 0, dy: delta)),
+                         withVelocity: .slow, thenHoldForDuration: 0)
+        }
+        return false
+    }
+
     func testReadyRequestPresentsOwnInterruptionReviewAndRestartWhenIdleWithoutLeavingTheScreen() {
         let app = openUpdate()
         let request = app.buttons["app-update-request"]
@@ -52,7 +74,20 @@ import XCTest
         XCTAssertFalse(app.buttons["grant-request-allow"].exists)
         XCTAssertTrue(app.navigationBars["Desktop update"].exists)
         attach(app, "Desktop update - approval choices")
-        waitAndTap(whenIdle, untilGone: whenIdle)
+        guard revealUpdateChoice(whenIdle, in: app) else {
+            XCTFail("Restart when idle must be fully revealed before tapping"); return
+        }
+        attach(app, "Desktop update - Restart when idle fully revealed")
+        guard whenIdle.exists else { XCTFail("The revealed choice must still exist"); return }
+        let choiceFrame = whenIdle.frame, window = app.frame
+        guard whenIdle.identifier == "app-update-restart-when-idle", whenIdle.isEnabled, whenIdle.isHittable,
+              choiceFrame.width > 0, choiceFrame.height > 0,
+              choiceFrame.minX >= window.minX, choiceFrame.maxX <= window.maxX,
+              choiceFrame.minY >= app.navigationBars["Desktop update"].frame.maxY + 12,
+              choiceFrame.maxY <= rowContentBottom(in: app) else {
+            XCTFail("The exact current Restart when idle choice must remain fully visible and actionable"); return
+        }
+        waitAndTap(whenIdle, untilGone: whenIdle, attempts: 1)
         XCTAssertTrue(scrollTo(app.staticTexts["app-update-request-state"], in: app, up: false))
         XCTAssertTrue(app.staticTexts["app-update-request-state"].label.contains("Waiting for every agent"))
         attach(app, "Desktop update - waiting for idle")
@@ -126,15 +161,13 @@ import XCTest
     }
 
     func testCheckFlowsThroughLiveDownloadToRestartAndOwnReview() throws {
-        let app = openUpdate(state: "none")
+        // Reach the update destination before Check starts the fixture's live download clock.
+        // The no-update Settings/Home route is covered by the separate state-matrix test.
+        let app = openUpdate(state: "available")
         waitAndTap(app.buttons["app-update-check"], until: app.buttons["Checking…"])
         XCTAssertFalse(app.buttons["app-update-check"].isEnabled)
         attach(app, "Desktop update - checking")
-        let indicators = app.buttons.matching(identifier: "app-update-preview-studio")
-        XCTAssertTrue(indicators.firstMatch.waitForExistence(timeout: 10))
-        let indicator = try XCTUnwrap(indicators.allElementsBoundByIndex.first(where: \.isHittable))
-        waitAndTap(indicator, until: app.navigationBars["Desktop update"])
-        XCTAssertTrue(app.progressIndicators["app-update-progress"].exists)
+        XCTAssertTrue(app.progressIndicators["app-update-progress"].waitForExistence(timeout: 10))
         XCTAssertFalse(app.buttons["app-update-check"].exists)
         attach(app, "Desktop update - live check download")
         let restart = app.buttons["app-update-request"]
