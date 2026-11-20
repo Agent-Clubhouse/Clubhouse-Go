@@ -18,3 +18,12 @@ Laptop owners retain ownership. Mini receiver and exact fetch receipts pending. 
 | [#622](https://github.com/Agent-Clubhouse/Clubhouse-Go/pull/622) | ux-root/dispatcher-recovery `f576fca31028f556f18acb7204bcd6d8d4a3e63e` | main | Eleven recovery package tests passed. Aggregate failed shared transport timeout. Verify two recovery UI tests on hosted build. Private controller history and genuine restart still need host support. |
 
 Fetch each branch from origin and compare its commit to the latest owner receipt. Report verified SHAs and explicitly accept named assignments through the authenticated coordination route before assuming ownership. Preserve independent review, first-attempt failures, build and test gates, and existing host permissions. Keep private screenshots and raw diagnostics private. No release authority transfers.
+
+## Unmerged work preserved on origin
+
+| Laptop owner | Remote branch | Verified SHA | Status |
+|---|---|---|---|
+| go-feedback-review | go-feedback-review/repair-620-first-outcomes | 026688254361e5cb1ee09ee5430df6973462a179 | Independent source review passed. Five simulator cases across seven launches pending. |
+| go-feedback-review | go-feedback-review/integrate-620-next | 3980cf4445e51d9a554eb5ab08703ecfecd639d3 | Future integration with hosted diagnostics. Further review and CI pending. |
+
+Both refs verified directly on origin. Neither assignment has transferred to a Mini receiver.
