@@ -226,6 +226,45 @@ its first caption at the20-pan cap with tiny cross-representation frame
 differences. Proposed narrow source children are not yet reviewed or accepted;
 neither earlier source/config verdict implied runtime success.
 
+The narrow successor SOURCE-only reviews are now closed, not their execution
+configs or fresh native proofs. Linked Home
+`504b9c926e33d8823a183155d675cf36b4f7bf3a` / tree
+`474c84ec99f698011e65d5f24035bc27906da39b` is accepted by local canonical
+`2ee818486a3e78c6d74fa92eea8ca2f54f401a0b` (1,841 bytes, SHA256
+`f6526788339e12154bc08c5f451c87c6f04518532eba9e71e1532ba4b4c5f1b5`).
+Only the invalid Search-selected assertion becomes the source-defined Search
+navigation title wait5s AND current exact SearchField existence. Reversing that
+assertion reconstructs the whole parent test file. Home selection, no-reexpand
+reveal, Expanded/read-only cached-row and relaunch Collapsed checks are unchanged.
+Selected original native tree/log/actualPTS bytes were checked; the earlier
+video frame is not failure-instant evidence. Own child parse/diff checks passed.
+
+Final sender SOURCE-only target
+`bc40dbb0f435d6f2b4cd52e508ff60a7b756afc3` / tree
+`58d9f5f6bafa533551853c79615f0326036ecebe` is accepted by local canonical
+`467e7267effb54def6e6740ae5f3e11a1390f2c1` (2,189 bytes, SHA256
+`40220451c0b48ab7037d938eaf44a9676a46c0516380d296147e9d2f85d4dc33`).
+It adds only a documentation qualification above implementation-reviewed
+`ef6506cc14cda7f6538460d8c8684eff598f4f7c`, whose canonical is
+`40f5687e33cf7b40d94f06cad61d22e6236dab49` (2,700 bytes, SHA256
+`5ea80b04392319cd9572a3e2ed7b3d32be12a4d21454859f54a1b00182a889ac`).
+Finite per-component representation agreement permits at most4*maxULP;
+unmodified snapshot/live frames still fit strict current bounds, with actual
+ID/exists/hittability and a fresh complete final observation. No band inflation
+or point epsilon is added. Own actual extracted-source Swift26 numeric controls
+include original-pair fail-before, inclusive4/exclusive5ULP boundaries for all
+components, nonfinite/real-displacement rejection and a1ULP band crossing still
+rejected by containment. Parse/diff checks passed. The final docs child correctly
+disclaims a guarantee about every mathematically nonzero displacement; prior
+controls carry by byte identity, not a rerun. Generic helpers, Copy, semantic
+sender case,20-pan/140 aggregate and360-second allowance remain unchanged.
+
+Both successor source verdicts preserve the first native failures and require
+new exact execution configurations and fresh independently accepted A/current
+five before their first native T. They do not prove native timing, successful
+folding, a cure or integrated/Mini acceptance. No Reading, Copy or typing repair
+scope was added.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
