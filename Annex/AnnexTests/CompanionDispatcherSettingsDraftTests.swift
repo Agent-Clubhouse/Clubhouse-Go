@@ -233,6 +233,7 @@ import SwiftUI
             previous?.makeKey()
             store.shutdown()
         }
+        print("SETTINGS_FORM_MOUNT scene=\(scene.activationState.rawValue) key=\(window.isKeyWindow) window=\(window.bounds) root=\(String(describing: window.rootViewController?.view.frame))")
         try await waitUntil {
             window.layoutIfNeeded()
             if self.textField("Name", in: window) == nil, let scroll = self.scrollView(in: window) {
@@ -241,6 +242,7 @@ import SwiftUI
             }
             return self.textField("Name", in: window) != nil
         }
+        print("SETTINGS_FORM_REALIZED name=\(String(describing: self.textField("Name", in: window)?.frame)) scroll=\(String(describing: self.scrollView(in: window)?.bounds)) content=\(String(describing: self.scrollView(in: window)?.contentSize))")
         let name = try XCTUnwrap(textField("Name", in: window))
         let scroll = try XCTUnwrap(scrollView(in: window))
         let rect = name.convert(name.bounds, to: scroll)
@@ -328,14 +330,27 @@ import SwiftUI
     }
 
     private func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
-        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        let started = ContinuousClock.now
+        let deadline = started.advanced(by: .seconds(5))
         var reached = false
+        var polls = 0
+        var conditionTime = Duration.zero
+        var sleepTime = Duration.zero
         while ContinuousClock.now < deadline {
-            if condition() {
+            polls += 1
+            let conditionStarted = ContinuousClock.now
+            let ready = condition()
+            conditionTime += conditionStarted.duration(to: .now)
+            if ready {
                 reached = ContinuousClock.now <= deadline
                 break
             }
+            let sleepStarted = ContinuousClock.now
             try await Task.sleep(for: .milliseconds(20))
+            sleepTime += sleepStarted.duration(to: .now)
+        }
+        if !reached {
+            print("SETTINGS_WAIT_TIMEOUT line=\(line) polls=\(polls) elapsed=\(started.duration(to: .now)) conditionTime=\(conditionTime) sleepTime=\(sleepTime)")
         }
         XCTAssertTrue(reached, "The hosted settings form must reach the expected state within five seconds", file: file, line: line)
         XCTAssertTrue(condition(), "The hosted settings form must reach the expected state", file: file, line: line)
