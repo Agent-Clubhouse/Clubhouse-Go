@@ -108,7 +108,15 @@ jobs:
         shell: bash {0}
         run: |
           set -euo pipefail
+          set +e
           swift test --enable-code-coverage --xunit-output swift-package-results.xml 2>&1 | tee swift-package-tests.log
+          statuses=("${PIPESTATUS[@]}")
+          set -e
+          # Preserve the test's own failure if the receipt writer also fails.
+          if [ "${statuses[0]}" -ne 0 ]; then
+            exit "${statuses[0]}"
+          fi
+          exit "${statuses[1]}"
 
       # Same run as above; fails only if a target drops below coverage-baseline.json.
       - name: Check coverage ratchet

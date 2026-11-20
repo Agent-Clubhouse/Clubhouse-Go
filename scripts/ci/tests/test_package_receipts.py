@@ -9,7 +9,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[3]
 
 
 class PackageReceiptTests(unittest.TestCase):
-    def run_package_step(self, exit_code):
+    def run_package_step(self, exit_code, tee_exit=None):
         workflow = (ROOT / ".github/workflows/ci.yml").read_text()
         step = workflow.split("      - name: Test transport package\n", 1)[1].split("\n      #", 1)[0]
         self.assertIn("shell: bash {0}", step)
@@ -24,7 +24,12 @@ class PackageReceiptTests(unittest.TestCase):
                             "printf '<inert-probe/>\\n' > swift-package-results.xml\n"
                             "exit \"$PROBE_EXIT\"\n")
             fake.chmod(0o755)
-            env = dict(os.environ, PATH=directory + os.pathsep + os.environ["PATH"], PROBE_EXIT=str(exit_code))
+            if tee_exit is not None:
+                tee = root / "tee"
+                tee.write_text('#!/bin/sh\n/bin/cat > "$1"\nexit "$PROBE_TEE_EXIT"\n')
+                tee.chmod(0o755)
+            env = dict(os.environ, PATH=directory + os.pathsep + os.environ["PATH"], PROBE_EXIT=str(exit_code),
+                       PROBE_TEE_EXIT=str(tee_exit))
             result = subprocess.run(["/bin/bash", "-c", script], cwd=root, env=env, text=True, capture_output=True)
             self.assertEqual((root / "actual-argv.txt").read_text().splitlines(),
                              ["test", "--enable-code-coverage", "--xunit-output", "swift-package-results.xml"])
@@ -56,6 +61,12 @@ class PackageReceiptTests(unittest.TestCase):
 
     def test_failed_package_retains_receipts_and_nonzero_exit(self):
         self.assertEqual(self.run_package_step(65).returncode, 65)
+
+    def test_original_test_failure_wins_when_receipt_writer_also_fails(self):
+        self.assertEqual(self.run_package_step(65, tee_exit=74).returncode, 65)
+
+    def test_receipt_writer_failure_still_fails_a_passing_test_step(self):
+        self.assertEqual(self.run_package_step(0, tee_exit=74).returncode, 74)
 
     def test_passing_package_retains_receipts_and_success(self):
         self.assertEqual(self.run_package_step(0).returncode, 0)
