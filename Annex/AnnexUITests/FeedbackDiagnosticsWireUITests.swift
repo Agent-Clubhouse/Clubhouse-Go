@@ -30,10 +30,17 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
         leaveConfirmation(app)
         let group = app.buttons["Feedback diagnostics test"]
         let beforeReveal = app.screenshot()
+        // Observation only (#620 L2 stall): a reference row's frame before and after each swipe
+        // separates "the list did not move" from "the list moved but the group is absent".
+        let reference = app.collectionViews.firstMatch.cells.firstMatch
+        var movement = ["before reference=\(probedFrame(reference)) group=\(probedFrame(group))"]
         let revealed = XCTContext.runActivity(named: "Reveal Feedback diagnostics test in Fixture settings") { _ in
-            scrollTo(group, in: app, maxSwipes: 6)
+            scrollTo(group, in: app, maxSwipes: 6, afterSwipe: { swipe in
+                movement.append("after swipe \(swipe + 1) reference=\(self.probedFrame(reference)) group=\(self.probedFrame(group))")
+            })
         }
         if !revealed {
+            attachMovement(movement, named: "Feedback diagnostics reveal swipe movement")
             for (name, screenshot) in [("before", beforeReveal), ("after", app.screenshot())] {
                 let attachment = XCTAttachment(screenshot: screenshot)
                 attachment.name = "Feedback diagnostics disclosure reveal \(name)"
@@ -621,6 +628,10 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
 
     /// Keep taps between the SDK's pinned summary and navigation bars, including at accessibility sizes.
     @MainActor private func revealComposerElement(_ element: XCUIElement, in app: XCUIApplication) -> XCUIElement {
+        // Observation only (#620 L2 stall): the form's first row is read before each drag, so
+        // consecutive entries show whether each drag moved the form. The search is unchanged.
+        var movement: [String] = []
+        var reference: XCUIElement?
         for attempt in 0..<16 {
             var top = app.navigationBars["Send feedback"].frame.maxY
             for id in ["framebriar-error", "framebriar-send-reason"] where app.staticTexts[id].exists {
@@ -633,10 +644,26 @@ final class FeedbackDiagnosticsWireUITests: ReliableUITestCase {
             let form = app.collectionViews.element(boundBy: app.collectionViews.count - 1)
             let start = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: form.frame.maxX - 12, dy: (top + bottom) / 2))
             let delta: CGFloat = element.exists ? (element.frame.midY < top + 10 ? 110 : -110) : (attempt < 8 ? -110 : 110)
+            let row = form.cells.firstMatch
+            reference = row
+            movement.append("before drag \(attempt + 1) delta=\(delta) band=\(top)...\(bottom) reference=\(probedFrame(row)) target=\(probedFrame(element))")
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: delta)))
         }
-        XCTAssertTrue(element.isHittable)
+        let hittable = element.isHittable
+        if !hittable {
+            movement.append("final reference=\(reference.map(probedFrame) ?? "none") target=\(probedFrame(element))")
+            attachMovement(movement, named: "Feedback composer reveal drag movement")
+        }
+        XCTAssertTrue(hittable)
         return element
+    }
+    @MainActor private func probedFrame(_ element: XCUIElement) -> String {
+        element.exists ? NSCoder.string(for: element.frame) : "absent"
+    }
+    @MainActor private func attachMovement(_ movement: [String], named name: String) {
+        print("GESTURE_MOVEMENT \(name)\n" + movement.joined(separator: "\n"))
+        let attachment = XCTAttachment(string: movement.joined(separator: "\n"))
+        attachment.name = name; attachment.lifetime = .keepAlways; add(attachment)
     }
     @MainActor private func editor(_ app: XCUIApplication) -> XCUIElement {
         revealComposerElement(app.images["framebriar-attachment"], in: app).tap()
