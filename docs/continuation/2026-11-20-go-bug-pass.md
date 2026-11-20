@@ -309,6 +309,33 @@ negative-run acceptance, cure or microscopic-movement/simultaneous-revision
 guarantee is inferred. Linked504b first31.7096s/two-launch T pass remains an owner
 report pending separate originals acceptance; no shared Reading/Copy scope changes.
 
+The exact4fde r3 execution-only CONFIG is subsequently accepted:
+manifest `fc61891ae41c32dd77488cf1ad3e7cdae6cfb34a10c58d2b8059973103ec0bc0`,
+local canonical `71d51e30ff7cb4bdfc832ce6b6e000ecda86f828`,
+5,197 bytes, SHA256
+`72994c5247c6c71c9c82eb02f27b9d92a9d5e2e90feecc9ad9ed8949bac5cbcd`.
+All15 immutable originals563,381 bytes, current758 source modes/blobs/bytes,
+full diff/closure/166 package/139 native tests and current source verdict were
+verified. Full8 runtime remains exactly genuine20d45/r2, including original360
+worker, and all other execution fields match after r3/r2 root normalization.
+Only disclosed source/data/pin, scope/status/failure-description and fresh-root
+nonce differences exist. This closes CONFIG only, not new A/currentfive or T.
+No imports, worker, FIFO or native actions occurred; both prior first reds,
+privacy, strict oracles and all normal measured admission/cleanup gates persist.
+
+Linked504b's first31.7096449s/two-launch T is now reported independently accepted
+by runner canonical47a74523,7,729 bytes, SHA256
+`5046625c24c1d65454d7e2c06cee732b013826e3bad8be30318d66c56a906462`,
+with owner-installed gate/current actualfive/full8 and qualified native/photos/
+cleanup findings. This is runner's acceptance, not a second T audit here.
+The ready Linked-only contribution is the ENTIREab6..504b range
+`bc961baaf93f33954e480d676b02cfd2bba86a8f` ->
+`a343b26997e6f4b0b2e86ee2c62ac74335a072d1` ->
+`504b9c926e33d8823a183155d675cf36b4f7bf3a`;504b alone omits initial reveal
+assertions. No product-collapse cause, initial cached full clearance, forced-tap
+immunity, same-AX-revision, hosted/general-cure or integrated-head proof is
+inferred. Source ownership remains UX; no integration or transfer was performed.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
