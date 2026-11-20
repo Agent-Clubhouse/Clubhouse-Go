@@ -1305,7 +1305,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         open("/Users/river/private/keys.md")
         let notShared = app.descendants(matching: .any).matching(identifier: "companion-link-not-allowed").firstMatch
         XCTAssertTrue(notShared.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Not shared with the phone"].exists)
+        XCTAssertTrue(app.staticTexts["This target can't be previewed"].exists)
+        XCTAssertTrue(app.staticTexts["The target may be unreadable, unsupported, or outside shared locations. Open it on your desktop to check."].exists)
         contentAcceptanceCapture(app, name: "Local link not shared")
         close(notShared)
 
