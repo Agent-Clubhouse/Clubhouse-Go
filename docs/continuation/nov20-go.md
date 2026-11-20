@@ -77,7 +77,7 @@ The following live origin snapshot supersedes earlier branch tips. Named checkou
 | bold-gazelle/fix-480-options-read | `19bfbb5565b937303cacffe614b62a9b18c38c7b` | matches | no named checkout |
 | bold-gazelle/fix-609-feedback-renewal | `6873f2923c5d8688bca8858675813c03e0858094` | matches | no named checkout |
 | go-feedback-review/mobile-tappable-links | `0258e49cf24b0c91707acae671bdd52ce872cc38` | matches | clean |
-| ux-root/provider-v2-610-integration | `434e6a969a4e12adb3dceec2e6c0ab59710596c0` | differs; verify unique commits | clean |
+| ux-root/provider-v2-610-integration | `434e6a969a4e12adb3dceec2e6c0ab59710596c0` | local behind 5; zero local-only commits | clean |
 | bold-gazelle/fix-preview-visible-dismissal | `f65b129790442542a89f9dca47f6dd00d6c36342` | matches | clean |
 | bold-gazelle/mobile-artifact-save-share | `f63618f33cb142b072dfecc183e203b925edc563` | matches | clean |
 | go-feedback-review/integrate-ci-links | `ab6c7149416e50ca259aa135289e5d7b668427dc` | matches | clean |
@@ -100,3 +100,9 @@ The following live origin snapshot supersedes earlier branch tips. Named checkou
 All ten listed PRs remain open. #620 finished red (7 failing checks, 2 cancelled). Its archive-header method passed in 30.111s; a separate largest-text pinned-banner assertion failed three times. Integration owner assigned that diagnosis. #622 had 11 hosted package cases pass and zero starts for its two UI cases. #616 now publishes 434; hosted checks remain incomplete. Linked Home 504b passed its local case across two launches. Current sender and menu builds do not establish native acceptance. Consult the latest owner-notes tips above for phase-specific evidence.
 
 Mini has accepted zero Go assignments. Tael confirmed private custody of four data records (41,052/160,124 bytes). Source owner screened the remaining two original UTF-8 JSON exports; the orchestrator independently verified byte counts, hashes, JSON and credential-pattern screening and notified Navi. Await recipient receipts for those 119,072 bytes. Original binary, screenshot and simulator-dependent re-audit remains deferred. No simulator setup retry. Laptop owners retain responsibility.
+
+**Checkpoint follow-up.** Navi confirmed the two remaining screened Pinned Decision JSON payloads entered the private delivery queue. Confirmed custody remains four of six until recipient reread receipts arrive. Laptop owners retain every assignment. ReadingOpening line 58 is assigned to the CI integration owner; the hosted iPhone 17 recording shows overlap. The next diagnostic must establish the controls and banner geometry in the same observation before attributing cause.
+
+Updated origin tip: go-feedback-review/nov20-continuation-notes `ad9367e4a37fc9eafd34c3281e17e598ba218d7f`.
+
+Updated origin tip: ux-root/continuation-nov20 `1892c5797905fcc59961452f1d8faf9372f6badf`.
