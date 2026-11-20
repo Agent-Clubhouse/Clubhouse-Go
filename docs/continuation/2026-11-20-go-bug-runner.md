@@ -31,7 +31,7 @@ No PR or landing is requested by this snapshot.
 | Dispatcher correctedbc40 fresh A originals | `bc40dbb0f435d6f2b4cd52e508ff60a7b756afc3`, tree `58d9f5f6bafa533551853c79615f0326036ecebe`, manifest `cc28642fd7e457ce9fd97e15ba5aa7480b6f979e40472cac5b4507e5616a23de`; all24/2883084 bytes/source758/full8/data/raw build/deinit/policy/guard/closure accepted in 229.98228895757347s | Canonical `5154ea5dd3267d4b8be350c957138a429cf9aef6`, A/rc0, compiled-five metadata-only. Genuine source467e/config20d45/prior40f source checked; implementation identical reviewedef650, only docs qualify4ULP versus universal tiny-motion claims. Prior pure26 numeric findings carried, not rerun here. Actual folds/hittability/native remain UNPROVEN, old3dda red retained; current5/A gate before first one-case/one-SUT T900/original360/20pans/140aggregate. UX owns execution/inventory. |
 | Dispatcher correctedbc40 first T negative originals | Same exact `bc40`/tree58d9/Mcc286/genuine A5154; all90/74922294 supplied bytes/raw native/SDK transformations/current8/source758/guards/closure independently corroborated | Negative canonical `bc1b9b0d264f875352e4136eb1de71413a99ce3a`, acceptancefalse/T/rc1. One FAIL46.59285497665405s/one SUT/138.68380383308977s afterFIFO; first Cedar20pan cap at source710 before tap. Six actual pairs have componentULPs[0,1,0,8], so unchanged4component gate fails before hittability; both strictly inside current band, same computed bottom/edgeULPs[0,1,0,0] **diagnostic only, not edge-successor approval**. Full1354 index identity-only; 46 attachment-directory files include manifest, actual45 native records/one MP4+44 opaque files, no independent movie/binary decode or pixels. Compiled-five metadata-only. Old3dda/bc40 failures retained; source/config/newA/newT independent gates remain required. UX owns successor/inventory. |
 | Dispatcher edge4fde fresh A originals | `4fde2a033976ce6ca969889b8ed0f1764aa99c8a`, tree `32a63fc52424d42f9820ef400fff62f463e544b4`, manifest `fc61891ae41c32dd77488cf1ad3e7cdae6cfb34a10c58d2b8059973103ec0bc0`; all24/2885042 supplied bytes/source758/full8/data/genuine source/config/raw build/deinit/policy/guard/closure independently accepted in225.76680662482977s | Canonical `2e79aee41d49865849f0c1e0b1a251576cc97020`, A/rc0, compiled-five metadata-only. Actual2e5 source/71d config and prior467e/20d refs bound; reversing only comparator/comments reconstructs entirebc40 test, direct docs only. Four finite corresponding edges/finite positive raw frames and unchanged separate strict initial/final containment source checked. Genuine source review's own76 Swift controls consumed, not rerun here; author54 not independent execution. Full8/original360 worker unchanged; owner exact-A install/fresh actual five before FIRST onecase/one-SUT T900. Hittability/fold/refresh/nav/menu/actions/timing/pixels remain UNPROVEN; both first reds stay immutable. UX owns execution/inventory. |
-| Native Home menu6179 owned first proof | `6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716`, tree `208f75f7a1c7701ab374cba88c26acfefddec307`, manifest `8fc2746bc694f5681c8de8bbd67aa12c030ff4d26235d19068b6dc36c7c3f2c2`; actual762-source/full8/data/genuine source and config bound; first A all zero/225.60305924993008s afterFIFO | Genuine independent source `c1cc5870ee60add355b04196c373546ec59e22d2`, config `05db46adf2bc2ae887be9074b5f68c5a74cfcfe8` and full-A `9a1044cb0a2e6bbfe713f09d1eba16e5549e246e` actually verified/installed; all40/242945163 A bytes including entire actual5 independently reviewed. First two-selector T, already underway before preservation audit, now closed two once Passed (XXXL158.95274901390076s/default101.12222099304199s, each<240), all zero/339.86544587509707s afterFIFO. Owner current5=A, source762/full8/data and owned groups/UUID cleanup checked. **Independent native originals acceptance remains PENDING**; summary is not snapshot-vs-actual membership/order/live-fit/action/full-photo acceptance. Source four SUT/eight single-row presses/original240/eight-pan contract unchanged; actual counts and all obligations need originals review. Full618/561833402 bytes/64 PNG files private retained; old ab6 one240 failure/raw iteration2 restart retained. No native run for preservation audit, retry/reservation/CI/cure/Mini credit. |
+| Native Home menu6179 owned first proof | `6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716`, tree `208f75f7a1c7701ab374cba88c26acfefddec307`, manifest `8fc2746bc694f5681c8de8bbd67aa12c030ff4d26235d19068b6dc36c7c3f2c2`; source762/full8/data/genuine source/config/first A bound; first A all zero/225.60305924993008s afterFIFO | Genuine independent first-T originals review CLOSED **DEFER_EXACT_OWNED_PROOF_ORIGINALS**, canonical `7137e8e030787f96a42117e505993af373f0810a`; NOT accepted/installable T. All618/561833402 bytes/all64 entire PNGs independently audited; actual two first passes158.95274901390076s/101.12222099304199s under240, four launches/eight presses/Details/Done, all zero/339.86544587509707s afterFIFO/34 resource samples/cleanup retained. Four Cedar Home returns and complete exact per-step snapshot/live-set serialization remain deferred, not product failure. Fresh owner five/owned6-runtime/data4 hashes match canonical; external2-runtime digests original/manifest-bound only in this verification. Owner39-viewed/25-refused limits remain separately attributed. No T installer consumption/edit/rerun/reservation/allowance/CI/cure/Mini/integration credit; originalab6 one240 failure/raw partialiteration2 retained. |
 | f47 iPad diagnostics | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78`, tree `593d6f7b4fbe64941d1bec1ad0cad129b83ac370`; fresh A and first H independently accepted | Complete scoped non-reproduction only; no extra A/H. No screenshots/movie existed for H. Hosted cause remains unresolved. |
 | Provider A / SE Large originals | Exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; A and first SE Large originals independently accepted, including all 18 entire PNGs | Owner's SE pair waits for actual phone-original gate. No reviewer native execution. |
 | AppUpdate A originals | Exact `b3d95526800b91101b435c75ff6a01633b9c59b6`; A originals independently accepted, compiled products reviewed as metadata only | T acceptance remains separate. No stage/Idle action or pixel credit from build acceptance. |
@@ -81,10 +81,34 @@ demonstrated product failure; no source edit or rerun requested.
 Owner actually viewed39 entire original PNGs;25 image-reader refusals were
 unviewed and receive no pixel credit or capacity workaround. The bounded owner
 receipt `c5e3f623d742064fc60e9621a34c60862961ca21` is not independent semantic/
-pixel acceptance. Genuine go-bug-pass first-T full-originals review remains
-in progress; reported raw two successes/64 full PNG byte bindings and independently
-viewed originals do not yet constitute a canonical result. Preserve original
-ab6's one240 failure/raw iteration2 restart separately.
+pixel acceptance. Genuine go-bug-pass first-T full-originals review is now CLOSED
+with canonical `7137e8e030787f96a42117e505993af373f0810a`, verdict
+**DEFER_EXACT_OWNED_PROOF_ORIGINALS**, native semantic acceptance and genuine
+T-installable flags both false. Actual full bytes/JSON/exact source/tree/manifest/
+runtime/data/A/packet/receipt/external bindings were verified by the owner, with
+fresh owned-five/six-owned-runtime/four-data hashes. The two external runtime
+digests were checked against manifest/originals, not queried live here. No
+accepted-T file or installer consumed this deferred verdict.
+
+The independent reviewer rehashed all618/561833402 original bytes and actually
+viewed all64 entire1206x2622 PNGs with zero refusals, raw/export byte bindings and
+no borrowed owner39 credit. All56 native AX/photo pairs correlate, eight initial
+full5/3 label orders match, materialized labels remain unique ordered subsequences
+(eight XXXL captures virtualize earlier offscreen labels), and40 selected rounded
+post-capture frames fully fit the clip. Actual24 slow native pan endpoint pairs
+fit the prior clip; eight Details/Done and four Juniper/four Cedar navigation
+checks were attributed. All34 resource samples and recorded cleanup were
+independently verified inertly. Live predicates are credited to actual compiled
+native guard execution, not simultaneous serialized live state.
+
+Alongside the four Cedar Home gaps, **complete exact per-step snapshot-button
+serialization/equivalence to the live set remains missing**. Recorded target/
+visible indices and sequential native AX do not establish atomic or hidden
+membership equivalence. Missing evidence is not product failure. Any explicit
+post-Cedar Home assertion/current AX/full PNG and required snapshot serialization
+requires a separately authorized successor with fresh source/configuration/A/T
+gates; no edit, retry, reservation or increased allowance is authorized here.
+Preserve original ab6's one240 failure/raw partialiteration2 restart separately.
 
 ## Preserved custom harness source
 
@@ -249,7 +273,8 @@ before a counterpart can consume the payloads.
 | Native menu6179 genuine configuration acceptance | `05db46adf2bc2ae887be9074b5f68c5a74cfcfe8` / `87883844bb69ec3048d8383d47d0aaa0b8a25abb15f954f283aa9fa89f5634be`; UTF-8 JSON 6893 bytes; exact6179/tree208f/M8fc/full8/data/phases, executor/alias-excluding original review, original240 runtime unchanged |
 | Native menu6179 first A complete originals | `f1395aed4416d78d3403f6341574b867f5bc55f9` / `f4b9fda38afc531919d90e1c316252dcea09a93bcca3c12a4f017a2fea3ee5f1`; all40/242945163 private bytes including entire actual5 compiled originals/source762/genuine config/full raw build/deinit/policy/claims/guards/closures |
 | Native menu6179 genuine first A acceptance | `9a1044cb0a2e6bbfe713f09d1eba16e5549e246e` / `2638d64631a6848454beafb48c0fb85d8465475c3de5d0c2f1f955ad5a6a3a46`; UTF-8 JSON 10715 bytes; PASS_EXACT_OWNED_PROOF_ORIGINALS/A/rc0/full40/entireactual5, no native or currentness/action/pixel/timing/cure acceptance |
-| Native menu6179 first T complete retained originals | `85ce227b5e7fd6291dda48387f0641509d2a7bcd` / `140363b966c0544687208ee019307f02f919ace924786199802164a55c575449`; all618/561833402 private bytes/64 PNG files/raw bundle/SDK diagnostics/genuine A/entire5 retained; independent native-original acceptance PENDING, no summary/pure-source substitute |
+| Native menu6179 first T complete retained originals | `85ce227b5e7fd6291dda48387f0641509d2a7bcd` / `140363b966c0544687208ee019307f02f919ace924786199802164a55c575449`; all618/561833402 private bytes/64 PNG files/raw bundle/SDK diagnostics/genuine A/entire5 retained; independent review CLOSED DEFER, not accepted native gate |
+| Native menu6179 genuine independent deferred first-T review | `7137e8e030787f96a42117e505993af373f0810a` / `71d6d79f03d3ea72cf4a87bb5e6dce456f164d267306bd97887fa37d39f25d62`; UTF-8 JSON133602 bytes; DEFER_EXACT_OWNED_PROOF_ORIGINALS/T/actualrc0, acceptance/installable false; all64 independently viewed, Cedar Home and exact snapshot/live-set serialization obligations deferred |
 | Native menu6179 bounded owner observations, not independent acceptance | `c5e3f623d742064fc60e9621a34c60862961ca21` / `c8d70f4b7adb32c67c88ccaa8a0e3ce21fcb8525a490fc975dfd323f846a070a`; UTF-8 JSON53080 bytes;39 actually viewed/25 reader-refused originals, four Cedar Home returns deferred |
 | Dispatcher edge4fde first T supplied originals | `1720c134ace74440787d69ad593796ab40ae288d` / `ea4abe5053f46332279fc2942cb7a42ec264ac9c968e72991ffee992974427fa`; all48/23009196 bytes rehashed; one original PNG actually fully viewed, source758/current8/current-five metadata bound |
 | Dispatcher edge4fde qualified first T acceptance | `98c18a2591046ab0750808b96a9b4813f1b4557e` / `07a65e5f790557b23fbe7f6d3be97668796d3c1c0116e8367643a80069b98c82`; UTF-8 JSON14429 bytes; PASS_EXACT_OWNED_PROOF_ORIGINALS/T/rc0 with explicit final-hierarchy guard versus numeric-dump, partial-body, no-Copy-activation and local-platform limits |
@@ -269,8 +294,9 @@ source/config/original-A receipts, full actual five products, order/obligation f
 and the first closed T ticket. These private-only dependencies and unique private
 preparation/install/original-collection scripts stay local; none is an approved
 portable Mini configuration or public proof payload. Native T ran once and closed;
-original SDK snapshot responses, full AX/PNG/activity/log/semantic audit and genuine
-independent T acceptance remain outstanding at this checkpoint. No test run was started for
+original SDK/full AX/PNG/activity/log review is closed with genuine independent
+DEFER; Cedar Home and exact snapshot/live-set serialization evidence remain
+outstanding and there is no installable accepted T. No test run was started for
 this preservation audit; the separately authorized first T was already underway.
 Historical accepted media/logs remain private retained evidence, not permission or
 dependencies to rerun already closed jobs. Raw private evidence and generated
