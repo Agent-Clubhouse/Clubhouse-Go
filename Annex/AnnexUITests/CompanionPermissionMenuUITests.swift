@@ -47,38 +47,47 @@ import XCTest
             : flags.contains("--companion-header-mocha") ? "Mocha"
             : flags.contains("--companion-header-light") ? "Light" : "Dark"
         capture(app, "composer \(landscape ? "landscape" : "portrait") \(appearance) \(flags.contains("UICTContentSizeCategoryAccessibilityXXXL") ? "XXXL" : "standard")")
-        // This matrix has SE3 and Pro Max. Classify from the device/orientation,
-        // independently of the app's title, available-height budget or AX value.
-        // Both landscape keyboards and SE's portrait keyboard leave short windows,
-        // including SE at accessibility sizes; native scrolling is still allowed there.
-        let shortWindow = landscape || app.frame.height < 800
         waitAndTap(controls, until: app.buttons["companion-permissions-menu"], attempts: 1)
-        // The native outer menu can dismiss the keyboard at AX sizes/landscape.
-        // Its actual visible frame is independent of the app's title or fit budget.
-        let menuKeyboard = visibleKeyboardFrame(app)
-        let expectsTightMenu = shortWindow && menuKeyboard != nil
-        expectedBackTitle = expectsTightMenu ? "Permissions" : "Auto-accept edits"
-        print("PERMISSION_MENU_LAYOUT shortWindow=\(shortWindow) keyboard=\(String(describing: menuKeyboard)) tight=\(expectsTightMenu)")
         let permissions = app.buttons["companion-permissions-menu"]
+        let entryTitle = permissions.label
+        let entryHasShield = permissions.images.matching(identifier: "shield").firstMatch.exists
         let context = ([permissions.label, permissions.value as? String ?? ""]
                        + permissions.staticTexts.allElementsBoundByIndex.map(\.label)).joined(separator: " · ")
         print("PERMISSION_MENU_CONTEXT \(context)")
         capture(app, "native permissions entry \(appearance)")
-        if expectsTightMenu {
-            XCTAssertEqual(permissions.label, "Permissions", "Short editing requires the native Permissions title")
+        waitAndTap(permissions, until: app.buttons["companion-level-plan"], attempts: 1)
+        capture(app, "expanded permissions \(appearance)")
+        let menu = app.collectionViews.firstMatch
+        let backButtons = menu.buttons.matching(NSPredicate(format: "identifier == %@", "")).allElementsBoundByIndex
+        let firstRows = menu.buttons.matching(identifier: "companion-level-plan").allElementsBoundByIndex
+        let sections = menu.staticTexts.matching(NSPredicate(format: "label == %@", "Permissions")).allElementsBoundByIndex
+        XCTAssertEqual(backButtons.count, 1, "The loaded native submenu has exactly one back control")
+        XCTAssertEqual(firstRows.count, 1, "The loaded native submenu has exactly one first permission action")
+        guard backButtons.count == 1, firstRows.count == 1,
+              let title = expectedPermissionTitle(sectionFrames: sections.map(\.frame),
+                  back: backButtons[0].frame, firstRow: firstRows[0].frame, pane: nativePane(app)) else {
+            XCTFail("The native submenu's loaded top must distinguish an absent section from an ambiguous or clipped one: \(app.debugDescription)")
+            return app
+        }
+        assertFullText(firstRows[0], expected: levels[0].fullLabel)
+        XCTAssertTrue(firstRows[0].isHittable)
+        expectedBackTitle = title
+        XCTAssertEqual(entryTitle, title, "The captured entry and presented permission section must agree")
+        XCTAssertEqual(backButtons[0].label, title, "The native back title must match the independently classified section")
+        print("PERMISSION_MENU_LAYOUT sectionCount=\(sections.count) expectedBackTitle=\(title) keyboard=\(String(describing: visibleKeyboardFrame(app)))")
+        if title == "Permissions" {
+            XCTAssertEqual(entryTitle, "Permissions", "The section-free compact menu names the permission context")
             // Native title-only layout trades the entry's current-level subtitle
             // for room. The circle above names it; the checked row below shows it.
         } else {
             // Roomy native menus keep their original current-level title and shield;
             // their expanded Permissions heading supplies the section context.
-            XCTAssertEqual(permissions.label, "Auto-accept edits")
+            XCTAssertEqual(entryTitle, "Auto-accept edits")
             // UIKit omits all decorative native menu images at AX XXXL.
             if !flags.contains("UICTContentSizeCategoryAccessibilityXXXL") {
-                XCTAssertTrue(permissions.images.matching(identifier: "shield").firstMatch.exists)
+                XCTAssertTrue(entryHasShield)
             }
         }
-        waitAndTap(app.buttons["companion-permissions-menu"], until: app.buttons["companion-level-plan"], attempts: 1)
-        capture(app, "expanded permissions \(appearance)")
         let initialBack = backHeader(app)
         XCTAssertTrue(initialBack.exists, "The native back header matches the independently expected layout")
         XCTAssertLessThanOrEqual(initialBack.frame.maxY, app.buttons["companion-level-plan"].frame.minY + 1,
@@ -103,9 +112,50 @@ import XCTest
         }
     }
 
+    // Classify the loaded section, never a keyboard notification or either title.
+    // A missing heading only proves compact layout when no heading-sized gap is hidden above the first row.
+    private func expectedPermissionTitle(sectionFrames: [CGRect], back: CGRect, firstRow: CGRect, pane: CGRect) -> String? {
+        guard ([pane, back, firstRow] + sectionFrames).allSatisfy({ frame in
+            frame.minX.isFinite && frame.minY.isFinite && frame.width.isFinite && frame.height.isFinite
+                && frame.width > 0 && frame.height > 0
+        }), pixelContains(pane, back), firstRow.minY >= back.maxY - 1,
+            firstRow.intersection(pane).width >= firstRow.width - 1,
+            firstRow.intersection(pane).height >= min(firstRow.height, 42) else { return nil }
+        if sectionFrames.count == 1 {
+            let section = sectionFrames[0]
+            guard pixelContains(pane, section), section.minY >= back.maxY - 1,
+                  section.maxY <= firstRow.minY + 1 else { return nil }
+            return "Auto-accept edits"
+        }
+        guard sectionFrames.isEmpty, firstRow.minY - back.maxY <= 20 else { return nil }
+        return "Permissions"
+    }
+
+    func testNativePermissionContextRejectsUnloadedClippedAndCrossedLayouts() {
+        let pane = CGRect(x: 0, y: 0, width: 250, height: 400)
+        let back = CGRect(x: 0, y: 10, width: 250, height: 42)
+        let compactRow = CGRect(x: 0, y: 62, width: 250, height: 42)
+        let roomyRow = CGRect(x: 0, y: 103, width: 250, height: 58)
+        let section = CGRect(x: 28, y: 76, width: 194, height: 16)
+        let compactTitle = expectedPermissionTitle(sectionFrames: [], back: back, firstRow: compactRow, pane: pane)
+        let roomyTitle = expectedPermissionTitle(sectionFrames: [section], back: back, firstRow: roomyRow, pane: pane)
+        XCTAssertEqual(compactTitle, "Permissions")
+        XCTAssertEqual(roomyTitle, "Auto-accept edits")
+        XCTAssertNotEqual(compactTitle, "Auto-accept edits", "The original hosted compact capture rejects the roomy title")
+        XCTAssertNotEqual(roomyTitle, "Permissions", "The observed roomy capture rejects the prospective compact title")
+        XCTAssertNil(expectedPermissionTitle(sectionFrames: [], back: back, firstRow: .zero, pane: pane))
+        XCTAssertNil(expectedPermissionTitle(sectionFrames: [], back: .zero, firstRow: compactRow, pane: pane))
+        XCTAssertNil(expectedPermissionTitle(sectionFrames: [], back: back, firstRow: roomyRow, pane: pane),
+                     "An unloaded section with its space still present is not compact")
+        XCTAssertNil(expectedPermissionTitle(sectionFrames: [section, section], back: back, firstRow: roomyRow, pane: pane))
+        XCTAssertNil(expectedPermissionTitle(sectionFrames: [section.offsetBy(dx: -40, dy: 0)],
+                                             back: back, firstRow: roomyRow, pane: pane),
+                     "A clipped section is not an absent section")
+    }
+
     /// UIKit exposes the menu's collection at its full content height. Its containing native pane clips it.
     /// Find that ancestor, excluding the larger shadow container, rather than treating offscreen cells as visible.
-    private func visiblePane(_ app: XCUIApplication, requiresKeyboard: Bool = false) -> CGRect {
+    private func nativePane(_ app: XCUIApplication, requiresKeyboard: Bool = false) -> CGRect {
         let menu = app.collectionViews.firstMatch
         XCTAssertTrue(menu.exists)
         let content = menu.frame
@@ -130,8 +180,12 @@ import XCTest
         }
         // Native menus can dismiss the keyboard in landscape and at accessibility sizes.
         // Measure the real screen pane rather than an offscreen Keyboard left in AX.
-        var visible = pane.intersection(CGRect(x: app.frame.minX, y: app.frame.minY,
-                                              width: app.frame.width, height: (keyboard?.minY ?? app.frame.maxY) - app.frame.minY))
+        return pane.intersection(CGRect(x: app.frame.minX, y: app.frame.minY,
+                                       width: app.frame.width, height: (keyboard?.minY ?? app.frame.maxY) - app.frame.minY))
+    }
+
+    private func visiblePane(_ app: XCUIApplication, requiresKeyboard: Bool = false) -> CGRect {
+        var visible = nativePane(app, requiresKeyboard: requiresKeyboard)
         // Native submenu headers can remain above scrolled cells. A row behind one isn't readable.
         // Require the independently expected title, rather than accepting either.
         // Its sticky back button must exclude exactly the same covered area.

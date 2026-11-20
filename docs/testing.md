@@ -942,6 +942,8 @@ Keyboard-up XLarge rows omit visual subtitles without changing the independently
 The standard portrait and description tests also protect SE's single-line layout and bottom margin,
 roomy standard subtitles, and keyboard-down descriptions.
 
+Permission entry/back titles are checked against the loaded native submenu section, not a pre- or post-opening keyboard snapshot. UIKit can capture either layout while dismissing the keyboard: compact menus must pair `Permissions` with no redundant section; roomy menus must pair the current level and shield with a visible `Permissions` section. The scoped back control, first action and their measured clipping pane must establish a loaded top before classification; duplicate, unloaded or clipped sections fail rather than defaulting to compact. A geometry-only regression rejects both crossed title/layout pairs and missing/ambiguous/clipped evidence. Exact draft, full labels, selected checkmark, all five reachable actions, portrait containment and escalation confirmations remain required. Diagnostic-only permission logging is not part of this repair.
+
 The new permission-menu matrix excludes only combined XXXL + landscape pending [#483](https://github.com/Agent-Clubhouse/Clubhouse-Go/issues/483): on plain main the composer control starts partly under the keyboard and is not hittable. Existing Chrome XXXL assertions remain unchanged. Screen attachments use the full display capture so landscape evidence includes the entire rotated screen.
 
 The #476 hosted Retry latch tests use a `#if DEBUG` `HostedTestSeam` on the actual mounted
