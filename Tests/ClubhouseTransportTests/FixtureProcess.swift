@@ -76,6 +76,20 @@ final class FixtureProcess: @unchecked Sendable {
         }
     }
 
+    /// Blocks the calling thread for at most `gracePeriod + killTimeout`. Only for timing the kill path itself
+    /// (fixtureProcessKillsAChildThatIgnoresTermination), where an awaited stop would also time the resumption.
+    func stopBlocking(gracePeriod: DispatchTimeInterval, killTimeout: DispatchTimeInterval = .seconds(2)) {
+        defer { closeOutput() }
+        if process.isRunning { process.terminate() }
+        if termination.wait(timeout: .now() + gracePeriod) == .success { return }
+        if process.isRunning, Darwin.kill(process.processIdentifier, SIGKILL) != 0, errno != ESRCH {
+            Issue.record("Could not kill fixture process \(process.processIdentifier): errno \(errno)")
+        }
+        if termination.wait(timeout: .now() + killTimeout) != .success {
+            Issue.record("Fixture process \(process.processIdentifier) did not report termination before the deadline")
+        }
+    }
+
     /// Runs `body`, then always stops the fixture, like the `defer { stop() }` it replaces (an async stop can't be deferred).
     func use<T>(_ body: () async throws -> T) async throws -> T {
         let result: Result<T, Error>

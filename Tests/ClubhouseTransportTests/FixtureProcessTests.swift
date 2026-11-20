@@ -21,7 +21,7 @@ import Testing
     try await fixture.use {
         #expect(try await fixture.read(upToCount: 6) == Data("ready\n".utf8))
         let started = ContinuousClock.now
-        await fixture.stop(gracePeriod: .milliseconds(50))
+        fixture.stopBlocking(gracePeriod: .milliseconds(50))
         #expect(ContinuousClock.now - started < .seconds(3))
         try #require(!fixture.process.isRunning)
         #expect(fixture.process.terminationReason == .uncaughtSignal)
