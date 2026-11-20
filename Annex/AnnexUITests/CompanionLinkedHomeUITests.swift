@@ -112,7 +112,9 @@ import XCTest
         capture(app, "Linked Home cached Laptop rows are dimmed and non-actionable")
         XCTAssertEqual(offline.value as? String, "Expanded")
         app.tabBars.buttons["Search"].tap()
-        XCTAssertTrue(waitFor(app.tabBars.buttons["Search"], NSPredicate(format: "selected == true"), timeout: 5))
+        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 5)
+                      && app.searchFields["Agents, tasks and projects"].exists,
+                      "The active Search destination must expose its native title and search field")
         app.tabBars.buttons["Home"].tap()
         XCTAssertTrue(waitFor(app.tabBars.buttons["Home"], NSPredicate(format: "selected == true"), timeout: 5))
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
