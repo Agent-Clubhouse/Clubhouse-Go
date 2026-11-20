@@ -21,10 +21,11 @@ No PR or landing is requested by this snapshot.
 
 | Assignment | Exact source / current status | Next action |
 | --- | --- | --- |
-| Footer/Preview successor | `026688254361e5cb1ee09ee5430df6973462a179`, tree `dc093496ee0c92ae3d375d60f7aee255ca5e92c0`; genuine source/configuration accepted; first fresh A closed build/deinit/policy/FIFO all zero in 228.36873887479305s; **independent full-five-product A originals pending** | A originals packet sent to genuine peer reviewer. T remains unrun until actual independent A acceptance and fresh current-five checks. |
+| Footer/Preview successor | `026688254361e5cb1ee09ee5430df6973462a179`, tree `dc093496ee0c92ae3d375d60f7aee255ca5e92c0`; genuine source/configuration/A originals accepted; first A all zero in 228.36873887479305s | Genuine A canonical `211ebecc51ff03d8bc8bb125e07ef28469c5cfe8` installed through unchanged owner-excluding validator; fresh whole-five/source759/full8/data rehashed. First exact T launched once through normal FIFO; **result and independent T originals acceptance pending**. |
 | Provider VPHONE originals | `434e6a969a4e12adb3dceec2e6c0ab59710596c0`, tree `7bafe7ebde4cb761495e5224fbc1f4ffe64b49c5`; 69 entries/all ten entire PNGs/source768/current9/chain/closure independently accepted | Canonical `3e98a74b9fa50b288a29370da488475731334824`. Exactly three total original events: two previews + one Apply, zero Start/replay. No rerun or new Mini original re-audit credit. |
 | Provider VSE originals | Same exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; 73 entries/all ten entire PNGs/source768/current9/A-Large-Phone chain/closure independently accepted | Canonical `fa7f0354b38479a2b094f001125a4daade8a4316`. Two first runs/two launches/three total fixture events. No rerun or hosted/integration/cure credit. |
 | AppUpdate T originals | `b3d95526800b91101b435c75ff6a01633b9c59b6`, tree `59b1ec636da07a40a3f8da839c4ed31ff7642ea5`; 54 entries/all eight entire PNGs/current8/A/actual once-actions/closure independently accepted | Canonical `a17cb7df8b72c5034bdcc7aea08d4e32ab8dc9f7`; exact two-method synthetic local scope only. No rerun or new Mini original visual re-audit credit. |
+| Linked Home fresh A originals | `a343b26997e6f4b0b2e86ee2c62ac74335a072d1`, tree `7015cdd6d446dad61783656f9692eaa5cef6ac26`; all24 supplied entries/source758/full8/data/raw build/deinit/policy/guard/closure accepted in 228.54787220805883s | Canonical `4178776dccf8398b8954f20f246db5d164df4943`; compiled-five reviewer metadata-only, owner's recorded current hashes match receipt. Actual returned Expanded/new-session Collapsed and one-case native originals remain separate; UX owns execution and inventory. |
 | f47 iPad diagnostics | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78`, tree `593d6f7b4fbe64941d1bec1ad0cad129b83ac370`; fresh A and first H independently accepted | Complete scoped non-reproduction only; no extra A/H. No screenshots/movie existed for H. Hosted cause remains unresolved. |
 | Provider A / SE Large originals | Exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; A and first SE Large originals independently accepted, including all 18 entire PNGs | Owner's SE pair waits for actual phone-original gate. No reviewer native execution. |
 | AppUpdate A originals | Exact `b3d95526800b91101b435c75ff6a01633b9c59b6`; A originals independently accepted, compiled products reviewed as metadata only | T acceptance remains separate. No stage/Idle action or pixel credit from build acceptance. |
@@ -51,7 +52,8 @@ or execute any shared-host helper.
 Its sole change removes `go-bug-runner` from the prior-A reviewer whitelist,
 leaving `go-bug-pass` and `Clubhouse-Go-Orchestrator`. Genuine configuration
 `87c5fd5697347ff5e39ee5d030d84974cb134c57` accepted it for the current laptop
-owner's exact bound paths/data; fresh A closed, independent A originals pending.
+owner's exact bound paths/data; fresh A and genuine independent A originals
+accepted, first T launched once with result/originals acceptance pending.
 This does not approve a changed Mini owner/path/configuration. Legacy adapters are historical only:
 their caller-specific reviewer whitelists must not be reused as authority for
 the current executor.
@@ -166,7 +168,8 @@ before a counterpart can consume the payloads.
 | Footer source acceptance | `ff8b4840abab3b37b7d763f21e0b236aa84dac0f` / `0f2033b7f3a60ddb2b8c1c51b1add19f546bd490532706a7bed0b4ecb5aece90` |
 | Footer prospective 20-entry config | `2e216c01bda620a42858af232e74ddd9fd82f137` / `bdf5bee831bb4929466dd4fbcb5bfd761177d90cdace981d19e8f20d81f7e896`; manifest `c781589bd9967365173abde5eef57298b9dd24c18740c67a2573acee1dbe4eb6` |
 | Footer genuine config acceptance | `87c5fd5697347ff5e39ee5d030d84974cb134c57` / `a3ec36525b6e847d44625a4da77db754c78215373cd80ba78f98f63444c7afa3`; UTF-8 JSON 6386 bytes |
-| Footer first A 47-entry originals, independent review pending | `8715536600ea1b0119cc2212d3d3379edab48d5d` / `902f7eceaa956422b63dafb47328bf488ae119b36f3143d53bb0acfa25653d0e`; full five compiled originals stay private |
+| Footer first A 47-entry originals | `8715536600ea1b0119cc2212d3d3379edab48d5d` / `902f7eceaa956422b63dafb47328bf488ae119b36f3143d53bb0acfa25653d0e`; full five compiled originals stay private |
+| Footer genuine A acceptance | `211ebecc51ff03d8bc8bb125e07ef28469c5cfe8` / `cd5b6af6bf56fa0e60e6b20bf250649f63af425f146b1ae0e5bb357f42f29fe4`; UTF-8 JSON 10201 bytes |
 | Provider phone 69-entry originals | `82a0c87277bb07bccd77c41b6b496a2e905a1abd` / `c0a9d86bad0864a2e22f7f9d8966c6de62c49ec0de17b65e3a007613a0ace175` |
 | Provider phone acceptance | `3e98a74b9fa50b288a29370da488475731334824` / `ec8fd49b3fe861037c072b74b3bba230de1ca5632e7fbd0519f81558096a0de3` |
 | Provider SE acceptance | `fa7f0354b38479a2b094f001125a4daade8a4316` / `bb544e876c1c09e623df493bd653636e84b7756ddd76834f47eea4330e831428` |
@@ -174,6 +177,7 @@ before a counterpart can consume the payloads.
 | Provider A acceptance | `aa5357c69424687326b2d7ac38f06162ecbf462e` / `b31825c5ca4f782f4903c8c1e5d1da20e7cf774dbc65b0e791611122b2cecb9d` |
 | AppUpdate T 54-entry originals | `1f7758991a6fc4dfea39ba83269100dca6c474bd` / `d52abc6724b681457d4f6bb9742c4ce5f4b20b6e1e73f36dd68b21dc61d9ee4a` |
 | AppUpdate T acceptance | `a17cb7df8b72c5034bdcc7aea08d4e32ab8dc9f7` / `76ff70c9a898999509958a761f5e0e5ef979402bf30c3cdb63e652f2d4a921c3` |
+| Linked Home fresh A acceptance | `4178776dccf8398b8954f20f246db5d164df4943` / `a7598a5d69ff98e57609c797a43f820a195f641c0003fea6cd51c4d73a1def3f`; UTF-8 JSON 4922 bytes, compiled-five metadata-only limits |
 | AppUpdate A acceptance | `cf6b4e1fb7c487463e9a714a7f25154e17c9862b` / `724aac9be7db7ced951e82e3638f5b5d298c7b266ff0b1e02dd79f46f5dc052c` |
 | f47 genuine parent A acceptance | `18b25b96e1e5b71ffd27a9581eb3c487b360f8ac` / `1663b73074babc2825c6de601250641be8410327e001b23eb5b1fa380744cba3` |
 | f47 H acceptance | `d4e416b2f45144a92256ac451e3af2d210f63918` / `6e4838957eeaef3fb577c1e4ce139ec73ca43355e98c6d0db5d80ee156971595` |
@@ -197,8 +201,9 @@ timing. AppUpdate's actual second duration is 16.372740983963013s, not the earli
 final-state pixel capture.
 
 Private-text transfer inventory is deduplicated: current Footer's genuine source
-report (5374 UTF-8 bytes) and newly arrived config receipt (6386 UTF-8 bytes) are
-runner-owned literal gates. Parent verifies manifest metadata and routes via Navi;
+report (5374 UTF-8 bytes), config receipt (6386 UTF-8 bytes) and newly arrived
+genuine A-original receipt (10201 UTF-8 bytes) are runner-owned literal current
+T/prior-gate audit inputs. Parent verifies manifest metadata and routes via Navi;
 no direct payload/receiver contact. UX owns Provider/AppUpdate canonical inventory.
 Closed Links/Home/HeaderFooter/f47/transport historical reports, public harness
 duplicates and reconstructible configurations are excluded unless a new actual
