@@ -897,6 +897,15 @@ import ClubhouseTransport
         #endif
         throw previewError
     }
+    func refreshSleepState(_ target: CompanionTarget) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw CompanionServiceError.unavailable("Reconnect to the desktop to check whether the agent is asleep.")
+    }
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
         #if DEBUG && canImport(UIKit)

@@ -88,6 +88,7 @@ import XCTest
         XCTAssertTrue(reveal(reported, in: app))
         XCTAssertTrue(reported.label.contains("desktop reports this chat is sleeping"))
         XCTAssertFalse(stop.isEnabled)
+        XCTAssertFalse(app.staticTexts["dispatcher-recovery-error"].exists)
         capture("Synthetic desktop reports visible chat sleeping")
         app.terminate()
     }
