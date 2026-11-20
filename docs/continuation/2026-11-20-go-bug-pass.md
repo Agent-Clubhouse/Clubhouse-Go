@@ -30,6 +30,33 @@ The continuation note has its own normal branch:
 readback will be supplied by direct message; do not infer a transfer from the
 existence of any branch.
 
+### Requested 03:30 preservation checkpoint
+
+Origin was freshly fetched and live heads read back. The two current diagnostic
+heads above remain exact; the continuation was exact at
+`860371868d605c6408a6a247f4ba1cb868264e57` before this checkpoint-note update.
+All13 extant remote `bold-gazelle` topic heads match their local tips; the
+tracked/nonignored working tree was clean, with no unpublished current
+implementation/test changes. This note update is the only new public WIP.
+
+Historical deleted topic refs were not recreated. Some original historical
+commit IDs are not reachable from live remote heads despite merged or carried
+source: #608/#586 have confirmed merged heads, and the original Reading receipt
+and Dispatcher draft-wait files are byte-identical on published descendants.
+This is not a claim that every archived original topic object is remotely
+fetchable or that changed full-file hashes prove missing patches. No archived
+source was discarded, revived as active WIP or granted new acceptance.
+
+Private-only dependencies include88 local review scripts and113 root review/
+metadata JSONs plus full original artifacts under the ignored review area.
+Their scripts/reports can contain private host paths or evidence, so they were
+not mass-pushed. Authorized private transfer and exact successor acceptance
+remain required before disposing of originals. NativeMenu first-T originals,
+sender successor A/T, unfinished typing/copy attribution and normal hosted
+diagnostic successor evidence remain outstanding; ownership stays here.
+No native run, Mini wake/contact, peer-live query or ownership transfer occurred
+for this checkpoint.
+
 ## Evidence and remaining acceptance
 
 Private originals and full review JSONs remain local. The local Git blob
