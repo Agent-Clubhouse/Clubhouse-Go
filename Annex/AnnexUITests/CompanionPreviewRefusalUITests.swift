@@ -14,6 +14,8 @@ import XCTest
             link.tap()
             XCTAssertTrue(app.staticTexts["Preview unavailable"].waitForExistence(timeout: 10))
             XCTAssertTrue(app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", reason)).firstMatch.exists)
+            XCTAssertFalse(app.buttons["Save to Files"].exists)
+            XCTAssertFalse(app.buttons["Share"].exists)
             let done = app.buttons["companion-preview-done"]
             XCTAssertEqual(done.label, "Done")
             XCTAssertTrue(done.isHittable && app.frame.contains(done.frame))

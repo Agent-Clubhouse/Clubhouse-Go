@@ -89,6 +89,8 @@ import XCTest
         link.tap()
         XCTAssertTrue(app.navigationBars["Conversation.swift"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["Copy preview"].exists)
+        XCTAssertFalse(app.buttons["Save to Files"].exists)
+        XCTAssertFalse(app.buttons["Share"].exists)
         XCTAssertEqual(app.staticTexts["mobile-link-open-receipt"].label, "opens=0;url=")
         app.buttons["companion-preview-done"].tap()
         XCTAssertTrue(app.buttons["companion-preview-done"].waitForNonExistence(timeout: 5))

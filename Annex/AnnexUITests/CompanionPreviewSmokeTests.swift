@@ -1199,7 +1199,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertTrue(app.navigationBars[name].exists)
             if name.hasSuffix(".png") { XCTAssertTrue(app.buttons["Copy image"].exists) }
             contentAcceptanceCapture(app, name: "Cancelled native Share returned to original preview \(name)")
-            app.buttons["companion-preview-done"].tap()
+            let done = app.buttons["companion-preview-done"]
+            XCTAssertEqual(done.label, "Done")
+            XCTAssertTrue(done.isHittable && app.frame.contains(done.frame))
+            done.tap()
             XCTAssertTrue(app.buttons["companion-preview-done"].waitForNonExistence(timeout: 5))
         }
         app.terminate()
