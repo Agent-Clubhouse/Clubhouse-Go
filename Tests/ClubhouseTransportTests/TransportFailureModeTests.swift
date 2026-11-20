@@ -215,6 +215,7 @@ private func queueTransport(_ io: QueueIO, clock: AnnexClock = .live) async thro
 
 private actor FailureSocket: AnnexWebSocket {
     enum Ack: Sendable { case none, badThenGood }
+    private let changes: StateChanges
     private var messages: [Data]
     private var pending: CheckedContinuation<Data, Error>?
     private(set) var closed = false
@@ -222,7 +223,8 @@ private actor FailureSocket: AnnexWebSocket {
     private let receiveFailure: Error?
     private let ack: Ack
     private(set) var sent: [AnnexJSON] = []
-    init(extra: [String], sendFailure: Error?, ack: Ack, initial: [String]? = nil, receiveFailure: Error? = nil) {
+    init(extra: [String], sendFailure: Error?, ack: Ack, initial: [String]? = nil, receiveFailure: Error? = nil, changes: StateChanges) {
+        self.changes = changes
         messages = (initial ?? [#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#]).map { Data($0.utf8) } + extra.map { Data($0.utf8) }
         self.sendFailure = sendFailure; self.ack = ack
         self.receiveFailure = receiveFailure
@@ -230,6 +232,7 @@ private actor FailureSocket: AnnexWebSocket {
     private(set) var receiveCalls = 0
     func receive() async throws -> Data {
         receiveCalls += 1
+        changes.signal()
         if closed { throw AnnexTransportError.disconnected }
         if !messages.isEmpty { return messages.removeFirst() }
         if let receiveFailure { throw receiveFailure }
@@ -243,6 +246,7 @@ private actor FailureSocket: AnnexWebSocket {
         if let sendFailure { throw sendFailure }
         let message = try JSONDecoder().decode(AnnexJSON.self, from: data)
         sent.append(message)
+        changes.signal()
         guard message["type"]?.string == "telemetry:hello", let hello = message["payload"], ack == .badThenGood else { return }
         func ackFrame(_ payload: AnnexJSON) throws -> Data {
             try JSONEncoder().encode(AnnexJSON.object(["type": .string("telemetry:hello:ack"), "payload": payload]))
@@ -258,15 +262,18 @@ private actor FailureSocket: AnnexWebSocket {
         messages.insert(contentsOf: frames, at: 0)
     }
     private(set) var pings = 0
-    func ping() throws { if closed { throw AnnexTransportError.disconnected }; pings += 1 }
+    func ping() throws { if closed { throw AnnexTransportError.disconnected }; pings += 1; changes.signal() }
     func close() {
         closed = true
+        changes.signal()
         pending?.resume(throwing: AnnexTransportError.disconnected); pending = nil
     }
 }
 
 private actor FailureSessionIO: AnnexIO {
     let identity = AnnexPairingIdentity()
+    /// Signalled after every change to this IO's or its sockets' observable state.
+    nonisolated let changes = StateChanges()
     private let capabilities: String
     private var openFailures: [Error]
     private let firstExtra: [String]
@@ -302,14 +309,16 @@ private actor FailureSessionIO: AnnexIO {
     }
     func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket {
         openAttempts += 1
+        changes.signal()
         if !openFailures.isEmpty { throw openFailures.removeFirst() }
         let first = sockets.isEmpty
         let index = sockets.count
         let initial = sessionInitials.indices.contains(index) ? sessionInitials[index] : (first ? firstInitial : nil)
         let failure = sessionReceiveFailures.indices.contains(index) ? sessionReceiveFailures[index] : nil
         let socket = FailureSocket(extra: first ? firstExtra : [], sendFailure: first ? firstSendFailure : nil,
-                                   ack: ack, initial: initial, receiveFailure: failure)
+                                   ack: ack, initial: initial, receiveFailure: failure, changes: changes)
         sockets.append(socket)
+        changes.signal()
         return socket
     }
 }
@@ -476,33 +485,59 @@ private struct ReadOnlyTransport: AnnexTransporting {
 
 // MARK: Timers on an injected clock
 
-private struct ScheduledConditionTimeout: Error {}
+private struct ScheduledConditionNeverHeld: Error {}
 
-/// Wait for scheduled work's actual condition, giving other executors a chance to run.
-/// A yield count can expire in milliseconds while the actor we await has not been scheduled.
-/// On timeout, the poll count separates a starved waiter (few polls) from a condition that never held (many).
-private func settle(_ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
+/// Counts observable state changes in the live-session fakes, the manual clock and telemetry, and wakes waiters on each one.
+private final class StateChanges: @unchecked Sendable {
+    private let lock = NSLock()
+    private var generation = 0
+    private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
+    var current: Int { lock.withLock { generation } }
+    func signal() {
+        let ready: [CheckedContinuation<Void, Never>] = lock.withLock {
+            generation += 1
+            defer { waiters.removeAll() }
+            return Array(waiters.values)
+        }
+        ready.forEach { $0.resume() }
+    }
+    /// Returns once a change newer than `seen` has been signalled, or the waiting task is cancelled.
+    func wait(past seen: Int) async {
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                let ready = lock.withLock {
+                    guard generation == seen, !Task.isCancelled else { return true }
+                    waiters[id] = continuation; return false
+                }
+                if ready { continuation.resume() }
+            }
+        } onCancel: {
+            lock.withLock { waiters.removeValue(forKey: id) }?.resume()
+        }
+    }
+    func observe(_ clock: AnnexManualClock) { clock.observeSleepers { [weak self] in self?.signal() } }
+    func observe(_ telemetry: AnnexTelemetry) { telemetry.observeRecords { [weak self] _ in self?.signal() } }
+}
+
+/// Wait for scheduled work's actual condition, re-checking it after every observed state change.
+/// The tests drive time on `AnnexManualClock`, so no wall-clock deadline belongs here: under the full
+/// parallel package run, a waiter's wake-up and the transport's own steps each queue behind every other
+/// test's work on the shared cooperative pool. A 1 ms sleep has resumed after 10.5 s while the condition
+/// had already held (#611), and the transport itself has needed over 10 s of wall time for a few steps.
+/// A hang is bounded by each caller's `.timeLimit`; its cancellation records the state seen here.
+private func settle(on changes: StateChanges, _ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
     let started = ContinuousClock.now
-    let deadline = started.advanced(by: .seconds(10))
-    var polls = 0
-    var conditionTime = Duration.zero
-    var sleepTime = Duration.zero
-    repeat {
-        polls += 1
-        let conditionStarted = ContinuousClock.now
-        let ready = await done()
-        conditionTime += conditionStarted.duration(to: .now)
-        if ready { return }
-        let sleepStarted = ContinuousClock.now
-        try await Task.sleep(for: .milliseconds(1))
-        sleepTime += sleepStarted.duration(to: .now)
-    } while ContinuousClock.now < deadline
-    let waitElapsed = started.duration(to: .now)
-    let stateStarted = ContinuousClock.now
+    var checks = 0
+    while !Task.isCancelled {
+        let seen = changes.current
+        checks += 1
+        if await done() { return }
+        await changes.wait(past: seen)
+    }
     let observed = await state?() ?? ""
-    let stateTime = stateStarted.duration(to: .now)
-    Issue.record("Scheduled condition did not become true within 10 seconds (\(polls) polls)\(observed.isEmpty ? "" : "; " + observed); waitElapsed=\(waitElapsed) conditionTime=\(conditionTime) sleepTime=\(sleepTime) diagnosticStateTime=\(stateTime)")
-    throw ScheduledConditionTimeout()
+    Issue.record("Scheduled condition was still false when the test was cancelled after \(started.duration(to: .now)) (\(checks) checks, \(changes.current) state changes)\(observed.isEmpty ? "" : "; " + observed)")
+    throw ScheduledConditionNeverHeld()
 }
 
 /// The live socket and clock state the snapshot-grace tests wait on.
@@ -535,6 +570,7 @@ private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async
     let clock = AnnexManualClock()
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
     let io = FailureSessionIO()
+    io.changes.observe(telemetry)
     let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock)
     let stream = await transport.events()
     try await transport.connect()
@@ -544,7 +580,7 @@ private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async
     clock.advance(by: .seconds(4))
     #expect(!telemetry.snapshot().records.contains { $0.operation == .handshake }, "Still pending before the deadline")
     clock.advance(by: .seconds(1))
-    try await settle { telemetry.snapshot().records.contains { $0.operation == .handshake } }
+    try await settle(on: io.changes) { telemetry.snapshot().records.contains { $0.operation == .handshake } }
     let handshake = try #require(telemetry.snapshot().records.first { $0.operation == .handshake })
     #expect(handshake.failure == .timeout)
     #expect(handshake.events.contains("unsupported"))
@@ -564,10 +600,10 @@ private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async
     clock.advance(by: .seconds(19))
     #expect(await socket.pings == 0)
     clock.advance(by: .seconds(1))
-    try await settle { await socket.pings == 1 }
+    try await settle(on: io.changes) { await socket.pings == 1 }
     await clock.waitForSleepers(1)
     clock.advance(by: .seconds(20))
-    try await settle { await socket.pings == 2 }
+    try await settle(on: io.changes) { await socket.pings == 2 }
     await transport.disconnect()
 }
 
@@ -601,11 +637,12 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 @Test(.timeLimit(.minutes(1))) func snapshotFailureKeepsCommandsUsableDuringGraceThenRecoversThroughBackoff() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
+    io.changes.observe(clock)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle({
+    try await settle(on: io.changes, {
         guard let socket = await io.sockets.first else { return false }
         let calls = await socket.receiveCalls, closed = await socket.closed
         return closed || (calls >= 2 && clock.sleeperCount == 2)
@@ -619,7 +656,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     #expect(await io.sockets.first?.closed == false)
     #expect(await io.openAttempts == 1)
     clock.advance(by: .seconds(1))
-    try await settle { await io.sockets.first?.closed == true }
+    try await settle(on: io.changes) { await io.sockets.first?.closed == true }
     let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
     #expect(reconnectAttempts(waiting) == [1])
     await clock.waitForSleepers(1)
@@ -633,11 +670,12 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 @Test(.timeLimit(.minutes(1))) func aSameSocketSnapshotCancelsSnapshotFailureGrace() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
+    io.changes.observe(clock)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle({
+    try await settle(on: io.changes, {
         guard let socket = await io.sockets.first else { return false }
         let calls = await socket.receiveCalls, closed = await socket.closed
         return closed || (calls >= 2 && clock.sleeperCount == 2)
@@ -648,7 +686,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     await socket.push(initialSnapshot)
     let events = try await collect(stream) { $0 == .connection(.connected) }
     #expect(reconnectAttempts(events).isEmpty)
-    try await settle { clock.sleeperCount == 1 }
+    try await settle(on: io.changes) { clock.sleeperCount == 1 }
     clock.advance(by: .seconds(31))
     #expect(await io.openAttempts == 1)
     #expect(await socket.closed == false)
@@ -658,15 +696,16 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 @Test(.timeLimit(.minutes(1))) func silenceAloneDoesNotPutASlowInitialSnapshotOnADeadline() async throws {
     let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [])
+    io.changes.observe(clock)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle({ clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
+    try await settle(on: io.changes, { clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
     #expect(clock.sleeperCount == 1, "Only the ping interval runs before any explicit snapshot failure")
     clock.advance(by: .seconds(31))
     let socket = try #require(await io.sockets.first)
-    try await settle { await socket.pings == 1 }
+    try await settle(on: io.changes) { await socket.pings == 1 }
     #expect(await socket.closed == false)
     await socket.push(initialSnapshot)
     _ = try await collect(stream) { $0 == .connection(.connected) }
@@ -679,6 +718,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     let other = #"{"type":"error","payload":{"message":"other_error"}}"#
     let terminal = #"{"type":"error","payload":{"op":"pty:spawn","message":"snapshot_failed"}}"#
     let io = FailureSessionIO(firstInitial: [other, terminal, initialSnapshot, snapshotFailure, other, #"{"type":"fixture:end"}"#])
+    io.changes.observe(clock)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     var terminalStream = await transport.terminalEvents().makeAsyncIterator()
@@ -694,7 +734,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     }
     #expect(terminalFrame?.payload?["op"]?.string == "pty:spawn")
     #expect(reconnectAttempts(events).isEmpty)
-    try await settle { clock.sleeperCount >= 1 }
+    try await settle(on: io.changes) { clock.sleeperCount >= 1 }
     #expect(clock.sleeperCount == 1, "These errors never start snapshot-failure grace")
     clock.advance(by: .seconds(31))
     #expect(await io.openAttempts == 1)
@@ -735,6 +775,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     let clock = AnnexManualClock()
     let oversized = metadataSnapshot(bytes: 16 * 1024 * 1024 + 1)
     let io = FailureSessionIO(sessionInitials: [[oversized], [oversized]])
+    io.changes.observe(clock)
     let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
     let stream = await transport.events()
     try await transport.connect()
@@ -748,7 +789,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     await clock.waitForSleepers(1)
     #expect(await io.openAttempts == 2, "The new run also waits after its immediate attempt fails")
     await transport.disconnect()
-    try await settle { clock.sleeperCount == 0 }
+    try await settle(on: io.changes) { clock.sleeperCount == 0 }
     clock.advance(by: .seconds(100))
     #expect(await io.openAttempts == 2)
 }
@@ -877,7 +918,7 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
         let recovered = try await collect(events) { if case .message(let e) = $0 { e.type == "snapshot" } else { false } }
         #expect(recovered.contains(.resyncRequired(.reconnected)))
         let socket = try #require(await io.sockets.last)
-        try await settle { await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 1 } }
+        try await settle(on: io.changes) { await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 1 } }
         #expect(await io.openAttempts == 4)
         print("Tool frame replayed=\(replayed) duplicateRawOutput=\(duplicateRawOutput), bytes=\(frame.utf8.count): stale checkpoint0 repeats slow retry \(delays); fresh checkpoint1 advances/replays since1 and escapes")
         await transport.disconnect()
@@ -910,7 +951,7 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
         let io = FailureSessionIO(firstInitial: [])
         let transport = try await liveTransport(io)
         try await transport.connect()
-        try await settle { await io.openAttempts == 1 }
+        try await settle(on: io.changes) { await io.openAttempts == 1 }
         let started = ContinuousClock.now
         let receipt = try await transport.execute(.init(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
         #expect(receipt.status == .completed)

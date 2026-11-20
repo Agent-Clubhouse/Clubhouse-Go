@@ -23,6 +23,7 @@ public final class AnnexManualClock: @unchecked Sendable {
     private var sleepers: [UUID: Sleeper] = [:]
     private var cancelled: Set<UUID> = []
     private var waiters: [(count: Int, continuation: CheckedContinuation<Void, Never>)] = []
+    private var sleeperObservers: [@Sendable () -> Void] = []
 
     public init(origin: Date = Date()) { self.origin = origin }
 
@@ -33,6 +34,12 @@ public final class AnnexManualClock: @unchecked Sendable {
     }
     /// Sleeps not yet woken or cancelled.
     public var sleeperCount: Int { lock.withLock { sleepers.count } }
+
+    /// Calls `observer`, outside the lock, after every change to `sleeperCount`, for the clock's lifetime.
+    /// Lets a test wait for a condition that mixes clock and fake state without polling on wall time.
+    public func observeSleepers(_ observer: @escaping @Sendable () -> Void) {
+        lock.withLock { sleeperObservers.append(observer) }
+    }
 
     /// Returns once at least `count` sleepers are waiting, so a test advances only after the code under test has started its wait.
     public func waitForSleepers(_ count: Int = 1) async {
@@ -46,12 +53,13 @@ public final class AnnexManualClock: @unchecked Sendable {
     }
 
     public func advance(by duration: Duration) {
-        let due: [Sleeper] = lock.withLock {
+        let (due, observers): ([Sleeper], [@Sendable () -> Void]) = lock.withLock {
             elapsed += duration
             let due = sleepers.filter { $0.value.deadline <= elapsed }
             for id in due.keys { sleepers.removeValue(forKey: id) }
-            return due.values.sorted { $0.deadline < $1.deadline }
+            return (due.values.sorted { $0.deadline < $1.deadline }, due.isEmpty ? [] : sleeperObservers)
         }
+        observers.forEach { $0() }
         for sleeper in due { sleeper.continuation.resume() }
     }
 
@@ -60,14 +68,15 @@ public final class AnnexManualClock: @unchecked Sendable {
         try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
                 enum Outcome { case wait, wake, cancel }
-                let (outcome, ready): (Outcome, [CheckedContinuation<Void, Never>]) = lock.withLock {
-                    if cancelled.remove(id) != nil { return (.cancel, []) }
-                    if duration <= .zero { return (.wake, []) }
+                let (outcome, ready, observers): (Outcome, [CheckedContinuation<Void, Never>], [@Sendable () -> Void]) = lock.withLock {
+                    if cancelled.remove(id) != nil { return (.cancel, [], []) }
+                    if duration <= .zero { return (.wake, [], []) }
                     sleepers[id] = Sleeper(deadline: elapsed + duration, continuation: continuation)
                     let ready = waiters.filter { $0.count <= sleepers.count }.map(\.continuation)
                     waiters.removeAll { $0.count <= sleepers.count }
-                    return (.wait, ready)
+                    return (.wait, ready, sleeperObservers)
                 }
+                observers.forEach { $0() }
                 for waiter in ready { waiter.resume() }
                 switch outcome {
                 case .wait: break
@@ -76,10 +85,11 @@ public final class AnnexManualClock: @unchecked Sendable {
                 }
             }
         } onCancel: {
-            let sleeper: Sleeper? = lock.withLock {
-                guard let sleeper = sleepers.removeValue(forKey: id) else { cancelled.insert(id); return nil }
-                return sleeper
+            let (sleeper, observers): (Sleeper?, [@Sendable () -> Void]) = lock.withLock {
+                guard let sleeper = sleepers.removeValue(forKey: id) else { cancelled.insert(id); return (nil, []) }
+                return (sleeper, sleeperObservers)
             }
+            observers.forEach { $0() }
             sleeper?.continuation.resume(throwing: CancellationError())
         }
     }
