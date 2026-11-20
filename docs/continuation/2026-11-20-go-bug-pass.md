@@ -409,6 +409,24 @@ Final author census `c4db2a4ca56d50097643116bcc1b964cc03d943c`, SHA256
 `b0faf6400f975a34c736678ab9e90baa2908bb98d1cf75f72332bbc608a5fef0`.
 No source/native/hosted gate conflation, new scope/run, parent wake or Mini contact.
 
+NativeMenu6179 owned execution CONFIG is independently closed:
+manifest `8fc2746bc694f5681c8de8bbd67aa12c030ff4d26235d19068b6dc36c7c3f2c2`,
+local canonical `05db46adf2bc2ae887be9074b5f68c5a74cfcfe8`,
+6,893 bytes, SHA256
+`87883844bb69ec3048d8383d47d0aaa0b8a25abb15f954f283aa9fa89f5634be`.
+All16 originals590,862 bytes and actual762 Git modes/blobs/full bytes/diff/
+closure were verified. Declared166 package-test subset is not native coverage:
+all321 test Swift files, including139 native files, are rehashed through the
+full762 source binding. Full8 runtime equals genuine Footer026/87c5, with
+executor/aliases excluded from original A/T review by unchanged e5 validator.
+Exact freshA900/current independently accepted full actualfive precedesT900;
+two methods once, alphabetical Accessibility then Default,4 launches/8 single
+row presses/original240/8 pans/OS20/QuickPath/FIFO/active64/owned cleanup remain.
+Actual snapshot/query membership/order/live full fit/actions/photos/prepostfive
+are obligations, not new evidence. No execution, imports, peer-live reads or
+old A/T carry occurred; private full CONFIG report remains local. Owner exact
+installation/current checks and measured admission plus fresh A/T gates persist.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
