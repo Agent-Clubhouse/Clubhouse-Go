@@ -151,6 +151,30 @@ import XCTest
         XCTAssertNil(expectedPermissionTitle(sectionFrames: [section.offsetBy(dx: -40, dy: 0)],
                                              back: back, firstRow: roomyRow, pane: pane),
                      "A clipped section is not an absent section")
+
+        let scrollingPane = CGRect(x: 22, y: 304, width: 370, height: 508)
+        for initialRow in [
+            CGRect(x: 22, y: 293.6666666667, width: 370, height: 277.3333333333),
+            CGRect(x: 22, y: 545, width: 370, height: 277.3333333333),
+            CGRect(x: 22, y: 1004, width: 370, height: 277.3333333333),
+        ] {
+            var row = initialRow
+            for _ in 0..<8 {
+                if pixelContains(scrollingPane, row) { break }
+                guard let distance = permissionScrollDistance(row: row, pane: scrollingPane) else {
+                    XCTFail("Loaded permission rows need a safe navigation displacement")
+                    break
+                }
+                row = row.offsetBy(dx: 0, dy: -distance)
+            }
+            XCTAssertTrue(pixelContains(scrollingPane, row),
+                          "Clipped rows must converge rather than oscillate across opposite pane edges")
+        }
+        XCTAssertNil(permissionScrollDistance(row: .zero, pane: scrollingPane))
+        XCTAssertNil(permissionScrollDistance(row: compactRow, pane: .zero))
+        XCTAssertNil(permissionScrollDistance(row: CGRect(x: 0, y: 900, width: 370, height: 100),
+                                               pane: scrollingPane),
+                     "Vertical pans cannot repair horizontally clipped rows")
     }
 
     /// UIKit exposes the menu's collection at its full content height. Its containing native pane clips it.
@@ -353,13 +377,30 @@ import XCTest
         capture(reading, "keyboard down visual descriptions")
     }
 
+    private func permissionScrollDistance(row: CGRect?, pane: CGRect) -> CGFloat? {
+        guard [pane.minX, pane.minY, pane.width, pane.height].allSatisfy({ $0.isFinite }),
+              pane.width > 0, pane.height >= 48 else { return nil }
+        let maximum = min(120, pane.height / 2)
+        guard let row else { return maximum }
+        guard [row.minX, row.minY, row.width, row.height].allSatisfy({ $0.isFinite }),
+              row.width > 0, row.height > 0,
+              row.minX >= pane.minX - 0.5, row.maxX <= pane.maxX + 0.5 else { return nil }
+        if row.minY < pane.minY {
+            return -min(maximum, max(24, pane.minY - row.minY + 8))
+        }
+        if row.maxY > pane.maxY {
+            return min(maximum, max(24, row.maxY - pane.maxY + 8))
+        }
+        return nil
+    }
+
     /// Swipes stay inside the clipped native pane; the collection's oversized frame extends over the keyboard.
     private func reveal(_ row: XCUIElement, in app: XCUIApplication, accessibility: Bool) {
         for step in 0...8 {
             checkTimeLeft("revealing a permission level")
             let pane = visiblePane(app)
-            if row.exists {
-                let frame = row.frame
+            let frame = row.exists ? row.frame : nil
+            if let frame {
                 let fits = pixelContains(pane, frame)
                 let oversized = accessibility && frame.height > pane.height
                     && frame.intersection(pane).height >= 44
@@ -369,12 +410,19 @@ import XCTest
                 }
             }
             guard step < 8 else { break }
-            let downward = row.exists && row.frame.minY < pane.minY
-            let startY = downward ? pane.minY + pane.height * 0.3 : pane.maxY - pane.height * 0.2
-            let endY = downward ? pane.maxY - pane.height * 0.2 : pane.minY + pane.height * 0.3
+            guard let distance = permissionScrollDistance(row: frame, pane: pane) else {
+                capture(app, "non-navigable permission row")
+                XCTFail("A permission row must expose safe geometry and be actionable when fully visible")
+                return
+            }
+            let startY = distance < 0 ? pane.minY + 8 : pane.maxY - 8
+            let endY = startY - distance
+            let identifier = frame == nil ? "unloaded permission row" : row.identifier
+            print("PERMISSION_NAVIGATION step=\(step) level=\(identifier) pane=\(pane) row=\(String(describing: frame)) distance=\(distance)")
             let origin = app.coordinate(withNormalizedOffset: .zero)
             origin.withOffset(CGVector(dx: pane.midX, dy: startY)).press(forDuration: 0.05,
-                thenDragTo: origin.withOffset(CGVector(dx: pane.midX, dy: endY)))
+                thenDragTo: origin.withOffset(CGVector(dx: pane.midX, dy: endY)),
+                withVelocity: .slow, thenHoldForDuration: 0)
         }
         XCTFail("Every permission level must be readable and reachable by native menu scrolling: \(row)")
     }
