@@ -16,24 +16,59 @@ import XCTest
         image.name = name; image.lifetime = .keepAlways; add(image)
     }
 
+    /// The installed icon sits on one Home page; the page SpringBoard returns to varies. Hosted trees (run 44738003005)
+    /// show it on "Page 2 of 2" while the first check ran mid Home transition: a blind swipe left from the last page
+    /// opens App Library, and `isHittable` on a still-animating icon frame raised "Activation point invalid".
+    /// Accept an icon only after two observations of one fully on-screen frame, and move between Home pages by the
+    /// page control's own value, never past the last page.
+    private func settledHomeIcon(_ springboard: XCUIApplication, timeout: TimeInterval = 10) -> XCUIElement? {
+        final class Observation { var frame: CGRect?; var icon: XCUIElement? }
+        let observed = Observation()
+        let icons = springboard.icons.matching(identifier: "Clubhouse Go")
+        let settled = NSPredicate { _, _ in
+            let screen = springboard.frame
+            let visible = icons.allElementsBoundByIndex.lazy.map { ($0, $0.frame) }.first { !$1.isEmpty && screen.contains($1) }
+            defer { observed.frame = visible?.1 }
+            guard let visible, visible.1 == observed.frame else { return false }
+            observed.icon = visible.0
+            return true
+        }
+        return waitFor(springboard, settled, timeout: timeout) ? observed.icon : nil
+    }
+
+    private func homePage(_ control: XCUIElement) -> (current: Int, count: Int)? {
+        let words = (control.value as? String ?? "").split(separator: " ")
+        guard words.count == 4, words[0] == "Page", words[2] == "of", let current = Int(words[1]), let count = Int(words[3]),
+              (1...count).contains(current) else { return nil }
+        return (current, count)
+    }
+
     private func nativeAction() {
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
-        let icons = springboard.icons.matching(identifier: "Clubhouse Go")
-        func visibleIcon() -> XCUIElement? {
-            icons.allElementsBoundByIndex.first { !$0.frame.isEmpty && $0.isHittable }
+        let pages = springboard.pageIndicators.matching(identifier: "Page control").firstMatch
+        XCTAssertTrue(pages.waitForExistence(timeout: 10), "Home returns to an icon page")
+        var icon = settledHomeIcon(springboard)
+        var visited = Set<Int>()
+        while icon == nil, let page = homePage(pages) {
+            visited.insert(page.current)
+            guard visited.count < page.count else { break }
+            // Later unvisited pages first, then earlier ones. Never swipe left from the last page: that is App Library.
+            let forward = stride(from: page.current + 1, through: page.count, by: 1).contains { !visited.contains($0) }
+            let before = pages.value as? String ?? ""
+            if forward { springboard.swipeLeft() } else { springboard.swipeRight() }
+            guard waitFor(pages, NSPredicate(format: "value != %@", before), timeout: 5) else {
+                XCTFail("A Home swipe must change page from \(before)"); break
+            }
+            if let landed = homePage(pages), !visited.contains(landed.current) { icon = settledHomeIcon(springboard) }
         }
-        // One bounded navigation attempt, not another launch/action attempt. Cold Home can
-        // expose an App Library placeholder with a zero frame before the app's actual page.
-        if visibleIcon() == nil { springboard.swipeLeft() }
         let tree = XCTAttachment(data: Data(springboard.debugDescription.utf8), uniformTypeIdentifier: "public.plain-text")
         tree.name = "SpringBoard before native quick action"; tree.lifetime = .keepAlways; add(tree)
-        guard let icon = visibleIcon() else {
-            XCTFail("No visible, hittable Clubhouse Go icon after one Home-page navigation; native delivery unverified")
+        guard let icon else {
+            XCTFail("No settled, on-screen Clubhouse Go icon on any Home page (\(pages.value as? String ?? "no page control")); native delivery unverified")
             return
         }
-        XCTAssertFalse(icon.frame.isEmpty)
-        XCTAssertTrue(icon.isHittable)
+        XCTAssertTrue(waitFor(icon, NSPredicate(format: "hittable == true"), timeout: 5), "The settled Home icon is hittable")
         icon.press(forDuration: 1)
         let action = springboard.buttons["Message Dispatcher"]
         XCTAssertTrue(action.waitForExistence(timeout: 10), "Info.plist registers the native quick action")
@@ -49,13 +84,19 @@ import XCTest
         nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         let restoreError = app.alerts["Could not restore desktops"]
-        let unexpectedRestoreFailure = restoreError.waitForExistence(timeout: 3)
+        let guidanceTitle = app.navigationBars["Message Dispatcher"]
+        // Restoration finishes asynchronously after first paint (run 44738003005: foreground at 149.5s, first frame
+        // ~153s, alert ~155s, after a fixed 3s alert check had ended). Guidance waits for the error to be acknowledged,
+        // and success raises no alert, so wait for whichever terminal state the runtime actually publishes.
+        XCTAssertTrue(waitFor(app, NSPredicate { _, _ in restoreError.exists || guidanceTitle.exists }, timeout: 20),
+                      "Cold restore ends in its error alert or Dispatcher guidance")
+        let unexpectedRestoreFailure = restoreError.exists
         if unexpectedRestoreFailure {
             screenshot(app, "native-cold-unexpected-restore-error")
             restoreError.buttons["OK"].tap()
             XCTAssertTrue(restoreError.waitForNonExistence(timeout: 5))
         }
-        XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 20))
+        XCTAssertTrue(guidanceTitle.waitForExistence(timeout: 20))
         let guidance = app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch
         XCTAssertTrue(guidance.exists)
         XCTAssertFalse(app.keyboards.firstMatch.exists)
