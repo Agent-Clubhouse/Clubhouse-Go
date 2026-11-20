@@ -44,3 +44,5 @@ Additional origin refs verified. Both are diagnostic branches; the focused local
 | go-bug-pass | bold-gazelle/diagnose-hosted-ipad | f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78 | Capture field realization and view restoration order on hosted iPad. |
 
 At 08:45 UTC the laptop verified Mini group membership and sent the initial fetch request through its authenticated Go inbox. Receiver acknowledgment, fetch verification and assignment acceptance are pending. Local simulator availability on the Mini is unverified; preserve existing authorization boundaries.
+
+Mini capacity update via Tael: the receiving agent reported a weekly limit with a stated reset at 04:00 Pacific (12:00 UTC). It has not fetched or accepted any assignment. The initial inbox message referenced ledger commit 744aa715e2ba9a23f6b70483c79fbd3d1d9601ba. Laptop owners retain all scopes. Tael coordinates the post-reset readiness check, with a checkpoint planned at 04:10 Pacific. Actual capacity, fetch and explicit acceptance remain necessary. Simulator setup also remains blocked pending authorization.
