@@ -300,10 +300,15 @@ jobs:
           retention-days: 7
 
   ipad-tests:
-    name: iPad hosted tests + UI smoke
+    name: iPad ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
     timeout-minutes: 25
+    strategy:
+      # Keep the original single iPad slot. Each bounded job gets its own complete result.
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON('{"include":[{"name":"hosted","tests":"-only-testing:ClubhouseGoTests"},{"name":"UI smoke","tests":"-only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption"}]}') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -340,19 +345,19 @@ jobs:
       - name: Skip first-use keyboard education on the test simulator
         run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
 
-      # Reuse the iPhone build; qualify all hosted tests and the three iPad regressions
-      # without paying for another full UI suite or accepting a passing retry.
+      # Reuse the iPhone build. The full hosted suite and the same three UI regressions
+      # each run once; separating their runner handoff keeps the 25-minute job gate.
       - name: Run iPad tests without retries
+        env:
+          TEST_SELECTORS: ${{ matrix.tests }}
         run: |
+          read -ra selectors <<< "$TEST_SELECTORS"
           if ! xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
             -configuration Debug \
             -destination "$DEST" \
             -jobs 2 \
-            -only-testing:ClubhouseGoTests \
-            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings \
-            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled \
-            -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption \
+            "${selectors[@]}" \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
@@ -360,14 +365,14 @@ jobs:
             2>&1 | tee xcodebuild-ipad.log; then
             echo "::warning::xcodebuild exited unsuccessfully; checking the complete xcresult"
           fi
-          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad hosted tests + UI smoke" \
+          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad ${{ matrix.name }}" \
             --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests
 
       - name: Upload iPad test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-ipad
+          name: test-results-ipad-${{ strategy.job-index }}
           path: |
             TestResults
             xcodebuild-ipad.log

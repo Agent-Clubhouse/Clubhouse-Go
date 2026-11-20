@@ -1,0 +1,46 @@
+{
+  "scope": "Two serial iPad jobs using the existing iPhone-built products; same suite and three UI methods, no retry or deadline change",
+  "original": {
+    "source_head": "ab6c7149416e50ca259aa135289e5d7b668427dc",
+    "run": 44685281882,
+    "job": 136135075192,
+    "log_sha256": "94a658733672d7513d7dd12342bfdcf39d12eaa3d0428ec36182c432a40a0685",
+    "annotation": "The job has exceeded the maximum execution time of 25m0s",
+    "hosted_tests": 218,
+    "hosted_existing_opt_in_skips": 3,
+    "hosted_failing_methods": 2,
+    "held_report_ui": "Started, cancelled before completion; no execution pass credit",
+    "xcresult": "Incomplete: no Info.plist; no finalized export or strict verification credit"
+  },
+  "measured_seconds": {
+    "setup_to_test_step": 275,
+    "hosted_suite": 847.686,
+    "test_step_to_hosted_start": 121.863,
+    "hosted_end_to_ui_start": 130.965,
+    "agent_tree_smoke": 76.55,
+    "clear_feedback_smoke": 53.587,
+    "job_cleanup_after_test_step": 42
+  },
+  "plan": {
+    "matrix_entries": 2,
+    "max_parallel": 1,
+    "fail_fast": false,
+    "job_timeout_minutes": 25,
+    "default_test_execution_allowance_seconds": 120,
+    "existing_ui_dynamic_allowance_seconds": 240,
+    "ui_method_count": 3,
+    "full_hosted_suite_count": 1,
+    "additional_setup_count": 1,
+    "peak_ipad_concurrency_before": 1,
+    "peak_ipad_concurrency_after": 1,
+    "ci_result_dependency": "ipad-tests (aggregates both matrix entries)"
+  },
+  "forecast": {
+    "basis": "One observed setup/handoff/cleanup, observed hosted duration including its failures, and all three existing dynamic UI allowances. Arithmetic planning only; not measured successor CI or a guarantee.",
+    "hosted_job_seconds": 1286.549,
+    "ui_smoke_job_seconds": 1167.9650000000001,
+    "aggregate_job_seconds": 2454.514,
+    "additional_setup_cleanup_seconds": 317,
+    "required_actual_acceptance": "Both complete results, the full hosted suite and the same three UI methods each once, strict no-retries verification and cleanup; each job below unchanged 25-minute limit. Underlying first failures remain separate blockers."
+  }
+}
