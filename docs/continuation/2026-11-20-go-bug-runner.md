@@ -1,6 +1,39 @@
 # go-bug-runner continuation: 2026-11-20
 
-**Updated preservation snapshot, not an ownership transfer or Mini execution approval.**
+**Final owner brief for requested source STOP; takeover confirmation is pending.**
+
+## Transfer boundary: 04:17 Pacific
+
+The parent reports Mini fetched the branches and conditionally accepted on actual
+source STOP. This final notes commit is the last laptop edit/push for the offered
+scopes. After its exact remote verification and STOP message, cease edits, pushes,
+CI submissions, native/FIFO work and overlapping watches. Responsibility remains
+with the laptop owner until the parent confirms Mini's exact-ref recheck/takeover;
+conditional acceptance is not final transfer or native execution approval.
+
+| Offered scope | Exact branch / last implementation tip | Disposition |
+| --- | --- | --- |
+| Runner's preserved implementation/Preview-export work | `bold-gazelle/mobile-artifact-save-share` / `f63618f33cb142b072dfecc183e203b925edc563` | Local and remote tips match, tracked tree clean, no newer unique product/test WIP. Stop all edits, CI/landing submissions and overlapping watches. Historical pending landing is parked, not completed or reauthorized by transfer. |
+| Proof-runner continuation / originals-review coordination | `bold-gazelle/proof-runner-continuation-nov20` / final brief commit carrying this section | Sanitized brief and passive harness only; exact final full commit SHA supplied in STOP message after ordinary push/readback. All assigned native executions and originals reviews are closed or explicitly deferred; no active native job, FIFO reservation or test/watch submission to transfer. |
+
+Retained laptop-only obligation: keep private original packets, compiled products,
+raw xcresults/SDK/AX/images and private review/install/collection scripts intact.
+Private Git object references in this brief are NOT remotely delivered payloads.
+No new laptop execution or overlapping watch is retained. An authorized named
+private-input delivery/custody task may still require the laptop owner; absence
+of those inputs blocks a Mini consumer rather than authorizing reconstruction
+of acceptance or unreviewed execution. No deletion, simulator/process interruption,
+Mini contact/wake or direct ownership reassignment is performed by this STOP.
+
+Final material state: Footer026 qualified first-T accepted with focus deferred;
+Dispatcher4fde qualified first-T canonical98c18a installed/currently rechecked by
+UX; NativeMenu6179 full review CLOSED DEFER7137 with four Cedar Home and exact
+per-step snapshot/live-set membership gaps, NOT accepted/integrated. Linked504
+qualified scope and all earlier first reds remain immutable. ReadingOpening's
+hosted XXXL assertion58 ownership remains with integration owner/parent to assign,
+not UX's separate archive-header case. No further local investigation is in flight.
+Source owners/integration still own hosted CI, exact integrated-head proof and any
+separately approved successor. This handoff grants no landing or gate bypass.
 
 Repository: `Agent-Clubhouse/Clubhouse-Go`. Preservation branch:
 `bold-gazelle/proof-runner-continuation-nov20`. Owner: `go-bug-runner`
