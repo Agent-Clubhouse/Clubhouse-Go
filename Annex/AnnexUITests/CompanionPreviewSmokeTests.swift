@@ -234,7 +234,6 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// Full-row visual proof and Large-only navigation inside the protected native Form.
     private func captureReadableProviderRow(_ identifier: String, in app: XCUIApplication,
                                             containing expected: [String], name: String) -> Bool {
-        let row = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         var previousFrame: CGRect?
         var previousDrag: CGFloat?
         var response: CGFloat = 1
@@ -251,7 +250,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                     XCTFail("The complete text row must fit in the native readable band: \(frame), \(top)...\(bottom)"); return false
                 }
                 if frame.minY >= top && frame.maxY <= bottom {
-                    guard row.waitForExistence(timeout: 5) else { XCTFail("The realized row must still exist"); return false }
+                    // The fresh complete hierarchy below proves current existence as well as fit.
+                    // A separate Any query can stall despite the exact row already being realized.
                     guard let current = providerRowObservation(identifier, in: app), let realized = current.row,
                           realized.identifier == identifier, expected.allSatisfy({ realized.label.contains($0) }),
                           current.contains(realized.frame), current.backLabel == "Juniper" else {
