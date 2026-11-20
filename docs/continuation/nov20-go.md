@@ -50,3 +50,5 @@ Mini capacity update via Tael: the receiving agent reported a weekly limit with 
 ## Owner notes
 
 [UX continuation at verified commit 27ecf000](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/27ecf000f064ff98152935f3e2c8ba3cdb2756d6/docs/continuation/ux-root-2026-11-20.md) covers provider #616, Dispatcher recovery #622, App Update, linked Home disclosure and Dispatcher sender reveal. Remote branch: ux-root/continuation-nov20. Laptop owner: ux-root. Mini acceptance pending.
+
+[CI and feedback continuation at verified commit 5ee21565](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/5ee21565ab41d26f84d70dcf78115b4c5f3c24c9/docs/continuation/go-feedback-review-2026-11-20.md) covers #620, #615, #621, successor branches and the first hosted failures. Notes SHA-256: 8541b231afe3884485a2369c44ab460cec33008d9cdec6a8b9ae08c80716f436. Historical branches go-feedback-review/observe-611 (0501ea258c839dc74177b2e6f633d2c136f2c446) and go-feedback-review/home-row-hit-area (e1fb40983825e93b96c2b5863195b7c72f410fd4) are preserved for comparison only. Laptop owner: go-feedback-review. Mini acceptance pending.
