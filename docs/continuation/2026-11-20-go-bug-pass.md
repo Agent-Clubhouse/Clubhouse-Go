@@ -336,6 +336,45 @@ assertions. No product-collapse cause, initial cached full clearance, forced-tap
 immunity, same-AX-revision, hosted/general-cure or integrated-head proof is
 inferred. Source ownership remains UX; no integration or transfer was performed.
 
+Feedback owner's additive Linked carry7540 onto3980 is independently accepted
+SOURCE-only: exact `7540be2108510545899d5d4b60890a5118532a90` / tree
+`f6c194326157760d950360c1eaf09ca5fcb6610a`, canonical
+`aaa213e5ec0c64a3fcfb694532fc607fbd9c4d9b`,2,789 bytes, SHA256
+`fea7e0ab9ba086dc3e95b3372cd89dfc6a2fa1535d6ae87364437fc84c68ed79`.
+All761 Git paths/modes/blobs were compared: only Linked test modified and
+its new directly related docs added; both are exactly504b. All166 package/
+139 native test paths and unrelated3980 source remain unchanged. Own exact
+Swift parse/diff passed; author44 CI checks were attributed, not rerun.
+Actual full47a74523 source-T canonical bytes/hash/metadata were independently
+checked, still source504b only and not a second native-originals audit.
+Owner reports normal preservation push/readback complete; no PR620 head or CI
+trigger was changed by this review, and sender4fde remains excluded.
+
+New ordinary Reading hosted first-red attribution is separately closed:
+ab6/run44685281882/job136135075427,
+`testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry` guard387,
+canonical `5804c42e22835b60ef7d8090c667e0ac8bc19c0a`,6,204 bytes, SHA256
+`6db62c16eccfd4ffd222201d8b85ec537995fd3782f918bd003af38ee8345ca6`.
+This is FIRST_RED_RETAINED_READINESS_SAMPLING_BUDGET_ATTRIBUTED, not green.
+Complete original log677,791 bytes and test-results-10 artifact14621520848
+ZIP392,534,146 bytes were verified; raw native runs match first77.644 and
+retained72.579/67.925 failures. Readiness helper bytes equal scopedff8.
+First attempt's sequential acquisition consumes at least7.172 recorded seconds
+before its first complete sample, leaving at most0.828s inside8s, below the
+required2.25s stability. Second repetition similarly7.045s; third is faster
+5.037s and does not support that same first-window claim. Every observed
+second acquisition completes past the latest possible8s deadline. These are
+recorded native-activity/source-order bounds, not an exported uptime timeline
+or simultaneous geometry. Observation budget starvation is supported; actual
+frame movement/bookmark displacement and product cause are not established.
+Later4pt/stream/keyboard/return assertions were not reached. No named restoration
+timeline/four-point measurement attachment was retained in raw metadata; opaque
+legacy snapshots/events/movie are not a blanket absence proof for geometry/focus.
+Preserve8s/2.25s/0.5 comparator/4pt; any repair needs separate scope and actual
+native acquisition evidence, not a bigger budget or expected-offset readiness.
+No source changes, new native/worker/build/FIFO/export/classifier action, or
+f47/local proof/ReadingOpening58/Chooser/typing/menu/Grant scope absorption.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
