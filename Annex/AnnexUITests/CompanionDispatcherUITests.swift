@@ -596,11 +596,16 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
                                       file: StaticString = #filePath, line: UInt = #line) {
         // Resolve the caption and every floating boundary from one actual native hierarchy revision.
         // Separate exists/frame queries previously rebuilt that hierarchy dozens of times per pan.
-        // The snapshot and individual AX attributes can serialize the same CGFloat one ULP apart.
-        // This comparison allows only floating-point representation noise; containment stays strict.
+        // Hosted-view conversion can shift an origin by one ULP while preserving its far edge.
+        // Compare the actual rectangle edges; subtracting them can amplify a height's ULP count.
+        // Both raw rectangles still have to fit strictly inside the current protected bounds.
         func sameNativeFrame(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
-            let pairs: [(CGFloat, CGFloat)] = [(lhs.origin.x, rhs.origin.x), (lhs.origin.y, rhs.origin.y),
-                                               (lhs.width, rhs.width), (lhs.height, rhs.height)]
+            let components = [lhs.origin.x, lhs.origin.y, lhs.width, lhs.height,
+                              rhs.origin.x, rhs.origin.y, rhs.width, rhs.height]
+            guard components.allSatisfy({ $0.isFinite }),
+                  lhs.width > 0, lhs.height > 0, rhs.width > 0, rhs.height > 0 else { return false }
+            let pairs: [(CGFloat, CGFloat)] = [(lhs.minX, rhs.minX), (lhs.minY, rhs.minY),
+                                               (lhs.maxX, rhs.maxX), (lhs.maxY, rhs.maxY)]
             return pairs.allSatisfy { pair in
                 pair.0.isFinite && pair.1.isFinite
                     && abs(pair.0 - pair.1) <= max(pair.0.ulp, pair.1.ulp) * 4
