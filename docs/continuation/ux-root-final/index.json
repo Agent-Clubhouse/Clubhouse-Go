@@ -1,0 +1,66 @@
+{
+  "prepared_at_utc": "2026-11-20T12:22:09.308200+00:00",
+  "repository": "Agent-Clubhouse/Clubhouse-Go",
+  "source_stop_effective": "Explicit STOP message after final publication/verification",
+  "scope_entries": [
+    {
+      "scope": "provider",
+      "branch": "ux-root/provider-v2-610-integration",
+      "tip": "434e6a969a4e12adb3dceec2e6c0ab59710596c0",
+      "tree": "7bafe7ebde4cb761495e5224fbc1f4ffe64b49c5",
+      "brief_path": "docs/continuation/ux-root-final/provider.md",
+      "brief_bytes": 5201,
+      "brief_sha256": "3f391a67c24735799e64c4e1f49868cf0d9f841f04c33f16c0b8c00aa71e67c8"
+    },
+    {
+      "scope": "dispatcher",
+      "branch": "ux-root/dispatcher-recovery",
+      "tip": "f576fca31028f556f18acb7204bcd6d8d4a3e63e",
+      "tree": "993db85d7527e3a704c1e9b9322bc783a220db2c",
+      "brief_path": "docs/continuation/ux-root-final/dispatcher.md",
+      "brief_bytes": 4048,
+      "brief_sha256": "9ec597aa6a1cf2980202904c52842b9eca87a3ce185d9bbd4058e57a288eb1b1"
+    },
+    {
+      "scope": "app-update",
+      "branch": "ux-root/ci-app-update",
+      "tip": "b3d95526800b91101b435c75ff6a01633b9c59b6",
+      "tree": "59b1ec636da07a40a3f8da839c4ed31ff7642ea5",
+      "brief_path": "docs/continuation/ux-root-final/app-update.md",
+      "brief_bytes": 3604,
+      "brief_sha256": "7fab6bd9b7ad737ad7180501aecfbf9dd0122be28ebf539fbc958c6eb2a5e7ec"
+    },
+    {
+      "scope": "linked-home",
+      "branch": "ux-root/ci-linked-home",
+      "tip": "504b9c926e33d8823a183155d675cf36b4f7bf3a",
+      "tree": "474c84ec99f698011e65d5f24035bc27906da39b",
+      "brief_path": "docs/continuation/ux-root-final/linked-home.md",
+      "brief_bytes": 3792,
+      "brief_sha256": "42e292e17adc9c2ae503e1791399bcb730a5e0395128f0a8181a809e31540792"
+    },
+    {
+      "scope": "sender-fold",
+      "branch": "ux-root/ci-dispatcher-fold",
+      "tip": "4fde2a033976ce6ca969889b8ed0f1764aa99c8a",
+      "tree": "32a63fc52424d42f9820ef400fff62f463e544b4",
+      "brief_path": "docs/continuation/ux-root-final/sender-fold.md",
+      "brief_bytes": 4353,
+      "brief_sha256": "cc58c457b378daacd9ac2c933fbc8e10326efb4e77042a1d51835f92b5c6cc7a"
+    }
+  ],
+  "in_flight_hosted_job": {
+    "run": 44708573878,
+    "job": 136210713696,
+    "url": "https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44708573878/job/136210713696",
+    "last_owner_state": "in_progress / Run tests",
+    "parent_observation": "still in_progress at12:20Z",
+    "local_watch": "safely parked child-free; PID20099 absence verified; hosted job left running",
+    "native_method_outcome": "not yet retained; no no-start inference"
+  },
+  "retained_laptop_only_obligations": [
+    "Passive custody of untransferred private evidence; authorized clarification only on request",
+    "No active edits/pushes/CI/native/watch obligations retained after STOP"
+  ],
+  "mini_acceptance": "Conditional source acceptance/fetch reported by parent; final explicit takeover after ref recheck still pending"
+}
