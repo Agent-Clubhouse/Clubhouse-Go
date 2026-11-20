@@ -129,6 +129,7 @@ import XCTest
         let relaunched = launchApp(base, attempts: 1)
         let collapsed = relaunched.buttons["project-machine-preview-laptop-notes"]
         reveal(collapsed, in: relaunched)
+        XCTAssertEqual(collapsed.value as? String, "Collapsed", "A new app session must reset the native disclosure state")
         XCTAssertFalse(relaunched.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch.exists,
                        "Expansion is never persisted across launches")
         capture(relaunched, "Linked Home offline machine starts collapsed after relaunch")
