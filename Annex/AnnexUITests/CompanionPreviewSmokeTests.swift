@@ -186,6 +186,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     private struct ProviderRowObservation {
         let window: CGRect
         let navigation: CGRect
+        let backLabel: String?
         let form: CGRect
         let apply: CGRect
         let review: CGRect
@@ -218,7 +219,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             let review = try unique({ $0.elementType == .button && $0.identifier == "provider-review-change" }, "Review action")
             let rows = elements.filter { $0.identifier == identifier }
             guard rows.count <= 1 else { XCTFail("The native row identifier must be unique: \(identifier)"); return nil }
-            return .init(window: snapshot.frame, navigation: navigation.frame, form: form.frame,
+            func buttons(in node: XCUIElementSnapshot) -> [XCUIElementSnapshot] {
+                (node.elementType == .button ? [node] : []) + node.children.flatMap { buttons(in: $0) }
+            }
+            return .init(window: snapshot.frame, navigation: navigation.frame,
+                         backLabel: buttons(in: navigation).first?.label, form: form.frame,
                          apply: apply.frame, review: review.frame, row: rows.first)
         } catch {
             XCTFail("Cannot observe the native Provider hierarchy: \(error)")
@@ -229,7 +234,6 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// Full-row visual proof and Large-only navigation inside the protected native Form.
     private func captureReadableProviderRow(_ identifier: String, in app: XCUIApplication,
                                             containing expected: [String], name: String) -> Bool {
-        let navigation = app.navigationBars["Provider"]
         let row = app.descendants(matching: .any).matching(identifier: identifier).firstMatch
         var previousFrame: CGRect?
         var previousDrag: CGFloat?
@@ -248,13 +252,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 }
                 if frame.minY >= top && frame.maxY <= bottom {
                     guard row.waitForExistence(timeout: 5) else { XCTFail("The realized row must still exist"); return false }
-                    do {
-                        let realized = try row.snapshot()
-                        guard realized.identifier == identifier, expected.allSatisfy({ realized.label.contains($0) }),
-                              observation.contains(realized.frame), navigation.buttons.firstMatch.label == "Juniper" else {
-                            XCTFail("The realized row must retain its full fit, expected identity, text and Juniper context"); return false
-                        }
-                    } catch { XCTFail("Cannot recheck the realized row before capture: \(error)"); return false }
+                    guard let current = providerRowObservation(identifier, in: app), let realized = current.row,
+                          realized.identifier == identifier, expected.allSatisfy({ realized.label.contains($0) }),
+                          current.contains(realized.frame), current.backLabel == "Juniper" else {
+                        XCTFail("The realized row must retain its full fit, expected identity, text and Juniper context in the current hierarchy"); return false
+                    }
                     captureProvider(app, name)
                     return true
                 }
@@ -575,7 +577,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                                            slowNativePan: Bool = false) {
         let navigation = app.navigationBars["Provider"]
         XCTAssertTrue(navigation.exists)
-        if slowNativePan {
+        if slowNativePan && control.exists {
             guard let observation = providerRowObservation(control.identifier, in: app) else { return }
             // A full-fit row already observed by the Large reading path needs no second search.
             // The unchanged checked-tap guards below still remeasure its actual control frame.
@@ -647,11 +649,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertLessThanOrEqual(frame.maxY, clearBottom())
         XCTAssertFalse(navigation.frame.contains(point))
         if slowNativePan {
+            guard control.exists else { XCTFail("The exact Large control must still exist before its checked tap"); return }
             guard let observation = providerRowObservation(control.identifier, in: app),
-                  let current = observation.row else { return }
+                  let current = observation.row else {
+                XCTFail("The exact Large control must still resolve in the current hierarchy"); return
+            }
             let stickyAction = ["provider-save", "provider-review-change"].contains(control.identifier)
             let bottom = stickyAction ? observation.window.maxY - 34 : observation.bottom
             guard current.frame == frame, current.identifier == control.identifier, current.isEnabled,
+                  observation.backLabel == "Juniper",
                   frame.minX >= max(observation.window.minX, observation.form.minX),
                   frame.maxX <= min(observation.window.maxX, observation.form.maxX),
                   frame.minY >= observation.navigation.maxY + 12, frame.maxY <= bottom,
