@@ -900,7 +900,7 @@
     "Original14/15/16 comparison is retained under prior_441_method_comparisons and is not an updated442-method placement forecast. Selected15 adds permission lane13 +60s and Reading lane10 +6s for the maximum additional readiness window.",
     "Full same-inventory eight-lane counterfactual includes BOTH added math controls; baseline440-method eight-lane forecast excludes both.",
     "Reading prepend replaces a fixed2s observation with an existing8s readiness ceiling; reserve6 additional seconds for that call. This is a conservative allowance, not measured native elapsed time or a changed deadline.",
-    "Settings main-actor polling and Reading readiness source corrections retain all method inventories and oracles. Their focused first results and final integrated/hosted execution remain pending."
+    "Settings main-actor polling and Reading readiness source corrections retain all method inventories and oracles. Settings now has qualified9once local26.0 originals acceptance; Reading first result and final integrated/hosted execution remain pending."
   ],
   "original_partition_forecast_sha256": "ed24996c29c218c19e13f3aab8a013c4b968d9a2f460e3f7bc9f40e671415c6f",
   "source_integration": {
@@ -914,7 +914,10 @@
     "reading_prepend_head": "faa5bfa0ac1a364b5d05125371b92af7eeed8342",
     "header_footer_scoped_local_review_blob": "d3c96477bfb7720100489f1099b96e4bef0b3278",
     "header_footer_scoped_local_review_sha256": "53cc58f4cdd76ca11086f3dfcffa1554877bd8aed37ba2554ea019905f7d5370",
-    "reading_prepend_readiness_head": "ff812e463a2ec57abbf496ced4e3bdfd6745441c"
+    "reading_prepend_readiness_head": "ff812e463a2ec57abbf496ced4e3bdfd6745441c",
+    "settings_scoped_local_review_blob": "64268d228f74cfd174d2f406944a492d34f3993b",
+    "settings_scoped_local_review_sha256": "9a489bd9cb849d14472197b46416fea0c3c777281901af9d269ec661f6c2601c",
+    "settings_scoped_local_acceptance": "Nine ordinary UIKit-hosted XCTest methods once, localiPhone17/iOS26.0 only; no XCUI images/gestures, rootcause, replay, hosted26.5 or integrated acceptance."
   },
   "prior_441_method_comparisons": [
     {
