@@ -1,8 +1,75 @@
-# UI shard balance, November 16, 2026
+# UI shard balance
+
+## November 19 recovery forecast
+
+The original [#615 run 44622082206](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44622082206) exhausted the unchanged 55-minute catchall allowance before any of its six link methods started. Its last active method was the dark composer-footer test's third iteration, after two `Reading earlier messages` failures. [#616 run 44624001013](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44624001013) recorded the same footer failure and never started the archive-header method. These original failures and missing executions remain red/incomplete evidence.
+
+The declared source inventory grew from the November 16 plan's 56 classes / 303 methods to 79 classes / 440 zero-argument methods on main `cadce0a45`. The catchall grew from 10 classes / 52 methods to 33 classes / 157 methods. This repair has 441 methods, adding one math-only regression for the original header unread-span gap. It retains every whole class exactly once, future-class catchall coverage, exactly one hosted-unit lane, the unsigned Release device build, and the separate iPad lane. No assertion, skip guard, per-test allowance, retry policy or 55-minute job timeout is changed.
+
+Fifteen lanes are the selected candidate. The coverage test also checks that footer and archive-opening classes use separate explicit lanes while a future `CompanionTextLinkUITests` class runs once in the remaining lane. Static routing is not execution credit: actual hosted first-attempt results for the six links and `testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming` remain required after integration/rebase.
+
+### Forecast inputs and resource comparison
+
+[The checked-in forecast data](ci-shard-balance-2026-11-19.json) records class estimates, source counts, source log hashes and observations. Of 440 baseline methods, 297 have terminal timing samples in the eight original job logs. A method uses its maximum observed terminal duration for planning; failed/retried outcomes retain their original status and are not counted as independent first passes. Unobserved methods reserve 60 seconds, with larger explicit class floors for partial or multi-appearance flows. The new math-only header regression also reserves 60 seconds.
+
+Each lane reserves 10 minutes for setup/results: original non-hosted job overhead was approximately 6–9 minutes. The sole hosted lane adds 15 minutes for the observed 13m23s XCTest envelope plus 95s Swift Testing. These are forecasts from one run, not new duration gates or guarantees.
+
+| Whole-class lanes | Forecast runner-minutes | Longest forecast job | Margin below 55m |
+| --- | ---: | ---: | ---: |
+| 14 | 650.9 | 49.5 | 5.5 |
+| 15 (selected) | 660.9 | 46.4 | 8.6 |
+| 16 | 670.9 | 44.4 | 10.6 |
+
+Fifteen saves 10 runner-minutes against sixteen while retaining 8.6 minutes of forecast margin. Fourteen leaves only 5.5 minutes for timing uncertainty and existing retry behavior. The same *complete* inventory with eight setup reserves forecasts 589.9 runner-minutes, so fifteen adds 71 minutes: 70 for seven additional setup/result envelopes and one for the new regression. The observed original eight-lane total was 380.7 minutes, but its cancellations omitted many methods; it is not a complete-work cost baseline.
+
+`max-parallel:8` retains the previous eight-lane peak. Account-level capacity and spending settings are unchanged. At the observed 4–5 macOS slots, 660.9 runner-minutes alone imply a best-case 132–165 minutes of wall time, before dependency/queue imbalance; this is not a promised completion time. Nominal UI job allowances total 825 minutes instead of 440; post-cancel cleanup can add time.
+
+Setup reuse already consists of one build-for-testing artifact shared by all UI/iPad jobs. Standard hosted jobs use separate VMs, so reusing a booted simulator across jobs would require different infrastructure; serially combining two ~35-minute UI groups would exceed 55 minutes even after setup reuse. No unmeasured setup saving is claimed. The repository is public and [`macos-26` is a standard GitHub runner](https://docs.github.com/en/actions/reference/runners/github-hosted-runners), so the documented public standard-runner policy identifies no additional paid compute. Billing, artifact retention/storage and account spending settings are unchanged; any actual budget restriction remains a blocker.
+
+### Candidate assignment
+
+Forecasts include setup/results and the hosted reserve. The remaining lane includes known small/live-guarded classes and all future classes. The six incoming #615 link methods reserve another 6 minutes there, for 31.7 minutes; their accepted local 26.0 proof does not substitute for hosted 26.5 execution.
+
+| Lane | Declared classes | Methods | Forecast minutes |
+| --- | ---: | ---: | ---: |
+| UI tests (grants, projects) + unit tests | 5 | 24 | 45.5 |
+| UI tests (preview) | 2 | 31 | 44.9 |
+| UI tests (feedback diagnostics) | 2 | 24 | 44.6 |
+| UI tests (dispatcher, settings) | 4 | 28 | 45.1 |
+| UI tests (chips, lifecycle) | 5 | 32 | 45.2 |
+| UI tests (decisions, linked home) | 5 | 30 | 45.5 |
+| UI tests (home, settings) | 5 | 22 | 45.5 |
+| UI tests (footer, desktop scope) | 6 | 23 | 45.5 |
+| UI tests (opening, terminal) | 6 | 29 | 45.4 |
+| UI tests (launch, native menus) | 6 | 23 | 45.5 |
+| UI tests (unicode, reading) | 6 | 50 | 45.0 |
+| UI tests (composer, keyboard) | 6 | 32 | 45.5 |
+| UI tests (header, catalog) | 6 | 39 | 46.4 |
+| UI tests (activity, permissions) | 6 | 23 | 45.4 |
+| UI tests (other) | 9 | 31 | 25.7 |
+
+### Original hosted observation
+
+These are actual first workflow-attempt job conclusions, including automatic test retries and cleanup. Test-level failures remain preserved in the logs; a green job alone does not establish every first method attempt passed.
+
+| Original lane | Actual runner-minutes | Conclusion |
+| --- | ---: | --- |
+| UI tests (other) | 57.2 | cancelled |
+| UI tests (preview, project pages) | 53.2 | success |
+| UI tests (unicode, home) | 38.8 | success |
+| UI tests (feedback, needs you) | 56.3 | cancelled |
+| UI tests (search, permissions) | 31.2 | failure |
+| UI tests (dispatcher, terminal) | 57.2 | cancelled |
+| UI tests (composer, sheets) | 32.2 | success |
+| UI tests (reading, grants) + unit tests | 54.5 | failure |
+
+The source repairs target the actual first failures: native-menu targets disappearing from AX after scrolling, an unread header gap after overshoot, and footer gestures crossing the visible transcript into the composer. Menu ownership/order/target/hittability, contiguous full-height text coverage, and footer pixel/OCR/keyboard criteria remain required. Native source proof, shared repair integration and normal hosted results are pending; no CI-repaired claim is made by these forecasts.
+
+## Historical November 16 balance (superseded)
 
 The seven-shard catchall timed out in all 13 completed audit runs. Eight whole-class shards preserve every UI class and test method, with the catchall still covering future classes. The 55-minute timeout, retries, test assertions, hosted gate, and iPad job are unchanged. The preview follow diagnostic runs only after failure; it remains best effort and failure artifacts are still uploaded.
 
-## Estimate and limits
+### Estimate and limits
 
 Timing input: the 45-run audit in `.clubhouse/agents/qa-artifacts/go-ci-efficiency-audit-2026-11-16.md` (runs 43702476235–43804543773, November 15–16). Its UI logs supply first-attempt elapsed times, taking the median per method across available runs. Repeated attempts within a job do not count as independent samples. Renamed project-page and Needs-you methods retain the corresponding historical sample.
 
@@ -12,7 +79,7 @@ The multi-appearance budgets are: Home subtitle 5, offline banner 10 (5 appearan
 
 The initial 302-method balance estimated 40.6–41.1 minutes; #489 adds one unsampled Diagnostics method (60 seconds) to Dispatcher/Terminal. Eight shards now estimate **40.6–41.6 minutes**, leaving about 14 minutes under the unchanged timeout. A ninth shard adds another setup job against a saturated 4–5-slot macOS pool; it is deferred until real measurements justify it. After the first PR CI run, record each actual job duration. Revisit nine shards if any exceeds about 48 minutes. CI contention, retries and newly added tests can exceed these estimates.
 
-## Shard counts
+### Shard counts
 
 Before and after use the same source inventory. Class counts in the old matrix overlap because PreviewSmoke was split by method. The new matrix assigns each class exactly once. Method counts include existing guarded/skipped live tests.
 
@@ -37,7 +104,7 @@ Before and after use the same source inventory. Class counts in the old matrix o
 | UI tests (reading, grants) + unit tests | 6 | 37 | 40.8 |
 | UI tests (other) | 10 | 52 | 40.6 |
 
-## Per-class counts and placement
+### Per-class counts and placement
 
 The method count is unchanged in every row. Sampled is the number of methods with a historical median; estimated seconds exclude per-job setup and hosted reserves. Old/new shard numbers refer to table order above.
 
@@ -100,15 +167,15 @@ The method count is unchanged in every row. Sampled is the number of methods wit
 | FramebriarShakeUITests | 3 → 3 | 3 | 101.3 | 6 | 3 |
 | QA368GrantLayoutUITests | 6 → 6 | 0 | 360.0 | 7 | 7 |
 
-## Coverage check
+### Coverage check
 
 `python3 -m unittest discover -s scripts/ci/tests` checks the emitted Xcode selections against every source UI test class. The union must equal the full inventory, each class must occur exactly once, unknown classes fail, and method selectors fail so a rename cannot silently remove a method. A synthetic future class verifies catchall coverage. Negative controls reject an omitted class and a duplicated class. Existing matrix, selector and strict-host parser tests remain unchanged.
 
-## First CI observation
+### First CI observation
 
 Pending the first PR run. Report actual durations for all eight shards and the Release job in the PR; compare Release against the audit median of 8.1 minutes per job (443 seconds for the build step). No speedup is promised before measurement.
 
-## Unsigned Release device SDK
+### Unsigned Release device SDK
 
 A separate commit switches only the Release job destination from `generic/platform=iOS Simulator` to `generic/platform=iOS`, retaining the Release configuration, project/scheme and `CODE_SIGNING_ALLOWED=NO`. This gains the shipping arm64 iOS device SDK compile with Release optimization and conditional paths, for the configured iPhone and iPad families. It deliberately loses the Release-configuration compile of both simulator slices (arm64 and x86_64). Debug simulator builds, hosted/UI/iPad tests and all existing gate/timeout/retry rules remain unchanged. No archive, signing, launch or install is added.
 
