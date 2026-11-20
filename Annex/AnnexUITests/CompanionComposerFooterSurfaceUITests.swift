@@ -175,7 +175,16 @@ import Vision
     }
 
     private func focus(_ app: XCUIApplication) {
-        element(app, "companion-composer").tap()
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(composer.exists && composer.isEnabled && composer.isHittable)
+        let frame = composer.frame
+        XCTAssertFalse(frame.isEmpty)
+        XCTAssertTrue(app.frame.contains(frame), "The native editor must be visible before focusing")
+        // XCTest's activation point landed only 5pt inside the editor's upper-left edge on the
+        // first hosted pending-tray failure. Tap the visible editable frame's interior once.
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        print("FOOTER_FOCUS frame=\(frame) point=\(point)")
+        coordinate(point, in: app).tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
     }
 
