@@ -265,6 +265,29 @@ five before their first native T. They do not prove native timing, successful
 folding, a cure or integrated/Mini acceptance. No Reading, Copy or typing repair
 scope was added.
 
+The two successor execution-only CONFIG gates are also closed by genuine
+go-bug-pass originals, not A or native acceptance. Linked504b manifest
+`a1e8ca40e8a1b54f9305bfb78fdee05228fc3486b85c464792074d78f69a4987`
+has local canonical `3a4b19a2894777a07732e304faea583d13c4b725`,
+5,116 bytes, SHA256
+`3fc977eeb627d2a2a29b322aeeaf413a64a25e48229d4a7786a6b0ac63182ab0`.
+Senderbc40 manifest
+`cc28642fd7e457ce9fd97e15ba5aa7480b6f979e40472cac5b4507e5616a23de`
+has local canonical `20d45fe38099e9c1671e5d8f4a69484aa4eb7641`,
+5,168 bytes, SHA256
+`3ad8e135ae48a1f2b3b9e2673dd280841033203d79a51b69efdf6dd7dcdfe2e8`.
+All14/15 packet entries and current758 source modes/blobs/full-byte hashes,
+full diff, whole closure and166 package/139 native test files were verified.
+Full8 runtime bytes match each genuine accepted predecessor; every remaining
+execution field matches after artifact-root normalization. Fresh private nonce
+and source/data/pin changes do not carry old A/T credit. Existing phase labels
+remain a-r1/t-r1 while new roots and exact manifest identify each successor.
+No import, worker, FIFO, build or simulator action occurred during review.
+Owners must install exact current gates and obtain fresh independent A/current
+actualfive before one native case once under original240/360 allowances and
+900-second bounds. Full private path-bearing reports remain local; source and
+configuration pins here do not imply runtime success or loosen any earlier limit.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
