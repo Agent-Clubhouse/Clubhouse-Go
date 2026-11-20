@@ -140,7 +140,7 @@ import Testing
         #expect(await h.transport.executed.isEmpty, "An idle visible chat cannot dispatch Interrupt")
         print("DISPATCHER_RECOVERY_STATE idle target=\(target) session=\(h.store.conversation(for: target).sessionID ?? "nil") interrupt=\(h.store.dispatcherRecovery(for: target)?.canInterrupt == true)")
         await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot(session: "visible-session", fields: [
-            "state": .string("working"), "capabilities": .object(["chat": .bool(true), "interrupt": .bool(true)])
+            "state": .string("running"), "capabilities": .object(["chat": .bool(true), "interrupt": .bool(true)])
         ]))
         await h.store.load(target, force: true)
         // history() emits the working host asynchronously; await this target's actual observed state.
