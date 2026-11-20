@@ -1,0 +1,357 @@
+import datetime
+import hashlib
+import importlib.util
+import json
+import os
+import pathlib
+import re
+import signal
+import subprocess
+import sys
+import time
+
+ROOT = pathlib.Path("/tmp/go-bug-runner-612-navigation-r1-evidence")
+SCRIPT = pathlib.Path(__file__).resolve()
+PREFIX = [
+    "env", "-u", "COPILOT_CONNECTION_TOKEN", "GIT_CONFIG_COUNT=1",
+    "GIT_CONFIG_KEY_0=safe.bareRepository", "GIT_CONFIG_VALUE_0=all",
+]
+
+
+def digest(path):
+    return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+
+
+def save(path, value):
+    path.with_suffix(".tmp").write_text(json.dumps(value, indent=2) + "\n")
+    path.with_suffix(".tmp").replace(path)
+
+
+def now():
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+def checked(args, **kwargs):
+    return subprocess.check_output(PREFIX + args, timeout=30, **kwargs)
+
+
+def devices():
+    return [
+        d for group in json.loads(checked(["xcrun", "simctl", "list", "devices", "--json"]))["devices"].values()
+        for d in group
+    ]
+
+
+def members(group):
+    rows = subprocess.check_output(
+        ["/bin/ps", "-axo", "pid=,ppid=,pgid=,command="], text=True, timeout=3,
+    ).splitlines()
+    return [row for row in rows if len(row.split(None, 3)) == 4 and row.split(None, 3)[2] == str(group)]
+
+
+def swap_bytes():
+    raw = checked(["sysctl", "vm.swapusage"], text=True)
+    match = re.search(r"used = ([\d.]+)([MG])", raw)
+    if not match:
+        raise RuntimeError("Unrecognized swap usage: " + raw)
+    return float(match[1]) * 1024 ** (2 if match[2] == "M" else 3)
+
+
+def worker(phase, label, manifest):
+    config = manifest["phases"][phase]
+    out = ROOT / "tickets" / label
+    out.mkdir(mode=0o700, parents=True)
+    progress = ROOT / (label + "-progress.json")
+    source = pathlib.Path(manifest["source"])
+    state = {"phase": phase, "label": label, "head": manifest["head"], "started_at": now()}
+
+    def run(args, name, timeout=180):
+        with (out / "commands.jsonl").open("a") as commands:
+            commands.write(json.dumps({"at": now(), "cwd": str(source), "argv": PREFIX + args}) + "\n")
+        with (out / name).open("w") as log:
+            result = subprocess.run(
+                PREFIX + args, cwd=source, stdout=log, stderr=subprocess.STDOUT, timeout=timeout,
+            )
+        return result.returncode
+
+    def checkpoint():
+        save(progress, state)
+
+    def admission(name):
+        rc = run(["python3", manifest["admission_script"]], name + ".json", 45)
+        state[name] = json.loads((out / (name + ".json")).read_text())
+        checkpoint()
+        if rc:
+            raise RuntimeError(name + " refused; no retry or next operation")
+
+    try:
+        assert checked(["git", "rev-parse", "HEAD"], cwd=source, text=True).strip() == manifest["head"]
+        assert not checked(["git", "status", "--porcelain"], cwd=source)
+        assert all(digest(source / path) == value for path, value in manifest["source_sha256"].items())
+        patch = checked(["git", "diff", "--binary", manifest["base"], manifest["head"]], cwd=source)
+        assert hashlib.sha256(patch).hexdigest() == manifest["full_diff_sha256"]
+        state["source_verified"] = True
+        checkpoint()
+        admission("admission")
+        assert not any(d["state"] == "Booted" for d in devices()), "Existing booted device; no preemption"
+        products = ROOT / "tickets/a-r1/DerivedData/Build/Products"
+        if phase == "A":
+            state["build_rc"] = run([
+                "xcodebuild", "build-for-testing", "-project", "Annex/Annex.xcodeproj",
+                "-scheme", "ClubhouseGo", "-configuration", "Debug",
+                "-destination", "generic/platform=iOS Simulator",
+                "-derivedDataPath", str(ROOT / "tickets/a-r1/DerivedData"),
+                "-clonedSourcePackagesDirPath", str(ROOT / "tickets/a-r1/SourcePackages"),
+                "-jobs", "2", "-parallel-testing-enabled", "NO", "ARCHS=arm64",
+                "CODE_SIGNING_ALLOWED=NO", "ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES", "-quiet",
+            ], "build.log", config["build_seconds"])
+            checkpoint()
+            if state["build_rc"]:
+                return state["build_rc"]
+            xctestruns = list(products.glob("*.xctestrun"))
+            assert len(xctestruns) == 1
+            artifacts = xctestruns + [
+                products / "Debug-iphonesimulator/ClubhouseGo.app/ClubhouseGo.debug.dylib",
+                products / "Debug-iphonesimulator/ClubhouseGo.app/PlugIns/ClubhouseGoTests.xctest/ClubhouseGoTests",
+                products / "Debug-iphonesimulator/ClubhouseGoUITests-Runner.app/PlugIns/ClubhouseGoUITests.xctest/ClubhouseGoUITests",
+            ]
+            state["artifact_sha256"] = {str(path): digest(path) for path in artifacts}
+            state["xctestrun"] = str(xctestruns[0])
+            assert run(["xcodebuild", "-version"], "xcode-version.log", 30) == 0
+            assert run(["xcrun", "--sdk", "iphonesimulator", "--show-sdk-version"], "sdk-version.log", 30) == 0
+            return 0
+
+        build_path = ROOT / "a-r1-receipt.json"
+        build = json.loads(build_path.read_text())
+        assert build["head"] == manifest["head"] and build["rc"] == build["build_rc"] == 0
+        assert build["manifest_sha256"] == digest(ROOT / "manifest.json")
+        assert build["runner_sha256"] == digest(__file__)
+        for closure_name in ("a-r1-outer-closure.json", "a-r1-external-closure.json"):
+            assert json.loads((ROOT / closure_name).read_text())["rc"] == 0
+        assert all(digest(path) == value for path, value in build["artifact_sha256"].items())
+        state["build_receipt_sha256"] = digest(build_path)
+        state["artifact_sha256"] = build["artifact_sha256"]
+        state["xctestrun"] = build["xctestrun"]
+        assert run([
+            "xcrun", "simctl", "create", "Go-612-navigation-r1",
+            "com.apple.CoreSimulator.SimDeviceType.iPhone-17",
+            "com.apple.CoreSimulator.SimRuntime.iOS-26-0",
+        ], "create.log", 60) == 0
+        uuid = (out / "create.log").read_text().strip()
+        state["simulator_uuid"] = uuid
+        checkpoint()
+        assert run(["xcrun", "simctl", "boot", uuid], "boot.log", 60) == 0
+        assert run(["xcrun", "simctl", "bootstatus", uuid, "-b"], "bootstatus.log", 180) == 0
+        assert run([
+            "xcrun", "simctl", "spawn", uuid, "defaults", "write",
+            "com.apple.keyboard.preferences", "DidShowContinuousPathIntroduction", "-bool", "YES",
+        ], "quickpath.log", 30) == 0
+        time.sleep(20)
+        common = [
+            "xcodebuild", "test-without-building", "-xctestrun", build["xctestrun"],
+            "-destination", "platform=iOS Simulator,id=" + uuid,
+            "-parallel-testing-enabled", "NO", "-maximum-concurrent-test-simulator-destinations", "1",
+        ]
+        selection = ["-only-testing:" + s for s in manifest["selectors"]]
+        enumeration = out / "enumerated-tests.json"
+        assert run(common + selection + [
+            "-enumerate-tests", "-test-enumeration-style", "flat",
+            "-test-enumeration-format", "json", "-test-enumeration-output-path", str(enumeration),
+        ], "enumeration.log", config["enumeration_seconds"]) == 0
+        strings = []
+
+        def collect(value):
+            if isinstance(value, str):
+                strings.append(value.removesuffix("()"))
+            elif isinstance(value, dict):
+                for child in value.values():
+                    collect(child)
+            elif isinstance(value, list):
+                for child in value:
+                    collect(child)
+
+        collect(json.loads(enumeration.read_text()))
+        expected = set(manifest["selectors"])
+        observed = {
+            selector for selector in expected
+            if selector in strings or selector.split("/", 1)[1] in strings
+        }
+        assert observed == expected and len(observed) == 7, (observed, strings)
+        state["all_seven_enumerated_before_execution"] = sorted(observed)
+        checkpoint()
+        admission("admission_pretest")
+        assert [d["udid"] for d in devices() if d["state"] == "Booted"] == [uuid]
+        assert all(digest(path) == value for path, value in state["artifact_sha256"].items())
+        bundle = out / "Tests.xcresult"
+        state["xcresult"] = str(bundle)
+        checkpoint()
+        state["test_rc"] = run(
+            common + ["-resultBundlePath", str(bundle)] + selection, "test.log", config["test_seconds"],
+        )
+        checkpoint()
+        state["strict_rc"] = run([
+            "python3", "scripts/verify-xcresult.py", str(bundle), "612 navigation r1",
+            "--no-retries-in", "ClubhouseGoTests", "--no-retries-in", "ClubhouseGoUITests",
+        ], "verification.log", 180)
+        for kind in ("summary", "tests"):
+            assert run([
+                "xcrun", "xcresulttool", "get", "test-results", kind, "--path", str(bundle),
+            ], kind + ".json", 60) == 0
+        state["summary"] = json.loads((out / "summary.json").read_text())
+        cases = []
+
+        def visit(node):
+            if node.get("nodeType") == "Test Case":
+                cases.append(node["nodeIdentifier"])
+            for child in node.get("children", []):
+                visit(child)
+
+        for node in json.loads((out / "tests.json").read_text())["testNodes"]:
+            visit(node)
+        expected_cases = {s.split("/", 1)[1] + "()" for s in manifest["selectors"]}
+        assert set(cases) == expected_cases and len(cases) == 7, cases
+        details = {}
+        for index, case in enumerate(cases):
+            assert run([
+                "xcrun", "xcresulttool", "get", "test-results", "test-details",
+                "--path", str(bundle), "--test-id", case,
+            ], f"details-{index}.json", 60) == 0
+            details[case] = json.loads((out / f"details-{index}.json").read_text())
+            assert details[case]["testDescription"] == "Test case with 1 run"
+            assert len(details[case]["testRuns"]) == 1
+            assert run([
+                "xcrun", "xcresulttool", "get", "test-results", "activities",
+                "--path", str(bundle), "--test-id", case,
+            ], f"activities-{index}.json", 60) == 0
+        save(out / "single-run-details.json", details)
+        for kind in ("attachments", "diagnostics"):
+            assert run([
+                "xcrun", "xcresulttool", "export", kind, "--path", str(bundle),
+                "--output-path", str(out / kind),
+            ], kind + ".log", 180) == 0
+        summary = state["summary"]
+        state["exact_seven_once_pass"] = (
+            summary["passedTests"] == 7
+            and summary["failedTests"] == summary["expectedFailures"] == summary["skippedTests"] == 0
+            and all(d["testResult"] == "Passed" for d in details.values())
+        )
+        assert all(digest(path) == value for path, value in state["artifact_sha256"].items())
+        state["artifacts_unchanged_after_tests"] = True
+        assert not checked(["git", "status", "--porcelain"], cwd=source)
+        return state["test_rc"] or state["strict_rc"] or (0 if state["exact_seven_once_pass"] else 1)
+    except Exception as error:
+        state["error"] = repr(error)
+        raise
+    finally:
+        state["worker_closed_at"] = now()
+        checkpoint()
+
+
+def core(phase, label, manifest):
+    started = time.monotonic()
+    state, swaps, errors = {}, [], []
+    stopped = globals().get("STOP_SIGNALS", [])
+    child, rc = None, 1
+
+    def interrupt(number, _frame):
+        stopped.append(number)
+
+    def checkpoint():
+        if stopped:
+            raise RuntimeError("Stop requested at protected checkpoint")
+
+    signal.signal(signal.SIGTERM, interrupt)
+    signal.signal(signal.SIGINT, interrupt)
+    try:
+        checkpoint()
+        swaps.append({"at": now(), "bytes": swap_bytes()})
+        checkpoint()
+        child = subprocess.Popen(
+            [sys.executable, "-u", str(SCRIPT), phase, label, "--worker"], start_new_session=True,
+        )
+        state["owned_process_group"] = child.pid
+        save(ROOT / (label + "-core-started.json"), {
+            "owned_process_group": child.pid, "head": manifest["head"],
+            "runner_sha256": digest(__file__), "label": label, "phase": phase,
+        })
+        checkpoint()
+        while True:
+            checkpoint()
+            try:
+                rc = child.wait(timeout=10)
+                break
+            except subprocess.TimeoutExpired:
+                swaps.append({"at": now(), "bytes": swap_bytes()})
+                if swaps[-1]["bytes"] - swaps[-2]["bytes"] > 64 * 1024 ** 2:
+                    raise RuntimeError("Live swap growth exceeded64MiB/10s")
+    except BaseException as error:
+        state["supervisor_error"] = repr(error)
+        rc = 1
+    finally:
+        progress = ROOT / (label + "-progress.json")
+        try:
+            if progress.exists():
+                worker_state = json.loads(progress.read_text())
+                state.update({key: value for key, value in worker_state.items()
+                              if key not in ("supervisor_error", "owned_process_group")})
+        except BaseException as error:
+            CLEANUP.issue(errors, "read worker progress", error)
+        if child is not None:
+            state["owned_process_group"] = child.pid
+            try:
+                before = members(child.pid)
+                state["owned_processes_before_cleanup"] = before
+                state["leader_exited_with_descendants"] = child.poll() is not None and bool(before)
+                if state["leader_exited_with_descendants"]:
+                    rc = 1
+            except BaseException as error:
+                CLEANUP.issue(errors, "pre-cleanup group inspection", error)
+            try:
+                drained = CLEANUP.drain_group(child.pid, child, members, os.killpg)
+                state["owned_group_cleanup"] = drained
+                errors.extend(drained["errors"])
+                state["owned_processes_after_cleanup"] = drained["members_after"]
+                if drained["members_after"] != []:
+                    rc = 1
+            except BaseException as error:
+                CLEANUP.issue(errors, "owned worker group cleanup", error)
+            try:
+                child.wait(timeout=5)
+            except BaseException as error:
+                CLEANUP.issue(errors, "owned leader final wait", error)
+        else:
+            state["owned_processes_after_cleanup"] = []
+        if manifest["phases"][phase]["kind"] in ("UI", "hosted"):
+            try:
+                result = CLEANUP.cleanup_simulator(
+                    ROOT, label, manifest["simulator_name"], state, devices,
+                    lambda action, uuid: subprocess.run(
+                        PREFIX + ["xcrun", "simctl", action, uuid], timeout=20,
+                    ).returncode, save,
+                )
+                errors.extend(result["cleanup_errors"])
+                state.update({key: value for key, value in result.items() if key != "cleanup_errors"})
+            except BaseException as error:
+                CLEANUP.issue(errors, "owned simulator cleanup", error)
+        if stopped or errors:
+            rc = 1
+        state.update(
+            rc=rc, closed_at=now(), duration_seconds=time.monotonic() - started,
+            swap_samples=swaps, stop_signals=stopped, cleanup_errors=errors, head=manifest["head"],
+            receipt_path=str(ROOT / (label + "-receipt.json")), hard_bound_seconds=manifest["phases"][phase]["bound"],
+        )
+        try:
+            state.update(manifest_sha256=digest(ROOT / "manifest.json"), runner_sha256=digest(__file__))
+        except BaseException as error:
+            CLEANUP.issue(errors, "final receipt pins", error)
+            state["rc"] = rc = 1
+        try:
+            save(ROOT / (label + "-receipt.json"), state)
+        except BaseException as error:
+            CLEANUP.issue(errors, "final receipt save", error)
+            state["rc"] = rc = 1
+            print("CORE CLOSURE FAILURE " + json.dumps(state), file=sys.stderr, flush=True)
+    return rc
+
+if __name__ == "__main__":
+    raise SystemExit("Library only: use the exact reviewed adapter.")

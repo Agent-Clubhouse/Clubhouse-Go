@@ -1,0 +1,160 @@
+import time
+ENTRY_STARTED = time.monotonic()
+import hashlib, importlib.util, json, os, pathlib, signal, subprocess, sys
+
+ROOT = pathlib.Path(__file__).parent.resolve()
+SCRIPT = pathlib.Path(__file__).resolve()
+PREFIX = ['env','-u','COPILOT_CONNECTION_TOKEN','GIT_CONFIG_COUNT=1','GIT_CONFIG_KEY_0=safe.bareRepository','GIT_CONFIG_VALUE_0=all']
+
+def digest(path): return hashlib.sha256(pathlib.Path(path).read_bytes()).hexdigest()
+def read(path): return json.loads(pathlib.Path(path).read_text())
+def save(path,data):
+    temporary=path.with_suffix('.tmp');temporary.write_text(json.dumps(data,indent=2)+'\n');temporary.replace(path)
+
+def validate_review(manifest,approval):
+    artifact=approval['execution_review'];data=pathlib.Path(artifact['path']).read_bytes()
+    assert hashlib.sha256(data).hexdigest()==artifact['sha256']
+    report=json.loads(data);contract=manifest['review_contract']
+    assert report['head']==manifest['head'] and report['tree']==manifest['tree']
+    assert report['reviewer']==contract['reviewer'] and report['reviewer']!='ux-root'
+    assert report['scope']==contract['scope'] and report['verdict']==contract['verdict']
+    assert report['manifest_sha256']==digest(ROOT/'manifest.json')
+    required={str(SCRIPT),manifest['core_path'],manifest['worker_path'],manifest['bounded_supervisor'],manifest['owned_cleanup'],manifest['fifo_script'],manifest['package_fifo_script'],str(ROOT/'audit-native.py')}
+    assert required.issubset(manifest['executable_sha256'])
+    actual={p:digest(p) for p in manifest['executable_sha256']}
+    assert str(SCRIPT) in actual and actual[str(SCRIPT)]==manifest['adapter_sha256']
+    assert actual==manifest['executable_sha256']==report['executable_sha256']
+    assert report['phases']==manifest['phases']
+    data_paths={c['order_file'] for c in manifest['phases'].values() if 'order_file' in c}
+    if manifest.get('scoped_v2_map_path'):data_paths.add(manifest['scoped_v2_map_path'])
+    assert data_paths.issubset(manifest['data_sha256'])
+    assert all(digest(p)==d for p,d in manifest['data_sha256'].items())
+    return report
+
+def validate_original_phase(manifest,prior):
+    artifact=read(ROOT/(prior+'-original-acceptance.json'))
+    data=pathlib.Path(artifact['path']).read_bytes()
+    assert hashlib.sha256(data).hexdigest()==artifact['sha256']
+    report=json.loads(data)
+    assert report['verdict']=='PASS_EXACT_OWNED_PROOF_ORIGINALS' and report['phase']==prior
+    assert report['reviewer'] in ['go-bug-pass','Clubhouse-Go-Orchestrator']
+    assert report['head']==manifest['head'] and report['tree']==manifest['tree']
+    assert report['manifest_sha256']==digest(ROOT/'manifest.json')
+    assert report['executable_sha256']==manifest['executable_sha256']
+    assert report['rc']==0
+    label=manifest['phases'][prior]['label']
+    receipt=ROOT/(label+'-receipt.json');external=ROOT/(label+'-external-closure.json')
+    assert digest(receipt)==report['receipt_sha256'] and digest(external)==report['external_sha256']
+    assert read(receipt)['rc']==read(external)['rc']==0
+    assert read(receipt)['head']==manifest['head'] and read(receipt)['phase']==prior
+    assert read(receipt)['manifest_sha256']==digest(ROOT/'manifest.json') and read(receipt)['runner_sha256']==manifest['runner_sha256']
+    assert read(external)['head']==manifest['head'] and read(external)['phase']==prior
+    if prior=='A':
+        assert read(ROOT/'success-A.json')==read(receipt)
+        artifacts=read(receipt)['artifact_sha256'];assert len(artifacts)==5
+        assert all(digest(p)==d for p,d in artifacts.items())
+
+def validate_prior(manifest,phase):
+    for prior in manifest.get('prior_phases',{}).get(phase,[]):
+        validate_original_phase(manifest,prior)
+
+def validate_source_review(manifest):
+    binding=manifest['source_review']
+    assert digest(binding['path'])==binding['sha256']
+    report=read(binding['path'])
+    assert report['head']==manifest['head']
+    assert binding['verdict_key'] in ('verdict','source_verdict')
+    assert report[binding['verdict_key']]=='PASS_SOURCE_ONLY'
+
+def validate_historical_package(manifest):
+    if 'historical_package' not in manifest:return
+    binding=manifest['historical_package']
+    assert digest(binding['report_path'])==binding['report_sha256']
+    report=read(binding['report_path'])
+    assert report['head']==binding['head'] and report['auditor']=='go-bug-runner'
+    assert report['verdict']=='CORRECTED_D_ORIGINALS_PASS_SCOPED' and report['D_prerequisite_accepted'] is True
+    assert report['fresh_selected_subset']['methods']==43 and report['fresh_selected_subset']['expanded_executions']==62
+    assert report['boundary_records']['unique_complete_records']==25
+    assert report['coverage']['CompanionDomain']['passes'] is True and report['coverage']['ClubhouseTransport']['passes'] is True
+    assert report['resources_and_cleanup']['rc_receipt_coverage_outer_FIFO']==0
+    assert digest(binding['carry_path'])==binding['carry_sha256']
+    carry=read(binding['carry_path'])
+    assert carry['from_head']==report['head'] and carry['to_head']==manifest['head']
+    assert carry['accepted_D_report_sha256']==binding['report_sha256'] and carry['path_set_equal'] is True
+    assert carry['path_count']==len(carry['source_paths_sha256'])==416
+    assert all(manifest['source_sha256'][path]==value and digest(pathlib.Path(manifest['source'])/path)==value for path,value in carry['source_paths_sha256'].items())
+
+def load(name,path):
+    spec=importlib.util.spec_from_file_location(name,path);module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module);return module
+
+def fifo_launch(phase,label,manifest,stopped):
+    cancel=ROOT/(label+'-cancel.json');closure=ROOT/(label+'-outer-closure.json');errors=[]
+    with (ROOT/(label+'-fifo.log')).open('x') as log:
+        if stopped:raise RuntimeError('Stop before FIFO spawn')
+        command=PREFIX+[manifest['fifo_script']]
+        if manifest['phases'][phase]['kind']=='package':command += [manifest['package_fifo_script']]
+        command += [sys.executable,'-u',str(SCRIPT),'bounded',phase,label]
+        process=subprocess.Popen(command,stdout=log,stderr=subprocess.STDOUT)
+        while process.poll() is None:
+            try:
+                if stopped and not cancel.exists():save(cancel,{'stop_signals':stopped})
+            except BaseException as error:errors.append(repr(error))
+            try:process.wait(timeout=1)
+            except subprocess.TimeoutExpired:pass
+        after_fifo_exit=time.monotonic()
+    report={'phase':phase,'label':label,'head':manifest['head'],'fifo_rc':process.returncode,'after_fifo_exit_monotonic':after_fifo_exit,'errors':errors,'stop_signals':stopped,'rc':1}
+    try:
+        outer=read(closure);elapsed=after_fifo_exit-outer['outer_started_monotonic']
+        report.update(execution_outer_seconds=elapsed,outer_closure_sha256=digest(closure))
+        report['rc']=0 if process.returncode==outer['rc']==0 and elapsed<outer['outer_bound_seconds']==manifest['phases'][phase]['bound'] and not stopped and not cancel.exists() and not errors else 1
+    except BaseException as error:report['error']=repr(error)
+    save(ROOT/(label+'-external-closure.json'),report);return report['rc']
+
+def main():
+    os.umask(0o077);stopped=[]
+    signal.signal(signal.SIGTERM,lambda n,_f:stopped.append(n));signal.signal(signal.SIGINT,lambda n,_f:stopped.append(n))
+    mode,phase,label=sys.argv[1:4] if sys.argv[1] in ('launch','bounded') else ('core',*sys.argv[1:3])
+    manifest=read(ROOT/'manifest.json');config=manifest['phases'][phase]
+    assert config['label']==label and config['kind'] in ('package','build','UI','hosted')
+    assert manifest['simulator_name']==manifest['private_simulator']['name']
+    validate_review(manifest,read(ROOT/'review.json'));validate_source_review(manifest);validate_historical_package(manifest);validate_prior(manifest,phase)
+    if stopped or (ROOT/(label+'-cancel.json')).exists():raise RuntimeError('Stop before custom imports')
+    core=load('owned_supervision',manifest['core_path']);core.ROOT,core.SCRIPT,core.STOP_SIGNALS=ROOT,SCRIPT,stopped
+    core.CLEANUP=load('owned_cleanup',manifest['owned_cleanup'])
+    role='worker' if sys.argv[-1]=='--worker' else mode
+    with (ROOT/(label+'-'+role+'-claim.json')).open('x') as stream:json.dump({'head':manifest['head'],'phase':phase,'role':role,'started':ENTRY_STARTED},stream)
+    if role=='worker':
+        before_argv=sys.argv;before_root=os.environ.get('UX610_PROOF_ROOT')
+        try:
+            sys.argv=[str(manifest['worker_path']),phase,label];os.environ['UX610_PROOF_ROOT']=str(ROOT)
+            worker=load('owned_proof_work',manifest['worker_path'])
+        finally:
+            sys.argv=before_argv
+            if before_root is None:os.environ.pop('UX610_PROOF_ROOT',None)
+            else:os.environ['UX610_PROOF_ROOT']=before_root
+        worker.STOP_SIGNALS,worker.CLEANUP=stopped,core.CLEANUP
+        if stopped:raise RuntimeError('Stop before worker entry')
+        return worker.worker()
+    if mode=='core':
+        rc=core.core(phase,label,manifest)
+        if rc==0:save(ROOT/('success-'+phase+'.json'),read(ROOT/(label+'-receipt.json')))
+        return rc
+    if mode=='launch':
+        assert not (ROOT/'tickets'/label).exists()
+        assert not any((ROOT/(label+s)).exists() for s in ['-receipt.json','-progress.json','-creation.json','-core-started.json','-cancel.json','-outer-closure.json','-external-closure.json','-fifo.log'])
+        return fifo_launch(phase,label,manifest,stopped)
+    outer=load('owned_outer',manifest['bounded_supervisor']);outer.RUNNER,outer.CLEANUP=str(SCRIPT),core.CLEANUP
+    def inspect():return subprocess.check_output(['/bin/ps','-axo','pid=,ppid=,pgid=,command='],text=True,timeout=3).splitlines()
+    initial_ids={int(row.split(None,1)[0]) for row in inspect()}
+    if stopped or (ROOT/(label+'-cancel.json')).exists():raise RuntimeError('Stop before protected core spawn')
+    process=subprocess.Popen([sys.executable,'-u',str(SCRIPT),phase,label],start_new_session=True)
+    def recorded_group():
+        for suffix in ['-receipt.json','-core-started.json']:
+            path=ROOT/(label+suffix)
+            if path.exists():
+                record=read(path);assert record['head']==manifest['head'] and record['runner_sha256']==manifest['runner_sha256'];return record['owned_process_group']
+        raise RuntimeError('No complete owned worker receipt')
+    report=outer.supervise(process,root=ROOT,phase=phase,label=label,limit=config['bound'],started=ENTRY_STARTED,clock=time.monotonic,inspect_rows=inspect,group_signal=os.killpg,receipt_group=recorded_group,interrupted=lambda:bool(stopped) or (ROOT/(label+'-cancel.json')).exists(),simulator_inventory=core.devices,simulator_command=lambda action,uuid:subprocess.run(PREFIX+['xcrun','simctl',action,uuid],timeout=20).returncode,save_record=save,simulator_name=manifest['simulator_name'],initial_process_ids=initial_ids,native_phase=config['kind'] in ('UI','hosted'))
+    save(ROOT/(label+'-outer-closure.json'),report);return report['rc']
+
+if __name__=='__main__':sys.exit(main())

@@ -1,0 +1,41 @@
+#!/bin/bash
+# Fair FIFO runner for PACKAGE-ONLY Clubhouse-Go commands (swift test/coverage/policy; never xcodebuild or simulators). Runs alongside the main simulator lane.
+# Usage: /tmp/clubhouse-go-run.sh [--priority] <command> [args...]
+# Waiters are served in arrival order (priority tickets first). Only one heavy
+# command runs at a time; it holds /tmp/clubhouse-go-heavy.lock while running.
+set -u
+QUEUE=/tmp/clubhouse-go-pkg-queue
+LOCK=/tmp/clubhouse-go-pkg.lock
+mkdir -p "$QUEUE"
+PRIO=1
+if [ "${1:-}" = "--priority" ]; then PRIO=0; shift; fi
+TICKET="$QUEUE/$PRIO-$(python3 -c 'import time;print(time.time_ns())')-$$"
+: > "$TICKET"
+cleanup() {
+  rm -f "$TICKET"
+  if [ -f "$LOCK/pid" ] && [ "$(cat "$LOCK/pid" 2>/dev/null)" = "$$" ]; then
+    rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null
+  fi
+}
+trap cleanup EXIT
+trap 'exit 143' INT TERM
+while :; do
+  # Drop tickets whose owner process is gone.
+  for t in "$QUEUE"/*; do
+    [ -e "$t" ] || continue
+    p="${t##*-}"
+    ps -p "$p" >/dev/null 2>&1 || rm -f "$t"
+  done
+  # Reclaim a lock whose owner is gone.
+  if [ -d "$LOCK" ]; then
+    lp="$(cat "$LOCK/pid" 2>/dev/null)"
+    if [ -n "$lp" ] && ! ps -p "$lp" >/dev/null 2>&1; then rm -f "$LOCK/pid"; rmdir "$LOCK" 2>/dev/null; fi
+  fi
+  first="$(ls -1 "$QUEUE" | sort | head -1)"
+  if [ "$QUEUE/$first" = "$TICKET" ] && mkdir "$LOCK" 2>/dev/null; then
+    echo $$ > "$LOCK/pid"
+    break
+  fi
+  sleep 10
+done
+"$@"

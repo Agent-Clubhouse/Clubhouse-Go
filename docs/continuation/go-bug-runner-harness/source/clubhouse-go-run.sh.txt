@@ -1,0 +1,83 @@
+#!/bin/bash
+# Fair FIFO runner for heavy Clubhouse-Go simulator/xcodebuild commands on the shared host.
+# Usage: /tmp/clubhouse-go-run.sh [--priority] [--any-slot] <command> [args...]
+#
+# Two simulator slots (user-authorized 2026-11-16):
+#   slot 1 = /tmp/clubhouse-go-heavy.lock    (all tickets; compatible with older runner instances)
+#   slot 2 = /tmp/clubhouse-go-heavy-2.lock  (ONLY tickets started with --any-slot)
+# Pass --any-slot ONLY when the command uses its OWN simulator UUID, DerivedData,
+# result paths and package build dir that no other queued/running ticket shares.
+# Default tickets keep strict FIFO on slot 1. An --any-slot ticket may take slot 2
+# when every waiting ticket ahead of it is slot-1-only (backfill), else in FIFO order.
+# Slot 2 is admitted only with measured headroom: CPU idle >= 40%, memory free >= 30%, load < 48 (outer bound only; macOS load counts waiting threads, 64 seen at 69% idle).
+# Priority tickets (--priority) sort first. Package-only work uses /tmp/clubhouse-go-run-pkg.sh.
+set -u
+QUEUE=/tmp/clubhouse-go-queue
+S1=/tmp/clubhouse-go-heavy.lock
+S2=/tmp/clubhouse-go-heavy-2.lock
+mkdir -p "$QUEUE"
+PRIO=1; MODE=d
+while :; do
+  case "${1:-}" in
+    --priority) PRIO=0; shift ;;
+    --any-slot) MODE=a; shift ;;
+    *) break ;;
+  esac
+done
+TICKET="$QUEUE/$PRIO-$(python3 -c 'import time;print(time.time_ns())')-$MODE-$$"
+: > "$TICKET"
+MYLOCK=""
+cleanup() {
+  rm -f "$TICKET"
+  if [ -n "$MYLOCK" ] && [ -f "$MYLOCK/pid" ] && [ "$(cat "$MYLOCK/pid" 2>/dev/null)" = "$$" ]; then
+    rm -f "$MYLOCK/pid"; rmdir "$MYLOCK" 2>/dev/null
+  fi
+}
+trap cleanup EXIT
+trap 'exit 143' INT TERM
+reclaim() { # $1 lock dir: reclaim if owner gone
+  if [ -d "$1" ]; then
+    local lp; lp="$(cat "$1/pid" 2>/dev/null)"
+    if [ -n "$lp" ] && ! ps -p "$lp" >/dev/null 2>&1; then rm -f "$1/pid"; rmdir "$1" 2>/dev/null; fi
+  fi
+}
+load_ok() { # slot 2 admission guard (measured, not raw load): CPU idle >= 40% (1s sample),
+  # memory free >= 30%, and 1-min load < 48 as an outer bound on a shared 16-core host.
+  local l idle f
+  l=$(sysctl -n vm.loadavg | awk '{print $2}')
+  awk -v l="$l" 'BEGIN{exit !(l<48)}' || return 1
+  idle=$(top -l 2 -n 0 -s 1 2>/dev/null | awk '/CPU usage/ {v=$7} END {gsub("%","",v); print v}')
+  [ -n "$idle" ] && awk -v i="$idle" 'BEGIN{exit !(i>=40)}' || return 1
+  f=$(memory_pressure 2>/dev/null | awk -F': ' '/free percentage/ {gsub("%","",$2); print $2}')
+  [ -n "$f" ] && [ "$f" -ge 30 ]
+}
+take() { # $1 lock dir
+  if mkdir "$1" 2>/dev/null; then echo $$ > "$1/pid"; MYLOCK="$1"; return 0; fi
+  return 1
+}
+while :; do
+  for t in "$QUEUE"/*; do
+    [ -e "$t" ] || continue
+    p="${t##*-}"
+    ps -p "$p" >/dev/null 2>&1 || rm -f "$t"
+  done
+  reclaim "$S1"; reclaim "$S2"
+  h1="$(cat "$S1/pid" 2>/dev/null)"; h2="$(cat "$S2/pid" 2>/dev/null)"
+  ahead_total=0; ahead_any=0
+  for n in $(ls -1 "$QUEUE" | sort); do
+    [ "$QUEUE/$n" = "$TICKET" ] && break
+    p="${n##*-}"
+    { [ "$p" = "$h1" ] || [ "$p" = "$h2" ]; } && continue   # running holder, not waiting
+    ahead_total=$((ahead_total+1))
+    fields=$(echo "$n" | awk -F- '{print NF}')
+    if [ "$fields" -ge 4 ] && [ "$(echo "$n" | awk -F- '{print $3}')" = a ]; then ahead_any=$((ahead_any+1)); fi
+  done
+  if [ "$ahead_total" -eq 0 ]; then
+    take "$S1" && break
+    [ "$MODE" = a ] && load_ok && take "$S2" && break
+  elif [ "$MODE" = a ] && [ "$ahead_any" -eq 0 ]; then
+    load_ok && take "$S2" && break
+  fi
+  sleep 10
+done
+"$@"

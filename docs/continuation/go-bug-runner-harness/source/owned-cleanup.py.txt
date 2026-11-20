@@ -1,0 +1,139 @@
+import json
+import pathlib
+import re
+import signal
+import time
+
+UUID = re.compile(r"[0-9A-Fa-f]{8}(?:-[0-9A-Fa-f]{4}){3}-[0-9A-Fa-f]{12}")
+NAME = re.compile(r"[A-Za-z0-9._-]+-[0-9a-f]{32}")
+
+
+def issue(errors, stage, error):
+    errors.append({"stage": stage, "error": repr(error)})
+
+
+def creation_intent(root, label, name, inventory, save):
+    assert NAME.fullmatch(name), "Owned simulator name needs a unique nonce."
+    before = [device["udid"] for device in inventory]
+    assert len(before) == len(set(before))
+    assert not any(device["name"] == name for device in inventory), "Owned name already exists."
+    record = {"name": name, "before_ids": before, "create_started": True}
+    save(pathlib.Path(root) / (label + "-creation.json"), record)
+    return record
+
+
+def drain_group(group, process, inspect, send, *, clock=time.monotonic, sleep=time.sleep):
+    assert isinstance(group, int) and group > 1
+    errors, evidence = [], []
+    for stop in [signal.SIGTERM, signal.SIGKILL]:
+        if process is not None:
+            try:
+                process.poll()
+            except BaseException as error:
+                issue(errors, "owned leader poll", error)
+        try:
+            before = inspect(group)
+        except BaseException as error:
+            before = None
+            issue(errors, "owned group inspection", error)
+        if before == []:
+            return {"members_after": [], "errors": errors, "signals": evidence}
+        evidence.append({"signal": int(stop), "members_before": before})
+        try:
+            send(group, stop)
+        except ProcessLookupError:
+            evidence[-1]["concurrent_exit"] = True
+        except BaseException as error:
+            issue(errors, "owned group signal", error)
+        deadline = clock() + 10
+        while clock() < deadline:
+            if process is not None:
+                try:
+                    process.poll()
+                except BaseException as error:
+                    issue(errors, "owned leader reap", error)
+            try:
+                after = inspect(group)
+                if after == []:
+                    return {"members_after": [], "errors": errors, "signals": evidence}
+            except BaseException as error:
+                issue(errors, "owned group reinspection", error)
+            sleep(0.1)
+    try:
+        after = inspect(group)
+    except BaseException as error:
+        after = None
+        issue(errors, "final owned group inspection", error)
+    if after != []:
+        issue(errors, "owned group not drained", RuntimeError(str(after)))
+    return {"members_after": after, "errors": errors, "signals": evidence}
+
+
+def cleanup_simulator(root, label, name, state, inventory, command, save):
+    root = pathlib.Path(root)
+    errors = []
+    result = {"cleanup_errors": errors, "owned_simulator_deleted": False}
+    ledger_path = root / (label + "-creation.json")
+    if not ledger_path.exists():
+        if state.get("simulator_uuid"):
+            issue(errors, "missing owned creation intent", RuntimeError("UUID without baseline ownership proof"))
+        else:
+            result["owned_simulator_not_created"] = True
+        return result
+    try:
+        ledger = json.loads(ledger_path.read_text())
+        assert ledger["name"] == name and NAME.fullmatch(name)
+        assert ledger["create_started"] is True
+        before = ledger["before_ids"]
+        assert isinstance(before, list) and len(before) == len(set(before))
+        assert all(UUID.fullmatch(value) for value in before)
+        candidates = []
+        for value in [ledger.get("created_uuid"), state.get("simulator_uuid")]:
+            if value:
+                assert UUID.fullmatch(value) and value not in before
+                candidates.append(value)
+        creation = root / "tickets" / label / "create.log"
+        if creation.exists():
+            value = creation.read_text().strip()
+            if UUID.fullmatch(value):
+                assert value not in before
+                candidates.append(value)
+        assert len(set(candidates)) <= 1, "Inconsistent owned creation UUIDs; no guessed cleanup."
+        current = inventory()
+        matches = [device for device in current if device["name"] == name and device["udid"] not in before]
+        assert len(matches) <= 1, "Ambiguous unique-name creation delta; no deletion."
+        uuid = candidates[0] if candidates else (matches[0]["udid"] if matches else None)
+        if uuid is None:
+            raise RuntimeError("Creation intent exists but owned UUID is unresolved; absence is not proved.")
+        assert UUID.fullmatch(uuid) and uuid not in before
+        found = [device for device in current if device["udid"] == uuid]
+        assert len(found) <= 1 and (not found or found[0]["name"] == name), "UUID is not this owned simulator."
+        assert not matches or matches[0]["udid"] == uuid
+        result.update(simulator_uuid=uuid, ownership_name=name,
+                      ownership_basis="unique-name+before-IDs+owned-create-metadata")
+        ledger["created_uuid"] = uuid
+        try:
+            save(ledger_path, ledger)
+        except BaseException as error:
+            issue(errors, "persist recovered owned UUID", error)
+    except BaseException as error:
+        issue(errors, "recover owned UUID", error)
+        return result
+    if found:
+        actions = ["delete"] if found[0]["state"] == "Shutdown" else ["shutdown", "delete"]
+        for action in actions:
+            try:
+                rc = command(action, uuid)
+                if rc != 0:
+                    issue(errors, "owned " + action, RuntimeError("rc=" + str(rc)))
+            except BaseException as error:
+                issue(errors, "owned " + action, error)
+    try:
+        remaining = inventory()
+        result["owned_simulator_deleted"] = not any(device["udid"] == uuid for device in remaining)
+        result["booted_after"] = [device["udid"] for device in remaining if device["state"] == "Booted"]
+        if not result["owned_simulator_deleted"]:
+            issue(errors, "verify owned UUID absence", RuntimeError("Owned UUID remains"))
+    except BaseException as error:
+        issue(errors, "verify owned UUID absence", error)
+    return result
