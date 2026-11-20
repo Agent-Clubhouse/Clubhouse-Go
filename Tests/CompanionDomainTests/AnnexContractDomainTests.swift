@@ -196,7 +196,7 @@ final class ContractTransport: AnnexTransporting, @unchecked Sendable {
         // Capability-gated features, from the desktop's capabilities.
         #expect(host.canSpawn && host.canCreateDurable && host.canEditSettings && host.canAnswerHelperRequests)
         #expect(host.canSyncProjectState && host.canSyncFinishedQuick && host.canRevokeSession && host.canAnswerPersistentApprovals && host.canSetFreeAgentMode)
-        #expect(host.richContentAvailable && host.attachments?.maxCount == 10 && host.terminal != nil && host.canOrchestrate)
+        #expect(host.richContentAvailable == true && host.attachments?.maxCount == 10 && host.terminal != nil && host.canOrchestrate)
 
         // Helper requests, both kinds.
         #expect(host.helperRequests.map(\.kind) == [.start, .dispose])

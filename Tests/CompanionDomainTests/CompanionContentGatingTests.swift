@@ -5,11 +5,16 @@ import Testing
 
 @MainActor private final class ContentService: CompanionService {
     var fetched: [CompanionContentReference] = []
+    var resolved: [String] = []
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { .init(items: []) }
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
         fetched.append(reference)
         return .init(kind: "text", name: "a.swift", text: "let a = 1")
+    }
+    func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        resolved.append(href)
+        return .file(path: "a.swift", name: "a.swift", kind: "text", size: nil)
     }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { .init(clientCommandID: request.clientCommandID) }
     func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {}
@@ -79,20 +84,16 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
         #expect(CompanionContentReference.hintRowID(in: [rows[0], absolute], richContentAvailable: false) == rows[0].id)
     }
 
-    @Test func hintNamesTheDesktopSetting() {
-        #expect(CompanionContentReference.richContentOffHint.contains("Rich chat content"))
-        #expect(CompanionContentReference.richContentOffHint.contains("Experimental settings"))
-    }
 }
 
 @Suite @MainActor struct CompanionContentStoreTests {
     private let target = CompanionTarget(hostID: "studio", projectID: "p", agentID: "a")
-    private func store(rich: Bool, connection: CompanionConnection = .connected) -> (CompanionStore, ContentService) {
+    private func store(rich: Bool, connection: CompanionConnection = .connected, canResolveLinks: Bool = false) -> (CompanionStore, ContentService) {
         let service = ContentService()
         let store = CompanionStore(service: service)
         store.apply(.hosts([.init(id: "studio", name: "Studio Mac", endpoint: "studio.local", connection: connection, projects: [
             .init(id: "p", name: "P", agents: [.init(id: target, name: "A", subtitle: "", status: .working)])
-        ], richContentAvailable: rich)]))
+        ], richContentAvailable: rich, canResolveLinks: canResolveLinks)]))
         return (store, service)
     }
     private func message(_ body: () async throws -> Void) async -> String? {
@@ -118,6 +119,18 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
         #expect(service.fetched.isEmpty)
     }
 
+    @Test func deniedLocalLinksExplainTheRefusalWithoutResolvingOrReading() async {
+        for rich in [false, true] {
+            let (store, service) = store(rich: rich, canResolveLinks: true)
+            let roots = CompanionContentRoots(anyPath: !rich)
+            let error = await message {
+                _ = try await store.content(.link("/outside-secret.md"), target: target, contentRoots: roots)
+            }
+            #expect(error?.contains(rich ? "This conversation can't preview that file" : "Rich chat content is off on Studio Mac") == true)
+            #expect(service.resolved.isEmpty && service.fetched.isEmpty)
+        }
+    }
+
     @Test func offlineAsksToReconnect() async {
         let (store, service) = store(rich: true, connection: .offline)
         let error = await message { _ = try await store.content(.file("a.txt"), target: target) }
@@ -136,13 +149,30 @@ private let mediaRef = String(repeating: "b", count: 64) + ".png"
 @Suite @MainActor struct CompanionContentErrorMessageTests {
     @Test func desktopRefusalsBecomeSpecificMessages() {
         let missingFile = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .file("a.txt"), hostName: "Studio Mac")
-        #expect(missingFile.contains("Studio Mac") && missingFile.contains("missing, unreadable, or a folder"))
+        #expect(missingFile.contains("Studio Mac") && missingFile.contains("missing, unreadable, a folder, or unavailable for sharing"))
         let missingImage = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "content_unavailable"), reference: .image(mediaRef), hostName: "Studio Mac")
         #expect(missingImage.contains("image") && missingImage.contains("Studio Mac"))
         let agentGone = CompanionLiveService.contentErrorMessage(AnnexTransportError.rejected(status: 404, code: "agent_not_found"), reference: .file("a.txt"), hostName: "Studio Mac")
         #expect(agentGone.contains("agent"))
         #expect(CompanionLiveService.contentErrorMessage(AnnexTransportError.responseTooLarge, reference: .file("a.txt"), hostName: "Studio Mac").contains("too large"))
-        #expect(CompanionLiveService.contentErrorMessage(AnnexTransportError.forbidden, reference: .file("a.txt"), hostName: "Studio Mac").contains("Pair"))
+    }
+
+    @Test func previewAuthorizationRefusalsNeverPrescribeMobileControlOrRepairing() {
+        let errors: [AnnexTransportError] = [
+            .forbidden, .rejected(status: 403, code: "forbidden"),
+            .rejected(status: 403, code: "forbidden", message: "Mobile control is not granted.")
+        ]
+        for error in errors {
+            let messages = [
+                CompanionLiveService.contentErrorMessage(error, reference: .file("a.txt"), hostName: "Studio Mac"),
+                CompanionLiveService.linkErrorMessage(error, hostName: "Studio Mac")
+            ]
+            for message in messages {
+                #expect(message.contains("Studio Mac") && message.contains("didn't authorize this preview"))
+                #expect(!message.lowercased().contains("mobile control") && !message.lowercased().contains("pair"))
+            }
+        }
+        #expect(CompanionLiveService.readableError(AnnexTransportError.forbidden).contains("mobile control"))
     }
 }
 

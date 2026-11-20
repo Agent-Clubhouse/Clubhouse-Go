@@ -46,6 +46,19 @@ struct CompanionMarkdownTable: Equatable, Sendable {
 }
 
 enum CompanionMarkdown {
+    nonisolated static func markup(_ text: String) -> Document {
+        Document(parsing: CompanionTextLinks.markdownSource(text))
+    }
+
+    /// Plain message bodies share the bounded parse cache but retain their original visible source.
+    static func literal(_ text: String) -> AttributedString {
+        let key = "literal\u{0}\(text)" as NSString
+        if let cached = cache.object(forKey: key), case .paragraph(let value) = cached.document.blocks.first { return value }
+        let value = CompanionTextLinks.literal(text)
+        cache.setObject(Box(.init(blocks: [.paragraph(value)])), forKey: key)
+        return value
+    }
+
     /// Parses `text`, memoised per (text, streaming) so long transcripts don't re-parse on every render.
     static func document(_ text: String, streaming: Bool = false) -> CompanionMarkdownDocument {
         let key = "\(streaming ? 1 : 0)\u{0}\(text)" as NSString
@@ -61,7 +74,7 @@ enum CompanionMarkdown {
     /// become a setext underline or a rule) stays plain text until a blank line or the end of the turn settles it.
     static func parse(_ text: String, streaming: Bool = false) -> CompanionMarkdownDocument {
         let (settled, tail) = streaming ? splitUnsettledTail(text) : (text, nil)
-        var blocks = Document(parsing: settled).children.flatMap { Self.blocks(from: $0, imagesAsPlaceholders: false) }
+        var blocks = markup(settled).children.flatMap { Self.blocks(from: $0, imagesAsPlaceholders: false) }
         if let tail { blocks.append(.plain(tail)) }
         return .init(blocks: blocks)
     }

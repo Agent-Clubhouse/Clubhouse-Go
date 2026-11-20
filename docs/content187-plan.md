@@ -56,7 +56,7 @@ Issue 187 originally delivered PDFKit rendering without export. The separately r
 
 - `CompanionContent.pdfBytes` admits only `kind == "pdf"` without `tooLarge` and at most 8 MiB of bytes. This repeats the existing decoded-byte ceiling at the PDFKit entry point, including synthetic or injected content; it does not bound PDF rendering memory or time. Unknown kinds are already normalized to inert `other`, and MIME never selects PDFKit.
 - `PDFDocument(data:)` opens those bytes in memory; the document has no URL. A nil, locked or zero-page document throws a named `unavailable` error. Like the image decode failure, it offers Try again, because the desktop file may have changed. Go never asks for a PDF password.
-- `tooLarge` keeps the 8 MB message; a `pdf` without bytes keeps the generic unsupported-format text.
+- `tooLarge` names a preview size or image-dimension limit: the desktop may refuse decoded pixel dimensions even when compressed bytes are below 8 MiB. A `pdf` without bytes keeps the generic unsupported-format text.
 - Lifecycle reuses the sheet's load generation. `load()` clears the document before every fetch, including Try again, and assigns it only after the existing cancellation and `loadID` checks, with no suspension between those checks and the synchronous parse. Disappearance invalidates the generation and drops the document. `.sheet(item:)` gives a different reference a new view. `dismantleUIView` removes the document from PDFView before its delegate.
 - PDFView retains native scrolling, zoom and text-selection facilities. Same-document navigation, rendered usability and VoiceOver interaction require actual native validation; extracted text is not accessibility acceptance.
 
@@ -72,7 +72,17 @@ Different reference/folder pages have distinct identity; loading clears export s
 
 Focused domain checks cover unchanged original bytes, detected type, safe names and refusal of partial/oversized payloads. Hosted synthetic checks load PDF/large-image provider bytes and verify name/type/equality and separation between files. The opt-in native fixture records original content reads and, only after an explicit successful save, reads the user-selected phone-local result under its security scope to record filename/byte count/SHA256. It never reads a desktop or real phone file automatically; these markers are DEBUG and require both preview/content-acceptance and artifact-export flags. The proposed UI case cancels Files, explicitly saves both synthetic artifacts under On My iPhone, and presents/cancels Share without reloading. Fresh execution, byte-ledger comparison, actual destination/name/type pixels and independent review remain required before acceptance; source preparation is not proof of those paths.
 
+### Preview refusal diagnostics
+
+Missing or malformed `richContent.enabled` is unknown, not evidence that the user turned the setting off. Only literal `true` permits desktop reads; literal `false` can name the disabled setting. Live and archived status hints and direct Store/service refusals use the same diagnosis and current desktop location, **Settings > Agents & providers > Rich chat content**. A missing capability may require a desktop update.
+
+The desktop's `not_allowed` link result and `content_unavailable` route error can have several causes, so preview copy does not assert a sharing setting or missing image as a universal explanation. A preview-specific 403 asks the user to check this phone's access and desktop sharing; it never prescribes mobile control or re-pairing. Generic command/authentication error handling is unchanged.
+
+A recognized local-link tap opens the shared preview destination even when the conversation's hints currently refuse it. The Store's existing connection, literal-true rich-content and per-conversation roots gates then show the reason without calling desktop link/content reads. There is no external fallback. Authorized local previews and the inherited external URL forwarding are unchanged. The two DEBUG denial scenarios retain the full system-open ledger and add `MOBILE_LINK_PREVIEW_READ` records at the synthetic service boundary; native acceptance must reconcile zero read/open records for each complete launch, not just an immediate receipt label.
+
 ### Native actions
+
+The shared preview uses a standard labeled **Done** toolbar control, retaining its existing dismissal action and accessibility identifier. It does not force the conversation palette's icon-only foreground onto a system-presented sheet, whose appearance can differ. The common toolbar helper and other sheets are unchanged. Refusal UI checks require the labeled control to be fully on screen and tappable; both refusal screenshots still require actual visible-text review.
 
 PDFView.h (iOS 26.0 SDK) documents the URL-link callback's default as opening the URL with the system, and the remote go-to default as a beep. `CompanionPDFPreview.LinkGuard` implements both as separate no-ops. PDFView holds its delegate weakly; SwiftUI keeps the coordinator from `makeCoordinator` until `dismantleUIView`.
 

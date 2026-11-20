@@ -145,7 +145,7 @@ import Testing
         #expect(await h.transport.readRoutes.filter { $0.name == "chatContent" }.last?.filePath == "/work/app/docs/guide.md")
     }
 
-    @Test func missingAndNotAllowedAreNamedWithoutAmbiguity() async throws {
+    @Test func missingIsNamedButNotAllowedDoesNotGuessTheCause() async throws {
         let h = try await Self.harness()
         defer { h.stop() }
         await h.transport.setRead("chatLink", try ContractFixtures.body("chat-links.json", "missing"))
@@ -153,7 +153,7 @@ import Testing
         #expect(CompanionLinkError.missing(hostName: "Fixture").localizedDescription == "Not found on Fixture")
         await h.transport.setRead("chatLink", try ContractFixtures.body("chat-links.json", "notAllowed"))
         await #expect(throws: CompanionLinkError.notAllowed) { try await h.store.content(.link("private/a.md"), target: h.target) }
-        #expect(CompanionLinkError.notAllowed.localizedDescription == "Not shared with the phone")
+        #expect(CompanionLinkError.notAllowed.localizedDescription == "This target can't be previewed")
         // The service path words them the same way.
         await #expect(throws: CompanionLinkError.notAllowed) { try await h.service.content(.link("private/a.md"), target: h.target) }
         #expect(await h.transport.readRoutes.filter { $0.name == "chatContent" }.isEmpty)
@@ -167,7 +167,9 @@ import Testing
             do { _ = try await h.store.content(.link("a.md"), target: h.target); return nil } catch { return error.localizedDescription }
         }
         #expect(await refused(.rejected(status: 404, code: "agent_not_found")) == "This agent is no longer on Fixture.")
-        #expect(await refused(.rejected(status: 404, code: "content_unavailable"))?.hasPrefix("Rich chat content is off on Fixture.") == true)
+        let unavailable = await refused(.rejected(status: 404, code: "content_unavailable"))
+        #expect(unavailable?.contains("can't be previewed from Fixture") == true)
+        #expect(unavailable?.contains("Rich chat content is off") == false)
         #expect(await refused(.rejected(status: 404, code: "not_found")) == CompanionContentReference.linksNeedUpdate)
         #expect(await refused(.rejected(status: 400, code: "invalid_query")) == "This link can't be opened from the phone. Open it on Fixture.")
         await h.transport.setRead("chatLink", .object(["version": .integer(1), "type": .string("socket")]))
