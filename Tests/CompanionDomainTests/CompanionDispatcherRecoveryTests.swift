@@ -132,10 +132,24 @@ import Testing
 
     @Test func dismissalBeforeTaskStillInterruptsTheConfirmedVisibleSessionOnce() async throws {
         let h = try await start(); defer { h.stop() }
+        try await h.waitUntil {
+            h.store.agent(for: target)?.status == .idle && h.store.conversation(for: target).sessionID == "visible-session"
+        }
+        h.store.askDispatcherChatAction(.interrupt, target: target)
+        #expect(h.store.dispatcherChatPrompt == nil)
+        #expect(await h.transport.executed.isEmpty, "An idle visible chat cannot dispatch Interrupt")
+        print("DISPATCHER_RECOVERY_STATE idle target=\(target) session=\(h.store.conversation(for: target).sessionID ?? "nil") interrupt=\(h.store.dispatcherRecovery(for: target)?.canInterrupt == true)")
         await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot(session: "visible-session", fields: [
             "state": .string("working"), "capabilities": .object(["chat": .bool(true), "interrupt": .bool(true)])
         ]))
         await h.store.load(target, force: true)
+        // history() emits the working host asynchronously; await this target's actual observed state.
+        try await h.waitUntil {
+            h.store.agent(for: target)?.status == .working && h.store.agent(for: target)?.capabilities.contains(.cancel) == true
+                && h.store.conversation(for: target).sessionID == "visible-session"
+        }
+        #expect(h.store.dispatcherRecovery(for: target)?.canInterrupt == true)
+        print("DISPATCHER_RECOVERY_STATE working target=\(target) session=\(h.store.conversation(for: target).sessionID ?? "nil") interrupt=\(h.store.dispatcherRecovery(for: target)?.canInterrupt == true)")
         h.store.askDispatcherChatAction(.interrupt, target: target)
         let prompt = try #require(h.store.dispatcherChatPrompt)
         let claim = try #require(h.store.claimDispatcherChatAction(prompt))
