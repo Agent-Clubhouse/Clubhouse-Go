@@ -20,35 +20,56 @@ import Vision
                              "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers",
                              "--companion-preview-home-row-hit-area"] + flags, attempts: 1)
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.buttons[dispatchers[0].identifier].waitForExistence(timeout: 10))
+        XCTAssertTrue(app.tabBars.buttons["Home"].isSelected, "The fixture starts in actual Home")
+        // At XXXL the pinned Dispatchers are below Needs you and absent from AX until scrolled in.
+        XCTAssertTrue(app.collectionViews.firstMatch.waitForExistence(timeout: 10))
         return app
     }
 
     private func visibleCell(_ dispatcher: Dispatcher, in app: XCUIApplication) throws -> XCUIElement {
-        let row = app.buttons[dispatcher.identifier]
         for step in 0...8 {
-            XCTAssertTrue(app.navigationBars["Clubhouse"].exists, "Home must own the foreground rows")
+            let home = app.navigationBars["Clubhouse"]
+            XCTAssertTrue(home.exists && app.tabBars.buttons["Home"].isSelected,
+                          "Selected Home must own the foreground rows")
             XCTAssertFalse(app.buttons["companion-chat-header"].exists)
-            XCTAssertTrue(row.exists)
-            let owners = app.cells.containing(.button, identifier: dispatcher.identifier).allElementsBoundByAccessibilityElement
-            let cell = try XCTUnwrap(owners.count == 1 ? owners.first : nil, "One real Home cell owns this Dispatcher")
-            let viewport = CGRect(x: app.frame.minX, y: app.navigationBars["Clubhouse"].frame.maxY,
+            XCTAssertFalse(app.navigationBars["Settings"].exists)
+            let viewport = CGRect(x: app.frame.minX, y: home.frame.maxY,
                                   width: app.frame.width,
-                                  height: app.tabBars.firstMatch.frame.minY - app.navigationBars["Clubhouse"].frame.maxY)
-            let frame = cell.frame
-            XCTAssertLessThanOrEqual(frame.height, viewport.height, "The full row must fit before a tap")
-            if viewport.contains(frame) {
-                XCTAssertTrue(row.isHittable && row.isEnabled)
-                XCTAssertEqual(cell.buttons.matching(identifier: dispatcher.identifier).count, 1)
-                XCTAssertTrue(row.label.contains(dispatcher.name) && row.label.contains(dispatcher.desktop), row.label)
-                return cell
+                                  height: app.tabBars.firstMatch.frame.minY - home.frame.maxY)
+            XCTAssertGreaterThan(viewport.height, 44)
+            // Bind the actual foreground List, including when its target row is virtualized.
+            // Container hittability is not a row/tap oracle; require ownership and geometry instead.
+            let lists = app.collectionViews.allElementsBoundByAccessibilityElement.filter { list in
+                let shown = list.frame.intersection(viewport)
+                return !shown.isNull && shown.height > 44 && shown.width >= viewport.width - 1
+            }
+            let list = try XCTUnwrap(lists.count == 1 ? lists.first : nil, "One foreground Home List owns navigation")
+            let clip = list.frame.intersection(viewport)
+            let row = list.buttons[dispatcher.identifier]
+            var frame: CGRect?
+            if row.exists {
+                let owners = list.cells.containing(.button, identifier: dispatcher.identifier).allElementsBoundByAccessibilityElement
+                let cell = try XCTUnwrap(owners.count == 1 ? owners.first : nil, "One real Home cell owns this Dispatcher")
+                frame = cell.frame
+                XCTAssertLessThanOrEqual(cell.frame.height, clip.height, "The full row must fit before a tap")
+                if clip.contains(cell.frame) {
+                    XCTAssertTrue(row.isHittable && row.isEnabled)
+                    XCTAssertEqual(cell.buttons.matching(identifier: dispatcher.identifier).count, 1)
+                    XCTAssertTrue(row.label.contains(dispatcher.name) && row.label.contains(dispatcher.desktop), row.label)
+                    return cell
+                }
             }
             guard step < 8 else { break }
-            let upwards = frame.maxY > viewport.maxY
-            let distance = min(viewport.height * 0.3,
-                               (upwards ? frame.maxY - viewport.maxY : viewport.minY - frame.minY) + 12)
-            let y = viewport.minY + viewport.height * (upwards ? 0.8 : 0.2)
-            let start = coordinate(CGPoint(x: viewport.midX, y: y), in: app)
+            // A missing lazy row is below the initial viewport in this fixture. Once realized,
+            // its measured cell determines direction; no nonexistent row frame is queried.
+            let upwards = frame.map { $0.maxY > clip.maxY } ?? true
+            let distance = frame.map {
+                min(clip.height * 0.3, (upwards ? $0.maxY - clip.maxY : clip.minY - $0.minY) + 12)
+            } ?? clip.height * 0.3
+            XCTAssertGreaterThan(distance, 0)
+            let y = clip.minY + clip.height * (upwards ? 0.8 : 0.2)
+            let start = coordinate(CGPoint(x: clip.midX, y: y), in: app)
+            print("HOME_ROW_REVEAL step=\(step) host=\(dispatcher.host) list=\(list.frame) clip=\(clip) cell=\(String(describing: frame)) distance=\(upwards ? -distance : distance)")
             start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: upwards ? -distance : distance)),
                         withVelocity: .slow, thenHoldForDuration: 0.2)
         }
@@ -97,6 +118,8 @@ import Vision
 
     private func assertChat(_ dispatcher: Dispatcher, in app: XCUIApplication) {
         XCTAssertTrue(app.navigationBars[dispatcher.name].waitForExistence(timeout: 10), "The actual tap must open the requested Dispatcher")
+        XCTAssertTrue(waitFor(app.tabBars.buttons["Dispatch"], NSPredicate(format: "selected == true"), timeout: 5),
+                      "A pinned Dispatcher row selects its actual Dispatch tab")
         let identity = app.buttons["companion-chat-header"]
         XCTAssertTrue(identity.waitForExistence(timeout: 5))
         XCTAssertTrue(identity.label.contains(dispatcher.name) && identity.label.contains(dispatcher.desktop), identity.label)
@@ -105,10 +128,16 @@ import Vision
         print("HOME_ROW_OPEN host=\(dispatcher.host) agent=durable_dispatcher identity=\(identity.label)")
     }
 
-    private func backHome(_ app: XCUIApplication) {
-        app.navigationBars.buttons.element(boundBy: 0).tap()
+    private func returnHome(_ app: XCUIApplication) {
+        // Pinned Dispatchers select a tab, not a pushed Home route. The Dispatch
+        // navigation bar's leading action is Settings, so it is not a Back control.
+        let home = app.tabBars.buttons["Home"]
+        XCTAssertTrue(home.exists && home.isEnabled && home.isHittable)
+        home.tap()
+        XCTAssertTrue(waitFor(home, NSPredicate(format: "selected == true"), timeout: 5))
         XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 10))
         XCTAssertTrue(app.buttons["companion-chat-header"].waitForNonExistence(timeout: 5))
+        XCTAssertFalse(app.navigationBars["Settings"].exists, "Returning to Home must not open Settings")
     }
 
     func testTrailingBlankSpaceOpensEachPinnedDispatcherOnItsDesktop() throws {
@@ -118,7 +147,7 @@ import Vision
                 let locations = try points(dispatcher, in: app)
                 coordinate(trailing ? locations.blank : locations.middleBlank, in: app).tap()
                 assertChat(dispatcher, in: app)
-                backHome(app)
+                returnHome(app)
             }
         }
     }
@@ -129,7 +158,7 @@ import Vision
             let locations = try points(dispatcher, in: app)
             coordinate(locations.text, in: app).tap()
             assertChat(dispatcher, in: app)
-            backHome(app)
+            returnHome(app)
         }
         app.buttons["Settings"].tap()
         XCTAssertTrue(app.navigationBars["Settings"].waitForExistence(timeout: 5))
