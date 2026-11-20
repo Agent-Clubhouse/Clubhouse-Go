@@ -378,12 +378,20 @@ import UIKit
             XCTFail("A reading entry must intersect the viewport"); return
         }
         // A bound-by-index query changes identity when history is prepended. Re-query the same marker by label.
-        let anchor = app.staticTexts[candidate.label]
+        let markerLabel = candidate.label
+        let anchor = app.staticTexts[markerLabel]
         let before = anchor.frame.minY
+        let prependStarted = ProcessInfo.processInfo.systemUptime
         earlier.tap()
         XCTAssertTrue(waitFor(anchor, NSPredicate(format: "exists == true"), timeout: 5))
         guard waitForReadingRestoration(anchor, in: app, context: "History prepend") else { return }
-        XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, "Prepending history preserves the visible entry's pixel offset")
+        let after = anchor.frame.minY
+        let elapsed = ProcessInfo.processInfo.systemUptime - prependStarted
+        let measurements = XCTAttachment(string: "marker=\(markerLabel) before=\(before) after=\(after) elapsed=\(elapsed) displacement=\(after - before) limit=4")
+        measurements.name = "History prepend stabilized four-point measurements"
+        measurements.lifetime = .keepAlways
+        add(measurements)
+        XCTAssertEqual(after, before, accuracy: 4, "Prepending history preserves the visible entry's pixel offset")
         RunLoop.current.run(until: Date().addingTimeInterval(3))
         XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, "Streaming later content must not pull the reader down")
 
