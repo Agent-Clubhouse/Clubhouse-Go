@@ -498,3 +498,100 @@ assertion weakening, fixture shortcuts, unsafe reviewer aliases, human-gate
 bypasses, protected/default pushes, or new standalone runs. Continue bounded
 reviews and report real outcomes or concrete blockers. Private evidence transfer
 and the exact Mini acceptance are still outstanding.
+
+### Later independent source carries and NativeMenu first-T closure
+
+The bounded AppUpdate additive carry onto7540 is SOURCE-only accepted at
+`6b675853dd06dd94b259c9d39a0a7209de425214`,
+tree `f255045e814164343c08693bc42dcd94eff703ce`.
+Local canonical `dc18423d753a0b4b9088fca0714cdcb44775c67e`,4,590 bytes,
+SHA256 `8abf1027ac824adda240419657a4e07750ce6f61edebd986b0f6d623a6064b86`.
+Complete762 inventory: entire AppUpdate test and direct docs exactlyb3d,
+all other7540 modes/blobs unchanged. Actual b3d source5e31/nativeTa17c
+receipt bytes and metadata were verified, not a second full-original audit.
+Compiled-five metadata-only and unsupplied-full-raw-xcresult qualifications
+remain; local synthetic two-method26.0 proof is not integrated/hosted/cure.
+
+ReadingOpening initial58 diagnostic source
+`f3befc874a87840e358ca58a86b1a4c103e85f26` has local SOURCE canonical
+`65be05b1dead17e6031b5e2d3742de021fd85768`,3,385 bytes,
+SHA256 `b46c93bd74a3b28b95b94f42fe6b8facc74f1a2fb29bb0b612fc50dac72bbeef`.
+Original entire assertion helper/test inventory reconstruct byte-exactly:
+5s/full-below-banner oracle and gestures unchanged. Diagnostic is post-test,
+not failure-instant; opt-in DEBUG accessibility-value metadata resolves SUT
+category, and later live hittability has separate timestamps. Snapshot errors
+are diagnostic failures, not geometry/pass fallbacks. UNBUILT/UNRUN; frontend
+parse is not actor/type/SDK or native acceptance.
+
+Exact three-file additive carry onto6b675 is
+`93eb95ba15a40a78230ddfea699e5fd5d598527b`,
+tree `b3f2d8688a1b16d640b810a11bc737928b782c17`.
+Local canonical `1536abaac1923cfe84e66305672226503b851621`,3,280 bytes,
+SHA256 `d2494774ac90a06c2fb84d947cabcfa86184a59b38e6dbbe6e6da7c49050e34a`.
+All763 modes/blobs inventoried; other6b675 paths unchanged. Owner independently
+verified receipts and reports normal origin preservation of6b675/93eb.
+No new PR620 head, CI, CONFIG or native run was requested by these reviews.
+
+Sender full ordered3dda/ef65/bc40/4fde range additive carry onto93eb is
+SOURCE-only accepted at `45017f8d3e355684688326a18faad89558142079`,
+tree `cb2cfc90b7cfbcae995a1450bb75a09ace2748ca`.
+Local canonical `75ea19b226e1e096ac3294997b7ee5909b8e7e76`,4,424 bytes,
+SHA256 `e3057a0fe92da8cfec62bd76f58bdb6ff283d9a42a506639afdda4c71ac84d21`.
+Four ordered per-commit binary diffs and aggregate18,447-byte patch match source;
+patch SHA256 `e66a921b9b68d4eb5a979c89e2901329d47310b0422667779742a0a8ad8d116e`.
+Complete764 inventory: only Dispatcher UI test/direct docs change, entire files
+exactly4fde, all other93eb paths unchanged. Separate routed-copy case remains
+3,777 bytes/SHA256 `b1ba6345de273564ed1c88f2e116e8c230693002b3c89051d1e2a0abc9602421`;
+test names unchanged; exact frontend parse/diff passed. Actual sourceT98c18
+receipt14429B/07a65e5f verified with limitations retained verbatim: one local26.0
+method/one launch61.157s/source360; compiled-five metadata-only/priorA attribution,
+one partial-body image/no full-body/final-menu pixels, Copy exists but never
+tapped/no clipboard-action credit. Four-ULP numerical edge allowance is not
+same-revision/no-microscopic-motion proof. Original3dda/bc40 failures remain.
+Integrated45017 is UNBUILT/UNRUN; this is not design/native re-review or hosted
+acceptance. Remote45017 preservation has not yet been independently verified here.
+
+NativeMenu6179 first T independent full-original review is CLOSED **DEFERRED**,
+not an accepted native gate. Local canonical
+`7137e8e030787f96a42117e505993af373f0810a`,133,602 bytes,
+SHA256 `71d6d79f03d3ea72cf4a87bb5e6dce456f164d267306bd97887fa37d39f25d62`,
+reviewer go-bug-pass, `DEFER_EXACT_OWNED_PROOF_ORIGINALS`, phaseT/actualrc0,
+exact6179/tree208f/M8fc/full8/data/currentfive/receipt/external.
+Both native-semantic acceptance and genuine-T-installable flags are FALSE.
+All618 full originals561,833,402 bytes were rehashed, including entire actual
+five compiled products/raw xcresult/SDK/exports. Actual two methods once:
+Accessibility158.95274901390076 and Default101.12222099304199 seconds, each<240;
+true after-FIFO339.86544587509707<900. All34 resource samples/admission/pretest
+arithmetic, OS20/QuickPath/FIFO and recorded owned process/UUID cleanup correlate.
+No success-T slot is invented; receipt requires independent fixture/visual review.
+
+All64 full original PNGs00-63 were independently delivered and visually inspected,
+without refusals, montage/crop/rescale or borrowed owner pixel credit. Raw/export
+hashes and1206x2622 dimensions bind all images. Actual56 native AX/menu-photo
+pairs show eight initial full five/three label orders, unique original-order
+materialized subsequences after virtualization, and40 fully contained intended
+target captures. Neighboring offscreen rows can be clipped; no simultaneous
+all-rows-full-fit claim. Actual24 native pans have both recorded endpoints inside
+the preceding geometry clip; standard menus require zero pans. Snapshot, current
+live guards, full PNG and subsequent AX are sequential, not atomic evidence.
+Owner reportc5e3/53080B/c8d70f4b was verified separately:39 viewed/25 unviewed.
+
+Blocking missing proof: all four Cedar post-Done sequences assert only sheet
+absence and then terminate. Raw SDK yields rootPID/noMatches, zero subsequent
+Home query/full hierarchy or post-action image. First-light lazy Clubhouse label
+is insufficient; later fresh launches cannot establish prior Home return.
+This is missing acceptance evidence, NOT observed product failure. Complete
+per-step snapshot-button serialization versus separately observed native-query
+membership/order is also not supplied. Target/visible indices and later AX
+corroborate bounded observations, not hidden membership or same-revision equality.
+Runner independently verified actual deferred canonical bytes/metadata and did
+NOT consume/install it as accepted T.6179 remains outside integrated45017.
+
+Any successor explicit Cedar Home assertion/current full hierarchy/image and
+complete snapshot/query-membership observation needs separate scope. Sequential
+sample agreement must remain qualified; atomic equality cannot be manufactured
+from two public queries. No edit, rerun, reservation, allowance change, retry,
+hosted/CI repair, PR620 integration, landing, Mini wake/contact or transfer of
+ownership is authorized or implied. Originalab6 one240 failure/partialiteration2
+restart and all source/native/hosted distinctions remain. Private full canonical
+reports/originals stay local; sanitized pins are not remote-fetchability claims.
