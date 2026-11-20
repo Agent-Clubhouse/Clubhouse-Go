@@ -2,12 +2,13 @@
 
 **Incomplete diagnostic work, not a cure or landing report.**
 
-Repository: `Agent-Clubhouse/Clubhouse-Go`. Current owner: `go-bug-pass`.
-The parent has identified a Mini member, but successor readiness is blocked.
-Hold successor messages/wakes until parent/Tael verifies readiness. Ownership
-remains here until an authorized direct message confirms both the recipient's
-exact remote fetches and explicit acceptance. No worktree handoff, restart,
-release, or deletion is authorized by this note.
+Repository: `Agent-Clubhouse/Clubhouse-Go`. Current owner: `go-bug-pass`,
+STOP requested at04:17 Pacific. Parent reports Mini fetched the branches and
+conditionally accepted pending actual source STOP. This final brief establishes
+the source-side stop boundary after its preservation push and exact readback.
+Responsibility remains here until Mini rechecks the final refs and confirms
+takeover through the parent. No worktree handoff, restart, release, deletion or
+private-evidence disposal is authorized by this note.
 
 Begin wrapping by 05:00 Pacific; hard cutoff is 06:15 Pacific / 14:15 UTC.
 The 03:30 and 04:30 Pacific snapshots remain useful.
@@ -595,3 +596,52 @@ hosted/CI repair, PR620 integration, landing, Mini wake/contact or transfer of
 ownership is authorized or implied. Originalab6 one240 failure/partialiteration2
 restart and all source/native/hosted distinctions remain. Private full canonical
 reports/originals stay local; sanitized pins are not remote-fetchability claims.
+
+### Final owner brief: source STOP boundary
+
+Parent task `nov20-cutoff-mini-continuation-req_mwjpb47202bb` authorizes this
+final safe preservation and STOP. Source edits, pushes, CI submissions and
+overlapping watches cease after this note's final push/readback. No in-flight
+review, native run, build, FIFO ticket, CI submission or overlapping watch was
+started or left active by this agent during the final boundary. No process was
+interrupted. The native-menu review and all requested additive reviews are
+closed at their explicitly qualified verdicts above; no speculative successor
+implementation was started.
+
+Offered scopes and exact preserved source tips:
+
+| Scope | Branch | Full tip before final brief push |
+| --- | --- | --- |
+| Transport waiter diagnostics, root cause open | `bold-gazelle/diagnose-transport-progress` | `c53876fb2ddf0ed5128132a659277b3389c6663b` |
+| Hosted iPad Settings/History diagnostics, hosted successor acceptance open | `bold-gazelle/diagnose-hosted-ipad` | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78` |
+| Independent review continuation, typing/copy attribution and qualified native/source gates | `bold-gazelle/go-bug-pass-nov20-continuation` | `47ee71fb96f83924ee1f671546d7646b23d5f42d`; final brief commit and SHA256 supplied in STOP message |
+
+The same final brief covers all three scopes; direct STOP message binds the
+new continuation tip and exact full-file SHA256, avoiding a self-referential
+commit ID inside this document. All three live remote tips were rechecked at
+the boundary. No unique safe implementation/test WIP remains unpublished;
+only this sanitized note changed before its final commit. Historical local
+objects and ignored private evidence are not silently offered as remote source.
+
+Specifically retained laptop-only obligation: custody of private originals,
+full path-bearing canonical reports and local review scripts, until authorized
+private transfer and recipient verification or an explicit retention decision.
+This is evidence custody only, not permission for continued overlapping review,
+execution, CI or edits. Mini must not infer access from local Git blob IDs.
+Unfinished typing/copy attribution, transport root cause and hosted diagnostic
+successor acceptance remain parked, not completed or assigned a new cause.
+Parent/recipient decides any future evidence-dependent scope after takeover.
+
+Last evidence-requirement clarification, owner-reported from installed public
+SDK header: no documented batched query label/id/type serializer was established;
+depending on debugDescription as a test oracle is unsupported. Existing7137
+AX-text/photo correlations are diagnostic observations only, never a supported
+passing oracle. A second snapshot is not independent live-query evidence.
+Full snapshot serialization and explicit Cedar Home alone would not prove
+independent live membership or atomic equivalence. DEFER remains; no successor
+edit/run requested. Sender75ea actual4424B/e3057a0f was independently verified
+by its owner; owner also reports live verification of continuation47ee71fb.
+
+No Mini wake/contact, new CI/native action, assertion/allowance change, protected
+push, landing, release or disposal accompanied this STOP. Retain responsibility
+pending explicit final-ref takeover confirmation, without resuming stopped work.
