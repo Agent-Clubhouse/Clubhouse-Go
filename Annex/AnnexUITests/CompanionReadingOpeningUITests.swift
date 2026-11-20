@@ -98,11 +98,11 @@ import UIKit
                 node.children.forEach { collect($0, inTranscript: transcript) }
             }
             collect(root, inTranscript: false)
-            report["appFrame"] = NSStringFromCGRect(root.frame)
+            report["appFrame"] = NSCoder.string(for: root.frame)
             let keys = ["earlier", "latest", "nativeTrack", "banner", "transcript", "composer", "navigationBar", "fixtureEnvironment"]
             report["nodes"] = Dictionary(uniqueKeysWithValues: keys.map { key in
                 (key, (selected[key] ?? []).map { node in
-                    ["identifier": node.identifier, "label": node.label, "frame": NSStringFromCGRect(node.frame),
+                    ["identifier": node.identifier, "label": node.label, "frame": NSCoder.string(for: node.frame),
                      "value": node.value.map { String(describing: $0) } ?? "nil"]
                 })
             })
@@ -131,7 +131,7 @@ import UIKit
                 let top = max(offered.minY, max(banner.frame.maxY, navigation.frame.maxY))
                 let bottom = min(offered.maxY, composer.frame.minY)
                 report["usableViewportBasis"] = "transcript intersect app, below banner/navigation and above composer; Latest overlap recorded separately"
-                report["usableViewport"] = NSStringFromCGRect(CGRect(x: offered.minX, y: top, width: offered.width, height: max(0, bottom - top)))
+                report["usableViewport"] = NSCoder.string(for: CGRect(x: offered.minX, y: top, width: offered.width, height: max(0, bottom - top)))
             } else {
                 report["usableViewport"] = "unavailable: missing or ambiguous snapshot owners; inspect node arrays"
             }
