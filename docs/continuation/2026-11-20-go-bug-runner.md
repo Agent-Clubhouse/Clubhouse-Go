@@ -41,6 +41,51 @@ Source owners must preserve their own implementation branches. Remote availabili
 of these exact source commits is not established by a hash in this note.
 Never substitute a newer/main/rebased head for an accepted exact head.
 
+### Latest closed originals and explicit gaps
+
+Dispatcher edge4fde's first T now has qualified independent canonical
+`98c18a2591046ab0750808b96a9b4813f1b4557e`, T/rc0, actual one once Passed
+61.15722990036011s under the original360 allowance and 141.28993012476712s
+afterFIFO. All48/23009196 supplied original bytes/source758/full8/data/genuine
+A/configuration/current-product metadata/guards/recorded owned cleanup were
+rechecked. Seven snapshot/live pairs independently strictly fit the initial
+band and satisfy corresponding-edge4ULP; all seven matching-ID current SDK
+hittable results were bound. Ten actual SDK state records establish both long
+captions initially Expanded, each collapse, Cedar reexpansion while the second
+stays Collapsed, retained Expanded after viewport return/Refresh/Home-reopen,
+then final Cedar Collapsed. Exact final body query returns no matches; the
+post-single1.2s-press results tree contains Copy message. No Copy activation or
+clipboard evidence.
+
+The exact compiled helper additionally guards the next complete native
+hierarchy's row and original live frame inside its final clear band before
+successful return; actual native continuation corroborates those executed
+guards. **Final.clear was not separately printed or numerically reconstructed
+by this reviewer.** Do not substitute the independently recomputed initial
+band for that final hierarchy, or claim simultaneous AX revisions/no microscopic
+motion. The one entire original PNG was independently viewed and activity/time/
+hash bound: caption/avatar/expanded Helper report, with body continuing below
+Latest/dock. No full-body or final-menu pixels. Compiled-five reviewer access
+remains metadata-only. Both prior3dda/bc40 first reds stay immutable; this is
+qualified exact local26 evidence, not hosted/general-cure/integration/Mini credit.
+Canonical full message was delivered to UX; owner installation is not inferred.
+
+Native menu6179 retains two first raw passes, four actual SUT launches, eight
+single-row presses, eight Details taps and eight Done taps. **All four post-Cedar
+Home returns remain DEFERRED**: source explicitly checks Home only after
+Juniper; Cedar ends after sheet disappearance/termination. The inspected native
+root-PID/no-sheet responses and a lazy Clubhouse label do not close actual Home
+hierarchy/visibility/action proof. This is a contract/evidence gap, not a
+demonstrated product failure; no source edit or rerun requested.
+
+Owner actually viewed39 entire original PNGs;25 image-reader refusals were
+unviewed and receive no pixel credit or capacity workaround. The bounded owner
+receipt `c5e3f623d742064fc60e9621a34c60862961ca21` is not independent semantic/
+pixel acceptance. Genuine go-bug-pass first-T full-originals review remains
+in progress; reported raw two successes/64 full PNG byte bindings and independently
+viewed originals do not yet constitute a canonical result. Preserve original
+ab6's one240 failure/raw iteration2 restart separately.
+
 ## Preserved custom harness source
 
 `go-bug-runner-harness/source/` contains byte-for-byte source snapshots with
@@ -205,6 +250,9 @@ before a counterpart can consume the payloads.
 | Native menu6179 first A complete originals | `f1395aed4416d78d3403f6341574b867f5bc55f9` / `f4b9fda38afc531919d90e1c316252dcea09a93bcca3c12a4f017a2fea3ee5f1`; all40/242945163 private bytes including entire actual5 compiled originals/source762/genuine config/full raw build/deinit/policy/claims/guards/closures |
 | Native menu6179 genuine first A acceptance | `9a1044cb0a2e6bbfe713f09d1eba16e5549e246e` / `2638d64631a6848454beafb48c0fb85d8465475c3de5d0c2f1f955ad5a6a3a46`; UTF-8 JSON 10715 bytes; PASS_EXACT_OWNED_PROOF_ORIGINALS/A/rc0/full40/entireactual5, no native or currentness/action/pixel/timing/cure acceptance |
 | Native menu6179 first T complete retained originals | `85ce227b5e7fd6291dda48387f0641509d2a7bcd` / `140363b966c0544687208ee019307f02f919ace924786199802164a55c575449`; all618/561833402 private bytes/64 PNG files/raw bundle/SDK diagnostics/genuine A/entire5 retained; independent native-original acceptance PENDING, no summary/pure-source substitute |
+| Native menu6179 bounded owner observations, not independent acceptance | `c5e3f623d742064fc60e9621a34c60862961ca21` / `c8d70f4b7adb32c67c88ccaa8a0e3ce21fcb8525a490fc975dfd323f846a070a`; UTF-8 JSON53080 bytes;39 actually viewed/25 reader-refused originals, four Cedar Home returns deferred |
+| Dispatcher edge4fde first T supplied originals | `1720c134ace74440787d69ad593796ab40ae288d` / `ea4abe5053f46332279fc2942cb7a42ec264ac9c968e72991ffee992974427fa`; all48/23009196 bytes rehashed; one original PNG actually fully viewed, source758/current8/current-five metadata bound |
+| Dispatcher edge4fde qualified first T acceptance | `98c18a2591046ab0750808b96a9b4813f1b4557e` / `07a65e5f790557b23fbe7f6d3be97668796d3c1c0116e8367643a80069b98c82`; UTF-8 JSON14429 bytes; PASS_EXACT_OWNED_PROOF_ORIGINALS/T/rc0 with explicit final-hierarchy guard versus numeric-dump, partial-body, no-Copy-activation and local-platform limits |
 | Linked Home focused first-red originals | `8b08603637f9436fc39a3eaa7a738d6b51a7e5ad` / `aa28db2a9d747f3295a7b85e6a0cd334a55beb5c575e10c0ee2f759a50cacc70`; all67/17818134 supplied bytes rehashed; larger1332 index `623459196191033a519de068a31abf92f81d0681` / `69a93dcfdea0c43fc5757e075d4290f69bbccce8fbfba2aa8acecc4b7355cea3` identity-only |
 | Linked Home first-red corroboration | `56c75ed1c0611f0abf8312da07079a9d764c2237` / `456f8aa3270581f793b4d4c50a38b5caad87fa4543488691904f6ca7aaa2bb96`; UTF-8 JSON 5470 bytes; CORROBORATED_FIRST_NATIVE_FAILURE, acceptancefalse/T/rc1, no positive/successor approval |
 | Dispatcher focused first-red originals | `44e9e54609010398a9ef26aec0b0dcdcdf985751` / `1ab7eede19b49b0c3b57afaca6601fda0951a35d4e4a5a9d5dce43a8e42f591d`; all88/74480375 supplied bytes rehashed; larger1351 index `9454107fe55a6a444016130f3b0b433598cd5af6` / `8a02fe685e799a8ed5cc1de9d6054f3a33e0eec34ca49b1487caeaf1b9a9a26a` identity-only |
