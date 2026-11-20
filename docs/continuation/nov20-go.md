@@ -27,3 +27,11 @@ Fetch each branch from origin and compare its commit to the latest owner receipt
 | go-feedback-review | go-feedback-review/integrate-620-next | 3980cf4445e51d9a554eb5ab08703ecfecd639d3 | Future integration with hosted diagnostics. Further review and CI pending. |
 
 Both refs verified directly on origin. Neither assignment has transferred to a Mini receiver.
+
+| Laptop owner | Remote branch | Verified SHA | Status |
+|---|---|---|---|
+| ux-root | ux-root/provider-v2-ci-repair | 434e6a969a4e12adb3dceec2e6c0ab59710596c0 | SE large-text test passed locally in 91s. Phone and SE capture review and hosted 26.5 proof remain. |
+| ux-root | ux-root/ci-app-update | b3d95526800b91101b435c75ff6a01633b9c59b6 | Both simulator tests passed once. Independent native results review pending. |
+| ux-root | ux-root/ci-linked-home | a343b26997e6f4b0b2e86ee2c62ac74335a072d1 | Test-only. Independent source review passed. Verify Expanded on tab return and Collapsed on relaunch. |
+
+CI exception on #620: dispatcher/settings job 136135075405 exceeded 55 minutes. Inspect the completed original job log for interrupted and unstarted tests before rebalancing. The existing forecast underestimated this lane.
