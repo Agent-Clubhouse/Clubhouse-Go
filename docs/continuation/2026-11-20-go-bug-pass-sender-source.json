@@ -1,0 +1,22 @@
+{
+  "reviewer": "go-bug-pass",
+  "scope": "ci-dispatcher-sender-fold-source",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "3dda22673aff9b5c10c8e33518b04a5d27af6a60",
+  "tree": "59792d494e1b77672d730f0b8024beb93737b8bb",
+  "base": "ab6c7149416e50ca259aa135289e5d7b668427dc",
+  "source_sha256": "4ab357d38961bb1150655d055217984805144e9de4019866411cccb3400c99eb",
+  "verified": {
+    "entire_base_file_reconstructed_by_reversing_only_private_helper_and_7_ID_arguments": true,
+    "all_other_cases_including_routed_copy_290_325_byte_unchanged": true,
+    "UITestSupport_byte_unchanged_sha256": "a86644619cf83a02516824148c13602d6e720701fa64f252e0898d0b19ca9979",
+    "snapshot_geometry": "Complete native application snapshot traverses children; one navigation bar/exact zero-or-one caption identity guard. Same header/banner/composer/activity/keyboard/tabbar/pinned/latest overlay categories and8pt clearances. All-match bounds are conservative relative to prior firstMatch geometry, not weaker.",
+    "full_fit_and_currentness": "Nonzero complete caption must fit clear band, then real exists/ID/frame/hittability. Fresh full snapshot must retain identical caption frame inside its own current clear band before return; no cross-revision caption/chrome geometry success.",
+    "gesture": "At most20 pans per call/140 across7; original .05 press/.slow/.2 hold,30\u201370% positions and direction preserved. One snapshot for each pan observation plus final complete verification only on potential success.",
+    "oracles": "Entire sender case outside7literalID arguments unchanged, including360s allowance/launch policy/scroll-top/fold/expanded/collapsed labels/values/body/menu/refresh/navigation. Snapshot errors/ambiguity/invalid viewports fail explicitly; no fallback/tap/reexpand.",
+    "swift_parse": 0,
+    "diff_check": 0
+  },
+  "limits": "SOURCE ONLY; no build/typecheck/native/run/config/worker/FIFO/simulator/original-bundle/media acceptance. Snapshot traversal is source-complete but actual new SDK/native realizations, query durations/hittability/current fields and first-pass timing remain to be observed. No guarantee of360s under arbitrary load, no app collapse/missing-state/copy/shared-focus cause or hosted cure credit. Original incomplete bundle must not be repaired synthetically. Separate prospective config must bind its actual allowance360 delta from common240 worker and all independent fresh-A/native gates before any run."
+}
