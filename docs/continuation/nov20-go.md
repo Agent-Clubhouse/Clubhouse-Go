@@ -66,3 +66,37 @@ Sender-row successor: origin/ux-root/ci-dispatcher-fold at 3dda22673aff9b5c10c8e
 Tael verified all three sender-row text records from the original #620 CI job after saving and rereading them. Private data custody is 3 of 6 records (35,678 of 160,124 bytes). The Footer review and two Pinned Decision payloads await their separate manifest receipts. Laptop originals and assignment ownership remain with the source team.
 
 Provider 434 SE capture tests passed once each on local iOS 26.0 (53.844s and 32.358s). Owner observed the complete proposed-effort row after one pan and a disabled Start with its reason. Independent review of the ten original images and event record is pending before updating #616. Hosted 26.5 and integrated checks remain open.
+
+## 03:30 Pacific preservation checkpoint
+
+The following live origin snapshot supersedes earlier branch tips. Named checkout checks cover tracked and nonignored changes; ignored proof artifacts are handled separately.
+
+| Assignment branch or owner notes | Origin SHA | Local tip | Named checkout |
+|---|---|---|---|
+| bold-gazelle/fix-591-send-contrast | `9df534fbdc1b3785666c4b05664bde27bcd15181` | matches | no named checkout |
+| bold-gazelle/fix-480-options-read | `19bfbb5565b937303cacffe614b62a9b18c38c7b` | matches | no named checkout |
+| bold-gazelle/fix-609-feedback-renewal | `6873f2923c5d8688bca8858675813c03e0858094` | matches | no named checkout |
+| go-feedback-review/mobile-tappable-links | `0258e49cf24b0c91707acae671bdd52ce872cc38` | matches | clean |
+| ux-root/provider-v2-610-integration | `434e6a969a4e12adb3dceec2e6c0ab59710596c0` | differs; verify unique commits | clean |
+| bold-gazelle/fix-preview-visible-dismissal | `f65b129790442542a89f9dca47f6dd00d6c36342` | matches | clean |
+| bold-gazelle/mobile-artifact-save-share | `f63618f33cb142b072dfecc183e203b925edc563` | matches | clean |
+| go-feedback-review/integrate-ci-links | `ab6c7149416e50ca259aa135289e5d7b668427dc` | matches | clean |
+| go-feedback-review/home-row-hit-area-r2 | `44232736ded1e7ad4c56667cd90dba503d3013c6` | matches | clean |
+| ux-root/dispatcher-recovery | `f576fca31028f556f18acb7204bcd6d8d4a3e63e` | matches | clean |
+| go-feedback-review/repair-620-first-outcomes | `026688254361e5cb1ee09ee5430df6973462a179` | matches | clean |
+| go-feedback-review/integrate-620-next | `7540be2108510545899d5d4b60890a5118532a90` | matches | clean |
+| go-feedback-review/repair-native-menu-snapshot | `6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716` | matches | clean |
+| ux-root/provider-v2-ci-repair | `434e6a969a4e12adb3dceec2e6c0ab59710596c0` | matches | clean |
+| ux-root/ci-app-update | `b3d95526800b91101b435c75ff6a01633b9c59b6` | matches | clean |
+| ux-root/ci-linked-home | `504b9c926e33d8823a183155d675cf36b4f7bf3a` | matches | clean |
+| ux-root/ci-dispatcher-fold | `4fde2a033976ce6ca969889b8ed0f1764aa99c8a` | matches | clean |
+| bold-gazelle/diagnose-transport-progress | `c53876fb2ddf0ed5128132a659277b3389c6663b` | matches | no named checkout |
+| bold-gazelle/diagnose-hosted-ipad | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78` | matches | clean |
+| go-feedback-review/nov20-continuation-notes | `af3060679ba75cb3fb5fb8c9134a9ce69923a71f` | matches | clean |
+| ux-root/continuation-nov20 | `b5740925c0250da1c192a9db357f905f54480d6b` | matches | clean |
+| bold-gazelle/go-bug-pass-nov20-continuation | `860371868d605c6408a6a247f4ba1cb868264e57` | matches | clean |
+| bold-gazelle/proof-runner-continuation-nov20 | `1b573901e1f2b42c5b80d32227ba338a47227fba` | matches | clean |
+
+All ten listed PRs remain open. #620 finished red (7 failing checks, 2 cancelled). Its archive-header method passed in 30.111s; a separate largest-text pinned-banner assertion failed three times. Integration owner assigned that diagnosis. #622 had 11 hosted package cases pass and zero starts for its two UI cases. #616 now publishes 434; hosted checks remain incomplete. Linked Home 504b passed its local case across two launches. Current sender and menu builds do not establish native acceptance. Consult the latest owner-notes tips above for phase-specific evidence.
+
+Mini has accepted zero Go assignments. Tael confirmed private custody of four data records (41,052/160,124 bytes). Source owner screened the remaining two original UTF-8 JSON exports; the orchestrator independently verified byte counts, hashes, JSON and credential-pattern screening and notified Navi. Await recipient receipts for those 119,072 bytes. Original binary, screenshot and simulator-dependent re-audit remains deferred. No simulator setup retry. Laptop owners retain responsibility.
