@@ -143,7 +143,7 @@ jobs:
           path: |
             swift-test-toolchain.log
             swift-package-tests.log
-            swift-package-results.xml
+            swift-package-results*.xml
           retention-days: 7
 
   build:

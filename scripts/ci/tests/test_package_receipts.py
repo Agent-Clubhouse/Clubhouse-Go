@@ -39,7 +39,7 @@ class PackageReceiptTests(unittest.TestCase):
             self.assertEqual((root / "swift-package-results.xml").read_text(), "<inert-probe/>\n")
         upload = workflow.split("      - name: Upload original package test receipts\n", 1)[1].split("\n  build:", 1)[0]
         self.assertIn("if: always()", upload)
-        for path in ["swift-test-toolchain.log", "swift-package-tests.log", "swift-package-results.xml"]:
+        for path in ["swift-test-toolchain.log", "swift-package-tests.log", "swift-package-results*.xml"]:
             self.assertIn(path, upload)
         return result
 
@@ -58,6 +58,20 @@ class PackageReceiptTests(unittest.TestCase):
             log = (pathlib.Path(directory) / "swift-test-toolchain.log").read_text()
             self.assertIn("inert toolchain failure probe", log)
             self.assertNotIn("unexpected later command", log)
+
+    def test_upload_retains_requested_and_swift_testing_sidecar_names(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        upload = workflow.split("      - name: Upload original package test receipts\n", 1)[1].split("\n  build:", 1)[0]
+        paths = upload.split("          path: |\n", 1)[1].split("          retention-days:", 1)[0]
+        patterns = [line.strip() for line in paths.splitlines() if line.strip()]
+        # These are inert filename fixtures, not authentic XML or execution receipts.
+        expected = {"swift-package-results.xml", "swift-package-results-swift-testing.xml"}
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            for name in expected:
+                (root / name).write_text("inert artifact-selection fixture")
+            selected = {p.name for pattern in patterns for p in root.glob(pattern)}
+            self.assertEqual(selected, expected)
 
     def test_failed_package_retains_receipts_and_nonzero_exit(self):
         self.assertEqual(self.run_package_step(65).returncode, 65)
