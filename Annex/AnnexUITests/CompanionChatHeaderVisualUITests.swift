@@ -305,27 +305,57 @@ import XCTest
                 let shown = frame.intersection(clip)
                 if !shown.isNull, shown.height > 0, leaf.isHittable { spans.append((shown.minY - frame.minY, shown.maxY - frame.minY)) }
             }
-            func readTo() -> CGFloat {
-                var end: CGFloat = 0
-                for span in spans.sorted(by: { $0.0 < $1.0 }) where pixelAligned(span.0) <= pixelAligned(end) { end = max(end, span.1) }
-                return pixelAligned(end)
-            }
             let origin = app.coordinate(withNormalizedOffset: .zero)
-            func point(_ fraction: CGFloat) -> XCUICoordinate {
-                origin.withOffset(CGVector(dx: clip.midX - app.frame.minX, dy: clip.minY + clip.height * fraction - app.frame.minY))
-            }
             record()
             var drags = 0
-            while drags < 10, scroll.exists, readTo() < height {
-                // A short drag inside the visible details, held at the end so it doesn't fling past unread text.
-                let above = leaf.frame.maxY <= clip.minY
-                point(above ? 0.3 : 0.7).press(forDuration: 0.05, thenDragTo: point(above ? 0.7 : 0.3),
-                                               withVelocity: .slow, thenHoldForDuration: 0.3)
+            while drags < 10, scroll.exists, detailReadEnd(spans) < height {
+                // Return to the first unread point after an overshoot. Testing whether the
+                // *whole* leaf is above the clip kept scrolling past a gap in a tall label.
+                let frame = leaf.frame
+                let covered = detailReadEnd(spans)
+                let offset = detailDragOffset(frame: frame, clip: clip, covered: covered)
+                let start = origin.withOffset(CGVector(dx: clip.midX - app.frame.minX, dy: clip.midY - app.frame.minY))
+                print("HEADER_DETAIL_READ id=\(id) drag=\(drags) covered=\(covered) height=\(height) frame=\(frame) clip=\(clip) offset=\(offset)")
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: offset)),
+                            withVelocity: .slow, thenHoldForDuration: 0.3)
                 drags += 1
                 record()
             }
-            XCTAssertGreaterThanOrEqual(readTo(), height, "\(id) is read in full in the details: \(spans), height \(height), clip \(clip)")
+            XCTAssertGreaterThanOrEqual(detailReadEnd(spans), height, "\(id) is read in full in the details: \(spans), height \(height), clip \(clip)")
         }
+    }
+
+    private func detailReadEnd(_ spans: [(CGFloat, CGFloat)]) -> CGFloat {
+        var end: CGFloat = 0
+        for span in spans.sorted(by: { $0.0 < $1.0 }) where pixelAligned(span.0) <= pixelAligned(end) {
+            end = max(end, span.1)
+        }
+        return pixelAligned(end)
+    }
+
+    private func detailDragOffset(frame: CGRect, clip: CGRect, covered: CGFloat) -> CGFloat {
+        let firstUnreadY = frame.minY + covered
+        let desiredY = clip.minY + clip.height * 0.2
+        let maximumStep = clip.height * 0.25
+        return min(maximumStep, max(-maximumStep, desiredY - firstUnreadY))
+    }
+
+    func testDetailScrollReturnsToAnUnreadSpanAfterOvershoot() {
+        // Original 26.5 first-failure spans: 89.33...100pt was never visible.
+        let clip = CGRect(x: 16, y: 124, width: 370, height: 79 + 1.0 / 3)
+        let height: CGFloat = 119 + 2.0 / 3
+        let spans: [(CGFloat, CGFloat)] = [(0, 67 + 1.0 / 3), (10, 89 + 1.0 / 3), (100, height)]
+        let covered = detailReadEnd(spans)
+        XCTAssertEqual(covered, pixelAligned(89 + 1.0 / 3))
+        let frame = CGRect(x: 16, y: clip.minY - 100, width: 370, height: height)
+        let offset = detailDragOffset(frame: frame, clip: clip, covered: covered)
+        XCTAssertGreaterThan(offset, 0, "Scroll back toward the gap even while the leaf still intersects the clip")
+        XCTAssertLessThanOrEqual(abs(offset), clip.height * 0.25)
+        XCTAssertTrue(clip.contains(CGPoint(x: clip.midX, y: clip.midY + offset)))
+        let moved = frame.offsetBy(dx: 0, dy: offset)
+        let visible = moved.intersection(clip)
+        let newlyRead = (visible.minY - moved.minY, visible.maxY - moved.minY)
+        XCTAssertEqual(detailReadEnd(spans + [newlyRead]), pixelAligned(height), "The missing span is filled, without crediting a hole")
     }
 
     func testDarkWorkingKeyboardDownAndUp() {
