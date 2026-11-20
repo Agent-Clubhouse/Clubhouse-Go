@@ -335,8 +335,11 @@ import XCTest
 
     private func detailDragOffset(frame: CGRect, clip: CGRect, covered: CGFloat) -> CGFloat {
         let firstUnreadY = frame.minY + covered
-        let desiredY = clip.minY + clip.height * 0.2
-        let maximumStep = clip.height * 0.25
+        // Leave the first unread point in the middle of the viewport. On the original 76pt
+        // viewport, a 19pt request moved only 9pt; ten corrective gestures still left a gap.
+        // Use the actual available travel while keeping both endpoints 8pt inside the clip.
+        let desiredY = clip.midY
+        let maximumStep = max(0, clip.height / 2 - 8)
         return min(maximumStep, max(-maximumStep, desiredY - firstUnreadY))
     }
 
@@ -350,12 +353,30 @@ import XCTest
         let frame = CGRect(x: 16, y: clip.minY - 100, width: 370, height: height)
         let offset = detailDragOffset(frame: frame, clip: clip, covered: covered)
         XCTAssertGreaterThan(offset, 0, "Scroll back toward the gap even while the leaf still intersects the clip")
-        XCTAssertLessThanOrEqual(abs(offset), clip.height * 0.25)
+        XCTAssertLessThanOrEqual(abs(offset), clip.height / 2 - 8)
         XCTAssertTrue(clip.contains(CGPoint(x: clip.midX, y: clip.midY + offset)))
         let moved = frame.offsetBy(dx: 0, dy: offset)
         let visible = moved.intersection(clip)
         let newlyRead = (visible.minY - moved.minY, visible.maxY - moved.minY)
         XCTAssertEqual(detailReadEnd(spans + [newlyRead]), pixelAligned(height), "The missing span is filled, without crediting a hole")
+
+        // Original dbf local 26.0 host tag: native pans left a second gap. Its original spans
+        // stay uncredited until a new observed position actually exposes the missing text.
+        let hostClip = CGRect(x: 16, y: 124, width: 370, height: 76)
+        let hostHeight: CGFloat = 31 + 1.0 / 3
+        let hostSpans: [(CGFloat, CGFloat)] = [(0, 1 + 1.0 / 3), (28, hostHeight), (19, hostHeight), (10, hostHeight)]
+        let hostCovered = detailReadEnd(hostSpans)
+        XCTAssertEqual(hostCovered, pixelAligned(1 + 1.0 / 3))
+        let host = CGRect(x: 28, y: 114, width: 304, height: hostHeight)
+        let hostOffset = detailDragOffset(frame: host, clip: hostClip, covered: hostCovered)
+        XCTAssertGreaterThan(hostOffset, 19, "The corrective request uses the available viewport rather than repeating the exhausted 19pt path")
+        XCTAssertGreaterThanOrEqual(hostClip.midY + hostOffset, hostClip.minY + 8)
+        XCTAssertLessThanOrEqual(hostClip.midY + hostOffset, hostClip.maxY - 8)
+        // This is requested-displacement geometry only; native motion still needs original UI evidence.
+        let corrected = host.offsetBy(dx: 0, dy: hostOffset)
+        let hostShown = corrected.intersection(hostClip)
+        XCTAssertEqual(detailReadEnd(hostSpans + [(hostShown.minY - corrected.minY, hostShown.maxY - corrected.minY)]),
+                       pixelAligned(hostHeight))
     }
 
     func testDarkWorkingKeyboardDownAndUp() {
