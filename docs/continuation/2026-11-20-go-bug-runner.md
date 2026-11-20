@@ -26,9 +26,10 @@ No PR or landing is requested by this snapshot.
 | Provider VSE originals | Same exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; 73 entries/all ten entire PNGs/source768/current9/A-Large-Phone chain/closure independently accepted | Canonical `fa7f0354b38479a2b094f001125a4daade8a4316`. Two first runs/two launches/three total fixture events. No rerun or hosted/integration/cure credit. |
 | AppUpdate T originals | `b3d95526800b91101b435c75ff6a01633b9c59b6`, tree `59b1ec636da07a40a3f8da839c4ed31ff7642ea5`; 54 entries/all eight entire PNGs/current8/A/actual once-actions/closure independently accepted | Canonical `a17cb7df8b72c5034bdcc7aea08d4e32ab8dc9f7`; exact two-method synthetic local scope only. No rerun or new Mini original visual re-audit credit. |
 | Linked Home A / first T originals | `a343b26997e6f4b0b2e86ee2c62ac74335a072d1`, tree `7015cdd6d446dad61783656f9692eaa5cef6ac26`; A24 accepted in 228.54787220805883s; first T **FAILURE** once18.202452063560486s | A canonical `4178776dccf8398b8954f20f246db5d164df4943`; negative corroboration `56c75ed1c0611f0abf8312da07079a9d764c2237`, acceptancefalse/rc1. New source115 Search.selected fails before Home tap; returned Expanded/new-session Collapsed UNREACHED. Focus67 fully rehashed/full1332 index-only/compiled-five metadata-only; UX owns successor and inventory. |
-| Linked Home corrected504 fresh A originals | `504b9c926e33d8823a183155d675cf36b4f7bf3a`, tree `474c84ec99f698011e65d5f24035bc27906da39b`, manifest `a1e8ca40e8a1b54f9305bfb78fdee05228fc3486b85c464792074d78f69a4987`; all24/2841149 supplied bytes/source758/full8/data/raw build/deinit/policy/guard/closure accepted in 231.49705729214475s | Canonical `b6464089bc528f5393f0b415cf426d24f2d9b644`, phaseA/rc0, compiled-five metadata-only. Genuine source2ee818/config3a4b19 bound; only Search-active oracle/test+direct docs changed, reversing it reconstructs entire a343 parent test. Owner current5/install-A before first one-case/two-launch T; actual returned Expanded/new-session Collapsed still UNPROVEN. Old a343/ab6 reds retained. UX owns native/inventory. |
+| Linked Home corrected504 A / first T originals | `504b9c926e33d8823a183155d675cf36b4f7bf3a`, tree `474c84ec99f698011e65d5f24035bc27906da39b`, manifest `a1e8ca40e8a1b54f9305bfb78fdee05228fc3486b85c464792074d78f69a4987`; A24 accepted in231.49705729214475s; all50/13902686 supplied first-T bytes/all3 entire PNGs/source758/full8/data/genuine A/native actions/raw guards/closure independently accepted | A canonical `b6464089bc528f5393f0b415cf426d24f2d9b644`; qualified T canonical `47a74523d9d81d5d134ba6477a2cb2fa345317da`, T/rc0, one PASS31.7096449136734s/two actual SUT launches/112.08033291716129s afterFIFO. Owner actual canonical fetched/parsed/installed and current8/all5=A/pre/post freshly checked. One offline expansion/Search/Home/no reexpand; returned Expanded/same-identifier Disabled nonButton cached row/new-session Collapsed audited. Initial0F402 row partial: **no initial clearance/readability credit**. Supplied50 exports only, compiled-five metadata-only, not full raw SQLite/leaf reconstruction. Only Search oracle/test+docs changed; old a343/ab6 reds retained/no collapse cause/cure. UX owns execution/inventory. |
 | Dispatcher sender-fold A / first T originals | `3dda22673aff9b5c10c8e33518b04a5d27af6a60`, tree `59792d494e1b77672d730f0b8024beb93737b8bb`; A24 accepted in 227.08313424978405s; first T **FAILURE** once47.16250503063202s | A canonical `2ea6d38360035cd1382b1b0d4fe496529047bbcf`; negative corroboration `7977b075d8faf7ade2a11987cbcaacbdff3154de`, acceptancefalse/rc1. First Cedar reveal exhausts20 pans before any fold; six contained AX frame comparisons differ one ULP in Y/height before hittability. Focus88/full1351 index-only/compiled-five metadata-only; unchanged original360/20pans/140aggregate bar. UX owns successor/inventory. |
 | Dispatcher correctedbc40 fresh A originals | `bc40dbb0f435d6f2b4cd52e508ff60a7b756afc3`, tree `58d9f5f6bafa533551853c79615f0326036ecebe`, manifest `cc28642fd7e457ce9fd97e15ba5aa7480b6f979e40472cac5b4507e5616a23de`; all24/2883084 bytes/source758/full8/data/raw build/deinit/policy/guard/closure accepted in 229.98228895757347s | Canonical `5154ea5dd3267d4b8be350c957138a429cf9aef6`, A/rc0, compiled-five metadata-only. Genuine source467e/config20d45/prior40f source checked; implementation identical reviewedef650, only docs qualify4ULP versus universal tiny-motion claims. Prior pure26 numeric findings carried, not rerun here. Actual folds/hittability/native remain UNPROVEN, old3dda red retained; current5/A gate before first one-case/one-SUT T900/original360/20pans/140aggregate. UX owns execution/inventory. |
+| Dispatcher correctedbc40 first T negative originals | Same exact `bc40`/tree58d9/Mcc286/genuine A5154; all90/74922294 supplied bytes/raw native/SDK transformations/current8/source758/guards/closure independently corroborated | Negative canonical `bc1b9b0d264f875352e4136eb1de71413a99ce3a`, acceptancefalse/T/rc1. One FAIL46.59285497665405s/one SUT/138.68380383308977s afterFIFO; first Cedar20pan cap at source710 before tap. Six actual pairs have componentULPs[0,1,0,8], so unchanged4component gate fails before hittability; both strictly inside current band, same computed bottom/edgeULPs[0,1,0,0] **diagnostic only, not edge-successor approval**. Full1354 index identity-only; 46 attachment-directory files include manifest, actual45 native records/one MP4+44 opaque files, no independent movie/binary decode or pixels. Compiled-five metadata-only. Old3dda/bc40 failures retained; source/config/newA/newT independent gates remain required. UX owns successor/inventory. |
 | f47 iPad diagnostics | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78`, tree `593d6f7b4fbe64941d1bec1ad0cad129b83ac370`; fresh A and first H independently accepted | Complete scoped non-reproduction only; no extra A/H. No screenshots/movie existed for H. Hosted cause remains unresolved. |
 | Provider A / SE Large originals | Exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; A and first SE Large originals independently accepted, including all 18 entire PNGs | Owner's SE pair waits for actual phone-original gate. No reviewer native execution. |
 | AppUpdate A originals | Exact `b3d95526800b91101b435c75ff6a01633b9c59b6`; A originals independently accepted, compiled products reviewed as metadata only | T acceptance remains separate. No stage/Idle action or pixel credit from build acceptance. |
@@ -186,8 +187,12 @@ before a counterpart can consume the payloads.
 | AppUpdate T acceptance | `a17cb7df8b72c5034bdcc7aea08d4e32ab8dc9f7` / `76ff70c9a898999509958a761f5e0e5ef979402bf30c3cdb63e652f2d4a921c3` |
 | Linked Home fresh A acceptance | `4178776dccf8398b8954f20f246db5d164df4943` / `a7598a5d69ff98e57609c797a43f820a195f641c0003fea6cd51c4d73a1def3f`; UTF-8 JSON 4922 bytes, compiled-five metadata-only limits |
 | Linked Home corrected504 fresh A acceptance | `b6464089bc528f5393f0b415cf426d24f2d9b644` / `35cf8c60625861f393322450dc5d2601a125a6113f39386ddf8c8114945da8cb`; UTF-8 JSON 5647 bytes; A only, compiled-five metadata-only, no old A/T or runtime carry |
+| Linked Home corrected504 first T supplied originals | `b1281deddf144dc0caa60199f7c7dc292d12fcc5` / `564c9e85ee447f7dd29c50213b1a11c9f1f110fd5883973c458b832d934be162`; all50/13902686 supplied bytes/all3 entire PNGs/current758/full8/data/genuine A/actual native actions/closures audited; not full raw SQLite/leaf reconstruction |
+| Linked Home corrected504 qualified first T acceptance | `47a74523d9d81d5d134ba6477a2cb2fa345317da` / `5046625c24c1d65454d7e2c06cee732b013826e3bad8be30318d66c56a906462`; UTF-8 JSON 7729 bytes; PASS_EXACT_OWNED_PROOF_ORIGINALS/T/rc0/local26/supplied50/compiled-five metadata-only; actual owner fetched/parsed/installed/current8+five freshly checked |
 | Dispatcher sender-fold fresh A acceptance | `2ea6d38360035cd1382b1b0d4fe496529047bbcf` / `0d8ea5cb93fafbc38532e772ffba04cca52e19aea7ffb183ec263aaac13f2cf3`; UTF-8 JSON 5211 bytes, compiled-five metadata-only limits |
 | Dispatcher correctedbc40 fresh A acceptance | `5154ea5dd3267d4b8be350c957138a429cf9aef6` / `45b97c5c8bb84c08c1d703c21b98e5ebecdf80646c5fecf96f460cb335b651db`; UTF-8 JSON 6148 bytes; A only, compiled-five metadata-only, strict-band/finite4ULP source carry not native or universal no-movement proof |
+| Dispatcher correctedbc40 first T negative supplied originals | `dd3c8bb99935dfc90ac42dcd65ec74b6e7305f2b` / `eaedb25ddaf9c76b2c10e74fb3c514da8d325dc44a22db5ae6d4ac698a6bd342`; all90/74922294 supplied bytes rehashed; full1354 index `bab1429e0651b84fd7d88aed2e8ec300f0cf3670` / `8e21e38193f0bea8a2e8f01d573ec035ee407d1bc5c7159f8425cd3e70d07c84` identity-only |
+| Dispatcher correctedbc40 first T negative corroboration | `bc1b9b0d264f875352e4136eb1de71413a99ce3a` / `9aaa29bbd63265aad81a2cb07ccd0e11690a5ee4227e44bdccf6fb16f90eff70`; UTF-8 JSON 15264 bytes; CORROBORATED_FIRST_NATIVE_FAILURE/acceptancefalse/T/rc1, no positive or proposed edge-source acceptance |
 | Linked Home focused first-red originals | `8b08603637f9436fc39a3eaa7a738d6b51a7e5ad` / `aa28db2a9d747f3295a7b85e6a0cd334a55beb5c575e10c0ee2f759a50cacc70`; all67/17818134 supplied bytes rehashed; larger1332 index `623459196191033a519de068a31abf92f81d0681` / `69a93dcfdea0c43fc5757e075d4290f69bbccce8fbfba2aa8acecc4b7355cea3` identity-only |
 | Linked Home first-red corroboration | `56c75ed1c0611f0abf8312da07079a9d764c2237` / `456f8aa3270581f793b4d4c50a38b5caad87fa4543488691904f6ca7aaa2bb96`; UTF-8 JSON 5470 bytes; CORROBORATED_FIRST_NATIVE_FAILURE, acceptancefalse/T/rc1, no positive/successor approval |
 | Dispatcher focused first-red originals | `44e9e54609010398a9ef26aec0b0dcdcdf985751` / `1ab7eede19b49b0c3b57afaca6601fda0951a35d4e4a5a9d5dce43a8e42f591d`; all88/74480375 supplied bytes rehashed; larger1351 index `9454107fe55a6a444016130f3b0b433598cd5af6` / `8a02fe685e799a8ed5cc1de9d6054f3a33e0eec34ca49b1487caeaf1b9a9a26a` identity-only |
@@ -249,6 +254,45 @@ is implied. Larger1332/1351 indices are identity-only, not full raw-leaf reconst
 No transferred executable import, peer live/binary query, native/classifier rerun or
 source/test edit. Search-oracle/ULP successors require separate genuine source/config/
 fresh-current products/fresh-A/first-T/original gates, not approval from these negatives.
+
+Corrected Linked504's supplied first T is now qualified independently accepted:
+exactly one offline expansion, one Search tap, one Home tap, three reveal swipes,
+one termination and two actual launches. Search nav/exact field transitions to
+selected Home, returned Expanded with the same cached identifier as Disabled
+StaticText/nonButton, then a fresh-launch Collapsed state and empty cached query.
+There was no post-Home reexpansion or cached-row tap. All3 entire1206x2622 PNGs
+were independently viewed and bound to the native activity/attachment manifest:
+77AB is **RETURNED** with the whole dimmed cached row above the floating bar,
+F315 is **RELAUNCH** with right fold/no cached row, and0F402 is **INITIAL**
+with the cached row partly behind the bar. No initial whole-clearance/readability
+credit. Owner's corrected attribution was checked against the actual manifest;
+the reported earlier unsent7f252 packet was not audited or credited.
+Same identifier is not the same AX object/revision, no forced-tap immunity,
+universal navigation guarantee, product collapse cause or cure. Supplied50
+exports do not reconstruct all raw xcresult leaves or independently inspect
+SQLite/binary products. Owner confirmed actual full canonical bytes/JSON,
+unchanged T wrapper and fresh current8/all5=A/pre/post after installation.
+
+Corrected Dispatcherbc40 remains a first native **failure**, not acceptance.
+All90 focused originals/current gates/source closure/native actions were checked.
+Six full original Session `ConvertHostedViewFrame` transformations and seven
+actual logged snapshot/live pairs (one Maple plus six Cedar) were individually
+bound and recomputed. Cedar has Y1ULP/height8ULP, outside the actual finite4ULP
+component gate before hittability; both untouched frames strictly fit the current
+band. Both computed bottoms are276.3333333333331 and edgeULPs[0,1,0,0].
+Those arithmetic facts are diagnostic only: no source edge-comparison approval,
+no new-head green, fold/tap/hittability/refresh/navigation/menu/pixel acceptance
+or product pose/collapse cause/cure. Native21 observations exhaust20 actual
+Cedar held-drags after one separate Maple drag. All46 supplied attachment-directory
+files include the manifest: actual45 unique native attachment records comprise
+one original movie plus44 opaque files. All bytes rehashed; no independent movie
+decode/framepixels or opaque binary-structure decode. Full1354 index is
+identity-only, not all-leaf reconstruction. Raw guard/pretest/14 active stable
+used-swap samples, postboot20/QuickPath/original360/T900, negative65/1/1/1 exits
+and recorded owned groups/simulator cleanup were checked; compiled-five remain
+reviewer metadata-only. Original3dda andbc40 failures stay red. Any proposed
+edge-source successor needs its own genuine source/config/current products/
+freshA/once-native/independent originals gates; none is approved by this report.
 
 Separate hosted lane8 (`ab6`, run44685281882) first-red provenance remains
 unresolved with integration owner/parent: ReadingOpening
