@@ -215,6 +215,7 @@ private func queueTransport(_ io: QueueIO, clock: AnnexClock = .live) async thro
 
 private actor FailureSocket: AnnexWebSocket {
     enum Ack: Sendable { case none, badThenGood }
+    private let changes: StateChanges
     private var messages: [Data]
     private var pending: CheckedContinuation<Data, Error>?
     private(set) var closed = false
@@ -222,7 +223,8 @@ private actor FailureSocket: AnnexWebSocket {
     private let receiveFailure: Error?
     private let ack: Ack
     private(set) var sent: [AnnexJSON] = []
-    init(extra: [String], sendFailure: Error?, ack: Ack, initial: [String]? = nil, receiveFailure: Error? = nil) {
+    init(extra: [String], sendFailure: Error?, ack: Ack, initial: [String]? = nil, receiveFailure: Error? = nil, changes: StateChanges) {
+        self.changes = changes
         messages = (initial ?? [#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#]).map { Data($0.utf8) } + extra.map { Data($0.utf8) }
         self.sendFailure = sendFailure; self.ack = ack
         self.receiveFailure = receiveFailure
@@ -230,6 +232,7 @@ private actor FailureSocket: AnnexWebSocket {
     private(set) var receiveCalls = 0
     func receive() async throws -> Data {
         receiveCalls += 1
+        changes.signal()
         if closed { throw AnnexTransportError.disconnected }
         if !messages.isEmpty { return messages.removeFirst() }
         if let receiveFailure { throw receiveFailure }
@@ -243,6 +246,7 @@ private actor FailureSocket: AnnexWebSocket {
         if let sendFailure { throw sendFailure }
         let message = try JSONDecoder().decode(AnnexJSON.self, from: data)
         sent.append(message)
+        changes.signal()
         guard message["type"]?.string == "telemetry:hello", let hello = message["payload"], ack == .badThenGood else { return }
         func ackFrame(_ payload: AnnexJSON) throws -> Data {
             try JSONEncoder().encode(AnnexJSON.object(["type": .string("telemetry:hello:ack"), "payload": payload]))
@@ -258,15 +262,18 @@ private actor FailureSocket: AnnexWebSocket {
         messages.insert(contentsOf: frames, at: 0)
     }
     private(set) var pings = 0
-    func ping() throws { if closed { throw AnnexTransportError.disconnected }; pings += 1 }
+    func ping() throws { if closed { throw AnnexTransportError.disconnected }; pings += 1; changes.signal() }
     func close() {
         closed = true
+        changes.signal()
         pending?.resume(throwing: AnnexTransportError.disconnected); pending = nil
     }
 }
 
 private actor FailureSessionIO: AnnexIO {
     let identity = AnnexPairingIdentity()
+    /// Signalled after every change to this IO's or its sockets' observable state.
+    nonisolated let changes = StateChanges()
     private let capabilities: String
     private var openFailures: [Error]
     private let firstExtra: [String]
@@ -302,14 +309,16 @@ private actor FailureSessionIO: AnnexIO {
     }
     func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket {
         openAttempts += 1
+        changes.signal()
         if !openFailures.isEmpty { throw openFailures.removeFirst() }
         let first = sockets.isEmpty
         let index = sockets.count
         let initial = sessionInitials.indices.contains(index) ? sessionInitials[index] : (first ? firstInitial : nil)
         let failure = sessionReceiveFailures.indices.contains(index) ? sessionReceiveFailures[index] : nil
         let socket = FailureSocket(extra: first ? firstExtra : [], sendFailure: first ? firstSendFailure : nil,
-                                   ack: ack, initial: initial, receiveFailure: failure)
+                                   ack: ack, initial: initial, receiveFailure: failure, changes: changes)
         sockets.append(socket)
+        changes.signal()
         return socket
     }
 }
@@ -478,35 +487,139 @@ private struct ReadOnlyTransport: AnnexTransporting {
 
 private struct ScheduledConditionTimeout: Error {}
 
-/// Wait for scheduled work's actual condition, giving other executors a chance to run.
-/// A yield count can expire in milliseconds while the actor we await has not been scheduled.
-/// On timeout, the poll count separates a starved waiter (few polls) from a condition that never held (many).
-private func settle(_ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
+/// Counts observable state changes in the live-session fakes, the manual clock and telemetry, and wakes waiters on each one.
+private final class StateChanges: @unchecked Sendable {
+    private let lock = NSLock()
+    private var generation = 0
+    private var waiters: [UUID: CheckedContinuation<Void, Never>] = [:]
+    var current: Int { lock.withLock { generation } }
+    func signal() {
+        let ready: [CheckedContinuation<Void, Never>] = lock.withLock {
+            generation += 1
+            defer { waiters.removeAll() }
+            return Array(waiters.values)
+        }
+        ready.forEach { $0.resume() }
+    }
+    /// Returns once a change newer than `seen` has been signalled, or the waiting task is cancelled.
+    func wait(past seen: Int) async {
+        let id = UUID()
+        await withTaskCancellationHandler {
+            await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                let ready = lock.withLock {
+                    guard generation == seen, !Task.isCancelled else { return true }
+                    waiters[id] = continuation; return false
+                }
+                if ready { continuation.resume() }
+            }
+        } onCancel: {
+            lock.withLock { waiters.removeValue(forKey: id) }?.resume()
+        }
+    }
+    func observe(_ telemetry: AnnexTelemetry) { telemetry.observeRecords { [weak self] _ in self?.signal() } }
+}
+
+/// `AnnexManualClock`'s semantics plus a `StateChanges` signal after every sleeper registration, wake and cancel.
+/// `AnnexManualClock`'s stored surface is pinned by the reviewed deinit policy, and wrapping its `AnnexClock`
+/// cannot observe the moment a sleep registers (the call hops executors first), so these waits use this
+/// test-local equivalent: deadlines in registration order, sleepers woken in deadline order, cancellation throws.
+private final class SignallingClock: @unchecked Sendable {
+    private struct Sleeper { let deadline: Duration; let continuation: CheckedContinuation<Void, Error> }
+    private let lock = NSLock()
+    private let changes: StateChanges
+    private let origin = Date()
+    private var elapsed: Duration = .zero
+    private var sleepers: [UUID: Sleeper] = [:]
+    private var cancelled: Set<UUID> = []
+    init(signalling changes: StateChanges) { self.changes = changes }
+
+    var clock: AnnexClock { AnnexClock(now: { [self] in now }, sleep: { [self] in try await sleep(for: $0) }) }
+    var now: Date {
+        lock.withLock { origin.addingTimeInterval(TimeInterval(elapsed.components.seconds) + TimeInterval(elapsed.components.attoseconds) / 1e18) }
+    }
+    /// Sleeps not yet woken or cancelled.
+    var sleeperCount: Int { lock.withLock { sleepers.count } }
+
+    /// Returns once at least `count` sleepers are waiting, so a test advances only after the code under test has started its wait.
+    func waitForSleepers(_ count: Int = 1) async {
+        while !Task.isCancelled {
+            let seen = changes.current
+            if sleeperCount >= count { return }
+            await changes.wait(past: seen)
+        }
+    }
+
+    func advance(by duration: Duration) {
+        let due: [Sleeper] = lock.withLock {
+            elapsed += duration
+            let due = sleepers.filter { $0.value.deadline <= elapsed }
+            for id in due.keys { sleepers.removeValue(forKey: id) }
+            return due.values.sorted { $0.deadline < $1.deadline }
+        }
+        if !due.isEmpty { changes.signal() }
+        for sleeper in due { sleeper.continuation.resume() }
+    }
+
+    private func sleep(for duration: Duration) async throws {
+        let id = UUID()
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Void, Error>) in
+                enum Outcome { case wait, wake, cancel }
+                let outcome: Outcome = lock.withLock {
+                    if cancelled.remove(id) != nil { return .cancel }
+                    if duration <= .zero { return .wake }
+                    sleepers[id] = Sleeper(deadline: elapsed + duration, continuation: continuation)
+                    return .wait
+                }
+                switch outcome {
+                case .wait: changes.signal()
+                case .wake: continuation.resume()
+                case .cancel: continuation.resume(throwing: CancellationError())
+                }
+            }
+        } onCancel: {
+            let sleeper: Sleeper? = lock.withLock {
+                guard let sleeper = sleepers.removeValue(forKey: id) else { cancelled.insert(id); return nil }
+                return sleeper
+            }
+            guard let sleeper else { return }
+            changes.signal()
+            sleeper.continuation.resume(throwing: CancellationError())
+        }
+    }
+}
+
+/// Wait up to 10 seconds of wall time for scheduled work's actual condition, re-checking it after every
+/// observed state change instead of polling a sleep. A sleep-based waiter could resume past the deadline and
+/// give up without looking again, even though the condition already held (#611). Timeout is now declared only
+/// by a check that started at or after the deadline, so a late wake-up still gets one final look.
+private func settle(on changes: StateChanges, _ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
     let started = ContinuousClock.now
     let deadline = started.advanced(by: .seconds(10))
-    var polls = 0
-    var conditionTime = Duration.zero
-    var sleepTime = Duration.zero
-    repeat {
-        polls += 1
-        let conditionStarted = ContinuousClock.now
-        let ready = await done()
-        conditionTime += conditionStarted.duration(to: .now)
-        if ready { return }
-        let sleepStarted = ContinuousClock.now
-        try await Task.sleep(for: .milliseconds(1))
-        sleepTime += sleepStarted.duration(to: .now)
-    } while ContinuousClock.now < deadline
-    let waitElapsed = started.duration(to: .now)
-    let stateStarted = ContinuousClock.now
+    var checks = 0
+    var lastCheck = started
+    let held: Bool = await withTaskGroup(of: Void.self) { group in
+        // Wakes the loop at the deadline even if nothing else changes.
+        group.addTask { try? await Task.sleep(until: deadline, clock: .continuous); changes.signal() }
+        defer { group.cancelAll() }
+        while !Task.isCancelled {
+            let seen = changes.current
+            checks += 1
+            lastCheck = .now
+            if await done() { return true }
+            if lastCheck >= deadline { return false }
+            await changes.wait(past: seen)
+        }
+        return false
+    }
+    if held { return }
     let observed = await state?() ?? ""
-    let stateTime = stateStarted.duration(to: .now)
-    Issue.record("Scheduled condition did not become true within 10 seconds (\(polls) polls)\(observed.isEmpty ? "" : "; " + observed); waitElapsed=\(waitElapsed) conditionTime=\(conditionTime) sleepTime=\(sleepTime) diagnosticStateTime=\(stateTime)")
+    Issue.record("Scheduled condition did not become true within 10 seconds (\(checks) checks, \(changes.current) state changes, final check started \(started.duration(to: lastCheck)) after the wait began)\(observed.isEmpty ? "" : "; " + observed); waitElapsed=\(started.duration(to: .now))")
     throw ScheduledConditionTimeout()
 }
 
 /// The live socket and clock state the snapshot-grace tests wait on.
-private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async -> String {
+private func graceState(_ io: FailureSessionIO, _ clock: SignallingClock) async -> String {
     guard let socket = await io.sockets.first else { return "sockets=0 openAttempts=\(await io.openAttempts) sleepers=\(clock.sleeperCount)" }
     return "sockets=\(await io.sockets.count) openAttempts=\(await io.openAttempts) receiveCalls=\(await socket.receiveCalls) closed=\(await socket.closed) sleepers=\(clock.sleeperCount)"
 }
@@ -535,6 +648,7 @@ private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async
     let clock = AnnexManualClock()
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
     let io = FailureSessionIO()
+    io.changes.observe(telemetry)
     let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock)
     let stream = await transport.events()
     try await transport.connect()
@@ -544,7 +658,7 @@ private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async
     clock.advance(by: .seconds(4))
     #expect(!telemetry.snapshot().records.contains { $0.operation == .handshake }, "Still pending before the deadline")
     clock.advance(by: .seconds(1))
-    try await settle { telemetry.snapshot().records.contains { $0.operation == .handshake } }
+    try await settle(on: io.changes) { telemetry.snapshot().records.contains { $0.operation == .handshake } }
     let handshake = try #require(telemetry.snapshot().records.first { $0.operation == .handshake })
     #expect(handshake.failure == .timeout)
     #expect(handshake.events.contains("unsupported"))
@@ -564,10 +678,10 @@ private func graceState(_ io: FailureSessionIO, _ clock: AnnexManualClock) async
     clock.advance(by: .seconds(19))
     #expect(await socket.pings == 0)
     clock.advance(by: .seconds(1))
-    try await settle { await socket.pings == 1 }
+    try await settle(on: io.changes) { await socket.pings == 1 }
     await clock.waitForSleepers(1)
     clock.advance(by: .seconds(20))
-    try await settle { await socket.pings == 2 }
+    try await settle(on: io.changes) { await socket.pings == 2 }
     await transport.disconnect()
 }
 
@@ -599,13 +713,13 @@ private let initialSnapshot = #"{"type":"snapshot","payload":{"lastSeq":0,"proje
 private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_failed"}}"#
 
 @Test(.timeLimit(.minutes(1))) func snapshotFailureKeepsCommandsUsableDuringGraceThenRecoversThroughBackoff() async throws {
-    let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
+    let clock = SignallingClock(signalling: io.changes)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle({
+    try await settle(on: io.changes, {
         guard let socket = await io.sockets.first else { return false }
         let calls = await socket.receiveCalls, closed = await socket.closed
         return closed || (calls >= 2 && clock.sleeperCount == 2)
@@ -619,7 +733,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     #expect(await io.sockets.first?.closed == false)
     #expect(await io.openAttempts == 1)
     clock.advance(by: .seconds(1))
-    try await settle { await io.sockets.first?.closed == true }
+    try await settle(on: io.changes) { await io.sockets.first?.closed == true }
     let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
     #expect(reconnectAttempts(waiting) == [1])
     await clock.waitForSleepers(1)
@@ -631,13 +745,13 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 }
 
 @Test(.timeLimit(.minutes(1))) func aSameSocketSnapshotCancelsSnapshotFailureGrace() async throws {
-    let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [snapshotFailure])
+    let clock = SignallingClock(signalling: io.changes)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle({
+    try await settle(on: io.changes, {
         guard let socket = await io.sockets.first else { return false }
         let calls = await socket.receiveCalls, closed = await socket.closed
         return closed || (calls >= 2 && clock.sleeperCount == 2)
@@ -648,7 +762,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     await socket.push(initialSnapshot)
     let events = try await collect(stream) { $0 == .connection(.connected) }
     #expect(reconnectAttempts(events).isEmpty)
-    try await settle { clock.sleeperCount == 1 }
+    try await settle(on: io.changes) { clock.sleeperCount == 1 }
     clock.advance(by: .seconds(31))
     #expect(await io.openAttempts == 1)
     #expect(await socket.closed == false)
@@ -656,17 +770,17 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 }
 
 @Test(.timeLimit(.minutes(1))) func silenceAloneDoesNotPutASlowInitialSnapshotOnADeadline() async throws {
-    let clock = AnnexManualClock()
     let io = FailureSessionIO(firstInitial: [])
+    let clock = SignallingClock(signalling: io.changes)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     defer { Task { await transport.disconnect() } }
     try await transport.connect()
-    try await settle({ clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
+    try await settle(on: io.changes, { clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
     #expect(clock.sleeperCount == 1, "Only the ping interval runs before any explicit snapshot failure")
     clock.advance(by: .seconds(31))
     let socket = try #require(await io.sockets.first)
-    try await settle { await socket.pings == 1 }
+    try await settle(on: io.changes) { await socket.pings == 1 }
     #expect(await socket.closed == false)
     await socket.push(initialSnapshot)
     _ = try await collect(stream) { $0 == .connection(.connected) }
@@ -675,10 +789,10 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 }
 
 @Test(.timeLimit(.minutes(1))) func otherErrorsAndTerminalErrorsKeepTheirRoutingAroundTheFirstSnapshot() async throws {
-    let clock = AnnexManualClock()
     let other = #"{"type":"error","payload":{"message":"other_error"}}"#
     let terminal = #"{"type":"error","payload":{"op":"pty:spawn","message":"snapshot_failed"}}"#
     let io = FailureSessionIO(firstInitial: [other, terminal, initialSnapshot, snapshotFailure, other, #"{"type":"fixture:end"}"#])
+    let clock = SignallingClock(signalling: io.changes)
     let transport = try await liveTransport(io, clock: clock.clock)
     let stream = await transport.events()
     var terminalStream = await transport.terminalEvents().makeAsyncIterator()
@@ -694,7 +808,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     }
     #expect(terminalFrame?.payload?["op"]?.string == "pty:spawn")
     #expect(reconnectAttempts(events).isEmpty)
-    try await settle { clock.sleeperCount >= 1 }
+    try await settle(on: io.changes) { clock.sleeperCount >= 1 }
     #expect(clock.sleeperCount == 1, "These errors never start snapshot-failure grace")
     clock.advance(by: .seconds(31))
     #expect(await io.openAttempts == 1)
@@ -732,9 +846,9 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 }
 
 @Test(.timeLimit(.minutes(1))) func explicitReconnectCancelsAnOversizeWaitAndTriesImmediatelyOnce() async throws {
-    let clock = AnnexManualClock()
     let oversized = metadataSnapshot(bytes: 16 * 1024 * 1024 + 1)
     let io = FailureSessionIO(sessionInitials: [[oversized], [oversized]])
+    let clock = SignallingClock(signalling: io.changes)
     let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
     let stream = await transport.events()
     try await transport.connect()
@@ -748,7 +862,7 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
     await clock.waitForSleepers(1)
     #expect(await io.openAttempts == 2, "The new run also waits after its immediate attempt fails")
     await transport.disconnect()
-    try await settle { clock.sleeperCount == 0 }
+    try await settle(on: io.changes) { clock.sleeperCount == 0 }
     clock.advance(by: .seconds(100))
     #expect(await io.openAttempts == 2)
 }
@@ -877,7 +991,7 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
         let recovered = try await collect(events) { if case .message(let e) = $0 { e.type == "snapshot" } else { false } }
         #expect(recovered.contains(.resyncRequired(.reconnected)))
         let socket = try #require(await io.sockets.last)
-        try await settle { await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 1 } }
+        try await settle(on: io.changes) { await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 1 } }
         #expect(await io.openAttempts == 4)
         print("Tool frame replayed=\(replayed) duplicateRawOutput=\(duplicateRawOutput), bytes=\(frame.utf8.count): stale checkpoint0 repeats slow retry \(delays); fresh checkpoint1 advances/replays since1 and escapes")
         await transport.disconnect()
@@ -910,7 +1024,7 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
         let io = FailureSessionIO(firstInitial: [])
         let transport = try await liveTransport(io)
         try await transport.connect()
-        try await settle { await io.openAttempts == 1 }
+        try await settle(on: io.changes) { await io.openAttempts == 1 }
         let started = ContinuousClock.now
         let receipt = try await transport.execute(.init(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
         #expect(receipt.status == .completed)
