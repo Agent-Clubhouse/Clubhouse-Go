@@ -589,6 +589,16 @@ private final class SignallingClock: @unchecked Sendable {
     }
 }
 
+/// Runs a live-session test body at `.high` task priority; cancellation (the time limit) is forwarded.
+/// Swift Testing runs every test at default priority, so under the full parallel package run the transport's
+/// own steps (its run loop, receive child and grace-timer task all inherit this priority) and the waiter's
+/// wake-ups queue behind the whole backlog. Priority changes only scheduling order: no test is serialized,
+/// skipped or slowed, and the 10 s bound and predicates are unchanged.
+private func elevated(_ body: @escaping @Sendable () async throws -> Void) async throws {
+    let task = Task(priority: .high) { try await body() }
+    try await withTaskCancellationHandler { try await task.value } onCancel: { task.cancel() }
+}
+
 /// Wait up to 10 seconds of wall time for scheduled work's actual condition, re-checking it after every
 /// observed state change instead of polling a sleep. A sleep-based waiter could resume past the deadline and
 /// give up without looking again, even though the condition already held (#611). Timeout is now declared only
@@ -645,44 +655,48 @@ private func graceState(_ io: FailureSessionIO, _ clock: SignallingClock) async 
 }
 
 @Test(.timeLimit(.minutes(1))) func anUnansweredTelemetryHelloTimesOutAfterFiveSeconds() async throws {
-    let clock = AnnexManualClock()
-    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
-    let io = FailureSessionIO()
-    io.changes.observe(telemetry)
-    let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock)
-    let stream = await transport.events()
-    try await transport.connect()
-    _ = try await collect(stream) { $0 == .connection(.connected) }
-    // The hello deadline (5 s) and the ping interval (20 s) are both waiting.
-    await clock.waitForSleepers(2)
-    clock.advance(by: .seconds(4))
-    #expect(!telemetry.snapshot().records.contains { $0.operation == .handshake }, "Still pending before the deadline")
-    clock.advance(by: .seconds(1))
-    try await settle(on: io.changes) { telemetry.snapshot().records.contains { $0.operation == .handshake } }
-    let handshake = try #require(telemetry.snapshot().records.first { $0.operation == .handshake })
-    #expect(handshake.failure == .timeout)
-    #expect(handshake.events.contains("unsupported"))
-    #expect(await io.sockets.count == 1, "An old desktop that ignores the hello keeps its connection")
-    await transport.disconnect()
+    try await elevated {
+        let clock = AnnexManualClock()
+        let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+        let io = FailureSessionIO()
+        io.changes.observe(telemetry)
+        let transport = try await liveTransport(io, telemetry: telemetry, clock: clock.clock)
+        let stream = await transport.events()
+        try await transport.connect()
+        _ = try await collect(stream) { $0 == .connection(.connected) }
+        // The hello deadline (5 s) and the ping interval (20 s) are both waiting.
+        await clock.waitForSleepers(2)
+        clock.advance(by: .seconds(4))
+        #expect(!telemetry.snapshot().records.contains { $0.operation == .handshake }, "Still pending before the deadline")
+        clock.advance(by: .seconds(1))
+        try await settle(on: io.changes) { telemetry.snapshot().records.contains { $0.operation == .handshake } }
+        let handshake = try #require(telemetry.snapshot().records.first { $0.operation == .handshake })
+        #expect(handshake.failure == .timeout)
+        #expect(handshake.events.contains("unsupported"))
+        #expect(await io.sockets.count == 1, "An old desktop that ignores the hello keeps its connection")
+        await transport.disconnect()
+    }
 }
 
 @Test(.timeLimit(.minutes(1))) func theConnectionPingsEveryTwentySeconds() async throws {
-    let clock = AnnexManualClock()
-    let io = FailureSessionIO()
-    let transport = try await liveTransport(io, clock: clock.clock)
-    let stream = await transport.events()
-    try await transport.connect()
-    _ = try await collect(stream) { $0 == .connection(.connected) }
-    let socket = try #require(await io.sockets.first)
-    await clock.waitForSleepers(1)
-    clock.advance(by: .seconds(19))
-    #expect(await socket.pings == 0)
-    clock.advance(by: .seconds(1))
-    try await settle(on: io.changes) { await socket.pings == 1 }
-    await clock.waitForSleepers(1)
-    clock.advance(by: .seconds(20))
-    try await settle(on: io.changes) { await socket.pings == 2 }
-    await transport.disconnect()
+    try await elevated {
+        let clock = AnnexManualClock()
+        let io = FailureSessionIO()
+        let transport = try await liveTransport(io, clock: clock.clock)
+        let stream = await transport.events()
+        try await transport.connect()
+        _ = try await collect(stream) { $0 == .connection(.connected) }
+        let socket = try #require(await io.sockets.first)
+        await clock.waitForSleepers(1)
+        clock.advance(by: .seconds(19))
+        #expect(await socket.pings == 0)
+        clock.advance(by: .seconds(1))
+        try await settle(on: io.changes) { await socket.pings == 1 }
+        await clock.waitForSleepers(1)
+        clock.advance(by: .seconds(20))
+        try await settle(on: io.changes) { await socket.pings == 2 }
+        await transport.disconnect()
+    }
 }
 
 @Test(.timeLimit(.minutes(1))) func reconnectWaitsOutTheBackoffOnTheClock() async throws {
@@ -713,107 +727,115 @@ private let initialSnapshot = #"{"type":"snapshot","payload":{"lastSeq":0,"proje
 private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_failed"}}"#
 
 @Test(.timeLimit(.minutes(1))) func snapshotFailureKeepsCommandsUsableDuringGraceThenRecoversThroughBackoff() async throws {
-    let io = FailureSessionIO(firstInitial: [snapshotFailure])
-    let clock = SignallingClock(signalling: io.changes)
-    let transport = try await liveTransport(io, clock: clock.clock)
-    let stream = await transport.events()
-    defer { Task { await transport.disconnect() } }
-    try await transport.connect()
-    try await settle(on: io.changes, {
-        guard let socket = await io.sockets.first else { return false }
-        let calls = await socket.receiveCalls, closed = await socket.closed
-        return closed || (calls >= 2 && clock.sleeperCount == 2)
-    }, state: { await graceState(io, clock) })
-    try #require(await io.sockets.first?.closed == false, "Keep the authenticated socket open during grace")
-    let before = try await collect(stream) { if case .message(let frame) = $0 { frame.type == "error" } else { false } }
-    #expect(reconnectAttempts(before).isEmpty)
-    clock.advance(by: .seconds(29))
-    let receipt = try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
-    #expect(receipt.status == .completed, "REST commands must remain usable while the socket awaits a snapshot")
-    #expect(await io.sockets.first?.closed == false)
-    #expect(await io.openAttempts == 1)
-    clock.advance(by: .seconds(1))
-    try await settle(on: io.changes) { await io.sockets.first?.closed == true }
-    let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
-    #expect(reconnectAttempts(waiting) == [1])
-    await clock.waitForSleepers(1)
-    #expect(await io.openAttempts == 1, "Grace expiry uses the existing backoff, not immediate reconnects")
-    clock.advance(by: .seconds(1))
-    _ = try await collect(stream) { $0 == .connection(.connected) }
-    #expect(await io.openAttempts == 2)
-    await transport.disconnect()
+    try await elevated {
+        let io = FailureSessionIO(firstInitial: [snapshotFailure])
+        let clock = SignallingClock(signalling: io.changes)
+        let transport = try await liveTransport(io, clock: clock.clock)
+        let stream = await transport.events()
+        defer { Task { await transport.disconnect() } }
+        try await transport.connect()
+        try await settle(on: io.changes, {
+            guard let socket = await io.sockets.first else { return false }
+            let calls = await socket.receiveCalls, closed = await socket.closed
+            return closed || (calls >= 2 && clock.sleeperCount == 2)
+        }, state: { await graceState(io, clock) })
+        try #require(await io.sockets.first?.closed == false, "Keep the authenticated socket open during grace")
+        let before = try await collect(stream) { if case .message(let frame) = $0 { frame.type == "error" } else { false } }
+        #expect(reconnectAttempts(before).isEmpty)
+        clock.advance(by: .seconds(29))
+        let receipt = try await transport.execute(AnnexCommand(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+        #expect(receipt.status == .completed, "REST commands must remain usable while the socket awaits a snapshot")
+        #expect(await io.sockets.first?.closed == false)
+        #expect(await io.openAttempts == 1)
+        clock.advance(by: .seconds(1))
+        try await settle(on: io.changes) { await io.sockets.first?.closed == true }
+        let waiting = try await collect(stream) { if case .connection(.reconnecting) = $0 { true } else { false } }
+        #expect(reconnectAttempts(waiting) == [1])
+        await clock.waitForSleepers(1)
+        #expect(await io.openAttempts == 1, "Grace expiry uses the existing backoff, not immediate reconnects")
+        clock.advance(by: .seconds(1))
+        _ = try await collect(stream) { $0 == .connection(.connected) }
+        #expect(await io.openAttempts == 2)
+        await transport.disconnect()
+    }
 }
 
 @Test(.timeLimit(.minutes(1))) func aSameSocketSnapshotCancelsSnapshotFailureGrace() async throws {
-    let io = FailureSessionIO(firstInitial: [snapshotFailure])
-    let clock = SignallingClock(signalling: io.changes)
-    let transport = try await liveTransport(io, clock: clock.clock)
-    let stream = await transport.events()
-    defer { Task { await transport.disconnect() } }
-    try await transport.connect()
-    try await settle(on: io.changes, {
-        guard let socket = await io.sockets.first else { return false }
-        let calls = await socket.receiveCalls, closed = await socket.closed
-        return closed || (calls >= 2 && clock.sleeperCount == 2)
-    }, state: { await graceState(io, clock) })
-    let socket = try #require(await io.sockets.first)
-    try #require(await socket.closed == false)
-    clock.advance(by: .seconds(29))
-    await socket.push(initialSnapshot)
-    let events = try await collect(stream) { $0 == .connection(.connected) }
-    #expect(reconnectAttempts(events).isEmpty)
-    try await settle(on: io.changes) { clock.sleeperCount == 1 }
-    clock.advance(by: .seconds(31))
-    #expect(await io.openAttempts == 1)
-    #expect(await socket.closed == false)
-    await transport.disconnect()
+    try await elevated {
+        let io = FailureSessionIO(firstInitial: [snapshotFailure])
+        let clock = SignallingClock(signalling: io.changes)
+        let transport = try await liveTransport(io, clock: clock.clock)
+        let stream = await transport.events()
+        defer { Task { await transport.disconnect() } }
+        try await transport.connect()
+        try await settle(on: io.changes, {
+            guard let socket = await io.sockets.first else { return false }
+            let calls = await socket.receiveCalls, closed = await socket.closed
+            return closed || (calls >= 2 && clock.sleeperCount == 2)
+        }, state: { await graceState(io, clock) })
+        let socket = try #require(await io.sockets.first)
+        try #require(await socket.closed == false)
+        clock.advance(by: .seconds(29))
+        await socket.push(initialSnapshot)
+        let events = try await collect(stream) { $0 == .connection(.connected) }
+        #expect(reconnectAttempts(events).isEmpty)
+        try await settle(on: io.changes) { clock.sleeperCount == 1 }
+        clock.advance(by: .seconds(31))
+        #expect(await io.openAttempts == 1)
+        #expect(await socket.closed == false)
+        await transport.disconnect()
+    }
 }
 
 @Test(.timeLimit(.minutes(1))) func silenceAloneDoesNotPutASlowInitialSnapshotOnADeadline() async throws {
-    let io = FailureSessionIO(firstInitial: [])
-    let clock = SignallingClock(signalling: io.changes)
-    let transport = try await liveTransport(io, clock: clock.clock)
-    let stream = await transport.events()
-    defer { Task { await transport.disconnect() } }
-    try await transport.connect()
-    try await settle(on: io.changes, { clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
-    #expect(clock.sleeperCount == 1, "Only the ping interval runs before any explicit snapshot failure")
-    clock.advance(by: .seconds(31))
-    let socket = try #require(await io.sockets.first)
-    try await settle(on: io.changes) { await socket.pings == 1 }
-    #expect(await socket.closed == false)
-    await socket.push(initialSnapshot)
-    _ = try await collect(stream) { $0 == .connection(.connected) }
-    #expect(await io.openAttempts == 1)
-    await transport.disconnect()
+    try await elevated {
+        let io = FailureSessionIO(firstInitial: [])
+        let clock = SignallingClock(signalling: io.changes)
+        let transport = try await liveTransport(io, clock: clock.clock)
+        let stream = await transport.events()
+        defer { Task { await transport.disconnect() } }
+        try await transport.connect()
+        try await settle(on: io.changes, { clock.sleeperCount >= 1 }, state: { await graceState(io, clock) })
+        #expect(clock.sleeperCount == 1, "Only the ping interval runs before any explicit snapshot failure")
+        clock.advance(by: .seconds(31))
+        let socket = try #require(await io.sockets.first)
+        try await settle(on: io.changes) { await socket.pings == 1 }
+        #expect(await socket.closed == false)
+        await socket.push(initialSnapshot)
+        _ = try await collect(stream) { $0 == .connection(.connected) }
+        #expect(await io.openAttempts == 1)
+        await transport.disconnect()
+    }
 }
 
 @Test(.timeLimit(.minutes(1))) func otherErrorsAndTerminalErrorsKeepTheirRoutingAroundTheFirstSnapshot() async throws {
-    let other = #"{"type":"error","payload":{"message":"other_error"}}"#
-    let terminal = #"{"type":"error","payload":{"op":"pty:spawn","message":"snapshot_failed"}}"#
-    let io = FailureSessionIO(firstInitial: [other, terminal, initialSnapshot, snapshotFailure, other, #"{"type":"fixture:end"}"#])
-    let clock = SignallingClock(signalling: io.changes)
-    let transport = try await liveTransport(io, clock: clock.clock)
-    let stream = await transport.events()
-    var terminalStream = await transport.terminalEvents().makeAsyncIterator()
-    try await transport.connect()
-    let events = try await collect(stream) { if case .message(let frame) = $0 { frame.type == "fixture:end" } else { false } }
-    let errors = events.compactMap { event -> AnnexEnvelope? in
-        guard case .message(let frame) = event, frame.type == "error" else { return nil }; return frame
+    try await elevated {
+        let other = #"{"type":"error","payload":{"message":"other_error"}}"#
+        let terminal = #"{"type":"error","payload":{"op":"pty:spawn","message":"snapshot_failed"}}"#
+        let io = FailureSessionIO(firstInitial: [other, terminal, initialSnapshot, snapshotFailure, other, #"{"type":"fixture:end"}"#])
+        let clock = SignallingClock(signalling: io.changes)
+        let transport = try await liveTransport(io, clock: clock.clock)
+        let stream = await transport.events()
+        var terminalStream = await transport.terminalEvents().makeAsyncIterator()
+        try await transport.connect()
+        let events = try await collect(stream) { if case .message(let frame) = $0 { frame.type == "fixture:end" } else { false } }
+        let errors = events.compactMap { event -> AnnexEnvelope? in
+            guard case .message(let frame) = event, frame.type == "error" else { return nil }; return frame
+        }
+        #expect(errors.count == 3, "Unrelated errors and snapshot_failed after a snapshot remain ordinary messages")
+        var terminalFrame: AnnexEnvelope?
+        while let event = await terminalStream.next() {
+            if case .frame(let frame) = event { terminalFrame = frame; break }
+        }
+        #expect(terminalFrame?.payload?["op"]?.string == "pty:spawn")
+        #expect(reconnectAttempts(events).isEmpty)
+        try await settle(on: io.changes) { clock.sleeperCount >= 1 }
+        #expect(clock.sleeperCount == 1, "These errors never start snapshot-failure grace")
+        clock.advance(by: .seconds(31))
+        #expect(await io.openAttempts == 1)
+        #expect(await io.sockets.first?.closed == false)
+        await transport.disconnect()
     }
-    #expect(errors.count == 3, "Unrelated errors and snapshot_failed after a snapshot remain ordinary messages")
-    var terminalFrame: AnnexEnvelope?
-    while let event = await terminalStream.next() {
-        if case .frame(let frame) = event { terminalFrame = frame; break }
-    }
-    #expect(terminalFrame?.payload?["op"]?.string == "pty:spawn")
-    #expect(reconnectAttempts(events).isEmpty)
-    try await settle(on: io.changes) { clock.sleeperCount >= 1 }
-    #expect(clock.sleeperCount == 1, "These errors never start snapshot-failure grace")
-    clock.advance(by: .seconds(31))
-    #expect(await io.openAttempts == 1)
-    #expect(await io.sockets.first?.closed == false)
-    await transport.disconnect()
 }
 
 // Oversized desktop snapshots are recoverable, but must not cause fast downloads or rediscovery.
@@ -846,25 +868,27 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 }
 
 @Test(.timeLimit(.minutes(1))) func explicitReconnectCancelsAnOversizeWaitAndTriesImmediatelyOnce() async throws {
-    let oversized = metadataSnapshot(bytes: 16 * 1024 * 1024 + 1)
-    let io = FailureSessionIO(sessionInitials: [[oversized], [oversized]])
-    let clock = SignallingClock(signalling: io.changes)
-    let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
-    let stream = await transport.events()
-    try await transport.connect()
-    _ = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { false } }
-    await clock.waitForSleepers(1)
-    await transport.disconnect()
-    try await transport.connect()
-    let events = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { false } }
-    #expect(await io.openAttempts == 2, "An explicit reconnect bypasses the old wait without advancing the clock")
-    #expect(events.contains { if case .connection(.retrying(attempt: 1, delaySeconds: let delay, error: .responseTooLarge)) = $0 { delay >= 30 } else { false } })
-    await clock.waitForSleepers(1)
-    #expect(await io.openAttempts == 2, "The new run also waits after its immediate attempt fails")
-    await transport.disconnect()
-    try await settle(on: io.changes) { clock.sleeperCount == 0 }
-    clock.advance(by: .seconds(100))
-    #expect(await io.openAttempts == 2)
+    try await elevated {
+        let oversized = metadataSnapshot(bytes: 16 * 1024 * 1024 + 1)
+        let io = FailureSessionIO(sessionInitials: [[oversized], [oversized]])
+        let clock = SignallingClock(signalling: io.changes)
+        let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
+        let stream = await transport.events()
+        try await transport.connect()
+        _ = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { false } }
+        await clock.waitForSleepers(1)
+        await transport.disconnect()
+        try await transport.connect()
+        let events = try await collect(stream) { if case .connection(.retrying) = $0 { true } else { false } }
+        #expect(await io.openAttempts == 2, "An explicit reconnect bypasses the old wait without advancing the clock")
+        #expect(events.contains { if case .connection(.retrying(attempt: 1, delaySeconds: let delay, error: .responseTooLarge)) = $0 { delay >= 30 } else { false } })
+        await clock.waitForSleepers(1)
+        #expect(await io.openAttempts == 2, "The new run also waits after its immediate attempt fails")
+        await transport.disconnect()
+        try await settle(on: io.changes) { clock.sleeperCount == 0 }
+        clock.advance(by: .seconds(100))
+        #expect(await io.openAttempts == 2)
+    }
 }
 
 private func metadataSnapshot(bytes: Int) -> String {
@@ -971,30 +995,32 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
 @Suite(.serialized) struct OutboundFrameBudgetReviewTests {
     @Test(.timeLimit(.minutes(2)), arguments: [false, true], [false, true])
     func anOversizedToolFrameRetriesSlowlyAndNeedsAFreshCheckpoint(replayed: Bool, duplicateRawOutput: Bool) async throws {
-        let text = String(repeating: "x", count: 20 * 1024 * 1024)
-        let frame = #"{"type":"chat:event","seq":1,"replayed":\#(replayed),"payload":{"agentId":"a","event":{"seq":1,"type":"tool_call_update","data":{"toolCallId":"t","output":"\#(text)"\#(duplicateRawOutput ? ",\"rawOutput\":\"" + text + "\"" : "")}}}}"#
-        let clock = AnnexManualClock()
-        let io = FailureSessionIO(sessionInitials: Array(repeating: [initialSnapshot, frame], count: 3) + [[#"{"type":"snapshot","payload":{"lastSeq":1,"projects":[],"agents":{}}}"#]])
-        let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
-        let events = await transport.events()
-        try await transport.connect()
-        var delays: [Double] = []
-        for _ in 0..<3 {
-            let frames = try await collect(events) { if case .connection(.retrying) = $0 { true } else { false } }
-            #expect(!frames.contains { if case .message(let e) = $0 { e.seq == 1 } else { false } })
-            guard case .connection(.retrying(_, let delay, .responseTooLarge)) = frames.last else { Issue.record("Expected recoverable oversize"); return }
-            #expect((30...45).contains(delay)); delays.append(delay)
+        try await elevated {
+            let text = String(repeating: "x", count: 20 * 1024 * 1024)
+            let frame = #"{"type":"chat:event","seq":1,"replayed":\#(replayed),"payload":{"agentId":"a","event":{"seq":1,"type":"tool_call_update","data":{"toolCallId":"t","output":"\#(text)"\#(duplicateRawOutput ? ",\"rawOutput\":\"" + text + "\"" : "")}}}}"#
+            let clock = AnnexManualClock()
+            let io = FailureSessionIO(sessionInitials: Array(repeating: [initialSnapshot, frame], count: 3) + [[#"{"type":"snapshot","payload":{"lastSeq":1,"projects":[],"agents":{}}}"#]])
+            let transport = try await liveTransport(io, clock: clock.clock, backoff: AnnexBackoff())
+            let events = await transport.events()
+            try await transport.connect()
+            var delays: [Double] = []
+            for _ in 0..<3 {
+                let frames = try await collect(events) { if case .connection(.retrying) = $0 { true } else { false } }
+                #expect(!frames.contains { if case .message(let e) = $0 { e.seq == 1 } else { false } })
+                guard case .connection(.retrying(_, let delay, .responseTooLarge)) = frames.last else { Issue.record("Expected recoverable oversize"); return }
+                #expect((30...45).contains(delay)); delays.append(delay)
+                let socket = try #require(await io.sockets.last)
+                #expect(await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 0 })
+                await clock.waitForSleepers(1); clock.advance(by: .seconds(delay))
+            }
+            let recovered = try await collect(events) { if case .message(let e) = $0 { e.type == "snapshot" } else { false } }
+            #expect(recovered.contains(.resyncRequired(.reconnected)))
             let socket = try #require(await io.sockets.last)
-            #expect(await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 0 })
-            await clock.waitForSleepers(1); clock.advance(by: .seconds(delay))
+            try await settle(on: io.changes) { await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 1 } }
+            #expect(await io.openAttempts == 4)
+            print("Tool frame replayed=\(replayed) duplicateRawOutput=\(duplicateRawOutput), bytes=\(frame.utf8.count): stale checkpoint0 repeats slow retry \(delays); fresh checkpoint1 advances/replays since1 and escapes")
+            await transport.disconnect()
         }
-        let recovered = try await collect(events) { if case .message(let e) = $0 { e.type == "snapshot" } else { false } }
-        #expect(recovered.contains(.resyncRequired(.reconnected)))
-        let socket = try #require(await io.sockets.last)
-        try await settle(on: io.changes) { await socket.sent.contains { $0["type"]?.string == "mobile:replay" && $0["since"]?.integer == 1 } }
-        #expect(await io.openAttempts == 4)
-        print("Tool frame replayed=\(replayed) duplicateRawOutput=\(duplicateRawOutput), bytes=\(frame.utf8.count): stale checkpoint0 repeats slow retry \(delays); fresh checkpoint1 advances/replays since1 and escapes")
-        await transport.disconnect()
     }
 
     @Test(.timeLimit(.minutes(2)), arguments: [1_247_805, 26 * 1024 * 1024, 66 * 1024 * 1024])
@@ -1021,15 +1047,17 @@ func transportEnforcesItsByteLimitBeforeDecodingAndAcceptsTheBoundary(refresh: B
     }
 
     @Test(.timeLimit(.minutes(1))) func HTTPCommandCompletesWhileInitialSnapshotAndWebSocketRepliesAreHeld() async throws {
-        let io = FailureSessionIO(firstInitial: [])
-        let transport = try await liveTransport(io)
-        try await transport.connect()
-        try await settle(on: io.changes) { await io.openAttempts == 1 }
-        let started = ContinuousClock.now
-        let receipt = try await transport.execute(.init(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
-        #expect(receipt.status == .completed)
-        print("HTTP mutation completed with no first snapshot/WS reply in \(ContinuousClock.now - started)")
-        await transport.disconnect()
+        try await elevated {
+            let io = FailureSessionIO(firstInitial: [])
+            let transport = try await liveTransport(io)
+            try await transport.connect()
+            try await settle(on: io.changes) { await io.openAttempts == 1 }
+            let started = ContinuousClock.now
+            let receipt = try await transport.execute(.init(epoch: "epoch1", kind: .interrupt(agentID: "a", sessionID: "s")))
+            #expect(receipt.status == .completed)
+            print("HTTP mutation completed with no first snapshot/WS reply in \(ContinuousClock.now - started)")
+            await transport.disconnect()
+        }
     }
 }
 
