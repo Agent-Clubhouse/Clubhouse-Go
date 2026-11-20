@@ -172,13 +172,59 @@ No edit has been made here.
 | Linked Home source/config | SOURCE-only `a343b26997e6f4b0b2e86ee2c62ac74335a072d1` / `239269c0e6b0bf3c3932fc59f6cc2a11809e9360` approved. CONFIG-only now closed at manifest `c62706138556933d7951d7dabfaa349a57e9499d1d928373d95fe87ceef29bfc`: canonical `f7dae7fa1d63eda6e071320b4ae89281756fccbe` / SHA256 `05f4412f397216e3650afeb08d1e08e17e410335933e75c455fa1c8182860326`. Entire common8 runtime unchanged; actual758 Git files, declared166 package tests and all139 native test sources bound. Fresh independent full-five A remains required before one native case once, two explicit launches, original240-second method allowance. UX owns ordering/execution; no native/collapse/cure credit. |
 | Dispatcher sender-fold observer/config | SOURCE-only `3dda22673aff9b5c10c8e33518b04a5d27af6a60` / tree `59792d494e1b77672d730f0b8024beb93737b8bb` approved. Exact sanitized receipt `2026-11-20-go-bug-pass-sender-source.json`, Git `827fcadeb86ee3ff8c70dde6d784b1c7af1296ff` / SHA256 `0def951bf4032f0c736679de21c77ecaa2f99601938aeaaabb90c2592094fc47`. CONFIG-only manifest `88740e59a798b07336afbe07684294ebd9f48f29a28e8d3e880e4ee7ed315486` closed by `84adf0cfcbdf2c0f9dfee13459e22b7277c6b69b` / SHA256 `8154e60815c4ae4546c77c788f824e2ae63aa0c4c6f02051e69d531ea221dd3f`. Only worker change restores both command allowances240-to-original360 for this one case. Source helper plus seven IDs reconstruct the base file; routed-copy and generic helpers unchanged. Fresh independent full-five A required before one case once / one launch; actual native snapshot fit/hittability/timing and separate originals acceptance remain open. |
 
+### Footer / Preview first-T originals closure
+
+The first local T is now independently accepted, superseding the pending-T
+status in the table: canonical local Git blob
+`f7f24aabd68b1efdd2999152d3847102d76c1a79`, 10,128 bytes, SHA256
+`af902f3a4ba90f0e9916821e070747177ac73c4ab2b3d23f8dc6b2ad40e0026f`.
+Verdict `PASS_EXACT_OWNED_PROOF_ORIGINALS`, phase T / rc0, binds exact
+`026688254361e5cb1ee09ee5430df6973462a179` / tree
+`dc093496ee0c92ae3d375d60f7aee255ca5e92c0`, the same manifest/full8,
+receipt SHA256 `2f79a6b91e1f44c9a4f76a2f9111446ee0138916353e2bca54cdeba44a3bc435`,
+and external SHA256
+`9efeae233749b64a5f9369e20d53d20a0ec25e29c7a65ed30088a8a7c9b7fb2b`.
+The full report contains private host paths and remains local.
+
+All 210 originals / 426,528,617 bytes, all 47 A originals, genuine independent
+gates, source759/full8/data and the entire five A/pre/post/current products
+were verified. Raw SQLite establishes five methods once, no repetitions or
+issues; seven native SUT launches comprise six Footer and one Preview.
+All 28 entire PNGs were individually viewed and byte-bound to raw result data.
+All 36 strip pixel records were independently recomputed: maximum guarded
+adjacent-row step 2.583333333333343 <= 3; 24 standard-room strips meet 4.
+Overflow rows at/below keyboardTop-40 remain logged only, and pending/overflow
+room colour is not guarded. No universal flat-colour/lower-overflow claim.
+
+Native Preview records establish actual gutter gestures, two whole-link/current
+clear-band midpoint taps once, expected opens, Done and swipe dismissals, and
+Following1/pauses0 becoming and remaining Following0/pauses1 through the final
+post-swipe observation. Actual Preview SUT live-tool labels advance; unrelated
+Footer synthetic-update labels are not Preview evidence. Its two PNGs show
+before-tap targets, not displayed-sheet or final-dismissal pixels.
+Native field-focus remains **DEFERRED**: no direct flags recovered in complete
+text/native exports; retained binary leaves do not prove blanket flag absence.
+Keyboard, caret, typing and hierarchy-request titles are not substitute flags.
+
+Admission/pretest raw measurements, 29 active swap deltas, QuickPath/20-second
+stabilization, original240-second method allowance, all-zero closure, owned
+simulator deletion and empty owned groups were checked. Actual after-FIFO
+duration is 291.87338079186156 seconds, below900. This accepts the exact local
+iPhone17/iOS26.0 first-T originals only, not hosted iOS26.5, real-device iOS27,
+cause/cure, an integrated head, Mini transfer or landing.
+
 UX subsequently reported successful first A closures for Linked Home
 (228.547872 seconds, packet `136cfd6f` / SHA prefix `c9b13159`) and sender
 (227.083134 seconds, packet `553046ea` / SHA prefix `b064ba08`). Those are
 owner-reported milestones, not this agent's independent originals verdicts.
 Runner owns the two separate independent A-original reviews; their T gates
 remain held. Parent milestone delivery returned an explicit sleeping-agent
-error; no wake, start or restart was attempted.
+error; no wake, start or restart was attempted. UX later reported independent
+A acceptance and first native submissions, followed by two retained first reds:
+Linked Home fails the Search-selected oracle before reaching Home; sender fails
+its first caption at the20-pan cap with tiny cross-representation frame
+differences. Proposed narrow source children are not yet reviewed or accepted;
+neither earlier source/config verdict implied runtime success.
 
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
