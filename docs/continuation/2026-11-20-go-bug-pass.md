@@ -375,6 +375,40 @@ native acquisition evidence, not a bigger budget or expected-offset readiness.
 No source changes, new native/worker/build/FIFO/export/classifier action, or
 f47/local proof/ReadingOpening58/Chooser/typing/menu/Grant scope absorption.
 
+Native Home menu candidate6179 is independently accepted SOURCE-only:
+`6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716` / tree
+`208f75f7a1c7701ab374cba88c26acfefddec307`, canonical
+`c1cc5870ee60add355b04196c373546ec59e22d2`,2,835 bytes, SHA256
+`5f852c235f246496d63d4b08e37fdc874e5910d1ead4487fdf8b22d55350117f`.
+Reversing only traversal/observation/live-return guards reconstructs the entire
+reviewed7540 menu test. One collection snapshot per step locally traverses
+descendant buttons; original menu-label indexes drive range/pan choices.
+Original full label/order/uniqueness, collection/panel, strict full fit, eight
+pans, actions/themes/two selectors/default240 remain. Returned live actions
+must exist/be hittable/enabled and have finite positive actual geometry inside
+the fresh clip; snapshot containment cannot substitute. Own extracted four
+inert traversal controls and exact-file parse/diff passed. Actual native
+snapshot/query membership/currentness, timings and complete action paths are
+not credited; candidate remains UNBUILT/UNRUN without CONFIG/A/T/native cure.
+
+Final ab6/run44685281882 outcomes are preserved as feedback owner's census,
+not another independent aggregate or repaired-CI verdict. Run CLOSED/cancelled:
+15 UI lanes,8 success/6 failure/1 cancelled; all442 intended source methods
+have stdout starts,441 standard terminal outcomes, final Diagnostic root-tab
+interrupted. Starts/skip/retries do not imply first passes. Aggregate job
+elapsed574.0667m versus661.97585 forecast includes setup/retries/cleanup;
+reported dispatcher57.1m tail and Preview47.58/Launcher53.4/Reading48.92/
+Composer46.93 exceed their forecasts, not sole-cause timing attribution.
+Final activity/permissions job136135075435 log
+`59c4e8cea561aa513b0adbde1bb7d4425be7eb72`,893,302 bytes, SHA256
+`262a395ba5e01c6765e0977baf6787e4e1b642b922f549cf5644952eb858a7ae`,
+reports five HeaderReflow tests failing all repetitions: four lack100 samples
+(actual5-25), push/pop lacks Back. No fixed-header product-reflow cause or owner
+is inferred; permission family has no reported first-red signature.
+Final author census `c4db2a4ca56d50097643116bcc1b964cc03d943c`, SHA256
+`b0faf6400f975a34c736678ab9e90baa2908bb98d1cf75f72332bbc608a5fef0`.
+No source/native/hosted gate conflation, new scope/run, parent wake or Mini contact.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
