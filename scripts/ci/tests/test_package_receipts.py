@@ -38,6 +38,22 @@ class PackageReceiptTests(unittest.TestCase):
             self.assertIn(path, upload)
         return result
 
+    def test_failed_toolchain_command_cannot_be_hidden_by_tee(self):
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        step = workflow.split("      - name: Report Swift test toolchain\n", 1)[1].split("      - name: Test transport package", 1)[0]
+        self.assertIn("shell: bash {0}", step)
+        script = step.split("        run: |\n", 1)[1]
+        script = "\n".join(line[10:] for line in script.splitlines())
+        with tempfile.TemporaryDirectory() as directory:
+            prefix = ("swift() { printf 'inert toolchain failure probe\\n'; return 13; }\n"
+                      "xcodebuild() { printf 'unexpected later command\\n'; }\n"
+                      "sw_vers() { printf 'unexpected later command\\n'; }\n")
+            result = subprocess.run(["/bin/bash", "-c", prefix + script], cwd=directory, text=True, capture_output=True)
+            self.assertEqual(result.returncode, 13)
+            log = (pathlib.Path(directory) / "swift-test-toolchain.log").read_text()
+            self.assertIn("inert toolchain failure probe", log)
+            self.assertNotIn("unexpected later command", log)
+
     def test_failed_package_retains_receipts_and_nonzero_exit(self):
         self.assertEqual(self.run_package_step(65).returncode, 65)
 
