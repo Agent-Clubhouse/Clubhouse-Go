@@ -1,6 +1,6 @@
 # go-feedback-review continuation — 20 November 2026
 
-Initial preservation snapshot08:47 UTC; latest preservation update11:00 UTC. This is unfinished work, not landing or runtime approval. Source branches below were inspected for credentials, private payloads and generated artifacts before preservation. Private images, raw native packets, compiled products, trace output and profiles are excluded. No account, paid capacity, release, restart or destructive action is authorized.
+Initial preservation snapshot08:47 UTC; latest preservation update11:06 UTC. This is unfinished work, not landing or runtime approval. Source branches below were inspected for credentials, private payloads and generated artifacts before preservation. Private images, raw native packets, compiled products, trace output and profiles are excluded. No account, paid capacity, release, restart or destructive action is authorized.
 
 ## Ownership and continuation gate
 
@@ -10,9 +10,10 @@ Repository: https://github.com/Agent-Clubhouse/Clubhouse-Go . All refs are ordin
 
 | Assignment / remote branch | Exact preserved SHA | Status |
 | --- | --- | --- |
-| Common PR620 — go-feedback-review/integrate-ci-links | ab6c7149416e50ca259aa135289e5d7b668427dc | Published open PR; first CI has real failures/cancellations, unmerged |
+| Common PR620 — go-feedback-review/integrate-ci-links | ab6c7149416e50ca259aa135289e5d7b668427dc | Published open PR; first CI CLOSED/cancelled with real failures, unmerged |
 | Focused successor — go-feedback-review/repair-620-first-outcomes | 026688254361e5cb1ee09ee5430df6973462a179 | Source/config/A and qualified local T originals closed; native focus and hosted/integrated acceptance deferred |
 | Future integration — go-feedback-review/integrate-620-next | 7540be2108510545899d5d4b60890a5118532a90 | Receipt/f47 source plus complete Linked Home contribution reviewed and remote readback verified; no exact integrated runtime/PR/run |
+| Native menu observation — go-feedback-review/repair-native-menu-snapshot | 6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716 | Independent source-only pass; preserved unfinished; fresh config/A/T pending |
 | Links PR615 — go-feedback-review/mobile-tappable-links | 0258e49cf24b0c91707acae671bdd52ce872cc38 | Reviewed local proof; old hosted link methods zero-start; wait common green |
 | Home PR621 — go-feedback-review/home-row-hit-area-r2 | 44232736ded1e7ad4c56667cd90dba503d3013c6 | Scoped local acceptance; temporary dependency base; hosted proof pending |
 | Historical Home — go-feedback-review/home-row-hit-area | e1fb40983825e93b96c2b5863195b7c72f410fd4 | Superseded source, retained old first failures; not current candidate |
@@ -138,3 +139,38 @@ Complete original four-lane method index184ea8ab392bf018c540f8df259a3c9c58f7d7aa
 The native Home menu timeout is our existing menu-test family. Author read-only attribution e4082bfce723a9a76933e6b348df827904ec1a71,3420 bytes,SHA256 75a76b6ee8e77ced130e0cbb39562dffbabb759007eb2314fcd00d500d04cd7f binds finalized native result/activities and diagnostic spindump, not independent repair approval. Original first launch starts1.04s, Home wait55.85s, quiet-fold tap117.57s, Juniper press195.65s. Sleeping menu is eventually validated/captured at291.36s; Details taps310.13s, correct Juniper title316.33s, Done316.68s, sheet disappears/Home exists before Cedar time guard322.94s. Cedar was not looked for; its absence or unreadability is NOT established. Long observed activity intervals include launch33.03s, idle18.83s, fold lookup22.18s and interrupting-element check49.93s. A5s allowance-diagnostic spindump samples repeated native per-button reads inside reveal, while app main-thread samples include run-loop and accessibility handling. This does not prove the sole cause or a global app hang. Preserve labels/order/uniqueness/hittability/full clip/one press and240s bound; no test edit, retry, threshold increase or cure claimed. Dark/running scenarios remain unreached in this failed case. Finalized raw SQLite integrity is ok and records one240s Failure, with one allowance issue; textual iteration2/start-and-restart is not a second completed result.
 
 At last11:00UTC API check only activity/permissions136135075435 remained in progress. Refresh for final first outcomes and all15 actual elapsed times before changing forecasts or calling CI repaired. Parent remains asleep/no successful new delivery or wake. No receiver fetch/explicit Mini acceptance, payload transmission or ownership transfer has occurred.
+
+
+## Final original run and menu source candidate, 11:06 UTC
+
+Original #620 attempt1 run44685281882 CLOSED with overall cancelled conclusion at11:03:27UTC, unchanged ab6. Fifteen iPhone UI lanes finished8 success /6 failure /1 cancelled. The source-method census finds all442 intended method names STARTED in stdout;441 have a standard passed/failed/skipped terminal line. Final Diagnostic root-tab method remains interrupted. No zero-start intended methods in this normal common run, but this is not442 first passes, once-only execution acceptance, native strict acceptance or link-feature credit. Textual iteration2/start/restart in the menu case remains separately reconciled to its single finalized native failure. Author final raw-stdout/job API census c4db2a4ca56d50097643116bcc1b964cc03d943c /SHA256 b0faf6400f975a34c736678ab9e90baa2908bb98d1cf75f72332bbc608a5fef0 is not an independent all-bundle audit.
+
+| Lane | Original job elapsed minutes | Forecast minutes | Conclusion |
+| --- | --- | --- | --- |
+|0 grants/projects + units|33.1167|45.5487|success|
+|1 Preview|47.5833|44.9319|success with first red|
+|2 feedback|30.4333|44.5736|success with first red|
+|3 Dispatcher/settings|57.1000|45.0802|cancelled at55-minute run limit; tail includes cleanup|
+|4 chips/lifecycle|27.6333|45.2192|success|
+|5 Decisions/linked Home|32.9000|45.5437|success with first red|
+|6 Home/settings|19.4500|45.5000|failure|
+|7 Footer/desktop|34.8000|45.5265|success with first reds|
+|8 opening/terminal|43.6667|45.4215|failure; archive method first passed atab6|
+|9 launch/native menus|53.4000|45.5347|failure|
+|10 Unicode/Reading|48.9167|45.0794|failure|
+|11 composer/keyboard|46.9333|45.5410|failure|
+|12 header/catalog|32.7833|46.4056|success|
+|13 activity/permissions|44.5500|46.4077|failure|
+|14 other|20.8000|25.6630|success with existing opt-in skips|
+
+Sum574.0667 actual runner-minutes versus661.97585 forecast; these elapsed jobs include retries, setup, results and cleanup and include failed/cancelled runs, so they are not a passing-job cost/speedup or first-attempt-only comparison. iPad25-minute cancellation is separate from this15-lane total. Retain15 lanes/max8/55-minute limits as instructed; measure the next normal revision after targeted repairs. No new forecasts, blanket reruns or CI-repaired claim.
+
+Final job136135075435 original log59c4e8cea561aa513b0adbde1bb7d4425be7eb72,893302 bytes,SHA256 262a395ba5e01c6765e0977baf6787e4e1b642b922f549cf5644952eb858a7ae. Five CompanionHeaderReflowUITests methods fail allthree attempts: four methods have only5–25 sampled snapshots versus unchanged required100; back-swipe/push method cannot find native Back. This is inadequate observation/navigation evidence, not demonstrated product reflow. No new owner or repair is assumed; existing ChatHeaderVisual and native Home menu tasks do not automatically cover it. Permission methods have no first-red signature in this log.
+
+Independent bounded Reading first-red attribution5804c42e22835b60ef7d8090c667e0ac8bc19c0a,6204 bytes,SHA256 6db62c16eccfd4ffd222201d8b85ec537995fd3782f918bd003af38ee8345ca6 is hash/metadata verified. It retains original runs77.644/72.579/67.925 Failure387. First complete native acquisition takes at least7.172s, leaving at most.828s inside8s, less than required2.25s stable; second acquisition finishes beyond the deadline. Second repetition similarly7.045s; third is faster5.037s and therefore does NOT support that identical first-window claim, but its next complete sample also finishes beyond the deadline. This supports observation-budget starvation, not bookmark offset error, lost tap, actual frame movement or a product cause. Later4-point/stream/keyboard/return checks are unreached. No8s/2.25s/.5point/4point relaxation, expected-coordinate wait, repair or native pass is inferred. A corrective implementation would need adequate actual observations under the same contract, separately reviewed/proved.
+
+Our new isolated menu topic6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716/tree208f75f7a1c7701ab374cba88c26acfefddec307 is screened, normally pushed and exact remote readback verified. It is a child of7540 with only CompanionAgentRowMenuUITests and direct sanitized documentation changed. One current public collection snapshot supplies per-pan descendant button labels/frames locally, avoiding serial native existence/label/frame queries for each item. It preserves original collection/panel binding, complete label/order/uniqueness checks, target range, full fit, eight pans, endpoints, one row press, original Juniper/Cedar Details/Done/Home actions, both themes and240s allowance. Snapshot duplicate targets fail. Before returning any action the original live query must still exist/be hittable/enabled and its fresh finite positive actual frame must fit the current app/panel/collection clip.
+
+Genuine independent SOURCE-only c1cc5870ee60add355b04196c373546ec59e22d2,2835 bytes,SHA256 5f852c235f246496d63d4b08e37fdc874e5910d1ead4487fdf8b22d55350117f was hash/JSON verified at exact6179. Reviewer reversed the entire delta to reconstruct the parent, ran four inert traversal controls and Swift parse/diff checks. Native snapshot/query membership equivalence, currentness across separate queries, actual movement, timing and cure remain UNPROVED. Fresh owned CONFIG/A→independent actual-five A→T is requested from the existing runner for exactly two menu methods once/four SUT launches, unchanged240s bounds and normal measured FIFO, no advance reservation or retry. No new actual config/build/native outcome yet; do not fold this candidate into7540 or PR620 before gates. Original one240s failure and partial textual restart remain immutable.
+
+Peer sanitized continuation29a9ac952272beb74a675269c243ddbda59caedc was independently remote-readback verified. Parent remains asleep/not delivered; no wake/restart, Mini contact, private payload transmission or receiver acceptance has occurred. Ownership remains here. Source preservation is usable unfinished WIP, not landing permission or green CI.
