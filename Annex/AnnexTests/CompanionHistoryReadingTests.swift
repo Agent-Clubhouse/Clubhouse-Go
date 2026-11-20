@@ -385,6 +385,24 @@ import UIKit
                 text: liveText)), sequence: nil))
         }
         let agent = try XCTUnwrap(hosts.flatMap(\.allAgents).first { $0.id == target })
+        #if DEBUG
+        let previousOpeningProbe = CompanionReadingOpeningProbe.record
+        var geometrySamples = 0
+        CompanionReadingOpeningProbe.record = { sample in
+            previousOpeningProbe?(sample)
+            guard sample.target == target else { return }
+            switch sample.phase {
+            case .historyTask, .unmounted, .arrived, .cancelled:
+                break
+            default:
+                guard geometrySamples < 96 else { return }
+                geometrySamples += 1
+            }
+            let viewport = loading.readingBookmark(for: target).viewport
+            print("HISTORY_MOUNT_PROBE time=\(ProcessInfo.processInfo.systemUptime) phase=\(sample.phase.rawValue) mount=\(sample.mountID) revision=\(sample.historyRevision) sampleOffset=\(String(describing: sample.offset)) sampleEntry=\(String(describing: sample.entryLowerBound)) viewportOffset=\(String(describing: viewport.metrics?.normalizedOffset)) initialized=\(viewport.hasInitialized) restoring=\(viewport.isRestoring) restoration=\(String(describing: viewport.restoration?.id)) outcome=\(String(describing: viewport.restoration?.outcome?.rawValue)) frames=\(viewport.frames.count)")
+        }
+        defer { CompanionReadingOpeningProbe.record = previousOpeningProbe }
+        #endif
         window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: loading, agent: agent) })
         window.makeKeyAndVisible()
         defer { window.isHidden = true; window.rootViewController = nil }
@@ -425,12 +443,15 @@ import UIKit
         let frame = try XCTUnwrap(bookmark.viewport.frames[entry])
         let seed = CompanionReadingPosition(followsLatest: false, entryID: entry,
             distanceFromEntry: 8, offset: frame.lowerBound + 8, shownEntries: bookmark.position.shownEntries)
+        print("HISTORY_HOST_BOUNDARY stage=before-removal time=\(ProcessInfo.processInfo.systemUptime) initialized=\(bookmark.viewport.hasInitialized) frames=\(bookmark.viewport.frames.count) offset=\(String(describing: bookmark.viewport.metrics?.normalizedOffset)) seedOffset=\(seed.offset)")
         window.rootViewController = nil
         try await Task.sleep(for: .milliseconds(50))
+        print("HISTORY_HOST_BOUNDARY stage=before-remount time=\(ProcessInfo.processInfo.systemUptime) initialized=\(bookmark.viewport.hasInitialized) frames=\(bookmark.viewport.frames.count) offset=\(String(describing: bookmark.viewport.metrics?.normalizedOffset))")
         bookmark.position = seed
         window.rootViewController = UIHostingController(rootView: NavigationStack { CompanionConversationView(store: loading, agent: agent) })
         window.makeKeyAndVisible()
         try await waitUntil { self.isRestored(seed, bookmark: bookmark) }
+        print("HISTORY_HOST_BOUNDARY stage=after-remount-wait time=\(ProcessInfo.processInfo.systemUptime) initialized=\(bookmark.viewport.hasInitialized) frames=\(bookmark.viewport.frames.count) offset=\(String(describing: bookmark.viewport.metrics?.normalizedOffset)) outcome=\(String(describing: bookmark.viewport.restoration?.outcome?.rawValue)) entryFrame=\(String(describing: bookmark.viewport.frames[entry]))")
         XCTAssertEqual(try XCTUnwrap(visibleEntryDistance(entry, bookmark: bookmark)), seed.distanceFromEntry, accuracy: 1)
         let saved = bookmark.position
         XCTAssertFalse(saved.followsLatest)
