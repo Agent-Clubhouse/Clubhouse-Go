@@ -140,6 +140,15 @@ import XCTest
         }
     }
 
+    /// Geometry used to choose a pan comes from one current native snapshot. Reading
+    /// every button's label/frame through separate queries serializes AX round trips.
+    /// The live target is still reacquired and checked before returning any action.
+    private func menuButtonSnapshots(in snapshot: XCUIElementSnapshot) -> [XCUIElementSnapshot] {
+        snapshot.children.flatMap { child in
+            (child.elementType == .button ? [child] : []) + menuButtonSnapshots(in: child)
+        }
+    }
+
     private func reveal(_ label: String, in menu: NativeMenu, app: XCUIApplication, allowScroll: Bool,
                         file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
         let targetIndex = try XCTUnwrap(menu.labels.firstIndex(of: label), file: file, line: line)
@@ -150,12 +159,15 @@ import XCTest
             _ = try XCTUnwrap(!viewport.isNull && !viewport.isEmpty ? viewport : nil,
                               "The original native menu still has a real clip", file: file, line: line)
             let item = menu.collection.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
-            let frame = item.exists ? item.frame : nil
-            let buttons = menu.collection.buttons.allElementsBoundByAccessibilityElement
+            let buttons = menuButtonSnapshots(in: try menu.collection.snapshot())
+            let targets = buttons.filter { $0.label == label }
+            _ = try XCTUnwrap(targets.count <= 1 ? true : nil,
+                              "The current native snapshot must not duplicate its target", file: file, line: line)
+            let frame = targets.first?.frame
             _ = try XCTUnwrap(Set(buttons.map(\.label)).isSubset(of: Set(menu.labels)) ? true : nil,
                               "The bound native menu must retain only its original actions", file: file, line: line)
             let visible = buttons.compactMap { button -> (Int, CGRect)? in
-                guard button.exists, let index = menu.labels.firstIndex(of: button.label) else { return nil }
+                guard let index = menu.labels.firstIndex(of: button.label) else { return nil }
                 let rect = button.frame
                 return !rect.isEmpty && rect.intersects(viewport) ? (index, rect) : nil
             }
@@ -168,7 +180,13 @@ import XCTest
             if let frame {
                 XCTAssertLessThanOrEqual(frame.height, viewport.height, "This item must fit without truncating its full label", file: file, line: line)
                 if viewport.contains(frame) {
-                    _ = try XCTUnwrap(item.isHittable && item.isEnabled ? true : nil, geometry, file: file, line: line)
+                    _ = try XCTUnwrap(item.exists && item.isHittable && item.isEnabled ? true : nil, geometry, file: file, line: line)
+                    let liveFrame = item.frame
+                    _ = try XCTUnwrap(liveFrame.minX.isFinite && liveFrame.minY.isFinite
+                                      && liveFrame.width.isFinite && liveFrame.height.isFinite
+                                      && liveFrame.width > 0 && liveFrame.height > 0
+                                      && app.frame.contains(liveFrame) && menu.viewport(in: app).contains(liveFrame) ? true : nil,
+                                      "The reacquired live item must still fit the actual native clip: " + geometry, file: file, line: line)
                     capture(app, "Native menu revealed — \(label)")
                     return item
                 }
