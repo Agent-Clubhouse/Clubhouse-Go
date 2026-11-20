@@ -1291,7 +1291,7 @@ import Observation
     }
 
     func dispatcherRecovery(for target: CompanionTarget) -> CompanionDispatcherRecovery? {
-        guard let host = host(for: target), host.isDispatcher(target), let agent = agent(for: target) else { return nil }
+        guard !isShutDown, let host = host(for: target), host.isDispatcher(target), let agent = agent(for: target) else { return nil }
         let ready = canOperate(target) && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
             && !pendingCommands.contains(target) && !dispatcherResetting.contains(host.id)
             && !dispatcherRecoveryPreparing.contains(target)
@@ -1316,7 +1316,7 @@ import Observation
         defer { dispatcherRecoveryPreparing.remove(target) }
         do {
             let settings = try await service.dispatcherSettings(hostID: target.hostID)
-            guard isDispatcher(target), settings.agentID == target.agentID,
+            guard !isShutDown, isDispatcher(target), settings.agentID == target.agentID,
                   canOperate(target), !pendingCommands.contains(target),
                   !dispatcherResetting.contains(target.hostID),
                   canEditDispatcherSettings(hostID: target.hostID), host(for: target)?.connection.canOperate == true,
