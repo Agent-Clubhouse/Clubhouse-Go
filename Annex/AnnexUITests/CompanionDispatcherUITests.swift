@@ -596,6 +596,16 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
                                       file: StaticString = #filePath, line: UInt = #line) {
         // Resolve the caption and every floating boundary from one actual native hierarchy revision.
         // Separate exists/frame queries previously rebuilt that hierarchy dozens of times per pan.
+        // The snapshot and individual AX attributes can serialize the same CGFloat one ULP apart.
+        // This comparison allows only floating-point representation noise; containment stays strict.
+        func sameNativeFrame(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+            let pairs: [(CGFloat, CGFloat)] = [(lhs.origin.x, rhs.origin.x), (lhs.origin.y, rhs.origin.y),
+                                               (lhs.width, rhs.width), (lhs.height, rhs.height)]
+            return pairs.allSatisfy { pair in
+                pair.0.isFinite && pair.1.isFinite
+                    && abs(pair.0 - pair.1) <= max(pair.0.ulp, pair.1.ulp) * 4
+            }
+        }
         func observe() -> (window: CGRect, clear: CGRect, row: XCUIElementSnapshot?)? {
             do {
                 let root = try app.snapshot()
@@ -639,16 +649,22 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
             let area = current.clear, frame = current.row?.frame
             print("SENDER_CAPTION_GEOMETRY id=\(identifier) attempt=\(attempt) row=\(String(describing: frame)) clear=\(area)")
             if let frame, frame.width > 0, frame.height > 0, area.contains(frame),
-               caption.exists, caption.identifier == identifier, caption.frame == frame, caption.isHittable {
-                // A final complete observation cannot combine a new caption with stale chrome bounds.
-                guard let final = observe(), let row = final.row,
-                      row.frame == frame, final.clear.contains(row.frame) else {
-                    XCTFail("The full sender caption must remain in the current clear transcript", file: file, line: line)
+               caption.exists, caption.identifier == identifier {
+                let liveFrame = caption.frame
+                print("SENDER_CAPTION_CURRENT id=\(identifier) snapshot=\(frame) live=\(liveFrame)")
+                if liveFrame.width > 0, liveFrame.height > 0, area.contains(liveFrame),
+                   sameNativeFrame(liveFrame, frame), caption.isHittable {
+                    // Both unmodified native frames must fit a final complete hierarchy's bounds.
+                    guard let final = observe(), let row = final.row,
+                          sameNativeFrame(row.frame, frame), final.clear.contains(row.frame),
+                          final.clear.contains(liveFrame) else {
+                        XCTFail("The full sender caption must remain in the current clear transcript", file: file, line: line)
+                        return
+                    }
+                    XCTAssertTrue(final.clear.contains(row.frame),
+                                  "Sender caption must be inside the transcript: \(row.frame), clear \(final.clear)", file: file, line: line)
                     return
                 }
-                XCTAssertTrue(final.clear.contains(row.frame),
-                              "Sender caption must be inside the transcript: \(row.frame), clear \(final.clear)", file: file, line: line)
-                return
             }
             guard attempt < 20, area.height > 40 else {
                 XCTFail("Sender caption must be inside the transcript: \(String(describing: frame)), clear \(area)", file: file, line: line)
