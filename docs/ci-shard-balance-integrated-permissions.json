@@ -352,9 +352,10 @@
     "CompanionReadingUITests": {
       "methods": 16,
       "sampled_methods": 16,
-      "seconds": 536.115,
+      "seconds": 542.115,
       "reserve_floor_seconds": 0,
-      "lane": 10
+      "lane": 10,
+      "additional_restoration_readiness_seconds": 6
     },
     "CompanionAgentSheetsTests": {
       "methods": 7,
@@ -736,7 +737,7 @@
         "FramebriarShakeUITests"
       ],
       "methods": 50,
-      "forecast_seconds": 2698.745
+      "forecast_seconds": 2704.745
     },
     {
       "index": 11,
@@ -857,7 +858,7 @@
     }
   ],
   "original_incomplete_runner_minutes": 380.65000000000003,
-  "same_full_inventory_eight_lane_forecast_minutes": 591.87585,
+  "same_full_inventory_eight_lane_forecast_minutes": 591.97585,
   "peak_UI_jobs": 8,
   "extra_forecast_minutes_vs_same_full_inventory_eight_lanes": 70.0,
   "original_log_hashes": {
@@ -896,17 +897,23 @@
     "Nominal aggregate job allowances exclude post-cancel cleanup; actual runner use can exceed them.",
     "Public repository metadata and standard macos-26 runner policy identify no additional paid compute; artifact retention/storage/account budgets remain unchanged.",
     "Integrated permission geometry regression reserves another60s; no additional application launch in that method.",
-    "Original14/15/16 comparison is retained under prior_441_method_comparisons and is not an updated442-method placement forecast. Selected15 placement changes only permission lane13 by+60s.",
-    "Full same-inventory eight-lane counterfactual includes BOTH added math controls; baseline440-method eight-lane forecast excludes both."
+    "Original14/15/16 comparison is retained under prior_441_method_comparisons and is not an updated442-method placement forecast. Selected15 adds permission lane13 +60s and Reading lane10 +6s for the maximum additional readiness window.",
+    "Full same-inventory eight-lane counterfactual includes BOTH added math controls; baseline440-method eight-lane forecast excludes both.",
+    "Reading prepend replaces a fixed2s observation with an existing8s readiness ceiling; reserve6 additional seconds for that call. This is a conservative allowance, not measured native elapsed time or a changed deadline.",
+    "Settings main-actor polling and Reading readiness source corrections retain all method inventories and oracles. Their focused first results and final integrated/hosted execution remain pending."
   ],
   "original_partition_forecast_sha256": "ed24996c29c218c19e13f3aab8a013c4b968d9a2f460e3f7bc9f40e671415c6f",
   "source_integration": {
     "permission_head": "3569f0ba0375954d71bd63ec06d629eedf2d501b",
     "header_footer_head": "2b03c1e9c3b15c4a0961bd85b4182e0ac0169a9d",
-    "source_only_integration_head": "73765457c8fc347c56523e40e99aa497b12eadc8",
+    "source_only_integration_head": "3f1332b473c002e301cc98b927de22b9d9f3ac8a",
     "permission_scoped_local_review_blob": "54e2772534fbd6ccdcb4bea9c638629dbe7100cc",
     "header_footer_source_review_blob": "91bc6d4f72e6a88f39efbd093a64c54e7d40c62f",
-    "combined_native_hosted_acceptance": false
+    "combined_native_hosted_acceptance": false,
+    "settings_draft_head": "b892b9763ee20859004a6cffa2b45dc95eb435df",
+    "reading_prepend_head": "ff812e463a2ec57abbf496ced4e3bdfd6745441c",
+    "header_footer_scoped_local_review_blob": "d3c96477bfb7720100489f1099b96e4bef0b3278",
+    "header_footer_scoped_local_review_sha256": "53cc58f4cdd76ca11086f3dfcffa1554877bd8aed37ba2554ea019905f7d5370"
   },
   "prior_441_method_comparisons": [
     {
@@ -934,12 +941,12 @@
   "comparisons": [
     {
       "lanes": 15,
-      "runner_minutes": 661.87585,
+      "runner_minutes": 661.97585,
       "maximum_job_minutes": 46.40771666666667,
       "minimum_margin_minutes": 8.592283333333327,
       "nominal_UI_job_allowance_minutes": 825
     }
   ],
   "baseline_440_method_eight_lane_forecast_minutes": 589.87585,
-  "extra_forecast_minutes_vs_baseline_440_method_eight_lanes": 72.0
+  "extra_forecast_minutes_vs_baseline_440_method_eight_lanes": 72.1
 }
