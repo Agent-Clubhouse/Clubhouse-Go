@@ -95,7 +95,9 @@ jobs:
           key: swiftpm-build-cov-${{ runner.os }}-${{ steps.xcode.outputs.xcode }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
       - name: Report Swift test toolchain
+        shell: bash {0}
         run: |
+          set -euo pipefail
           {
             swift --version
             xcodebuild -version
