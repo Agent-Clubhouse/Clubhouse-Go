@@ -156,3 +156,9 @@ At 12:24 UTC all source STOP receipts had been relayed on the verified group boa
 | bold-gazelle/go-bug-pass-nov20-continuation | `e7b0c35f1849da3375c2a6e41bbfe022993b463b` |
 | bold-gazelle/proof-runner-continuation-nov20 | `c4beeb8c1883759bc4c78d328f7040fb543f9b0f` |
 | go-feedback-review/integrate-620-next | `45017f8d3e355684688326a18faad89558142079` |
+
+## Ownership transfer complete
+
+Mini Go explicitly accepted every offered scope after the laptop writers stopped and the recipient fetched and checked the exact refs. Tael receipt 1486aee9 covers the legacy queue, runner and shared-review scopes. Receipt d1e16fbd covers the CI integration, links, Home and resulting QA fixes. The recipient directly confirmed the final five UX scopes and all resulting fixes on the authenticated Go project board, sequence 20, message msg_1795177515002_89dd38538781. It verified the UX index and all five brief sizes and hashes. Mini Go also took over hosted archive-header job 136210713696 in run 44708573878 and observed it still running.
+
+All ten open PRs, the prepared implementation and diagnostic topics, proof coordination, and the remaining QA investigations now have one operational owner on the Mini. All four laptop writers are stopped. The laptop retains passive private-evidence custody and can clarify provenance on request. Outstanding CI failures, deferred menu acceptance, local simulator authorization, unavailable raw media and host-contract requirements retain their recorded limits. This transfer confers no additional landing, release or infrastructure authority.
