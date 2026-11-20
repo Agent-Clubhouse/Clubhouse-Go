@@ -21,11 +21,12 @@ No PR or landing is requested by this snapshot.
 
 | Assignment | Exact source / current status | Next action |
 | --- | --- | --- |
-| Footer/Preview successor | `026688254361e5cb1ee09ee5430df6973462a179`, tree `dc093496ee0c92ae3d375d60f7aee255ca5e92c0`; genuine source/configuration/A originals accepted; first A all zero in 228.36873887479305s | Genuine A canonical `211ebecc51ff03d8bc8bb125e07ef28469c5cfe8` installed through unchanged owner-excluding validator; fresh whole-five/source759/full8/data rehashed. First exact T launched once through normal FIFO; **result and independent T originals acceptance pending**. |
+| Footer/Preview successor | `026688254361e5cb1ee09ee5430df6973462a179`, tree `dc093496ee0c92ae3d375d60f7aee255ca5e92c0`; genuine source/configuration/A originals accepted; first T five once Passed/all exits zero in 291.87338079186156s after FIFO | Owner observed seven actual SUT launches/36 guarded strip records, current whole-five/source759/full8/data rehashed, owned groups/UUID absent and simulator deleted. Complete210-entry originals retained; **genuine independent T originals acceptance pending**. |
 | Provider VPHONE originals | `434e6a969a4e12adb3dceec2e6c0ab59710596c0`, tree `7bafe7ebde4cb761495e5224fbc1f4ffe64b49c5`; 69 entries/all ten entire PNGs/source768/current9/chain/closure independently accepted | Canonical `3e98a74b9fa50b288a29370da488475731334824`. Exactly three total original events: two previews + one Apply, zero Start/replay. No rerun or new Mini original re-audit credit. |
 | Provider VSE originals | Same exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; 73 entries/all ten entire PNGs/source768/current9/A-Large-Phone chain/closure independently accepted | Canonical `fa7f0354b38479a2b094f001125a4daade8a4316`. Two first runs/two launches/three total fixture events. No rerun or hosted/integration/cure credit. |
 | AppUpdate T originals | `b3d95526800b91101b435c75ff6a01633b9c59b6`, tree `59b1ec636da07a40a3f8da839c4ed31ff7642ea5`; 54 entries/all eight entire PNGs/current8/A/actual once-actions/closure independently accepted | Canonical `a17cb7df8b72c5034bdcc7aea08d4e32ab8dc9f7`; exact two-method synthetic local scope only. No rerun or new Mini original visual re-audit credit. |
 | Linked Home fresh A originals | `a343b26997e6f4b0b2e86ee2c62ac74335a072d1`, tree `7015cdd6d446dad61783656f9692eaa5cef6ac26`; all24 supplied entries/source758/full8/data/raw build/deinit/policy/guard/closure accepted in 228.54787220805883s | Canonical `4178776dccf8398b8954f20f246db5d164df4943`; compiled-five reviewer metadata-only, owner's recorded current hashes match receipt. Actual returned Expanded/new-session Collapsed and one-case native originals remain separate; UX owns execution and inventory. |
+| Dispatcher sender-fold fresh A originals | `3dda22673aff9b5c10c8e33518b04a5d27af6a60`, tree `59792d494e1b77672d730f0b8024beb93737b8bb`; all24/source758/full8/data/raw guards/build/deinit/policy/closure accepted in 227.08313424978405s | Canonical `2ea6d38360035cd1382b1b0d4fe496529047bbcf`; compiled-five reviewer metadata-only. Exact reviewed owned worker changes only native default/max240 to this original case360; one-case native/current fit/state/action/pixel/timing acceptance remains separate. UX owns execution/inventory. |
 | f47 iPad diagnostics | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78`, tree `593d6f7b4fbe64941d1bec1ad0cad129b83ac370`; fresh A and first H independently accepted | Complete scoped non-reproduction only; no extra A/H. No screenshots/movie existed for H. Hosted cause remains unresolved. |
 | Provider A / SE Large originals | Exact `434e6a969a4e12adb3dceec2e6c0ab59710596c0`; A and first SE Large originals independently accepted, including all 18 entire PNGs | Owner's SE pair waits for actual phone-original gate. No reviewer native execution. |
 | AppUpdate A originals | Exact `b3d95526800b91101b435c75ff6a01633b9c59b6`; A originals independently accepted, compiled products reviewed as metadata only | T acceptance remains separate. No stage/Idle action or pixel credit from build acceptance. |
@@ -53,7 +54,8 @@ Its sole change removes `go-bug-runner` from the prior-A reviewer whitelist,
 leaving `go-bug-pass` and `Clubhouse-Go-Orchestrator`. Genuine configuration
 `87c5fd5697347ff5e39ee5d030d84974cb134c57` accepted it for the current laptop
 owner's exact bound paths/data; fresh A and genuine independent A originals
-accepted, first T launched once with result/originals acceptance pending.
+accepted, first T five once Passed with genuine independent originals acceptance
+pending. This preserves all original mask/deferred-focus/native-only limits.
 This does not approve a changed Mini owner/path/configuration. Legacy adapters are historical only:
 their caller-specific reviewer whitelists must not be reused as authority for
 the current executor.
@@ -170,6 +172,8 @@ before a counterpart can consume the payloads.
 | Footer genuine config acceptance | `87c5fd5697347ff5e39ee5d030d84974cb134c57` / `a3ec36525b6e847d44625a4da77db754c78215373cd80ba78f98f63444c7afa3`; UTF-8 JSON 6386 bytes |
 | Footer first A 47-entry originals | `8715536600ea1b0119cc2212d3d3379edab48d5d` / `902f7eceaa956422b63dafb47328bf488ae119b36f3143d53bb0acfa25653d0e`; full five compiled originals stay private |
 | Footer genuine A acceptance | `211ebecc51ff03d8bc8bb125e07ef28469c5cfe8` / `cd5b6af6bf56fa0e60e6b20bf250649f63af425f146b1ae0e5bb357f42f29fe4`; UTF-8 JSON 10201 bytes |
+| Footer first T210-entry complete originals, independent review pending | `10e0d402f7eb9cab17086e96340bbf729d22786c` / `872715f1a251963390be13dc5fcff55652b5b80dfffa5e3525750fe31863c0a1`; index132552 UTF-8 bytes, complete426528617-byte local/private payload including raw xcresult/all28 PNG/all5 activities/full stdout/A originals |
+| Footer first T receipt | SHA256 `2f79a6b91e1f44c9a4f76a2f9111446ee0138916353e2bca54cdeba44a3bc435`; external closure SHA256 `9efeae233749b64a5f9369e20d53d20a0ec25e29c7a65ed30088a8a7c9b7fb2b` |
 | Provider phone 69-entry originals | `82a0c87277bb07bccd77c41b6b496a2e905a1abd` / `c0a9d86bad0864a2e22f7f9d8966c6de62c49ec0de17b65e3a007613a0ace175` |
 | Provider phone acceptance | `3e98a74b9fa50b288a29370da488475731334824` / `ec8fd49b3fe861037c072b74b3bba230de1ca5632e7fbd0519f81558096a0de3` |
 | Provider SE acceptance | `fa7f0354b38479a2b094f001125a4daade8a4316` / `bb544e876c1c09e623df493bd653636e84b7756ddd76834f47eea4330e831428` |
@@ -178,6 +182,7 @@ before a counterpart can consume the payloads.
 | AppUpdate T 54-entry originals | `1f7758991a6fc4dfea39ba83269100dca6c474bd` / `d52abc6724b681457d4f6bb9742c4ce5f4b20b6e1e73f36dd68b21dc61d9ee4a` |
 | AppUpdate T acceptance | `a17cb7df8b72c5034bdcc7aea08d4e32ab8dc9f7` / `76ff70c9a898999509958a761f5e0e5ef979402bf30c3cdb63e652f2d4a921c3` |
 | Linked Home fresh A acceptance | `4178776dccf8398b8954f20f246db5d164df4943` / `a7598a5d69ff98e57609c797a43f820a195f641c0003fea6cd51c4d73a1def3f`; UTF-8 JSON 4922 bytes, compiled-five metadata-only limits |
+| Dispatcher sender-fold fresh A acceptance | `2ea6d38360035cd1382b1b0d4fe496529047bbcf` / `0d8ea5cb93fafbc38532e772ffba04cca52e19aea7ffb183ec263aaac13f2cf3`; UTF-8 JSON 5211 bytes, compiled-five metadata-only limits |
 | AppUpdate A acceptance | `cf6b4e1fb7c487463e9a714a7f25154e17c9862b` / `724aac9be7db7ced951e82e3638f5b5d298c7b266ff0b1e02dd79f46f5dc052c` |
 | f47 genuine parent A acceptance | `18b25b96e1e5b71ffd27a9581eb3c487b360f8ac` / `1663b73074babc2825c6de601250641be8410327e001b23eb5b1fa380744cba3` |
 | f47 H acceptance | `d4e416b2f45144a92256ac451e3af2d210f63918` / `6e4838957eeaef3fb577c1e4ce139ec73ca43355e98c6d0db5d80ee156971595` |
@@ -200,6 +205,26 @@ timing. AppUpdate's actual second duration is 16.372740983963013s, not the earli
 16.372995 transcription; native once-cancel assertions are not an unpictured
 final-state pixel capture.
 
+Footer first T's owner-observed guarded adjacent-row maximum is
+2.583333333333343 (threshold3). All36 side-strip records are retained, but
+overflow rows at/below keyboardTop minus40 are **logged-only**, and
+overflow/pending room colour is **not guarded**. No universal flat-colour or
+full lower-overflow coverage is implied. Named native `hasFocus` and
+`hasKeyboardFocus` flags are absent in the text exports: field-focus acceptance
+stays **deferred**, never inferred from keyboard/caret/typing. The two Preview
+PNGs show before-tap targets, not shown-sheet or final-dismissal pixels; actual
+motion/current frames/paused state/open/dismissals still require the genuine
+independent original audit. Complete raw xcresult is retained privately.
+
+Separate hosted lane8 (`ab6`, run44685281882) first-red provenance remains
+unresolved with integration owner/parent: ReadingOpening
+`testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner:58`
+failed31.825/31.588/31.706s, complete-below-pinned-banner criterion. The separate
+archive-header first PASS30.111s is historical only; UX's #616 archive-header
+scope does not own or cover assertion58. Feedback retains the original log and
+artifact refs. No new assignment, source edit, rerun, relaxed threshold or026
+proof extension follows.
+
 Private-text transfer inventory is deduplicated: current Footer's genuine source
 report (5374 UTF-8 bytes), config receipt (6386 UTF-8 bytes) and newly arrived
 genuine A-original receipt (10201 UTF-8 bytes) are runner-owned literal current
@@ -209,6 +234,12 @@ Closed Links/Home/HeaderFooter/f47/transport historical reports, public harness
 duplicates and reconstructible configurations are excluded unless a new actual
 consumer is identified. Media/binaries are not part of text transfer; new Mini
 native work requires fresh owned configuration, actual five-product A and review.
+The attempted parent milestone/A-delta message was **not delivered** because
+the parent wire reported asleep. New A-delta metadata remains locally retained
+and its Navi routing/custody is unclaimed; the earlier source-manifest metadata
+was verified and forwarded by the parent without ownership credit. Mini
+fetch/acceptance remains unclaimed; no wake/restart or direct receiver contact
+was attempted.
 
 Final transfer requires: exact remotely fetched preservation SHA; verification of
 all archived source digests; authorized receipt and rehash of essential private
