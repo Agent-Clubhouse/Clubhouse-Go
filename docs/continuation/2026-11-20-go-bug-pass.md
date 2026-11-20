@@ -38,6 +38,12 @@ are remotely fetchable**. An authorized private transfer is still needed if a
 successor must independently inspect them. Do not upload their raw contents or
 copy raw probe arrays into public notes.
 
+The parent verified the two unchanged PinnedDecision UTF-8 exports
+(1,898 and 117,174 bytes) and routed a metadata manifest to Navi. No duplicate
+manifest or private payload was sent by this agent. That routing is not exact
+successor scope acceptance. The first recording and original binary events
+remain local; their unavailable transfer still defers corresponding attribution.
+
 ### Transport
 
 The original #622 job `136123195225`, run `44686861649`, failed
@@ -155,16 +161,24 @@ fix is justified yet. `ux-root` owns sender-message reveal at line 654 in the
 shared Dispatcher UI file; coordinate any shared-helper/file edits directly.
 No edit has been made here.
 
-## Independent reviews still in progress
+## Independent review and runtime boundaries
 
 | Scope | Exact candidate and current boundary |
 | --- | --- |
 | Combined iPad partition / Footer focus / Preview gesture / transport carry | SOURCE-only approved at `026688254361e5cb1ee09ee5430df6973462a179`, local review `ff8b4840abab3b37b7d763f21e0b236aa84dac0f` / SHA256 `0f2033b7f3a60ddb2b8c1c51b1add19f546bd490532706a7bed0b4ecb5aece90`. Two exact pure tests and three Swift parses passed, not native/cure acceptance. |
-| Package original receipts | Final candidate `a90b24cb80ded7a501f73f7a5ae06151b49294b9`; source review still pending. Captured PIPESTATUS preserves test failure over writer failure and still rejects writer-only failure. Reviewer found that the old artifact path omitted the real Swift Testing sidecar; final child uses `swift-package-results*.xml` with a fail-before pattern test. No actual next-run XML credit yet. |
-| Additive hosted probes | Candidate `3980cf4445e51d9a554eb5ab08703ecfecd639d3`; exact two-file `f47` carry/head binding still pending. Parent approved next normal hosted run, not a standalone trigger. |
-| Footer / Preview prospective execution config | Frozen native candidate remains `0266882`; manifest `c781589bd9967365173abde5eef57298b9dd24c18740c67a2573acee1dbe4eb6`. CONFIG-only accepted in local canonical `87c5fd5697347ff5e39ee5d030d84974cb134c57` / SHA256 `a3ec36525b6e847d44625a4da77db754c78215373cd80ba78f98f63444c7afa3`. All 20 entries / 850,988 bytes, 759 Git files, 321 whole-test Swift files checked. Only adapter change removes the native executor from prior-A reviewers; genuine go-bug-pass / orchestrator remain allowed. Runner owns live pre-entry checks, normal FIFO, fresh A, independent actual complete-five acceptance/current-byte checks, then exactly five methods / seven launches. No A/T or Mini acceptance inferred. Keyboard presence alone is not native field-focus credit. |
-| Linked Home source/config | SOURCE-only approved at `a343b26997e6f4b0b2e86ee2c62ac74335a072d1`, local review `239269c0e6b0bf3c3932fc59f6cc2a11809e9360` / SHA256 `463debcfb26683835081b64c4e48c5700c11462e5d179ed104d239dceeb9e6bf`. Existing fold is revealed without tapping/re-expanding; explicit Expanded/Collapsed and disabled cached-row oracles retained. Prospective config packet `6a1d01715c35d41161f873f3697470a4b344dcee` remains unreviewed/unrun. UX owns execution after its review and independent fresh A gate. |
-| Dispatcher sender-fold observer | SOURCE-only approved at `3dda22673aff9b5c10c8e33518b04a5d27af6a60` / tree `59792d494e1b77672d730f0b8024beb93737b8bb`. Exact sanitized canonical receipt is `2026-11-20-go-bug-pass-sender-source.json`, Git blob `827fcadeb86ee3ff8c70dde6d784b1c7af1296ff` / SHA256 `0def951bf4032f0c736679de21c77ecaa2f99601938aeaaabb90c2592094fc47`. Reversing only the private observer and seven stable-ID arguments reconstructs the entire base test file. All other cases, including my routed-copy case, and generic helpers remain byte-identical. Complete snapshot bounds, real hit/frame guards, original 20-pan cap and 360-second case allowance retained. Separate config must bind its actual native worker 240-to-360 allowance delta; no build/native/cure credit. |
+| Package original receipts | SOURCE-only closed at current `3980cf4445e51d9a554eb5ab08703ecfecd639d3`, exact workflow/tests bytes from `a90b24cb80ded7a501f73f7a5ae06151b49294b9`. Exact sanitized canonical `2026-11-20-go-bug-pass-receipts-carry-source.json`, Git `b1997508166c58f6543c6550a6d38b8896e6883a` / SHA256 `e0597d3e6d45e0f2e836678b0602f37a53de307f863e4594e56ff5c4923bec46`. Six actual inert shell tests passed; actual old artifact pattern fails the sidecar selection control. Test failure outranks concurrent writer failure; writer-only and toolchain failures remain nonzero. Full coverage/default concurrency/20-minute policy retained. No authentic next-run XML credit yet. |
+| Additive hosted probes | Same combined SOURCE-only receipt closes exact two-file `f47` byte carry into `3980cf4` above `a90b24c`. Prior independent `0f2b` / `13aa` source verdict carried by exact blobs only, not self logic re-review or final-head native/cause proof. Parent approved next normal hosted run, not a standalone trigger. |
+| Footer / Preview execution and first build | Frozen native candidate `0266882`; manifest `c781589bd9967365173abde5eef57298b9dd24c18740c67a2573acee1dbe4eb6`. CONFIG-only `87c5fd5697347ff5e39ee5d030d84974cb134c57` accepted. First actual A independently closed by `211ebecc51ff03d8bc8bb125e07ef28469c5cfe8` / SHA256 `cd5b6af6bf56fa0e60e6b20bf250649f63af425f146b1ae0e5bb357f42f29fe4`: all 47 originals / 243,376,757 bytes, entire actual five products, source759/current8/data/deinit/policy/raw guard/owned closure; actual after-FIFO 228.368739 seconds. Runner installed the genuine owner-excluding A gate and rehashed current five before beginning its first ordinary-FIFO T. Exactly five methods / seven launches / 36 strip reports and separate T-originals acceptance remain required. Keyboard presence alone is not native field-focus credit; no T/hosted/cure/Mini acceptance inferred. |
+| Linked Home source/config | SOURCE-only `a343b26997e6f4b0b2e86ee2c62ac74335a072d1` / `239269c0e6b0bf3c3932fc59f6cc2a11809e9360` approved. CONFIG-only now closed at manifest `c62706138556933d7951d7dabfaa349a57e9499d1d928373d95fe87ceef29bfc`: canonical `f7dae7fa1d63eda6e071320b4ae89281756fccbe` / SHA256 `05f4412f397216e3650afeb08d1e08e17e410335933e75c455fa1c8182860326`. Entire common8 runtime unchanged; actual758 Git files, declared166 package tests and all139 native test sources bound. Fresh independent full-five A remains required before one native case once, two explicit launches, original240-second method allowance. UX owns ordering/execution; no native/collapse/cure credit. |
+| Dispatcher sender-fold observer/config | SOURCE-only `3dda22673aff9b5c10c8e33518b04a5d27af6a60` / tree `59792d494e1b77672d730f0b8024beb93737b8bb` approved. Exact sanitized receipt `2026-11-20-go-bug-pass-sender-source.json`, Git `827fcadeb86ee3ff8c70dde6d784b1c7af1296ff` / SHA256 `0def951bf4032f0c736679de21c77ecaa2f99601938aeaaabb90c2592094fc47`. CONFIG-only manifest `88740e59a798b07336afbe07684294ebd9f48f29a28e8d3e880e4ee7ed315486` closed by `84adf0cfcbdf2c0f9dfee13459e22b7277c6b69b` / SHA256 `8154e60815c4ae4546c77c788f824e2ae63aa0c4c6f02051e69d531ea221dd3f`. Only worker change restores both command allowances240-to-original360 for this one case. Source helper plus seven IDs reconstruct the base file; routed-copy and generic helpers unchanged. Fresh independent full-five A required before one case once / one launch; actual native snapshot fit/hittability/timing and separate originals acceptance remain open. |
+
+UX subsequently reported successful first A closures for Linked Home
+(228.547872 seconds, packet `136cfd6f` / SHA prefix `c9b13159`) and sender
+(227.083134 seconds, packet `553046ea` / SHA prefix `b064ba08`). Those are
+owner-reported milestones, not this agent's independent originals verdicts.
+Runner owns the two separate independent A-original reviews; their T gates
+remain held. Parent milestone delivery returned an explicit sleeping-agent
+error; no wake, start or restart was attempted.
 
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly

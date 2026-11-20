@@ -1,0 +1,28 @@
+{
+  "reviewer": "go-bug-pass",
+  "scope": "package-original-receipts-and-exact-hosted-probe-byte-carry",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "3980cf4445e51d9a554eb5ab08703ecfecd639d3",
+  "tree": "339eca134998d44d0b5a1432dc7a6a90872a1c67",
+  "native_candidate_unchanged": "026688254361e5cb1ee09ee5430df6973462a179",
+  "receipts_component": "a90b24cb80ded7a501f73f7a5ae06151b49294b9",
+  "verified": {
+    "actual_six_inert_package_shell_tests": "PASS",
+    "actual_old_upload_pattern_sidecar_selection_control": {
+      "head": "53be045b9eeea9b5e3984f7066e2656cf1d77e5b",
+      "returncode": 1,
+      "cause": "Missing real SwiftTesting-sidecar filename in selected inert filename fixtures; current pattern passes."
+    },
+    "pipeline": "Actual workflow shell captures PIPESTATUS immediately; test65 wins concurrent writer74, writer-only74 fails, passing0 succeeds; complete stdout+stderr retained. Toolchain failure13 propagates and later commands do not run.",
+    "policy": "Actual full swift test --enable-code-coverage plus --xunit-output retained; no jobs/filter/retries/test iterations/default-policy changes. Existing20m job, coverage ratchet, icon/Framebriar commands and current serial iPad topology/budget unchanged.",
+    "upload": "Always7day artifact retains toolchain log, full package stdout/stderr and swift-package-results*.xml, both requested and SwiftTesting-sidecar names. Tests use expressly inert probes/filename fixtures, not authentic XML.",
+    "two_file_additive_boundary": {
+      "Annex/AnnexTests/CompanionDispatcherSettingsDraftTests.swift": "4299fbf614782b8528f099387ff2f79e4e21322a",
+      "Annex/AnnexTests/CompanionHistoryReadingTests.swift": "4fc242d4013b041f5c19c5a4df4389bad758f728"
+    },
+    "independent_f47_source_carry": "0f2b1b1decd3a578d0cd8e417077e6783b4742d8/13aa1d318988517c3ef396f3a2ede1ef3de520d4ed6213fa631aca8b10458e5f",
+    "diff_check": 0
+  },
+  "limits": "SOURCE ONLY at3980. Package workflow/test files exactlya90; only two f47 full-file blobs added abovea90. Carries prior independent f47 source review by exact bytes; no self logic re-review or raw lifecycle probe/public original upload. No real swift test/SDK/build/simulator/native/CI trigger or owner44test credit. Inert XML-shaped test probe is not authentic runtime XML. Actual next NORMAL full coverage package XML/full stdout/real library+toolchain identity and full hosted218 M4/iOS26.5 Name geometry/mount cleanup ordering remain discriminating; localf47H2pass nonrepro is not final-head/native/cause/cure proof. Frozen026 runtime gates stay separate; no merge/spending/landing/Mini acceptance."
+}
