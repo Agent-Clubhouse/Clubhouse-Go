@@ -288,6 +288,27 @@ actualfive before one native case once under original240/360 allowances and
 900-second bounds. Full private path-bearing reports remain local; source and
 configuration pins here do not imply runtime success or loosen any earlier limit.
 
+Sender's first corrected-component native attempt atbc40 is subsequently
+reported failed once46.593s before Cedar's first fold; its original failure is
+retained separately from3dda. A new source-only edge-representation child
+`4fde2a033976ce6ca969889b8ed0f1764aa99c8a` / tree
+`32a63fc52424d42f9820ef400fff62f463e544b4` is independently accepted by
+canonical `2e5bb15b3d1905ccfc4c14918ba03e64e3a78ec2`,3,966 bytes, SHA256
+`69f5b6c3675d904c78fb2c20b22bfa2e12e23173386f906972e241b06a83dfb2`.
+Only comparator/comments and direct docs differ; reversing the block exactly
+reconstructs the entirebc40 test. All eight raw components must be finite and
+dimensions positive; corresponding computed rectangle edges must be finite
+and agree within the same4*maxULP bound. Initial/live/final strict containment,
+real identity/exists/hittability and fresh hierarchy are unchanged. Full selected
+native test log/session/excerpt bytes reconcile six actual hosted-frame
+conversion records with six contained snapshot/live pairs, not native success.
+Own extracted CoreGraphics Swift76 controls and exact-file parse/diff passed.
+This supersedesbc40 as the next source-review target only: fresh exact CONFIG,
+A/current actualfive and first native360/T900 are still required. No full90-entry
+negative-run acceptance, cure or microscopic-movement/simultaneous-revision
+guarantee is inferred. Linked504b first31.7096s/two-launch T pass remains an owner
+report pending separate originals acceptance; no shared Reading/Copy scope changes.
+
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
 approved that normal-run budget. Forecast is 40.91 total runner minutes, including
