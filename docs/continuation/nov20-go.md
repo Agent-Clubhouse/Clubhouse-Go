@@ -35,3 +35,12 @@ Both refs verified directly on origin. Neither assignment has transferred to a M
 | ux-root | ux-root/ci-linked-home | a343b26997e6f4b0b2e86ee2c62ac74335a072d1 | Test-only. Independent source review passed. Verify Expanded on tab return and Collapsed on relaunch. |
 
 CI exception on #620. The [Dispatcher/Settings job](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44685281882/job/136135075405) exceeded 55 minutes. All 28 intended methods started. The final root-tab/settings-return case was interrupted eight seconds after it began. Sender-button reveal at line 654 failed three times, consuming 1,008.88 seconds total (ux-root). The routed-burst copy/draft assertion at line 325 failed twice before passing (go-bug-pass). Preserve the first outcomes and inspect the actual failures before changing the job split. Closed log SHA-256: 0d28ac2a9c285fcd10f63ff8cb585e07c0cc0ac8e73458db6ad8bb8279a82069.
+
+Additional origin refs verified. Both are diagnostic branches; the focused local cases passed without reproducing the hosted failures.
+
+| Laptop owner | Branch | Exact remote SHA | Next verification |
+|---|---|---|---|
+| go-bug-pass | bold-gazelle/diagnose-transport-progress | c53876fb2ddf0ed5128132a659277b3389c6663b | Compare wait phases if the timeout recurs under full hosted coverage. |
+| go-bug-pass | bold-gazelle/diagnose-hosted-ipad | f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78 | Capture field realization and view restoration order on hosted iPad. |
+
+At 08:45 UTC the laptop verified Mini group membership and sent the initial fetch request through its authenticated Go inbox. Receiver acknowledgment, fetch verification and assignment acceptance are pending. Local simulator availability on the Mini is unverified; preserve existing authorization boundaries.
