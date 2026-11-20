@@ -79,6 +79,6 @@ GitHub Actions original artifacts/logs are accessible by authorized repository r
 1. Close026 independent configuration and actual five-method originals, including cleanup; report actual focus/pause behavior, not a source-only cure.
 2. Finish peer reviewed shared fixes (UX AppUpdate/LinkedHome/sender; go-bug-pass copy/typing/hosted/transport attribution). Preserve first red and absent/incomplete evidence.
 3. Verify receipts/additive3980 review, final combined delta/once inventory/forecast; do not publish revision merely to cancel the currently collecting run. No deadline, threshold, consent, enrollment, queue, file policy or scheduling-policy weakening.
-4. Continue current normal CI original collection, especially archive first outcome and eight-lane timing limits; diagnose before partition changes.
+4. Continue current normal CI original collection, especially archive first outcome, 15-lane timing and unchanged job limits; diagnose before partition changes.
 5. Publish normal reviewed successor620 and inspect real complete/first outcomes. Land reviewed green only; then separately615 and621 rebases/runs/landing gates above.
 6. Update this unique note on its ordinary remote branch for03:30/04:30 snapshots and final verification. Require actual remote fetch and explicit authorized Mini acceptance before releasing ownership.
