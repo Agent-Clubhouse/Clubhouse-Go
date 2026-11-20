@@ -655,12 +655,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 XCTFail("The exact Large control must still resolve in the current hierarchy"); return
             }
             let stickyAction = ["provider-save", "provider-review-change"].contains(control.identifier)
+            let top = stickyAction ? observation.navigation.maxY + 12 : observation.top
             let bottom = stickyAction ? observation.window.maxY - 34 : observation.bottom
             guard current.frame == frame, current.identifier == control.identifier, current.isEnabled,
                   observation.backLabel == "Juniper",
                   frame.minX >= max(observation.window.minX, observation.form.minX),
                   frame.maxX <= min(observation.window.maxX, observation.form.maxX),
-                  frame.minY >= observation.navigation.maxY + 12, frame.maxY <= bottom,
+                  frame.minY >= top, frame.maxY <= bottom,
                   control.exists && control.isHittable else {
                 XCTFail("The exact Large control must remain actionable and fully contained before its checked tap"); return
             }
