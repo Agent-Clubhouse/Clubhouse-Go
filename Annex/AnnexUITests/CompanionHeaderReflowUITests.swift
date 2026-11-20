@@ -9,9 +9,24 @@ import XCTest
 @MainActor final class CompanionHeaderReflowUITests: ReliableUITestCase {
     private struct Frames { let identity: CGRect; let actions: CGRect; let leading: CGRect? }
 
+    /// Whole-app snapshots that a sample needed because the navigation bar alone lacked one of its elements.
+    private var wholeAppSamples = 0
+
     /// One accessibility snapshot per sample, so a sample is a single moment rather than several queries apart.
+    ///
+    /// The snapshot is the navigation bar's subtree. Every header element lives there, but a whole-app snapshot also
+    /// serialises the streaming transcript; on hosted runners that took 0.3–1s a sample and left 9–35 samples in
+    /// the 14s window. When the bar's subtree lacks the name, the actions pill or the leading item (no bar during a
+    /// transition, a second bar, a header moved elsewhere), the same sample is retaken from a whole-app snapshot,
+    /// so absence still means absent from the whole app, exactly as before.
     private func frames(_ app: XCUIApplication, leadingID: String?) -> Frames? {
+        if let bar = try? app.navigationBars.firstMatch.snapshot(), let f = frames(in: bar, leadingID: leadingID) { return f }
+        wholeAppSamples += 1
         guard let root = try? app.snapshot() else { return nil }
+        return frames(in: root, leadingID: leadingID, requireLeading: false)
+    }
+
+    private func frames(in root: XCUIElementSnapshot, leadingID: String?, requireLeading: Bool = true) -> Frames? {
         var found: [String: CGRect] = [:]
         var back: CGRect?
         func walk(_ node: XCUIElementSnapshot) {
@@ -23,7 +38,10 @@ import XCTest
         }
         walk(root)
         guard let identity = found["companion-chat-header"], let actions = found["companion-chat-header-actions"] else { return nil }
-        return Frames(identity: identity, actions: actions, leading: leadingID.flatMap { found[$0] } ?? back)
+        let leading = leadingID.flatMap { found[$0] } ?? back
+        // A bar without the leading item would skip the overlap check, so only the whole app may decide it's absent.
+        if requireLeading && leading == nil { return nil }
+        return Frames(identity: identity, actions: actions, leading: leading)
     }
 
     enum Disturbance { case scroll, pushPop, background }
@@ -45,6 +63,7 @@ import XCTest
         var scrolled = 0 // disturbances so far
         var missing = 0, seenFull = false
         var graceUntil = Date.distantPast
+        wholeAppSamples = 0
         while Date().timeIntervalSince(started) < 14 {
             // Disturb the header twice mid-stream, as on the phone.
             if scrolled < 2, Date().timeIntervalSince(started) > Double(4 + 4 * scrolled) {
@@ -55,9 +74,12 @@ import XCTest
                         CGVector(dx: 0.5, dy: scrolled == 0 ? 0.65 : 0.35)))
                 case .pushPop:
                     if scrolled == 0 {
-                        // A back-swipe that's released early, so the chat stays.
+                        // A back-swipe that's released early, so the chat stays. Hold before lifting: a release while
+                        // still moving lets UIKit finish the pop on velocity alone, which left hosted runs on the root
+                        // with no Back button. At rest, 20% of the width is below the pop threshold and it cancels.
                         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
-                        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
+                        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)),
+                                   withVelocity: .default, thenHoldForDuration: 0.3)
                     } else {
                         app.navigationBars.buttons["Back"].firstMatch.tap()
                         let open = app.buttons["header-fixture-open-chat"]
@@ -97,7 +119,8 @@ import XCTest
                 }
             }
         }
-        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count)")
+        let sampled = Date().timeIntervalSince(started)
+        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count) wholeApp=\(wholeAppSamples) elapsed=\(String(format: "%.1f", sampled))s")
         violations.prefix(20).forEach { print("HEADER_REFLOW \(name) \($0)") }
         let report = XCTAttachment(string: violations.joined(separator: "\n"))
         report.name = "554 reflow samples \(name)"; report.lifetime = .keepAlways; add(report)
