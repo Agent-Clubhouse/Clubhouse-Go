@@ -646,6 +646,19 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertGreaterThanOrEqual(frame.minY, navigation.frame.maxY + 12)
         XCTAssertLessThanOrEqual(frame.maxY, clearBottom())
         XCTAssertFalse(navigation.frame.contains(point))
+        if slowNativePan {
+            guard let observation = providerRowObservation(control.identifier, in: app),
+                  let current = observation.row else { return }
+            let stickyAction = ["provider-save", "provider-review-change"].contains(control.identifier)
+            let bottom = stickyAction ? observation.window.maxY - 34 : observation.bottom
+            guard current.frame == frame, current.identifier == control.identifier, current.isEnabled,
+                  frame.minX >= max(observation.window.minX, observation.form.minX),
+                  frame.maxX <= min(observation.window.maxX, observation.form.maxX),
+                  frame.minY >= observation.navigation.maxY + 12, frame.maxY <= bottom,
+                  control.exists && control.isHittable else {
+                XCTFail("The exact Large control must remain actionable and fully contained before its checked tap"); return
+            }
+        }
         XCTContext.runActivity(named: "Tap visible provider control at \(point), frame \(frame), navigation \(navigation.frame)") { _ in
             let shot = XCTAttachment(screenshot: app.screenshot())
             shot.name = "Visible \(control.identifier) before one checked tap"; shot.lifetime = .keepAlways; add(shot)
