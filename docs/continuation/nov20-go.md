@@ -116,3 +116,43 @@ Latest verified owner notes: CI ad9367e4a37fc9eafd34c3281e17e598ba218d7f; UX 337
 **Private text custody complete.** Tael receipt 21ed8962 confirms six of six original records, 160,124 bytes total: three sender-row records (35,678 bytes), the Footer source review (5,374 bytes), and two Pinned Decision exports (119,072 bytes). The recipient saved and reread each record and verified its digest against its manifest. No missing or refused records. Laptop originals remain retained. This completes only the agreed text transfer. Binary artifacts and media remain local, Mini native readiness remains unverified, and zero Go assignments have transferred. Source owners continue until the Mini fetches current commits and explicitly accepts named scopes.
 
 The App Update change is preserved on origin/go-feedback-review/integrate-620-next at 6b675853dd06dd94b259c9d39a0a7209de425214. Independent comparison verified the two App Update files match the tested b3d commit and all other paths match 7540. Integrated runtime and hosted results remain open. The isolated diagnostic for ReadingOpening line 58 is on origin/go-feedback-review/diagnose-reading-opening-58 at f3befc874a87840e358ca58a86b1a4c103e85f26. Source parses; independent review, build and runtime evidence pending. Neither change has updated PR #620.
+
+## Final laptop freeze and Mini intake
+
+This is the authoritative laptop freeze for the 24 origin refs below. Earlier snapshots describe work in progress. All four laptop owners explicitly stopped implementation, test, documentation and CI writes. Their final briefs describe their scope, source and evidence limits. The laptop orchestrator also stopped the legacy PR landing queue (#606, #607, #612 and #617). Each named owner retains passive custody of private originals. All remaining fixes, including new QA findings, are offered to the Mini. There is no laptop implementation exception.
+
+The Mini verified its identity, fetched the prior ledger and matched ten PR heads and 24 refs during intake. It rechecked the six private text records (160,124 bytes). Fresh acceptance requires the recipient to reread any changed tip from origin after the source stopped. Neither intake nor the six record receipts establish native capability. The Mini can use existing hosted CI within its current grants. Local simulator execution, new-host build acceptance and review of unavailable binary/media originals remain deferred.
+
+- Integration, links and Home. See [the final integration brief](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/8bae9a34b975c9da797fd3bda5085603e2c11851/docs/continuation/go-feedback-review-2026-11-20-STOP.md). The complete sender-fold range is present at 45017. Independent source comparison passed; the 61.157-second native pass applies to 4fde. Menu 6179 remains excluded, with all four Cedar returns and snapshot/live membership unverified. Reading line 58 needs runtime evidence. The prepared integrated revision has no hosted result. Preserve original failures, then validate #615 and #621 against the landed base.
+- Transport, hosted Settings and History, lost typing input and routed-copy attribution. See [the final review brief](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/e7b0c35f1849da3375c2a6e41bbfe022993b463b/docs/continuation/2026-11-20-go-bug-pass.md). The local transport and iPad passes did not reproduce the hosted failures. The separate routed-copy assertions are intact. Outstanding investigations and ensuing repairs belong to the recipient once accepted.
+- Artifact export, preview and proof coordination. See [the final runner brief](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/c4beeb8c1883759bc4c78d328f7040fb543f9b0f/docs/continuation/2026-11-20-go-bug-runner.md). No native job, local FIFO reservation or laptop watch is retained by the runner. Old compiled products, raw results, media and private scripts remain in laptop custody; local object identifiers provide provenance only.
+- Provider, Dispatcher, App Update, Linked Home and sender-fold. [The UX index](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/c749cfffc755fc147489015393ddc809455d2b81/docs/continuation/ux-root-final/index.json) points to individual frozen briefs. The original 434 provider job logged six first passes and an interrupted Lost Start. Its ZIP was incomplete. The laptop watch for archive-header job 136210713696 stopped safely; GitHub continued running the job. At the boundary the result was unknown. The Mini takes the watch with the UX scope. Dispatcher controller history and genuine restart still require host support. No new authority is granted.
+
+At 12:24 UTC all source STOP receipts had been relayed on the verified group board and via Navi/Tael. Receipt 1486aee9 confirms operational Mini ownership of #606, #607, #612, #617, #619, remaining proof coordination and fixes, shared transport and iPad diagnostic references, typing/routed-copy attribution and independent-review coordination. Remaining scope acceptance will be recorded from the recipient's explicit post-freeze receipt. All named source worktrees were clean at freeze per owner. The three legacy refs #606/#607/#612 had no named implementation checkout in the orchestrator repository. The verified provider source is on origin and the provider repair checkout; the clean older integration checkout does not supersede origin.
+
+| Origin branch | Frozen commit |
+|---|---|
+| bold-gazelle/fix-591-send-contrast | `9df534fbdc1b3785666c4b05664bde27bcd15181` |
+| bold-gazelle/fix-480-options-read | `19bfbb5565b937303cacffe614b62a9b18c38c7b` |
+| bold-gazelle/fix-609-feedback-renewal | `6873f2923c5d8688bca8858675813c03e0858094` |
+| go-feedback-review/mobile-tappable-links | `0258e49cf24b0c91707acae671bdd52ce872cc38` |
+| ux-root/provider-v2-610-integration | `434e6a969a4e12adb3dceec2e6c0ab59710596c0` |
+| bold-gazelle/fix-preview-visible-dismissal | `f65b129790442542a89f9dca47f6dd00d6c36342` |
+| bold-gazelle/mobile-artifact-save-share | `f63618f33cb142b072dfecc183e203b925edc563` |
+| go-feedback-review/integrate-ci-links | `ab6c7149416e50ca259aa135289e5d7b668427dc` |
+| go-feedback-review/home-row-hit-area-r2 | `44232736ded1e7ad4c56667cd90dba503d3013c6` |
+| ux-root/dispatcher-recovery | `f576fca31028f556f18acb7204bcd6d8d4a3e63e` |
+| go-feedback-review/repair-620-first-outcomes | `026688254361e5cb1ee09ee5430df6973462a179` |
+| go-feedback-review/repair-native-menu-snapshot | `6179b6c75c570c0a1f9ccb4bcd3ed5ff8dd17716` |
+| ux-root/provider-v2-ci-repair | `434e6a969a4e12adb3dceec2e6c0ab59710596c0` |
+| ux-root/ci-app-update | `b3d95526800b91101b435c75ff6a01633b9c59b6` |
+| ux-root/ci-linked-home | `504b9c926e33d8823a183155d675cf36b4f7bf3a` |
+| ux-root/ci-dispatcher-fold | `4fde2a033976ce6ca969889b8ed0f1764aa99c8a` |
+| go-feedback-review/diagnose-reading-opening-58 | `f3befc874a87840e358ca58a86b1a4c103e85f26` |
+| bold-gazelle/diagnose-transport-progress | `c53876fb2ddf0ed5128132a659277b3389c6663b` |
+| bold-gazelle/diagnose-hosted-ipad | `f47cfeff3b54fb4fdaf9028fd72d1e03c31d9d78` |
+| go-feedback-review/nov20-continuation-notes | `8bae9a34b975c9da797fd3bda5085603e2c11851` |
+| ux-root/continuation-nov20 | `c749cfffc755fc147489015393ddc809455d2b81` |
+| bold-gazelle/go-bug-pass-nov20-continuation | `e7b0c35f1849da3375c2a6e41bbfe022993b463b` |
+| bold-gazelle/proof-runner-continuation-nov20 | `c4beeb8c1883759bc4c78d328f7040fb543f9b0f` |
+| go-feedback-review/integrate-620-next | `45017f8d3e355684688326a18faad89558142079` |
