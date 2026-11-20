@@ -75,7 +75,7 @@ import UIKit
 
     /// Existence precedes the asynchronous bookmark restore. Observe public frames for
     /// longer than its two-second budget; never wait for the expected bookmark itself.
-    /// A settled wrong position must still fail the unchanged six-point assertion.
+    /// A settled wrong position must still fail the unchanged pixel-offset assertion.
     private func waitForReadingRestoration(_ anchor: XCUIElement, in app: XCUIApplication, context: String,
                                            file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let start = ProcessInfo.processInfo.systemUptime
@@ -382,7 +382,7 @@ import UIKit
         let before = anchor.frame.minY
         earlier.tap()
         XCTAssertTrue(waitFor(anchor, NSPredicate(format: "exists == true"), timeout: 5))
-        RunLoop.current.run(until: Date().addingTimeInterval(2))
+        guard waitForReadingRestoration(anchor, in: app, context: "History prepend") else { return }
         XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, "Prepending history preserves the visible entry's pixel offset")
         RunLoop.current.run(until: Date().addingTimeInterval(3))
         XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, "Streaming later content must not pull the reader down")
