@@ -157,6 +157,10 @@ import XCTest
             CGRect(x: 22, y: 293.6666666667, width: 370, height: 277.3333333333),
             CGRect(x: 22, y: 545, width: 370, height: 277.3333333333),
             CGRect(x: 22, y: 1004, width: 370, height: 277.3333333333),
+            CGRect(x: 22, y: 303, width: 370, height: 500),
+            CGRect(x: 22, y: 313, width: 370, height: 500),
+            CGRect(x: 22, y: 303, width: 370, height: 508),
+            CGRect(x: 22, y: 305, width: 370, height: 508),
         ] {
             var row = initialRow
             for _ in 0..<8 {
@@ -385,13 +389,18 @@ import XCTest
         guard [row.minX, row.minY, row.width, row.height].allSatisfy({ $0.isFinite }),
               row.width > 0, row.height > 0,
               row.minX >= pane.minX - 0.5, row.maxX <= pane.maxX + 0.5 else { return nil }
+        var distance: CGFloat
         if row.minY < pane.minY {
-            return -min(maximum, max(24, pane.minY - row.minY + 8))
+            distance = -max(24, pane.minY - row.minY + 8)
+        } else if row.maxY > pane.maxY {
+            distance = max(24, row.maxY - pane.maxY + 8)
+        } else {
+            return nil
         }
-        if row.maxY > pane.maxY {
-            return min(maximum, max(24, row.maxY - pane.maxY + 8))
+        if row.height <= pane.height {
+            distance = min(row.minY - pane.minY, max(row.maxY - pane.maxY, distance))
         }
-        return nil
+        return min(maximum, max(-maximum, distance))
     }
 
     /// Swipes stay inside the clipped native pane; the collection's oversized frame extends over the keyboard.
