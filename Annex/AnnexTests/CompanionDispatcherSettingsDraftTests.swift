@@ -109,11 +109,11 @@ import SwiftUI
             XCTAssertEqual(Array((name.text ?? "").utf8), Array("e\u{301}".utf8))
             service.current.identity.name = "e\u{301}"
             service.publish(to: store)
-            await self.waitUntil { render.name == Array("e\u{301}".utf8) }
+            try await self.waitUntil { render.name == Array("e\u{301}".utf8) }
             service.current.identity.name = "Next desktop value"
             service.publish(to: store)
-            await self.waitUntil { render.name == Array("Next desktop value".utf8) }
-            await self.waitUntil { self.textField("Name", in: window)?.text == "Next desktop value" }
+            try await self.waitUntil { render.name == Array("Next desktop value".utf8) }
+            try await self.waitUntil { self.textField("Name", in: window)?.text == "Next desktop value" }
             XCTAssertEqual(Array((self.textField("Name", in: window)?.text ?? "").utf8), Array("Next desktop value".utf8))
         }
     }
@@ -128,15 +128,15 @@ import SwiftUI
             self.edit(emoji, to: "Y ")
             service.current.identity.emoji = "Y"
             service.publish(to: store)
-            await self.waitUntil { render.emoji == Array("Y".utf8) }
+            try await self.waitUntil { render.emoji == Array("Y".utf8) }
             XCTAssertEqual(Array((emoji.text ?? "").utf8), Array("Y ".utf8))
             emoji.sendActions(for: .editingDidEndOnExit)
-            await self.waitUntil { emoji.text == "Y" }
+            try await self.waitUntil { emoji.text == "Y" }
             XCTAssertEqual(Array((emoji.text ?? "").utf8), Array("Y".utf8))
             XCTAssertNil(service.submitted, "An already-saved normalized value needs no command")
             service.current.identity.emoji = "Z"
             service.publish(to: store)
-            await self.waitUntil { emoji.text == "Z" }
+            try await self.waitUntil { emoji.text == "Z" }
             XCTAssertEqual(self.textField("Name", in: window)?.text, "Pending name")
         }
     }
@@ -147,18 +147,18 @@ import SwiftUI
             let name = try XCTUnwrap(self.textField("Name", in: window))
             self.edit(name, to: "Submitted name")
             name.sendActions(for: .editingDidEndOnExit)
-            await self.waitUntil { service.pending != nil }
+            try await self.waitUntil { service.pending != nil }
             let pending = try XCTUnwrap(service.pending, "The production submit callback starts the save")
             var receipt = service.current
             receipt.identity.name = "Submitted name"
             service.current = receipt
             service.current.identity.emoji = "New remote emoji"
             service.publish(to: store)
-            await self.waitUntil { render.emoji == Array("New remote emoji".utf8) }
-            await self.waitUntil { self.textField("None", in: window)?.text == "New remote emoji" }
+            try await self.waitUntil { render.emoji == Array("New remote emoji".utf8) }
+            try await self.waitUntil { self.textField("None", in: window)?.text == "New remote emoji" }
             service.pending = nil
             pending.resume(returning: receipt)
-            await self.waitUntil { self.textField("Name", in: window)?.isEnabled == true }
+            try await self.waitUntil { self.textField("Name", in: window)?.isEnabled == true }
             XCTAssertEqual(store.dispatcherSettings(hostID: CompanionPreviewService.dispatcherTarget.hostID)?.identity.emoji, "New remote emoji")
             XCTAssertEqual(Array((self.textField("None", in: window)?.text ?? "").utf8), Array("New remote emoji".utf8))
         }
@@ -177,7 +177,7 @@ import SwiftUI
             endpoint: AnnexEndpoint(host: "127.0.0.1", port: 7432), verifiedHostID: hostID,
             verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32))),
             alias: "Receipt fixture", transport: transport))
-        await waitUntil { liveStore.canEditDispatcherSettings(hostID: hostID) }
+        try await waitUntil { liveStore.canEditDispatcherSettings(hostID: hostID) }
         _ = try await live.dispatcherSettings(hostID: hostID)
 
         let service = DispatcherDraftTestService()
@@ -189,15 +189,15 @@ import SwiftUI
             self.edit(name, to: "Submitted name")
             name.sendActions(for: .editingDidEndOnExit)
             await self.fulfillment(of: [started], timeout: 5)
-            await self.waitUntil { self.textField("Name", in: window)?.isEnabled == false }
+            try await self.waitUntil { self.textField("Name", in: window)?.isEnabled == false }
             await transport.setName("Newer desktop name")
             let newer = try await live.dispatcherSettings(hostID: hostID)
             service.current.identity.name = newer.identity.name
             service.publish(to: store)
-            await self.waitUntil { render.name == Array("Newer desktop name".utf8) }
+            try await self.waitUntil { render.name == Array("Newer desktop name".utf8) }
             XCTAssertEqual(self.textField("Name", in: window)?.text, "Submitted name")
             await transport.releaseCommand()
-            await self.waitUntil { self.textField("Name", in: window)?.isEnabled == true }
+            try await self.waitUntil { self.textField("Name", in: window)?.isEnabled == true }
             XCTAssertEqual(store.dispatcherSettings(hostID: CompanionPreviewService.dispatcherTarget.hostID)?.identity.name, "Newer desktop name")
             XCTAssertEqual(Array((self.textField("Name", in: window)?.text ?? "").utf8), Array("Newer desktop name".utf8),
                            "The production native callback must acknowledge the live service's authoritative result")
@@ -233,7 +233,7 @@ import SwiftUI
             previous?.makeKey()
             store.shutdown()
         }
-        await waitUntil {
+        try await waitUntil {
             window.layoutIfNeeded()
             if self.textField("Name", in: window) == nil, let scroll = self.scrollView(in: window) {
                 let maximum = max(0, scroll.contentSize.height - scroll.bounds.height + scroll.adjustedContentInset.bottom)
@@ -245,7 +245,7 @@ import SwiftUI
         let scroll = try XCTUnwrap(scrollView(in: window))
         let rect = name.convert(name.bounds, to: scroll)
         scroll.setContentOffset(CGPoint(x: 0, y: rect.minY - scroll.adjustedContentInset.top - 20), animated: false)
-        await waitUntil {
+        try await waitUntil {
             window.layoutIfNeeded()
             let top = scroll.convert(scroll.bounds, to: window).minY + scroll.adjustedContentInset.top
             return name.convert(name.bounds, to: window).minY >= top && self.textField("None", in: window)?.window != nil
@@ -260,7 +260,7 @@ import SwiftUI
         let target = CompanionPreviewService.dispatcherTarget
         store.start()
         defer { store.shutdown() }
-        await waitUntil { store.dispatcherSettings(hostID: target.hostID) != nil }
+        try await waitUntil { store.dispatcherSettings(hostID: target.hostID) != nil }
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
             .first { $0.activationState == .foregroundActive })
         let previous = scene.windows.first(where: \.isKeyWindow)
@@ -271,7 +271,7 @@ import SwiftUI
         defer { window.isHidden = true; window.rootViewController = nil; previous?.makeKey() }
 
         var input: UITextField?
-        await waitUntil {
+        try await waitUntil {
             window.layoutIfNeeded()
             input = self.textField("Name", in: window)
             if input == nil, let scroll = self.scrollView(in: window) {
@@ -285,7 +285,7 @@ import SwiftUI
         let scroll = try XCTUnwrap(scrollView(in: window))
         let nameRect = initialName.convert(initialName.bounds, to: scroll)
         scroll.setContentOffset(CGPoint(x: 0, y: nameRect.minY - scroll.adjustedContentInset.top - 20), animated: false)
-        await waitUntil {
+        try await waitUntil {
             window.layoutIfNeeded()
             let top = scroll.convert(scroll.bounds, to: window).minY + scroll.adjustedContentInset.top
             let field = initialName.convert(initialName.bounds, to: window)
@@ -294,7 +294,7 @@ import SwiftUI
         for sample in Self.corpus {
             let name = "Desktop " + sample
             _ = try await service.updateDispatcher(.init(name: name), hostID: target.hostID, clientCommandID: UUID().uuidString)
-            await waitUntil {
+            try await waitUntil {
                 window.layoutIfNeeded()
                 return self.textField("Name", in: window)?.text == name
             }
@@ -309,7 +309,7 @@ import SwiftUI
         XCTAssertEqual(Array((name.text ?? "").utf8), Array(draft.utf8))
         _ = try await service.updateDispatcher(.init(name: "Renamed externally", emoji: .set("X")),
             hostID: target.hostID, clientCommandID: UUID().uuidString)
-        await waitUntil {
+        try await waitUntil {
             window.layoutIfNeeded()
             return self.textField("None", in: window)?.text == "X"
         }
@@ -327,9 +327,17 @@ import SwiftUI
         return view.subviews.lazy.compactMap(scrollView).first
     }
 
-    private func waitUntil(_ condition: @escaping () -> Bool, file: StaticString = #filePath, line: UInt = #line) async {
-        let reached = expectation(for: NSPredicate { _, _ in condition() }, evaluatedWith: nil)
-        await fulfillment(of: [reached], timeout: 5)
+    private func waitUntil(_ condition: () -> Bool, file: StaticString = #filePath, line: UInt = #line) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+        var reached = false
+        while ContinuousClock.now < deadline {
+            if condition() {
+                reached = ContinuousClock.now <= deadline
+                break
+            }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTAssertTrue(reached, "The hosted settings form must reach the expected state within five seconds", file: file, line: line)
         XCTAssertTrue(condition(), "The hosted settings form must reach the expected state", file: file, line: line)
     }
 }
