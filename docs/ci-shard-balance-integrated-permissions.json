@@ -906,14 +906,15 @@
   "source_integration": {
     "permission_head": "3569f0ba0375954d71bd63ec06d629eedf2d501b",
     "header_footer_head": "2b03c1e9c3b15c4a0961bd85b4182e0ac0169a9d",
-    "source_only_integration_head": "3f1332b473c002e301cc98b927de22b9d9f3ac8a",
+    "source_only_integration_head": "692cbe77a757ab3271256d36bd7b6f37a749eb58",
     "permission_scoped_local_review_blob": "54e2772534fbd6ccdcb4bea9c638629dbe7100cc",
     "header_footer_source_review_blob": "91bc6d4f72e6a88f39efbd093a64c54e7d40c62f",
     "combined_native_hosted_acceptance": false,
     "settings_draft_head": "b892b9763ee20859004a6cffa2b45dc95eb435df",
-    "reading_prepend_head": "ff812e463a2ec57abbf496ced4e3bdfd6745441c",
+    "reading_prepend_head": "faa5bfa0ac1a364b5d05125371b92af7eeed8342",
     "header_footer_scoped_local_review_blob": "d3c96477bfb7720100489f1099b96e4bef0b3278",
-    "header_footer_scoped_local_review_sha256": "53cc58f4cdd76ca11086f3dfcffa1554877bd8aed37ba2554ea019905f7d5370"
+    "header_footer_scoped_local_review_sha256": "53cc58f4cdd76ca11086f3dfcffa1554877bd8aed37ba2554ea019905f7d5370",
+    "reading_prepend_readiness_head": "ff812e463a2ec57abbf496ced4e3bdfd6745441c"
   },
   "prior_441_method_comparisons": [
     {
