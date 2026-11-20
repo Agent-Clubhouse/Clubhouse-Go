@@ -589,32 +589,22 @@ private final class SignallingClock: @unchecked Sendable {
     }
 }
 
-/// Wait up to 10 seconds of wall time for scheduled work's actual condition, re-checking it after every
-/// observed state change instead of polling a sleep. A sleep-based waiter could resume past the deadline and
-/// give up without looking again, even though the condition already held (#611). Timeout is now declared only
-/// by a check that started at or after the deadline, so a late wake-up still gets one final look.
+/// Wait for scheduled work's actual condition, re-checking it after every observed state change.
+/// No separate wall-clock bound: these tests drive time on a manual clock, and under the full parallel
+/// package run both the waiter's wake-ups and the transport's own steps queue behind every other test's
+/// work, so a wall budget measures pool load rather than the transport (#611, #622). A hang is detected
+/// by each caller's `.timeLimit`, whose cancellation ends this wait and records the state seen here.
 private func settle(on changes: StateChanges, _ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
     let started = ContinuousClock.now
-    let deadline = started.advanced(by: .seconds(10))
     var checks = 0
-    var lastCheck = started
-    let held: Bool = await withTaskGroup(of: Void.self) { group in
-        // Wakes the loop at the deadline even if nothing else changes.
-        group.addTask { try? await Task.sleep(until: deadline, clock: .continuous); changes.signal() }
-        defer { group.cancelAll() }
-        while !Task.isCancelled {
-            let seen = changes.current
-            checks += 1
-            lastCheck = .now
-            if await done() { return true }
-            if lastCheck >= deadline { return false }
-            await changes.wait(past: seen)
-        }
-        return false
+    while !Task.isCancelled {
+        let seen = changes.current
+        checks += 1
+        if await done() { return }
+        await changes.wait(past: seen)
     }
-    if held { return }
     let observed = await state?() ?? ""
-    Issue.record("Scheduled condition did not become true within 10 seconds (\(checks) checks, \(changes.current) state changes, final check started \(started.duration(to: lastCheck)) after the wait began)\(observed.isEmpty ? "" : "; " + observed); waitElapsed=\(started.duration(to: .now))")
+    Issue.record("Scheduled condition was still false when the test was cancelled after \(started.duration(to: .now)) (\(checks) checks, \(changes.current) state changes)\(observed.isEmpty ? "" : "; " + observed)")
     throw ScheduledConditionTimeout()
 }
 
