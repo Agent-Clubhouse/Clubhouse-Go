@@ -389,7 +389,8 @@ must exist/be hittable/enabled and have finite positive actual geometry inside
 the fresh clip; snapshot containment cannot substitute. Own extracted four
 inert traversal controls and exact-file parse/diff passed. Actual native
 snapshot/query membership/currentness, timings and complete action paths are
-not credited; candidate remains UNBUILT/UNRUN without CONFIG/A/T/native cure.
+not credited; at this source-only milestone the candidate remained UNBUILT/UNRUN
+pending fresh CONFIG/A/T, without native cure.
 
 Final ab6/run44685281882 outcomes are preserved as feedback owner's census,
 not another independent aggregate or repaired-CI verdict. Run CLOSED/cancelled:
@@ -426,6 +427,38 @@ Actual snapshot/query membership/order/live full fit/actions/photos/prepostfive
 are obligations, not new evidence. No execution, imports, peer-live reads or
 old A/T carry occurred; private full CONFIG report remains local. Owner exact
 installation/current checks and measured admission plus fresh A/T gates persist.
+
+NativeMenu6179 fresh first A originals are independently accepted as an A-only
+prerequisite, not native success. Local canonical
+`9a1044cb0a2e6bbfe713f09d1eba16e5549e246e`,10,715 bytes, SHA256
+`2638d64631a6848454beafb48c0fb85d8465475c3de5d0c2f1f955ad5a6a3a46`,
+reviewer go-bug-pass, `PASS_EXACT_OWNED_PROOF_ORIGINALS`, phase A/rc0,
+exact6179/tree208f/current manifest8fc2746b/full8. All40 full originals,
+242,945,163 bytes, including entire actual five compiled products, were rehashed.
+Universal arm64/x86_64 metadata, xctestrun unit/UI/runner/SUT paths, both selected
+method symbols and new snapshot/duplicate/current-live-clip diagnostics were
+checked inertly. Actual762 source modes/blobs/full bytes/diff/provenance,
+wholeclosure, sourcec1cc/config05db/installed wrapper/full8/data and first
+claims/progress/success/outcome correlate. One fresh jobs2 build succeeded;
+raw38 ARC/2 deferred/20 isolated policy and full20 policy tests pass7.279s.
+Receipt SHA256 `bc7a8c0320069d8e47899266bd8d075748d6a0a05774df9a872e52aa549fa01c`;
+external SHA256 `0fcb5e39e02f23a3f148aaf81829400b593576faf774bb8f5ad55e021bb4977e`.
+Raw admission VM/last-of-two CPU/swap arithmetic, all23 active samples, FIFO
+guard/one-build and all build/deinit/policy/core/outer/FIFO rc0 were checked.
+True after-FIFO225.60305924993008<900; no A simulator. Current-five/full8/source762
+and empty owned groups are owner-recorded observations, not peer-live reads.
+Worker-progress has no owned-group field; original corestarted/receipt/outer/
+owner observation supply that binding instead.
+
+Runner reports actual canonical bytes/JSON verification, genuine A installation
+and fresh entire current-five/source762/full8/data/head/tree/clean rehash before
+submitting ONLY first two-selector T through normal measured FIFO. This is not
+a second reviewer-live installation audit or a completed T result. Native
+snapshot/query membership/order, live full containment, actions, full photos,
+timing and owned cleanup remain pending independent T-original review. No old
+reds, original allowance failure or partial restart are erased; no cure/hosted/
+PR620/integration/Mini/landing credit, runtime imports or reviewer execution.
+Private full original and report bytes remain local; no parent wake.
 
 The iPad topology preserves one peak slot and 25 minutes **per job**, but changes
 the aggregate allowance from 25 to 50 standard-runner minutes. Parent explicitly
