@@ -81,11 +81,19 @@ struct CompanionDispatcherRecoveryView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { ToolbarItem(placement: .cancellationAction) { Button("Done") { dismiss() } } }
             .alert(chatPrompt?.title ?? "", isPresented: Binding(get: { chatPrompt != nil }, set: { if !$0 { store.dispatcherChatPrompt = nil } }), presenting: chatPrompt) { prompt in
-                Button(prompt.button, role: .destructive) { Task { await store.confirmDispatcherChatAction(prompt) } }
+                Button(prompt.button, role: .destructive) {
+                    if let claim = store.claimDispatcherChatAction(prompt) {
+                        Task { await store.confirmDispatcherChatAction(claim) }
+                    }
+                }
                 Button("Cancel", role: .cancel) { store.dispatcherChatPrompt = nil }
             } message: { prompt in Text(prompt.message) }
             .alert("Start a new chat?", isPresented: Binding(get: { prompt != nil }, set: { if !$0 { store.cancelDispatcherReset() } }), presenting: prompt) { prompt in
-                Button("Start new chat", role: .destructive) { Task { await store.confirmDispatcherRecoveryNewChat(prompt, target: target) } }
+                Button("Start new chat", role: .destructive) {
+                    if let claim = store.claimDispatcherRecoveryNewChat(prompt, target: target) {
+                        Task { await store.confirmDispatcherRecoveryNewChat(claim) }
+                    }
+                }
                 Button("Cancel", role: .cancel) { store.cancelDispatcherReset() }
             } message: { prompt in
                 Text("\(prompt.name) on \(recovery?.hostName ?? "the selected desktop").\n\n\(prompt.message) The work controller is not restarted.")

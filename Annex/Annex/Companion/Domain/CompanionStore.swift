@@ -1250,6 +1250,8 @@ import Observation
     /// A read cannot establish whether a lost clear-chat command ran. Never retry it with a new ID.
     private(set) var dispatcherRecoveryUnknown: Set<CompanionTarget> = []
     var dispatcherChatPrompt: CompanionDispatcherChatPrompt?
+    private var claimedDispatcherChatActions: [UUID: CompanionDispatcherChatPrompt] = [:]
+    private var claimedDispatcherNewChats: [UUID: (CompanionDispatcherResetPrompt, CompanionTarget)] = [:]
 
     func askDispatcherChatAction(_ action: CompanionDispatcherChatPrompt.Action, target: CompanionTarget) {
         guard let recovery = dispatcherRecovery(for: target),
@@ -1260,9 +1262,21 @@ import Observation
                                     name: recovery.name, hostName: recovery.hostName)
     }
 
-    func confirmDispatcherChatAction(_ prompt: CompanionDispatcherChatPrompt) async {
-        guard dispatcherChatPrompt == prompt else { return }
+    /// Claim synchronously in the human's Button action, before SwiftUI dismisses its presentation.
+    func claimDispatcherChatAction(_ prompt: CompanionDispatcherChatPrompt) -> UUID? {
+        guard dispatcherChatPrompt == prompt,
+              let recovery = dispatcherRecovery(for: prompt.target),
+              prompt.action == .interrupt ? recovery.canInterrupt : recovery.canStop else { return nil }
         dispatcherChatPrompt = nil
+        let claim = UUID()
+        claimedDispatcherChatActions[claim] = prompt
+        pendingCommands.insert(prompt.target)
+        return claim
+    }
+
+    func confirmDispatcherChatAction(_ claim: UUID) async {
+        guard let prompt = claimedDispatcherChatActions.removeValue(forKey: claim) else { return }
+        pendingCommands.remove(prompt.target)
         guard let recovery = dispatcherRecovery(for: prompt.target),
               host(for: prompt.target)?.controlEpoch == prompt.epoch,
               conversation(for: prompt.target).sessionID == prompt.sessionID,
@@ -1313,11 +1327,23 @@ import Observation
         } catch { dispatcherResetNotices[target.hostID] = error.localizedDescription }
     }
 
-    func confirmDispatcherRecoveryNewChat(_ prompt: CompanionDispatcherResetPrompt, target: CompanionTarget) async {
+    func claimDispatcherRecoveryNewChat(_ prompt: CompanionDispatcherResetPrompt, target: CompanionTarget) -> UUID? {
         guard dispatcherResetPrompt == prompt, prompt.reset == .clearChat, prompt.hostID == target.hostID,
-              dispatcherRecovery(for: target)?.canStartNewChat == true else { return }
-        // Consume the local prompt before suspension. A second tap cannot send a second command.
+              dispatcherRecovery(for: target)?.canStartNewChat == true else { return nil }
         dispatcherResetPrompt = nil
+        let claim = UUID()
+        claimedDispatcherNewChats[claim] = (prompt, target)
+        pendingCommands.insert(target)
+        return claim
+    }
+
+    func confirmDispatcherRecoveryNewChat(_ claim: UUID) async {
+        guard let (prompt, target) = claimedDispatcherNewChats.removeValue(forKey: claim) else { return }
+        pendingCommands.remove(target)
+        guard dispatcherRecovery(for: target)?.canStartNewChat == true else {
+            dispatcherResetNotices[target.hostID] = "This Dispatcher changed. Review its current state before starting a new chat."
+            return
+        }
         pendingCommands.insert(target)
         dispatcherResetting.insert(target.hostID)
         defer { pendingCommands.remove(target); dispatcherResetting.remove(target.hostID) }
