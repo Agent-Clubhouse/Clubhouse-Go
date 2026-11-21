@@ -101,6 +101,47 @@ import Testing
         #expect(await h.transport.executed.count == 1)
     }
 
+    @Test func refusedNewChatDoesNotLockRecoveryOrRepeatTheClaim() async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.store.askDispatcherRecoveryNewChat(target)
+        let prompt = try #require(h.store.dispatcherResetPrompt)
+        let claim = try #require(h.store.claimDispatcherRecoveryNewChat(prompt, target: target))
+        await h.transport.enqueue(.rejected(code: "dispatcher_off", message: "The Dispatcher is turned off."))
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        #expect(h.store.dispatcherResetNotices[target.hostID] == "The Dispatcher is turned off on the desktop. Turn it on first.")
+        #expect(h.store.dispatcherResetPrompt == nil)
+        #expect(!h.store.dispatcherRecoveryUnknown.contains(target))
+        #expect(!h.store.pendingCommands.contains(target) && !h.store.dispatcherResetting.contains(target.hostID))
+        #expect(h.store.dispatcherRecovery(for: target)?.canStartNewChat == true)
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        #expect(await h.transport.executed.count == 1)
+        await h.store.askDispatcherRecoveryNewChat(target)
+        let fresh = try #require(h.store.dispatcherResetPrompt)
+        #expect(fresh.id != prompt.id)
+        #expect(h.store.dispatcherResetNotices[target.hostID] == nil)
+        #expect(await h.transport.executed.count == 1, "A fresh confirmation read must not repeat a refused mutation")
+    }
+
+    @Test func dispatcherTurnedOffAfterClaimCannotReceiveANewChatMutation() async throws {
+        let h = try await start(); defer { h.stop() }
+        await h.store.askDispatcherRecoveryNewChat(target)
+        let prompt = try #require(h.store.dispatcherResetPrompt)
+        let claim = try #require(h.store.claimDispatcherRecoveryNewChat(prompt, target: target))
+        await h.transport.emit(h.snapshotEvent(["dispatcher": .object([
+            "enabled": .bool(false), "flagOn": .bool(true), "projectId": .string(target.projectID),
+            "agent": .object(["id": .string(target.agentID), "name": .string("Navi"), "kind": .string("durable"),
+                              "status": .string("running"), "projectId": .string(target.projectID), "isDispatcher": .bool(true)])
+        ])]))
+        try await h.waitUntil { h.host?.dispatcher?.enabled == false }
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        #expect(await h.transport.executed.isEmpty)
+        #expect(!h.store.pendingCommands.contains(target) && !h.store.dispatcherResetting.contains(target.hostID))
+        #expect(!h.store.dispatcherRecoveryUnknown.contains(target))
+        #expect(h.store.dispatcherResetNotices[target.hostID] == "This Dispatcher changed. Review its current state before starting a new chat.")
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        #expect(await h.transport.executed.isEmpty)
+    }
+
     @Test func changedChatDuringConfirmationCannotReceiveAStop() async throws {
         let h = try await start(); defer { h.stop() }
         #expect(h.store.dispatcherRecovery(for: target)?.canStop == true)
