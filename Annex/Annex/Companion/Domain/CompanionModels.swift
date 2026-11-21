@@ -151,6 +151,9 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// Whole-agent stop, distinct from interrupting a chat turn.
     var canStopAgents = false
     var canControlProvider = false
+    var providerV2Advertised = false
+    var providerApplyV2: AnnexProviderApplyV2Capability?
+    var providerStartV2: AnnexProviderStartV2Capability?
     var canRevokeSession = false
     /// The desktop answers "Allow always" and the other lasting options from a phone (`permissions.persistentApprovals`).
     var canAnswerPersistentApprovals = false
@@ -1026,6 +1029,10 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
     func refreshSleepState(_ target: CompanionTarget) async throws
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview
+    func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview, starting: Bool) -> Bool
+    func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome
+    func startProviderV2(_ target: CompanionTarget, applied: CompanionProviderV2Applied, witness: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2StartOutcome
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult
     func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws
 }
@@ -1041,6 +1048,10 @@ enum CompanionAttachmentError: Error, LocalizedError, Equatable, Sendable {
 
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Update the desktop to confirm Sleep.") }
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview { throw CompanionServiceError.unavailable("Update the desktop to preview a provider change.") }
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview, starting: Bool) -> Bool { false }
+    func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview { throw CompanionServiceError.unavailable("This desktop does not offer verified provider Apply v2.") }
+    func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome { throw CompanionServiceError.unavailable("This desktop does not offer verified provider Apply v2.") }
+    func startProviderV2(_ target: CompanionTarget, applied: CompanionProviderV2Applied, witness: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2StartOutcome { throw CompanionServiceError.unavailable("This desktop does not separately offer verified provider Start v2.") }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult { throw CompanionServiceError.unavailable("Update the desktop to save a provider change.") }
     func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Update the desktop to start with a checked provider.") }
     func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {

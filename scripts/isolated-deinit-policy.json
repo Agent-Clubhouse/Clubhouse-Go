@@ -3,7 +3,7 @@
     "CompanionStore": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionStore.swift",
-      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners. Runtime invokes Store.shutdown inside its real MainActor task before any await, clearing providerFlows so a SwiftUI-retained Store can later die outside a task without owning isolated-deinit flows. Store's empty deinit does no cleanup itself. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work. Grant requests (#337) add only slot-keyed String sets/maps, an optional String notice, and (answer enum, String command id) tuples; no callbacks, UI ownership or teardown work. Dispatcher settings (#338) add only an optional CompanionDispatcherResetPrompt (Sendable value struct of Strings and an enum), a Set<String> of host ids and a String-keyed map of String notices; no callbacks, UI ownership or teardown work. Linked shared state (#460) adds only String-keyed dictionaries of CompanionProjectState (Bool/Date Sendable values) and CompanionProjectTarget (String identifiers); no callbacks, UI owners or teardown effects. Catalog cache (#524) owns only a CoW array of Sendable CompanionProjectEntry/Member/Host/Project/Agent value snapshots plus a UInt64 generation; no callbacks, UI objects, isolated teardown or new reference owners. Host-report readiness adds one Bool distinguishing unknown initial storage from an actual empty report; no reference owner or teardown. Home decision projection adds only existing Sendable approval/question timeline values, with no callbacks, tasks, UI handles or new owner.",
+      "reason": "Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Helper receipt notice and consumed IDs add only String/Set values. Approval warning owns only String/Date value fields. Sleep request/refresh sets contain only CompanionTarget string-value identifiers; no callbacks, UI owners or deinit side effects. Guided Sleep command IDs are String values. Provider flows preserve their own MainActor teardown for injected service/callback owners. Runtime invokes Store.shutdown inside its real MainActor task before any await, clearing providerFlows so a SwiftUI-retained Store can later die outside a task without owning isolated-deinit flows. Store's empty deinit does no cleanup itself. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Wrong-machine refusals (#339) add only a CompanionTarget-keyed map of Sendable value structs (Strings and an optional CompanionTarget); no callbacks, UI ownership or teardown work. Grant requests (#337) add only slot-keyed String sets/maps, an optional String notice, and (answer enum, String command id) tuples; no callbacks, UI ownership or teardown work. Dispatcher settings (#338) add only an optional CompanionDispatcherResetPrompt (Sendable value struct of Strings and an enum), a Set<String> of host ids and a String-keyed map of String notices; no callbacks, UI ownership or teardown work. Linked shared state (#460) adds only String-keyed dictionaries of CompanionProjectState (Bool/Date Sendable values) and CompanionProjectTarget (String identifiers); no callbacks, UI owners or teardown effects. Catalog cache (#524) owns only a CoW array of Sendable CompanionProjectEntry/Member/Host/Project/Agent value snapshots plus a UInt64 generation; no callbacks, UI objects, isolated teardown or new reference owners. Host-report readiness adds one Bool distinguishing unknown initial storage from an actual empty report; no reference owner or teardown. Home decision projection adds only existing Sendable approval/question timeline values, with no callbacks, tasks, UI handles or new owner. V2 adds a store-retained CompanionProviderV2Flow with the same injected-service/callback MainActor teardown discipline as the V1 flow; shutdown clears providerV2Flows before any await. Unresolved actions survive sheet/catalog/reconnect events without introducing teardown work.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {
@@ -101,7 +101,8 @@
           "uncertainCreateRequest": "CompanionCreateRequest ?",
           "uncertainSpawnRequest": "CompanionSpawnRequest ?",
           "uploadedAttachmentIDs": "[ String : String ]",
-          "wrongMachines": "[ CompanionTarget : CompanionWrongMachine ]"
+          "wrongMachines": "[ CompanionTarget : CompanionWrongMachine ]",
+          "providerV2Flows": "[ CompanionTarget : CompanionProviderV2Flow ]"
         },
         "storageMacros": [
           "@ Observable"
@@ -257,7 +258,7 @@
     "CompanionLiveService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
-      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work. Registration transport identities add only a String-to-UUID dictionary, with no callbacks, UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Saved commands are keyed by CompanionCommandKey (#339), a Hashable value of two Strings; values remain Sendable AnnexCommand structs. Grant requests (#337) add only a host-keyed map of String id sets; no callbacks, UI ownership or teardown work. Lifecycle UUID is Sendable value state; cancellation/generation checks add no owned resources or callbacks. Per-host registration intent tokens add only a String-to-UUID value dictionary, cleared during remove/shutdown; no callback, UI owner, or deinit work. Suspension preserves these tokens so first registrations remain valid across lifecycle changes.",
+      "reason": "Transport/value/task state; all five production callbacks in AppRoot capture Runtime WEAKLY, not raw UI. New assignments require capture review. Helper label cache and consumed IDs add only String dictionaries/sets. Icon store is an actor with immutable CGImage wrappers; registered icon fetch closure captures only Sendable AnnexTransporting. MCP-off cache adds only a Sendable value struct containing Bool, optional String and Set<String>; no callback or UI ownership. Network snapshot/refusal callbacks capture Runtime weakly; arguments are Sendable membership values and String identifiers. They own no UIKit objects and add no teardown work. Registration transport identities add only a String-to-UUID dictionary, with no callbacks, UI ownership or teardown work. Full-event review records add only String/UUID values and immutable Sendable event/reference structs backed by AnnexJSON; failure maps contain Strings. These own no UI objects, callbacks or teardown effects. Saved commands are keyed by CompanionCommandKey (#339), a Hashable value of two Strings; values remain Sendable AnnexCommand structs. Grant requests (#337) add only a host-keyed map of String id sets; no callbacks, UI ownership or teardown work. Lifecycle UUID is Sendable value state; cancellation/generation checks add no owned resources or callbacks. Per-host registration intent tokens add only a String-to-UUID value dictionary, cleared during remove/shutdown; no callback, UI owner, or deinit work. Suspension preserves these tokens so first registrations remain valid across lifecycle changes. V2 mutation tombstones are Set<CompanionCommandKey>/Set<CompanionTarget> string identifiers. Held CompanionProviderV2Applied is a closed Sendable value graph of target/epoch/command Strings and AnnexProviderApplyReceiptV2 structs (nullable Strings, Bools, closed enums, arrays and nested value structs). No callbacks, tasks, transport/process/UI owners or cleanup effects are added. Provider capability revisions add only a String-to-UUID value dictionary; same-epoch withdrawal/restoration cannot revive an old read witness, and no new reference or teardown owner is introduced.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -314,7 +315,11 @@
           "transports": "[ String : any AnnexTransporting ]",
           "updateEpochChanged": "Set < String >",
           "windowsHosts": "Set < String >",
-          "registrationIntents": "[ String : UUID ]"
+          "registrationIntents": "[ String : UUID ]",
+          "providerV2Attempted": "Set < CompanionCommandKey >",
+          "providerV2Unresolved": "Set < CompanionTarget >",
+          "providerV2Applied": "[ CompanionTarget : CompanionProviderV2Applied ]",
+          "providerV2CapabilityRevisions": "[ String : UUID ]"
         },
         "storageMacros": []
       }
@@ -495,7 +500,7 @@
     "CompanionPreviewService": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift",
-      "reason": "Boolean preview flags, including empty/keyboard-interaction fixtures and multiple Dispatchers, and Sendable AsyncStream continuation; no UI object/callback fields. Reviewed #387 addition: pinnedDecisionStep is an optional Int counting synthetic updates after history opens, without callbacks or UI references. Reviewed #344 additions: editedHelperPresets is optional CompanionHelperRouting (a Sendable graph of value structs, Strings, Bools, numbers, Dates, arrays and dictionaries); showsAutoQuota is Bool. Neither stores callbacks or UI references, and constructor/capture sites are unchanged. Reviewed #338 addition: sentHosts is an array of CompanionHost value structs (the hosts last yielded), used to re-yield Dispatcher settings changes, and showsDispatcherSettings is a Bool; no callbacks or UI references. Reviewed #610 DEBUG/UIKit-only in-memory Apply additions: providerApplySaved is String, providerApplyStarts is Set<String>, and providerApplyReceipts is [String: AnnexProviderChangeResult]. The Sendable receipt enum contains only AnnexProviderOutcome/AnnexProviderPreview value structs, whose transitive fields are Strings, Bools, closed enums and String arrays. No callbacks, UI, transport, process or native-session owners are stored; ARC-only teardown and existing capture sites stay unchanged.",
+      "reason": "Boolean preview flags, including empty/keyboard-interaction fixtures and multiple Dispatchers, and Sendable AsyncStream continuation; no UI object/callback fields. Reviewed #387 addition: pinnedDecisionStep is an optional Int counting synthetic updates after history opens, without callbacks or UI references. Reviewed #344 additions: editedHelperPresets is optional CompanionHelperRouting (a Sendable graph of value structs, Strings, Bools, numbers, Dates, arrays and dictionaries); showsAutoQuota is Bool. Neither stores callbacks or UI references, and constructor/capture sites are unchanged. Reviewed #338 addition: sentHosts is an array of CompanionHost value structs (the hosts last yielded), used to re-yield Dispatcher settings changes, and showsDispatcherSettings is a Bool; no callbacks or UI references. Reviewed #610 DEBUG/UIKit-only in-memory Apply additions: providerApplySaved is String, providerApplyStarts is Set<String>, and providerApplyReceipts is [String: AnnexProviderChangeResult]. The Sendable receipt enum contains only AnnexProviderOutcome/AnnexProviderPreview value structs, whose transitive fields are Strings, Bools, closed enums and String arrays. No callbacks, UI, transport, process or native-session owners are stored; ARC-only teardown and existing capture sites stay unchanged. V2 DEBUG/UIKit fixture adds two Bools, two Set<String> identifiers and optional CompanionProviderV2Applied with that same closed Sendable receipt value graph. No network/process/session or UI owner is created.",
       "surface": {
         "bases": [
           "CompanionService"
@@ -527,7 +532,12 @@
           "streamsUpdates": "Bool",
           "providerApplySaved": "String",
           "providerApplyReceipts": "[ String : AnnexProviderChangeResult ]",
-          "providerApplyStarts": "Set < String >"
+          "providerApplyStarts": "Set < String >",
+          "providerV2FixtureSaved": "Bool",
+          "providerV2FixtureUnknown": "Bool",
+          "providerV2FixtureApplied": "CompanionProviderV2Applied ?",
+          "providerV2FixtureAttempts": "Set < String >",
+          "providerV2FixtureStarts": "Set < String >"
         },
         "storageMacros": []
       }
@@ -998,6 +1008,11 @@
         },
         "storageMacros": []
       }
+    },
+    "CompanionProviderV2Flow": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Domain/CompanionProviderV2Flow.swift",
+      "reason": "Injected CompanionService and two callbacks retain synthesized MainActor destruction, as V1. Production callbacks capture Store weakly and target values; no UI owner is captured. Store.shutdown explicitly releases providerV2Flows inside Runtime\u2019s real MainActor task before any await. Other fields are target, runtime Strings, Bool, optional typed Sendable preview/receipt/transition structs; no deinit work or resend queue."
     }
   },
   "captureSites": {

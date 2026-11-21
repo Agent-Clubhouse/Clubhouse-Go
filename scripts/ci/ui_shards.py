@@ -21,13 +21,11 @@ UNIT_TARGET = "ClubhouseGoTests"
 # See docs/ci-shard-balance.md for the unchanged inventory and measurement limits.
 SHARDS = [
     {
-        # Estimated elapsed: 41.0 minutes; timeout/retry policy is unchanged.
+        # Route prototype: about 50.9 minutes on one run; see docs/provider-v2-hosted-route.md.
         "name": "UI tests (preview, project pages)",
         "tests": [
             "CompanionPreviewSmokeTests",
             "CompanionSpawnVisualUITests",
-            "CompanionComposerPasteUITests",
-            "CompanionAppLifetimeUITests",
             "FramebriarShakeDiagnosticsUITests",
         ],
     },
@@ -44,7 +42,7 @@ SHARDS = [
         ],
     },
     {
-        # Estimated elapsed: 40.6 minutes; timeout/retry policy is unchanged.
+        # Route prototype: about 53.0 minutes on one run; see docs/provider-v2-hosted-route.md.
         "name": "UI tests (dispatcher, terminal)",
         "tests": [
             "CompanionDispatcherUITests",
@@ -56,18 +54,21 @@ SHARDS = [
             "CompanionQueuedBurstUITests",
             "CompanionAdditionalProviderTests",
             "CompanionPhoneWorkflowTests",
+            "CompanionHelperPresetsUITests",
+            "CompanionHomeSubtitleUITests",
+            "CompanionLinkedProjectUITests",
+            "CompanionAppLifetimeUITests",
+            "CompanionComposerPasteUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
+        # Route prototype: about 52.1 minutes on one run; see docs/provider-v2-hosted-route.md.
         "name": "UI tests (unicode, home)",
         "tests": [
             "CompanionUnicodeFocusUITests",
-            "CompanionHomeSubtitleUITests",
-            "CompanionAppUpdateUITests",
-            "CompanionHelperPresetsUITests",
-            "CompanionLinkedProjectUITests",
             "CompanionMarkdownFileUITests",
+            "CompanionProviderV2UITests",
+            "CompanionReadingArchiveHeaderUITests",
         ],
     },
     {
@@ -84,7 +85,7 @@ SHARDS = [
         ],
     },
     {
-        # Estimated elapsed: 41.1 minutes; timeout/retry policy is unchanged.
+        # Route prototype: about 52.3 minutes on one run; see docs/provider-v2-hosted-route.md.
         "name": "UI tests (composer, sheets)",
         "tests": [
             "CompanionCompactComposerUITests",
@@ -94,6 +95,7 @@ SHARDS = [
             "CompanionWakeFocusUITests",
             "CompanionHardwareKeyboardUITests",
             "CompanionReviewUITests",
+            "CompanionAppUpdateUITests",
         ],
     },
     {
