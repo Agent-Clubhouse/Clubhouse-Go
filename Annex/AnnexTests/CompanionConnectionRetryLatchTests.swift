@@ -61,6 +61,44 @@ import Vision
         }
     }
 
+    /// #624: a bordered style padded its 44pt label into a ~68×56pt near-circle that filled the card.
+    /// The 44pt target itself stays covered by the native `assertMinimumTarget` Retry checks.
+    func testRetryCapsuleStaysTextSizedInsideItsTarget() async throws {
+        try await withBanner(hosts: hosts("one")) { _, _, window, _ in
+            let image = self.capture(window, "Retry capsule at the default text size")
+            let capsule = try self.region(matching: CompanionPalette(theme: .clubhouse, dark: false).tintSoft, in: image)
+            XCTAssertGreaterThanOrEqual(capsule.area, 200, "The Retry capsule must be drawn: \(capsule)")
+            XCTAssertLessThanOrEqual(capsule.bounds.height, 36, "Visible Retry capsule stays text-sized: \(capsule)")
+            XCTAssertGreaterThanOrEqual(capsule.bounds.width / max(capsule.bounds.height, 1), 1.6, "Retry reads as a pill, not a circle: \(capsule)")
+        }
+    }
+
+    /// Bounds and filled area, in points, of the opaque pixels within 4/255 of `color`.
+    private func region(matching color: CompanionRGB, in image: UIImage) throws -> (bounds: CGRect, area: CGFloat) {
+        let cgImage = try XCTUnwrap(image.cgImage)
+        let width = cgImage.width, height = cgImage.height
+        let context = try XCTUnwrap(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+                                            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
+                                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        let bytes = try XCTUnwrap(context.data).assumingMemoryBound(to: UInt8.self)
+        let target = [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
+        var minX = width, minY = height, maxX = -1, maxY = -1, count = 0
+        for y in 0..<height {
+            for x in 0..<width {
+                let offset = (y * width + x) * 4
+                guard bytes[offset + 3] >= 252, (0..<3).allSatisfy({ abs(Int(bytes[offset + $0]) - target[$0]) <= 4 }) else { continue }
+                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y); count += 1
+            }
+        }
+        let scale = CGFloat(width) / image.size.width
+        guard count > 0 else { return (.zero, 0) }
+        // The bitmap's origin is top-left in row order, matching UIKit points.
+        return (CGRect(x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
+                       width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale),
+                CGFloat(count) / (scale * scale))
+    }
+
     private func hosts(_ ids: String...) -> [CompanionHost] {
         ids.map { .init(id: $0, name: $0.capitalized + " Mac", endpoint: "Fixture only", connection: .offline, projects: []) }
     }

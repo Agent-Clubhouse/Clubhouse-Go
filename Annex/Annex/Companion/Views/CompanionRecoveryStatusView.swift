@@ -184,10 +184,8 @@ struct CompanionDesktopConnectionBanner: View {
                 CompanionCompactConnectionBanner(title: notice.title, isInProgress: notice.isInProgress,
                                                  titleIdentifier: "\(identifierPrefix)-connection-title") {
                     if !notice.retryHostIDs.isEmpty {
-                        Button { retry(notice.retryHostIDs) } label: {
-                            Text("Retry").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
-                        }
-                        .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                        Button("Retry") { retry(notice.retryHostIDs) }
+                            .buttonStyle(CompanionBannerActionButtonStyle())
                         .disabled(retryDisabled(notice.retryHostIDs))
                         .accessibilityLabel(notice.retryLabel)
                         .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
@@ -218,6 +216,27 @@ struct CompanionDesktopConnectionBanner: View {
                 // An old attempt must not clear a newer latch after a reported state change.
                 if retryAttempts[hostID] == attempt { retryAttempts[hostID] = nil }
             }
+        }
+    }
+}
+
+/// A compact capsule whose visible pill stays text-sized inside its own 44pt target (#624). A bordered
+/// style pads around its whole label, so a 44pt label grew a near-circle that filled the banner card.
+struct CompanionBannerActionButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View { Pill(configuration: configuration) }
+
+    private struct Pill: View {
+        let configuration: ButtonStyleConfiguration
+        @Environment(\.isEnabled) private var isEnabled
+        @Environment(\.companionPalette) private var palette
+
+        var body: some View {
+            configuration.label
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(Color(palette.tintSoft), in: Capsule())
+                .opacity(isEnabled ? (configuration.isPressed ? 0.6 : 1) : 0.45)
+                .frame(minWidth: 44, minHeight: 44)
+                .contentShape(Rectangle())
         }
     }
 }
