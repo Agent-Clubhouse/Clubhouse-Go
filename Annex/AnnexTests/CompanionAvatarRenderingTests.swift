@@ -105,20 +105,36 @@ import ClubhouseTransport
         // These panels belong to this fixed-size fixture, not to production avatar coordinates.
         let rowPanel = CGRect(x: 16, y: 16, width: 328, height: 64)
         let senderPanel = CGRect(x: 16, y: 100, width: 328, height: 96)
-        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
-        var image: UIImage
+        let clock = ContinuousClock()
+        let origin = clock.now
+        let elapsed = { origin.duration(to: clock.now) }
         var rowArea: CGFloat = 0, senderArea: CGFloat = 0
-        repeat {
-            image = snapshot(view)
+        let poll = try await AvatarProfilePoll.run(budget: .seconds(2), elapsed: elapsed, capture: { snapshot(view) }, passes: { image in
             rowArea = try profilePixelArea(in: image, panel: rowPanel)
             senderArea = try profilePixelArea(in: image, panel: senderPanel)
-            if rowArea >= 100 && senderArea >= 100 { break }
-            try await Task.sleep(for: .milliseconds(10)) // Await both visible cached-image tasks.
-        } while ContinuousClock.now < deadline
+            return rowArea >= 100 && senderArea >= 100
+        }, sleep: { try await Task.sleep(for: .milliseconds(10)) }) // Await both visible cached-image tasks.
         print("AVATAR_PROFILE_PIXELS rowPointArea=\(rowArea) senderPointArea=\(senderArea)")
+        print(poll.trace.summary)
+        if !poll.passed {
+            for step in poll.trace.steps { print(step.line) }
+            // Diagnostic only: one wait and one frame after the poll gave up. Never the assertion evidence.
+            let wait = elapsed()
+            try await Task.sleep(for: .milliseconds(10))
+            let capture = elapsed()
+            let diagnostic = snapshot(view)
+            let captured = elapsed()
+            let row = try profilePixelArea(in: diagnostic, panel: rowPanel)
+            let sender = try profilePixelArea(in: diagnostic, panel: senderPanel)
+            print("AVATAR_PROFILE_DIAGNOSTIC_AFTER_POLL rowPointArea=\(row) senderPointArea=\(sender) sleep=\(AvatarProfilePoll.ms(wait))-\(AvatarProfilePoll.ms(capture))ms capture=\(AvatarProfilePoll.ms(capture))-\(AvatarProfilePoll.ms(captured))ms")
+            let attachment = XCTAttachment(image: diagnostic)
+            attachment.name = "Diagnostic only, after the failed poll (not assertion evidence)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+        }
         XCTAssertGreaterThanOrEqual(rowArea, 100, "Pinned row must render the cyan profile image over its emoji", file: file, line: line)
         XCTAssertGreaterThanOrEqual(senderArea, 100, "Routed sender must render the cyan profile image over its emoji", file: file, line: line)
-        return image
+        return poll.value
     }
 
     /// Count only the synthetic image's opaque cyan pixels, in square points independent of display scale.
@@ -141,3 +157,65 @@ import ClubhouseTransport
         return CGFloat(matching) / (scaleX * scaleY)
     }
 }
+
+// BEGIN AvatarProfilePoll: pure and clock-injected, so its timing boundaries can be exercised off-device.
+/// The original acceptance, unchanged: `repeat { capture; analyse; stop if it passes; sleep } while now < deadline`.
+/// The returned value is the last analysed capture. The trace only records elapsed offsets for diagnosis.
+enum AvatarProfilePoll {
+    struct Step {
+        var index: Int
+        var preCapture: Duration, postCapture: Duration, postAnalysis: Duration
+        var sleep: (start: Duration, end: Duration)?
+        var passed: Bool
+        var line: String {
+            let wait = sleep.map { " sleep=\(AvatarProfilePoll.ms($0.start))-\(AvatarProfilePoll.ms($0.end))ms" } ?? ""
+            return "AVATAR_PROFILE_SAMPLE \(index) capture=\(AvatarProfilePoll.ms(preCapture))-\(AvatarProfilePoll.ms(postCapture))ms "
+                + "analysis=\(AvatarProfilePoll.ms(postCapture))-\(AvatarProfilePoll.ms(postAnalysis))ms passed=\(passed)" + wait
+        }
+    }
+    struct Trace {
+        var budget: Duration
+        var steps: [Step] = []
+        /// Elapsed time when the loop condition was last read, if it was read.
+        var lastCheck: Duration?
+        var summary: String {
+            let captures = steps.map { $0.postCapture - $0.preCapture }
+            let analyses = steps.map { $0.postAnalysis - $0.postCapture }
+            let sleeps = steps.compactMap { $0.sleep.map { $0.end - $0.start } }
+            let finalSleep = steps.last?.sleep.map { "\(AvatarProfilePoll.ms($0.start))-\(AvatarProfilePoll.ms($0.end))ms" } ?? "none"
+            return "AVATAR_PROFILE_POLL samples=\(steps.count) sleeps=\(sleeps.count) budget=\(AvatarProfilePoll.ms(budget))ms "
+                + "lastCheck=\(lastCheck.map { AvatarProfilePoll.ms($0) + "ms" } ?? "none") "
+                + "maxCapture=\(AvatarProfilePoll.ms(captures.max() ?? .zero))ms maxAnalysis=\(AvatarProfilePoll.ms(analyses.max() ?? .zero))ms "
+                + "maxSleep=\(AvatarProfilePoll.ms(sleeps.max() ?? .zero))ms finalSleep=\(finalSleep)"
+        }
+    }
+    static func ms(_ duration: Duration) -> String {
+        let value = Double(duration.components.seconds) * 1000 + Double(duration.components.attoseconds) / 1e15
+        return String(format: "%.1f", value)
+    }
+    @MainActor static func run<Value>(budget: Duration, elapsed: () -> Duration, capture: () throws -> Value,
+                           passes: (Value) throws -> Bool, sleep: () async throws -> Void) async throws
+        -> (value: Value, passed: Bool, trace: Trace) {
+        let deadline = elapsed() + budget
+        var trace = Trace(budget: budget)
+        var value: Value
+        var passed = false
+        var check: Duration
+        repeat {
+            let pre = elapsed()
+            value = try capture()
+            let post = elapsed()
+            passed = try passes(value)
+            trace.steps.append(Step(index: trace.steps.count + 1, preCapture: pre, postCapture: post,
+                                    postAnalysis: elapsed(), sleep: nil, passed: passed))
+            if passed { break }
+            let start = elapsed()
+            try await sleep()
+            check = elapsed()
+            trace.steps[trace.steps.count - 1].sleep = (start, check)
+            trace.lastCheck = check
+        } while check < deadline
+        return (value, passed, trace)
+    }
+}
+// END AvatarProfilePoll
