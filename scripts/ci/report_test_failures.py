@@ -19,7 +19,6 @@ CASE = re.compile(r"Test Case '-\[(?P<suite>[\w.]+) (?P<method>\w+)\]' "
                   r"(?P<state>started|passed|failed|skipped)(?: \(Iteration (?P<attempt>\d+) of \d+\))?")
 XCTEST = re.compile(r"(?P<file>[^\r\n]+?\.swift):(?P<line>\d+)(?::\d+)?: error: "
                     r"-\[(?P<suite>[\w.]+) (?P<method>\w+)\] : (?P<assertion>.*)")
-SWIFT_START = re.compile(r"◇ Test (?P<method>.+?) started\.")
 SWIFT_ISSUE = re.compile(r"✘ Test (?P<method>.+?) recorded an issue at "
                         r"(?P<file>[^\r\n]+?\.swift):(?P<line>\d+):\d+: (?P<assertion>.*)")
 
@@ -92,13 +91,16 @@ class Reporter:
             self.failure(match['suite'] + '/' + match['method'], match['assertion'],
                          source_path(match['file']), int(match['line']))
             return
-        match = SWIFT_START.search(text)
-        if match:
-            self.starts[match['method']] = self.clock()
-            return
         match = SWIFT_ISSUE.search(text)
         if match:
-            self.failure(match['method'], match['assertion'], source_path(match['file']), int(match['line']))
+            file = source_path(match['file'])
+            # Swift Testing's human start records carry no source identity, and
+            # equal method/display names can run in different suites concurrently
+            # or sequentially. Never infer an item start from that bare name.
+            # Source + exact reported name disambiguates issues, while repetitions
+            # and multiple assertions of that same item retain one first event.
+            identity = f"{file or Path(match['file']).name}::{match['method']}"
+            self.failure(identity, match['assertion'], file, int(match['line']))
 
 
 def main(argv=None):

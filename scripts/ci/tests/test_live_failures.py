@@ -67,10 +67,48 @@ class LiveFailureTests(unittest.TestCase):
         reporter = self.reporter()
         reporter.consume('✘ Test refusedNewChat() recorded an issue at RecoveryTests.swift:120:9: Expectation failed: fresh != old\n')
         event = json.loads(self.events.getvalue())
-        self.assertEqual(event['item'], 'refusedNewChat()')
+        self.assertEqual(event['item'], 'RecoveryTests.swift::refusedNewChat()')
         self.assertIsNone(event['item_elapsed_seconds'])
         self.assertEqual(event['line'], 120)
         self.assertEqual(event['assertion'], 'Expectation failed: fresh != old')
+
+    def test_same_bare_swift_method_in_distinct_files_never_loses_an_issue_or_borrows_a_start(self):
+        for overlapping in (False, True):
+            with self.subTest(overlapping=overlapping):
+                reporter = self.reporter()
+                start = '◇ Test changesNeedAConnectedDesktop() started.\n'
+                first = ('✘ Test changesNeedAConnectedDesktop() recorded an issue at '
+                         'Annex/AnnexTests/CompanionFinishedSyncTests.swift:201:9: first assertion\n')
+                second = ('✘ Test changesNeedAConnectedDesktop() recorded an issue at '
+                          'Annex/AnnexTests/CompanionProjectPageTests.swift:231:9: second assertion\n')
+                self.now = 1
+                reporter.consume(start)
+                if overlapping:
+                    self.now = 10
+                    reporter.consume(start)
+                self.now = 12
+                reporter.consume(first)
+                if not overlapping:
+                    self.now = 13
+                    reporter.consume(start)
+                self.now = 15
+                reporter.consume(second)
+                # Repeated assertions and a later retry of each same source item
+                # cannot erase its first issue or create another first event.
+                reporter.consume(first.replace(':201:9:', ':205:9:'))
+                reporter.consume(start)
+                reporter.consume(second)
+                events = [json.loads(line) for line in self.events.getvalue().splitlines()]
+                self.assertEqual(len(events), 2)
+                self.assertEqual({e['file'] for e in events}, {
+                    'Annex/AnnexTests/CompanionFinishedSyncTests.swift',
+                    'Annex/AnnexTests/CompanionProjectPageTests.swift'})
+                self.assertEqual(len({e['item'] for e in events}), 2)
+                self.assertTrue(all(e['item_elapsed_seconds'] is None and e['attempt'] is None for e in events))
+                self.assertEqual([e['assertion'] for e in events], ['first assertion', 'second assertion'])
+                self.assertEqual(self.output.getvalue().count('::warning '), 2)
+                self.assertIn(first, self.output.getvalue())
+                self.assertIn(second, self.output.getvalue())
 
     def test_untrusted_command_properties_and_message_are_escaped(self):
         reporter = self.reporter()
