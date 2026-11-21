@@ -313,7 +313,8 @@ import ClubhouseTransport
         return try await AnnexTelemetry.shared.measure(.media) {
             let hostName = hosts[target.hostID]?.name ?? "your desktop"
             guard hosts[target.hostID]?.richContentAvailable == true else {
-                throw CompanionServiceError.unavailable("Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files.")
+                throw CompanionServiceError.unavailable(CompanionContentReference.richContentUnavailableMessage(
+                    hostName: hostName, enabled: hosts[target.hostID]?.richContentAvailable))
             }
             do { return try await fetchContent(reference, target: target) }
             catch let error as CompanionContentError { throw error }
@@ -333,7 +334,8 @@ import ClubhouseTransport
         return try await AnnexTelemetry.shared.measure(.media) {
             let hostName = hosts[target.hostID]?.name ?? "your desktop"
             guard hosts[target.hostID]?.richContentAvailable == true else {
-                throw CompanionServiceError.unavailable("Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files.")
+                throw CompanionServiceError.unavailable(CompanionContentReference.richContentUnavailableMessage(
+                    hostName: hostName, enabled: hosts[target.hostID]?.richContentAvailable))
             }
             guard capabilities[target.hostID]?.supportsChatLinks == true else { throw CompanionServiceError.unavailable(CompanionContentReference.linksNeedUpdate) }
             do {
@@ -348,9 +350,10 @@ import ClubhouseTransport
     /// The chat-link route answers a missing or refused target in its body; these are the requests it couldn't take.
     static func linkErrorMessage(_ error: Error, hostName: String) -> String {
         switch error as? AnnexTransportError {
+        case .forbidden, .rejected(403, _, _): return previewAuthorizationMessage(hostName: hostName)
         case .rejected(404, "agent_not_found", _): return "This agent is no longer on \(hostName)."
         case .rejected(404, "content_unavailable", _):
-            return "Rich chat content is off on \(hostName). Turn it on in the desktop's Experimental settings to preview images and files."
+            return CompanionContentReference.unavailableLinkMessage(hostName: hostName)
         case .rejected(404, "not_found", _): return CompanionContentReference.linksNeedUpdate
         case .rejected(400, _, _), .invalidEndpoint: return "This link can't be opened from the phone. Open it on \(hostName)."
         case .malformedResponse: return "\(hostName) sent an answer this phone can't read. Updating the desktop may help."
@@ -379,7 +382,7 @@ import ClubhouseTransport
             let encoded = value["base64"]?.string
             guard (encoded?.utf8.count ?? 0) <= 12 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
             let bytes = encoded.flatMap { Data(base64Encoded: $0) }
-            guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
+            guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= CompanionContent.maximumPreviewBytes else { throw AnnexTransportError.malformedResponse }
             // Future kinds stay named file chips, never active content selected by their MIME or payload.
             // Known `other` retains its existing semantics; malformed envelopes and caps still reject above.
             guard ["image", "text", "video", "audio", "pdf", "other"].contains(kind) else {
@@ -389,16 +392,22 @@ import ClubhouseTransport
                          text: value["text"]?.string, truncated: value["truncated"].boolValue, tooLarge: value["tooLarge"].boolValue)
     }
 
-    /// The desktop answers every refused preview with the same code, so name the likely reason for this reference.
+    /// A preview refusal does not establish that mobile control or pairing is missing.
+    private static func previewAuthorizationMessage(hostName: String) -> String {
+        "\(hostName) didn't authorize this preview. Check this phone's access and the desktop's sharing settings."
+    }
+
+    /// Several refusals share a status code; don't present a possible cause as a known diagnosis.
     static func contentErrorMessage(_ error: Error, reference: CompanionContentReference, hostName: String) -> String {
         switch error as? AnnexTransportError {
+        case .forbidden, .rejected(403, _, _): return previewAuthorizationMessage(hostName: hostName)
         case .rejected(_, _, let message?): return message
         case .rejected(404, "agent_not_found", _): return "This agent is no longer on \(hostName)."
         // The desktop answers an invalid reference like a missing one (404 content_unavailable), so the phone does too.
         case .rejected(404, _, _), .invalidEndpoint:
             switch reference {
             case .file, .link: return CompanionContentReference.unavailableLinkMessage(hostName: hostName)
-            case .image, .localImage: return "This image is no longer available on \(hostName)."
+            case .image, .localImage: return "This image can't be previewed from \(hostName). Open it on your desktop to check."
             }
         case .responseTooLarge: return "This file is too large to preview on your phone. Open it on \(hostName)."
         case .malformedResponse: return "\(hostName) sent a preview this phone can't read. Updating the desktop may help."
@@ -1379,7 +1388,11 @@ import ClubhouseTransport
                 hosts[hostID]?.canUpdateApp = newCapabilities?.supportsAppUpdate == true
                 hosts[hostID]?.canCheckAppUpdate = newCapabilities?.supportsAppUpdateCheck == true
                 reconcileUpdateOutcome(hostID: hostID)
-                hosts[hostID]?.richContentAvailable = rawCaps?["richContent"]?["enabled"].boolValue == true
+                if case .bool(let enabled)? = rawCaps?["richContent"]?["enabled"] {
+                    hosts[hostID]?.richContentAvailable = enabled
+                } else {
+                    hosts[hostID]?.richContentAvailable = nil
+                }
                 hosts[hostID]?.canResolveLinks = newCapabilities?.supportsChatLinks == true
                 hosts[hostID]?.canSpawn = newCapabilities?.commands.contains("agent.spawn") == true
                 hosts[hostID]?.canCreateDurable = newCapabilities?.supportsAgentCreate == true

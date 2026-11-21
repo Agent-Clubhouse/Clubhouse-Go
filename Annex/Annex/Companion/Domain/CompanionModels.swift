@@ -139,7 +139,8 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     /// Set only after a complete catalog from this desktop. Unknown agents remain loading until then.
     var hasLoadedCatalog = false
     var snapshotTruncationNotice: String?
-    var richContentAvailable = false
+    /// Nil when the desktop has not reported a literal rich-content setting. Only true permits reads.
+    var richContentAvailable: Bool? = nil
     /// The desktop says what a chat link names and lists folders (`chatLinks` v1).
     var canResolveLinks = false
     var canSpawn = false

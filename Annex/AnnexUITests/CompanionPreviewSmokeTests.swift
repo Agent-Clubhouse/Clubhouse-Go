@@ -1100,6 +1100,114 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                       "The message is sent, and a preview says it never reached a desktop")
     }
 
+    func testOriginalArtifactsOfferFilesAndShareAndCancelWithoutReloading() {
+        let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance", "--companion-preview-artifact-export"], attempts: 1)
+        openRiver(app)
+        let paths = ["~/.clubhouse/scratch/acceptance.pdf", "~/.clubhouse/scratch/original.png"]
+        let picker = app.otherElements["Browse View (Picker)"]
+        let localRoot = picker.otherElements["DOC.browsingRoot Source: com.apple.FileProvider.LocalStorage, Title: On My iPhone"]
+        func openLocalDestination() {
+            XCTAssertTrue(picker.waitForExistence(timeout: 10))
+            if !localRoot.exists {
+                let browse = picker.navigationBars.buttons["Browse"]
+                if browse.exists {
+                    XCTAssertTrue(browse.isHittable)
+                    browse.tap()
+                }
+                let local = picker.staticTexts["On My iPhone"]
+                XCTAssertTrue(local.waitForExistence(timeout: 10), "Device-local Files must be offered; do not silently substitute cloud-only export")
+                XCTAssertTrue(local.isHittable)
+                local.tap()
+            }
+            XCTAssertTrue(localRoot.waitForExistence(timeout: 10))
+        }
+        for (index, path) in paths.enumerated() {
+            let reference = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", path))
+            XCTAssertTrue(reference.element.waitForExistence(timeout: 10))
+            XCTAssertEqual(reference.count, 1)
+            reference.element.tap()
+            let name = (path as NSString).lastPathComponent
+            XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10))
+            let save = app.buttons["Save to Files"]
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Original artifact before explicit export \(name)")
+            save.tap()
+            XCTAssertTrue(picker.waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Native Files export name and destination \(name)")
+            openLocalDestination()
+            contentAcceptanceCapture(app, name: "Native device-local Files destination \(name)")
+            let browse = picker.navigationBars.buttons["Browse"]
+            if browse.exists {
+                XCTAssertTrue(browse.isHittable)
+                browse.tap()
+            }
+            contentAcceptanceCapture(app, name: "Native Files navigation before cancellation \(name)")
+            let cancel = app.buttons["Cancel"]
+            if cancel.exists {
+                XCTAssertTrue(cancel.isHittable)
+                cancel.tap()
+            } else {
+                // The Cancel Other overlaps visible More; use the sheet gesture, not its coordinates.
+                let navigationBar = picker.navigationBars
+                XCTAssertEqual(navigationBar.count, 1)
+                XCTAssertTrue(navigationBar.element.isHittable)
+                navigationBar.element.swipeDown(velocity: .fast)
+            }
+            XCTAssertTrue(picker.waitForNonExistence(timeout: 10), "Cancellation must actually dismiss the native picker")
+            XCTAssertTrue(app.navigationBars[name].waitForExistence(timeout: 10))
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(save.isHittable)
+            XCTAssertFalse(app.alerts["Couldn't export this file"].exists)
+            contentAcceptanceCapture(app, name: "Cancelled Files export returned to original preview \(name)")
+            save.tap()
+            openLocalDestination()
+            let files = localRoot.collectionViews["File View"]
+            XCTAssertTrue(files.waitForExistence(timeout: 10))
+            if index == 0 {
+                XCTAssertTrue(localRoot.staticTexts["On My iPhone is Empty"].waitForExistence(timeout: 10))
+            }
+            let expectedFiles = NSPredicate { _, _ in files.cells.count == index }
+            XCTAssertEqual(XCTWaiter.wait(for: [XCTNSPredicateExpectation(predicate: expectedFiles, object: nil)], timeout: 10), .completed,
+                           "Cancellation must leave no saved sample; only the earlier explicit PDF save may exist")
+            let stem = (name as NSString).deletingPathExtension
+            let filename = picker.textFields.element
+            XCTAssertTrue(filename.exists)
+            XCTAssertTrue([name, stem].contains(filename.value as? String ?? ""), "Files must retain the original suggested filename")
+            let cancelledName = NSPredicate(format: "label == %@ OR label == %@", name, stem)
+            XCTAssertFalse(files.descendants(matching: .any).matching(cancelledName).firstMatch.exists)
+            if index > 0 {
+                let priorName = NSPredicate(format: "label == %@ OR label == %@", "acceptance.pdf", "acceptance")
+                XCTAssertTrue(files.descendants(matching: .any).matching(priorName).firstMatch.exists,
+                              "The earlier explicitly saved PDF remains, without a cancelled PNG save")
+            }
+            contentAcceptanceCapture(app, name: "Explicit device-local original-file save \(name)")
+            let confirm = picker.buttons["Save"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 10) && confirm.isHittable)
+            confirm.tap()
+            XCTAssertTrue(picker.waitForNonExistence(timeout: 10))
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(save.isHittable)
+            XCTAssertFalse(app.alerts["Couldn't export this file"].exists)
+            app.buttons["Share"].tap()
+            let shareClose = app.buttons["Close"]
+            XCTAssertTrue(shareClose.waitForExistence(timeout: 10))
+            contentAcceptanceCapture(app, name: "Native original-file Share presentation \(name)")
+            shareClose.tap()
+            XCTAssertTrue(shareClose.waitForNonExistence(timeout: 10))
+            XCTAssertTrue(save.waitForExistence(timeout: 10))
+            XCTAssertTrue(save.isHittable)
+            XCTAssertTrue(app.navigationBars[name].exists)
+            if name.hasSuffix(".png") { XCTAssertTrue(app.buttons["Copy image"].exists) }
+            contentAcceptanceCapture(app, name: "Cancelled native Share returned to original preview \(name)")
+            let done = app.buttons["companion-preview-done"]
+            XCTAssertEqual(done.label, "Done")
+            XCTAssertTrue(done.isHittable && app.frame.contains(done.frame))
+            done.tap()
+            XCTAssertTrue(app.buttons["companion-preview-done"].waitForNonExistence(timeout: 5))
+        }
+        app.terminate()
+    }
+
     /// This fixture crosses actual link discovery, Store policy and the sheet; it does not contact a desktop.
     func testScratchAndHomeTextOpenInApp() {
         let app = launchApp(["--companion-preview", "--companion-preview-content-acceptance"], attempts: 1)
@@ -1197,7 +1305,8 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         open("/Users/river/private/keys.md")
         let notShared = app.descendants(matching: .any).matching(identifier: "companion-link-not-allowed").firstMatch
         XCTAssertTrue(notShared.waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["Not shared with the phone"].exists)
+        XCTAssertTrue(app.staticTexts["This target can't be previewed"].exists)
+        XCTAssertTrue(app.staticTexts["The target may be unreadable, unsupported, or outside shared locations. Open it on your desktop to check."].exists)
         contentAcceptanceCapture(app, name: "Local link not shared")
         close(notShared)
 

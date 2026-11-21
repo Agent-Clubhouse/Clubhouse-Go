@@ -307,12 +307,35 @@ import Testing
         try await Harness.start { await $0.setCapability("richContent", .object(["enabled": .bool(true)])) }
     }
 
-    @Test func previewsAreRefusedWhileRichContentIsOff() async throws {
-        let harness = try await Harness.start()
-        defer { harness.stop() }
-        #expect(await serviceErrorText { _ = try await harness.service.content(.file("README.md"), target: harness.target) }
-                == "Rich chat content is off on Fixture. Turn it on in the desktop's Experimental settings to preview images and files.")
-        #expect(await !harness.transport.readRoutes.contains { $0.name == "chatContent" })
+    @Test func previewsStayClosedWithoutAnExplicitlyEnabledCapability() async throws {
+        let variants: [(AnnexJSON?, Bool?)] = [
+            (nil, nil), (.null, nil), (.object([:]), nil),
+            (.object(["enabled": .string("true")]), nil),
+            (.object(["enabled": .integer(1)]), nil),
+            (.object(["enabled": .bool(false)]), false)
+        ]
+        for (capability, reported) in variants {
+            let harness = try await Harness.start {
+                if let capability { await $0.setCapability("richContent", capability) }
+            }
+            defer { harness.stop() }
+            #expect(harness.host?.richContentAvailable == reported)
+            #expect(!harness.store.richContentAvailable(for: harness.target))
+            let messages = [
+                await serviceErrorText { _ = try await harness.service.content(.file("README.md"), target: harness.target) },
+                await serviceErrorText { _ = try await harness.service.resolveLink("README.md", target: harness.target) },
+                await serviceErrorText { _ = try await harness.store.content(.file("README.md"), target: harness.target) },
+                await serviceErrorText { _ = try await harness.store.linkContent("README.md", target: harness.target) },
+                harness.store.richContentUnavailableMessage(for: harness.target)
+            ]
+            for message in messages {
+                #expect(message?.contains("Fixture") == true)
+                #expect(message?.contains("Settings > Agents & providers > Rich chat content") == true)
+                #expect(message?.contains("Rich chat content is off") == (reported == false))
+                #expect(message?.contains("Experimental") == false)
+            }
+            #expect(await !harness.transport.readRoutes.contains { ["chatContent", "chatLink"].contains($0.name) })
+        }
     }
 
     @Test func imagesAndFilesArePreviewedFromTheirRoutes() async throws {
@@ -340,7 +363,7 @@ import Testing
             #expect(await serviceErrorKind { _ = try await harness.service.content(reference, target: harness.target) } == .unavailable)
             // Read like the desktop's own 404 content_unavailable, never as an address problem.
             #expect(await serviceErrorText { _ = try await harness.service.content(reference, target: harness.target) }
-                    == "This image is no longer available on Fixture.")
+                    == "This image can't be previewed from Fixture. Open it on your desktop to check.")
         }
         #expect(await !harness.transport.readRoutes.contains { $0.name == "chatContent" })
     }
@@ -376,7 +399,7 @@ import Testing
             return await serviceErrorText { _ = try await harness.service.content(reference, target: harness.target) }
         }
         #expect(await refused(.rejected(status: 404, code: "agent_not_found"), .file("a.txt")) == "This agent is no longer on Fixture.")
-        #expect(await refused(.rejected(status: 404, code: "not_found"), .image(Self.mediaRef)) == "This image is no longer available on Fixture.")
+        #expect(await refused(.rejected(status: 404, code: "not_found"), .image(Self.mediaRef)) == "This image can't be previewed from Fixture. Open it on your desktop to check.")
         #expect(await refused(.rejected(status: 404, code: nil), .file("a.txt"))
                 == CompanionContentReference.unavailableLinkMessage(hostName: "Fixture"))
         #expect(await refused(.responseTooLarge, .file("a.txt")) == "This file is too large to preview on your phone. Open it on Fixture.")

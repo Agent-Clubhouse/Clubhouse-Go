@@ -829,12 +829,24 @@ import ClubhouseTransport
         try await Task.sleep(for: .milliseconds(200))
         return "preview-\(image.id)"
     }
+    private func recordPreviewRead(_ route: String) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mobile-links-ui-testing") {
+            let scenario = ProcessInfo.processInfo.environment["MOBILE_LINK_SCENARIO"] ?? "sent"
+            print("MOBILE_LINK_PREVIEW_READ scenario=\(scenario) route=\(route)")
+        }
+        #endif
+    }
+
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        recordPreviewRead("content")
         guard case .file(let path) = reference else { throw previewError }
         #if DEBUG && canImport(UIKit)
         if CompanionContentAcceptanceFixture.enabled {
             guard target == Self.target else { throw previewError }
-            return try CompanionContentAcceptanceFixture.content(path: path)
+            let content = try CompanionContentAcceptanceFixture.content(path: path)
+            CompanionContentAcceptanceFixture.recordExportContent(content, path: path)
+            return content
         }
         #endif
         try await Task.sleep(for: .milliseconds(300))
@@ -842,6 +854,7 @@ import ClubhouseTransport
         return .init(kind: "text", name: name, mimeType: "text/plain", text: "// \(name) · sample preview\nstruct Conversation {\n    var target: ConversationTarget\n    var draft = \"\"\n}")
     }
     func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        recordPreviewRead("link")
         #if DEBUG && canImport(UIKit)
         if CompanionContentAcceptanceFixture.enabled {
             guard target == Self.target else { throw previewError }
