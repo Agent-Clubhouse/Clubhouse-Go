@@ -53,8 +53,9 @@ func patch(_ rects: [CGRect], _ color: CGColor) -> (CGContext) -> Void {
 }
 func measure(_ images: (CGImage, CGImage), hit: CGRect, card: CGRect, label: CGRect, defaultSize: Bool = true)
     -> (metrics: BannerActionGeometry.Metrics?, failures: [String]) {
-    let visible = BannerActionGeometry.visibleBounds(shown: images.0, hidden: images.1, scale: scale, within: hit)
-    let metrics = visible.map { BannerActionGeometry.Metrics(visible: $0, hit: hit, card: card, label: label, defaultSize: defaultSize) }
+    let painted = BannerActionGeometry.painted(shown: images.0, hidden: images.1, scale: scale, within: hit)
+    let metrics = painted.map { BannerActionGeometry.Metrics(visible: $0.bounds, hit: hit, card: card, label: label,
+                                                             labelEnclosure: $0.enclosure(of: label), defaultSize: defaultSize) }
     return (metrics, BannerActionGeometry.failures(metrics))
 }
 
@@ -114,6 +115,27 @@ check(accessible.failures.isEmpty, "H accessibility pill passes without the defa
 let flushHit = CGRect(x: 250, y: 84, width: 110, height: 56)
 let flush = measure(renders(card: axCard, control: capsule(flushHit, pink, label: axLabel)), hit: flushHit, card: axCard, label: axLabel, defaultSize: false)
 check(flush.failures.contains { $0.contains("card bottom") } && flush.failures.contains { $0.contains("whole hit target") }, "H a flush accessibility pill fails: \(flush.failures)")
+
+// I. The actual Retry wholly to the right of the card, vertically aligned with it, fails.
+let narrowCard = CGRect(x: 16, y: 20, width: 280, height: 44)
+let outside = measure(renders(card: narrowCard, control: capsule(pill, pink, label: label)), hit: hit, card: narrowCard, label: label)
+check(outside.failures.contains { $0.contains("outside the card") }, "I a control beside the card fails: \(outside.failures)")
+check(outside.failures.count == 1, "I fails only for card containment: \(outside.failures)")
+
+// J. Changed pixels only in the label, with no pill around it, fail; so does the same in another color.
+for color in [ink, CGColor(srgbRed: 0.1, green: 0.3, blue: 0.7, alpha: 1)] {
+    let bare = measure(renders(card: card, control: patch([label], color)), hit: hit, card: card, label: label)
+    check(bare.failures.contains { $0.contains("no painted surface encloses the label") }, "J bare label text fails: \(bare.failures)")
+}
+check((good.metrics?.labelEnclosure ?? 0) >= 0.99, "J a real pill encloses its label: \(String(describing: good.metrics?.labelEnclosure))")
+
+// K. Non-finite or empty geometry is rejected before any comparison.
+for broken in [CGRect.null, CGRect(x: 16, y: 20, width: CGFloat.infinity, height: 44), CGRect(x: 16, y: 20, width: 0, height: 44)] {
+    let metrics = good.metrics.map { var m = $0; m.card = broken; return m }
+    check(BannerActionGeometry.failures(metrics).first?.contains("not a finite, nonempty rectangle") == true, "K card \(broken) is rejected")
+}
+check(BannerActionGeometry.painted(shown: renders(card: card, control: nil).0, hidden: renders(card: card, control: nil).1, scale: scale,
+                                   within: CGRect(x: CGFloat.nan, y: 0, width: 10, height: 10)) == nil, "K a non-finite target measures nothing")
 
 print(failures == 0 ? "BANNER_ACTION_GEOMETRY_CONTROLS PASS" : "BANNER_ACTION_GEOMETRY_CONTROLS FAIL \(failures)")
 exit(failures == 0 ? 0 : 1)

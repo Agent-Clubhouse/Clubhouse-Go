@@ -104,10 +104,13 @@ import Vision
         XCTAssertEqual(cardFrame, card, "Hiding Retry must not resize the card")
         let shownImage = try XCTUnwrap(shown.cgImage)
         let scale = CGFloat(shownImage.width) / shown.size.width
-        let visible = BannerActionGeometry.visibleBounds(shown: shownImage, hidden: try XCTUnwrap(hidden.cgImage), scale: scale, within: hit)
-        let label = try visible.flatMap { try recognizedText("Retry", in: shownImage, scale: scale, within: $0) }
-        let metrics = visible.map { BannerActionGeometry.Metrics(visible: $0, hit: hit, card: card, label: label, defaultSize: !size.isAccessibilitySize) }
-        print("RETRY_GEOMETRY \(name) visible=\(visible.map { "\($0)" } ?? "none") label=\(label.map { "\($0)" } ?? "none") hit=\(hit) card=\(card)")
+        let painted = BannerActionGeometry.painted(shown: shownImage, hidden: try XCTUnwrap(hidden.cgImage), scale: scale, within: hit)
+        let label = try painted.flatMap { try recognizedText("Retry", in: shownImage, scale: scale, within: $0.bounds) }
+        let enclosure = label.flatMap { label in painted.map { $0.enclosure(of: label) } }
+        let metrics = painted.map { BannerActionGeometry.Metrics(visible: $0.bounds, hit: hit, card: card, label: label,
+                                                                 labelEnclosure: enclosure, defaultSize: !size.isAccessibilitySize) }
+        print("RETRY_GEOMETRY \(name) visible=\(painted.map { "\($0.bounds)" } ?? "none") label=\(label.map { "\($0)" } ?? "none") "
+              + "enclosure=\(enclosure.map { String(format: "%.2f", $0) } ?? "none") hit=\(hit) card=\(card)")
         let failures = BannerActionGeometry.failures(metrics)
         XCTAssertTrue(failures.isEmpty, "\(name): " + failures.joined(separator: "; "))
         XCTAssertEqual(service.calls, [:], "Measuring must not reconnect")
@@ -270,20 +273,63 @@ enum BannerActionGeometry {
         var card: CGRect
         /// The recognized label, in the same window coordinates.
         var label: CGRect?
+        /// The least painted fraction of the four bands just outside the label; a pill encloses it, bare text does not.
+        var labelEnclosure: Double?
         /// The absolute height ceiling applies only at the default text size; other limits are text-relative.
         var defaultSize: Bool
+    }
+    /// The connected changed pixels of one control, kept so other regions can be tested against them.
+    struct Painted {
+        let bounds: CGRect
+        fileprivate let member: [Bool]
+        fileprivate let width: Int, height: Int
+        fileprivate let scale: CGFloat
+        /// The fraction of pixels in `rect` that belong to the painted control.
+        func coverage(of rect: CGRect) -> Double {
+            let pixels = CGRect(x: rect.minX * scale, y: rect.minY * scale, width: rect.width * scale, height: rect.height * scale)
+                .integral.intersection(CGRect(x: 0, y: 0, width: width, height: height))
+            guard !pixels.isNull, !pixels.isEmpty else { return 0 }
+            var inside = 0, total = 0
+            for y in Int(pixels.minY)..<Int(pixels.maxY) {
+                for x in Int(pixels.minX)..<Int(pixels.maxX) { total += 1; if member[y * width + x] { inside += 1 } }
+            }
+            return total == 0 ? 0 : Double(inside) / Double(total)
+        }
+        /// Bands `gap`…`gap + thickness` points outside each side of `label`.
+        func enclosure(of label: CGRect, gap: CGFloat = 1, thickness: CGFloat = 2) -> Double {
+            let outer = label.insetBy(dx: -(gap + thickness), dy: -(gap + thickness))
+            let bands = [
+                CGRect(x: outer.minX, y: label.minY, width: thickness, height: label.height),
+                CGRect(x: label.maxX + gap, y: label.minY, width: thickness, height: label.height),
+                CGRect(x: label.minX, y: outer.minY, width: label.width, height: thickness),
+                CGRect(x: label.minX, y: label.maxY + gap, width: label.width, height: thickness)
+            ]
+            return bands.map(coverage(of:)).min() ?? 0
+        }
     }
     static let minimumTarget: CGFloat = 44
     static let maximumDefaultHeight: CGFloat = 36
     static let maximumHeightPerLabelHeight: CGFloat = 2.6
     static let minimumAspect: CGFloat = 1.6
     static let minimumClearance: CGFloat = 4
+    static let minimumLabelEnclosure = 0.9
+
+    static func isMeasurable(_ rect: CGRect) -> Bool {
+        !rect.isNull && [rect.minX, rect.minY, rect.width, rect.height].allSatisfy(\.isFinite) && rect.width > 0 && rect.height > 0
+    }
 
     static func failures(_ metrics: Metrics?) -> [String] {
         guard let m = metrics else { return ["Retry drew nothing inside its own frame"] }
-        var result: [String] = []
         guard let label = m.label else { return ["the Retry label was not recognized inside its painted region"] }
+        let unmeasurable = [("card", m.card), ("hit target", m.hit), ("painted control", m.visible), ("label", label)]
+            .filter { !isMeasurable($0.1) }.map { "\($0.0) \($0.1) is not a finite, nonempty rectangle" }
+        guard unmeasurable.isEmpty else { return unmeasurable }
+        var result: [String] = []
         if !m.visible.insetBy(dx: -0.5, dy: -0.5).contains(label) { result.append("label \(label) lies outside the painted control \(m.visible)") }
+        if (m.labelEnclosure ?? 0) < minimumLabelEnclosure {
+            result.append("no painted surface encloses the label (\(m.labelEnclosure.map { String(format: "%.2f", $0) } ?? "unmeasured") of its surrounding bands)")
+        }
+        if !m.card.insetBy(dx: -0.5, dy: -0.5).contains(m.visible) { result.append("painted control \(m.visible) lies outside the card \(m.card)") }
         if m.hit.width < minimumTarget || m.hit.height < minimumTarget { result.append("hit target \(m.hit.size) is below 44×44pt") }
         if !m.hit.insetBy(dx: -0.5, dy: -0.5).contains(m.visible) { result.append("painted control \(m.visible) extends past its hit target \(m.hit)") }
         if m.visible.height >= m.hit.height { result.append("painted control fills its whole hit target height") }
@@ -297,8 +343,8 @@ enum BannerActionGeometry {
         return result
     }
 
-    static func visibleBounds(shown: CGImage, hidden: CGImage, scale: CGFloat, within frame: CGRect, threshold: Int = 8) -> CGRect? {
-        guard shown.width == hidden.width, shown.height == hidden.height,
+    static func painted(shown: CGImage, hidden: CGImage, scale: CGFloat, within frame: CGRect, threshold: Int = 8) -> Painted? {
+        guard isMeasurable(frame), scale.isFinite, scale > 0, shown.width == hidden.width, shown.height == hidden.height,
               let a = rgba(shown), let b = rgba(hidden) else { return nil }
         let width = shown.width, height = shown.height
         var changed = [Bool](repeating: false, count: width * height)
@@ -331,8 +377,9 @@ enum BannerActionGeometry {
                 }
             }
         }
-        return CGRect(x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
-                      width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale)
+        let bounds = CGRect(x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
+                            width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale)
+        return Painted(bounds: bounds, member: visited, width: width, height: height, scale: scale)
     }
 
     /// Top row first, in sRGB, matching UIKit point coordinates.
