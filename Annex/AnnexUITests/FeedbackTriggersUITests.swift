@@ -137,7 +137,13 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             let down = before.target.map { !$0.isEmpty && $0.minY < before.viewport.minY } ?? false
             let startPoint = CGPoint(x: before.viewport.minX + before.viewport.width * 0.15,
                                      y: before.viewport.minY + before.viewport.height * (down ? 0.2 : 0.8))
-            let delta = min(200, before.viewport.height * 0.35) * (down ? 1 : -1)
+            var distance = min(200, before.viewport.height * 0.35)
+            if let frame = before.target, !frame.isEmpty {
+                // Aim toward the viewport centre. A full drag for a barely clipped
+                // row can carry it past the opposite edge on the next sample.
+                distance = min(distance, abs(frame.midY - before.viewport.midY))
+            }
+            let delta = distance * (down ? 1 : -1)
             let endPoint = CGPoint(x: startPoint.x, y: startPoint.y + delta)
             XCTAssertTrue(before.viewport.contains(startPoint) && before.viewport.contains(endPoint))
             // Screen coordinates avoid resolving a background List as the gesture's coordinate space.
