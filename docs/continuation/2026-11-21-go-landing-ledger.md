@@ -207,3 +207,11 @@ Head `7119bd5ff848db24e279c61947af352f881d4cc3` on base `main`. Independent 7119
 | UI tests (reading, grants) + unit tests | queued | 7.0 | no |
 
 Job minutes use the job API start to completion or observation. For queued jobs they measure time since the queue record, not CPU time. Some completed jobs include setup and cleanup. Method evidence and limits above come from original job logs and independent review receipts.
+
+## Subsequent hosted evidence for #616 and #612
+
+On #616 head `7e781fed`, all seven Provider methods and the archive control passed on their first iteration. The home lane finished in 27m06s with 23 passes. The artifact database corroborates all 23 outcomes. UX inspected nine of 51 PNGs. The archive control establishes header open and close with unsupported content visible. Packages failed and seven queued lanes ended unassigned. [Evidence ledger and artifact inventory](https://github.com/Agent-Clubhouse/Clubhouse-Go/blob/820190a300a854f5b76d1530c1c71ef87957ebdb/docs/qa/ux-resume-622-616-2026-11-21.md)
+
+Head `051fb85b` carries the independently reviewed transport test waiter. Its first normal CI run was queued at this update. [Current #616 run](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44871915182)
+
+On #612 head `778657ac`, all 13 FeedbackTriggers methods passed on their first iteration. The landscape Permission title assertion failed three times. The iPad job ended cancelled before runner assignment, leaving its dismissal and Send checks open. Head `4dc73e81` carries the reviewed Permission test correction. Its first normal CI run was queued at this update. [Current #612 run](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44872374250)
