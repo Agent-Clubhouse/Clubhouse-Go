@@ -1,0 +1,36 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "622-fast-ping-telemetry-fixture-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "d5f95a5821bd25907f06773e09a553e93fc222ef",
+  "tree": "996c6bb2fcf4068257d54562382842ae6c4c57c0",
+  "base": "7119bd5ff848db24e279c61947af352f881d4cc3",
+  "tracked_inventory": 761,
+  "files": [
+    {
+      "path": "Tests/ClubhouseTransportTests/PinnedWebSocketTests.swift",
+      "blob": "a7c7c3b1ec24923b65a7b16e88e761f46a49e850",
+      "bytes": 21901,
+      "sha256": "75931e255dc6a14fd04f55156f7d3604ea9513e427f24ed36638d052f31f1db4"
+    }
+  ],
+  "findings": [],
+  "verified": [
+    "Full changed test file and production Telemetry/IO/Clock plus separate TelemetryTests read from exact candidate Git objects",
+    "Complete tracked mode/blob inventory: only one existing test file differs; reversing sole telemetry factory and two comments reconstructs ENTIRE base file; all13 ordered test declarations preserved",
+    "Only target fixture telemetry receives constant0 @Sendable elapsed clock. No global clock replacement; production PinnedAnnexIO initializer still defaults independent AnnexClock.live; sendPing timeout task retains10s actual Task.sleep, cancellation and real URLSession path",
+    "Both real ping calls/reader/after-ping text, binary/error/TLS/certificate/trace assertions, summarycount2/failed0, websocketspan and outer1minute allowance unchanged",
+    "Production telemetry default systemUptime and >=1000ms slow-success/failure-span policy byte unchanged. Full TelemetryTests including explicit1500ms successful slow span, timedOut/unknown failure and4320 routine counts byte unchanged. Nodefixture and all IO/Clock/Telemetry full bytes unchanged",
+    "Independently executed exact extracted measureRoutine decision code and exact old/new factories in Foundation stubs: old real >1s successful bodies record2slow spans; new still executes both same delayed bodies with summary2/failed0 and no spans, elapsed2.038428375s; separate explicit1500ms success records span; fixedclock thrown timedOut NSError rethrows/records failed span",
+    "Exact DEBUG frontend parse and Git diff whitespace checks PASS"
+  ],
+  "controls_stdout": "PASS exact old factory records both >1s successful bodies as slow spans\nPASS exact new factory still runs both same delayed bodies; no slow-success spans; real elapsed=2.038428375 seconds\nPASS actual measureRoutine explicit1500ms success still records span\nPASS fixed telemetry clock does not suppress thrown timeout or failed span\n",
+  "limits": [
+    "SOURCE ONLY; no real network/URLSession/TLS/Node/ping, telemetry OpenTelemetry SDK/exporter or production error-classifier runtime, package/SUT/SDK build, simulator, FIFO, CI or shared ref update",
+    "Foundation probes explicitly stub exporter, summary and failure enum. Initial reviewer probe had a typed-error catch/classifier bridge mismatch and exited133; corrected only inert NSError bridge stubs/catch, leaving extracted decision code/factories unchanged. Not a repository/native test failure or change",
+    "This deliberately makes fixture telemetry model fast accounting even when real IO is slow. It does not prove the real pings completed within1000ms or cure slow IO; live10s timeout and1minute outer limit remain. Other independent slow/failure telemetry tests retain policy coverage",
+    "Original622 first154 failure and its exact latency were author supplied, not independently audited here; no universal all-success-pings-no-span claim or oldfull7119 source approval",
+    "Transport timeout/rediscovery timing failures and six-explicit-versus-seven-aggregate issue discrepancy remain separate; no aggregategreen or productioncause/integrated/native/landing acceptance"
+  ]
+}

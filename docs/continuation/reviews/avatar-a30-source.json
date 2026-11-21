@@ -1,0 +1,47 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "avatar-poll-diagnostics-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "a30d8d92a54fd8ce2c33daea646ef7e6a4e130af",
+  "tree": "950f188c44da70a26520454674385afaf1e68e0e",
+  "base": "e334c3cf223f00d0adc3371c72ed60c2e7984054",
+  "superseded_held_parent": "cf3c3404bc6e453d4ac8b6f38d4a3a3f2b5dbfb1",
+  "patch_sha256": "8f5c8a85c2d99c4bdfdc4e1bc7ce69836d5cd43be5332c8fbb9c1066191ecada",
+  "files": [
+    {
+      "path": "Annex/AnnexTests/CompanionAvatarRenderingTests.swift",
+      "blob": "f60f4969739dc1cd58724076f3d6064cad4ecffd",
+      "bytes": 12365,
+      "sha256": "13f015879c8ab67d467ebd57a0b009fa8370f8b927744967132ac19d17a1fb57"
+    },
+    {
+      "path": "scripts/ci/avatar_profile_poll_timing.sh",
+      "blob": "9c974d9ea275548ab4a0d753fa8ac9b437473a59",
+      "bytes": 6635,
+      "sha256": "c496c30b992aa3c044f8e4477729c6175787aa51519ae94fd78965c4882bd794"
+    }
+  ],
+  "findings": [],
+  "verified": [
+    "Full exact two-file delta and cf3c..a30 correction read from own Git; reversal of poll replacement/return mapping plus removal of appended helper reconstructs ENTIRE e334 test file byte-for-byte",
+    "Corrected parent defect: no throwing/suspending/capture/analysis work between successful poll return, original two assertions and returned last analysed frame; diagnostic extra image/attachment removed",
+    "Original row/sender panels, both >=100 point-area thresholds, exact cyan matcher, pixels log, both assertions with file/line and caller original appearance attachment retained",
+    "Repeat/capture/analyse/break-on-both-pass/sleep10ms/post-sleep check<deadline control flow retained; no post-deadline extra capture or late diagnostic result substituted into assertions",
+    "Two-second deadline is first injected elapsed read plus budget; elapsed offsets use ContinuousClock origin. This preserves repeat-loop admission and in-flight matching acceptance, not a strict read-result deadline",
+    "Original MainActor test and helper annotation retained; new run explicitly MainActor; no detached task or Sendable policy added",
+    "Independently ran actual extracted helper eight fake-clock cases and failure-path source check, all PASS under owned TMPDIR with script Swift5/upcoming-feature flags; bash syntax, DEBUG frontend parse, diff whitespace check PASS",
+    "Independent boundary <= mutation rejects with specific check-at-deadline control failure; post-poll throwing-sleep mutation rejected by failure-path guard before helper execution",
+    "Additional own exact-helper Foundation probes verify first capture even at zero budget, in-flight late matching capture accepted as original baseline, cancellation from original sleep propagated and analysis error propagated"
+  ],
+  "limits": [
+    "SOURCE_ONLY; no actual UIKit/UIImage/XCTest/SUT/SDK typecheck, native build, simulator, FIFO, CI or shared ref mutation",
+    "Inert controls are fake clocks and Boolean getter values, not actual avatar load scheduling, rasterization or pixel evidence; static failure-path guard is a targeted regression guard, not general proof against all future side effects",
+    "The loop intentionally retains baseline acceptance of a matching in-flight capture that finishes after two seconds, and always admits its first capture. Do not confuse this with typed-value strict deadline or hard completion/performance guarantee",
+    "Synchronous capture/analysis and awaited sleep may overrun; measured intervals include overhead and scheduling/resumption, not isolated CPU cost or causal actor attribution. Trace formatting/printing adds nonzero overhead before assertions/return",
+    "Original cancellation or analysis exceptions inside the poll still throw as baseline; returned-poll assertions are preserved, not newly guaranteed after original throwing failures",
+    "No original e334 avatar artifact, initials/layout/reference claim or observed7.6s phase independently audited in this source review. Original red and unknown stall cause remain open",
+    "QA reports 81 changed Swift lines; actual Git numstat is73 insertions/8 deletions, plus111-line new script; exact full patch hash above matches"
+  ],
+  "native_acceptance": false
+}

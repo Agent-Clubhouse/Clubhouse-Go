@@ -1,0 +1,62 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "620-four-file-union-additive-source-only",
+  "verdict": "PASS_ADDITIVE_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "8d5ac476093cdbb0d8c42b63a91202e735b2a98a",
+  "tree": "eeb3aa44e854b493214167ed65494ea1ed0373b5",
+  "base": "e334c3cf223f00d0adc3371c72ed60c2e7984054",
+  "parents": [
+    "823347b2d9a4aa86eb8253a46bad788088837d82",
+    "a30d8d92a54fd8ce2c33daea646ef7e6a4e130af"
+  ],
+  "files": [
+    {
+      "path": "Annex/AnnexTests/CompanionAvatarRenderingTests.swift",
+      "source": "a30d8d92a54fd8ce2c33daea646ef7e6a4e130af",
+      "blob": "f60f4969739dc1cd58724076f3d6064cad4ecffd",
+      "bytes": 12365,
+      "sha256": "13f015879c8ab67d467ebd57a0b009fa8370f8b927744967132ac19d17a1fb57"
+    },
+    {
+      "path": "Annex/AnnexUITests/CompanionDispatcherLaunchUITests.swift",
+      "source": "823347b2d9a4aa86eb8253a46bad788088837d82",
+      "blob": "d42fec03e00255cb3d7cd6b0dfbac083287ca302",
+      "bytes": 17578,
+      "sha256": "74c417ffb80ad7a51a6b5fc35e55076bc051b6a0c5f6541aaac5801b5c4b8f3b"
+    },
+    {
+      "path": "Annex/AnnexUITests/CompanionHeaderReflowUITests.swift",
+      "source": "823347b2d9a4aa86eb8253a46bad788088837d82",
+      "blob": "bcbc0652571691dc1cef21cb62479997bd3ee4cc",
+      "bytes": 11054,
+      "sha256": "0fce729446521b95b818f8f4a2344fe904e5d93a013da13a460463ae81466112"
+    },
+    {
+      "path": "scripts/ci/avatar_profile_poll_timing.sh",
+      "source": "a30d8d92a54fd8ce2c33daea646ef7e6a4e130af",
+      "blob": "9c974d9ea275548ab4a0d753fa8ac9b437473a59",
+      "bytes": 6635,
+      "sha256": "c496c30b992aa3c044f8e4477729c6175787aa51519ae94fd78965c4882bd794"
+    }
+  ],
+  "tracked_inventory": 765,
+  "verified": [
+    "Complete mode/blob inventory compared against e334 and both exact parents: four-file union is disjoint; every other tracked mode/blob unchanged",
+    "All four entire file bytes exactly respective parent; independent git merge-tree reproduces exact candidate tree",
+    "Ordered method names unchanged: DispatcherLaunch9, HeaderReflow5, hosted Avatar1",
+    "Unchanged workflow/shard/verifier complete bytes; actual materialized candidate ui_shards.py emits15lanes; DispatcherLaunch wholeclass exactlyonce launch/native-menus lane; HeaderReflow wholeclass exactlyonce activity/permissions lane",
+    "Hosted ClubhouseGoTests target retained exactlyonce phone grants/projects+unit lane and whole iPad hosted job; same three separate iPad UI selectors; same serial iPad topology/result aggregation/limits",
+    "Own a30 avatar SOURCE receipt4bca1b6f31e81078a1bcf90e127128543be29ca7/SHAea17b57002ede65f1f25158395f36efc370c4f0200d7c804e7a83bf2a6494b41 exact avatar/script bytes carried; no rerun of identical controls claimed at combinedhead",
+    "Own exact two UI file DEBUG frontend parse, full delta diff whitespace PASS"
+  ],
+  "findings": [],
+  "limits": [
+    "ADDITIVE SOURCE ONLY: no new design review of parent823 or genuine separate original-review receipt verification for that parent; its previously reviewed disposition is parent-supplied. Read combined delta to retain qualifications; no broader component/native acceptance invented",
+    "Avatar remains diagnostic only, preserves repeat/capture/analyse/break/sleep10ms/check<deadline plus baseline in-flight late-match/initial-capture semantics; post-poll cancellation defect from heldcf3 is absent. Printing/trace adds overhead; no hard completion or isolated actor-stall attribution",
+    "SpringBoard snapshot/query/frame/hittability observations are sequential and can overrun admission time; stable frame binding is not atomic continuity, icon existence/frame is not native action delivery; actual fresh native press/action/hosted route outcomes remain required",
+    "HeaderReflow early back-swipe request/velocity/guard is not evidence cancellation actually succeeded; actual chat/Back/root/reopen requirements remain. No tolerance or screenshot-derived passing oracle inferred",
+    "No native/SDK typecheck/build/simulator/FIFO/CI/shared ref edit, new-head integration behavior, cure, hosted outcome or landing approval",
+    "Existing e334 first failures and all original evidence limits remain unchanged; this source union does not close them"
+  ]
+}

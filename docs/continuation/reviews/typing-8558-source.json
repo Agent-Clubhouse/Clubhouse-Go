@@ -1,0 +1,50 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "typing-helper-monotonic-boundary-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "8558e6d02ae2af94c358d44660c7e10261d455b8",
+  "tree": "57fb7ed2168fae506050a9602263e2f128b34b45",
+  "base": "b63733a131fb461b4cb5b4e34020e6f84383843e",
+  "intermediate": "be5ff33eac7298614c730cd1d04315323882f292",
+  "files": [
+    {
+      "path": "Annex/AnnexUITests/UITestSupport.swift",
+      "blob": "6f9849e8a3005da84458b1597e80bab1dea970dc",
+      "bytes": 31115,
+      "sha256": "9e5d546151e57d8d512090e55e5c818c4071e1b4f1b52cea7c0691b4baddf4a5"
+    },
+    {
+      "path": "docs/typed-value-observation-boundary.md",
+      "blob": "9082087337b89edc6af3d1d966171b2015172243",
+      "bytes": 4219,
+      "sha256": "0f99de5787bd652ce832c7e9aa9afa923790584cc32a19af268bf3b092c62f75"
+    },
+    {
+      "path": "scripts/check-typed-value-polling.py",
+      "blob": "aeca018a558d7931ff239a53a201753a444ac03e",
+      "bytes": 3478,
+      "sha256": "88238b717bb0de947deeebc0a9ae69024baf5b7ec7d486f97af3213ac83e79b0"
+    }
+  ],
+  "findings": [],
+  "verified": [
+    "Read entire three-file delta from own Git, including exact inert extraction script and per-field pending disposition documentation",
+    "ContinuousClock admission before every synchronous value read and post-read guard before exact-byte success; late matches recorded diagnostically then fail",
+    "Remaining Duration converted to seconds; sleep capped at min(0.1, remaining), next read rechecks monotonic deadline",
+    "Optional UTF-8 byte trail distinguishes nil, empty, and canonically equivalent byte-distinct strings; hasObservation preserves first nil; no input actions",
+    "Default10 unchanged; entire UITestSupport prefix/suffix outside helper/comments identical to b637 and all other inherited call-site files unchanged",
+    "Final8558 differs from be5 only by creating owned ROOT/.build before TemporaryDirectory; pristine own three-file materialization had no .build before actual execution",
+    "Independently executed exact extracted helper five Foundation controls: late .045162042s result rejected against .02 budget; zero no-read; timely exact; byte-distinct wrong trail; nil-to-timely match",
+    "Actual exact b637 helper fail-before exits1 at first matching-late-read control, not a native failure",
+    "Exact source DEBUG frontend parse and Git diff whitespace check pass"
+  ],
+  "limits": [
+    "Review applies ONLY to b637..8558 helper/comments, inert script, and scope documentation; inherited b637 call-site waiting changes retain pending per-field original evidence and timing authority",
+    "Foundation stub getter/XCTFail sink is not XCTest/XCUIElement/SDK typecheck, native AX, simulator, full build, CI, or product-cause evidence",
+    "Synchronous AX cannot be interrupted; admission budget is not wall-time completion guarantee. Late observation cannot pass, while diagnostics can finish after deadline",
+    "One timely exact byte observation establishes neither all historical input delivery nor subsequent durability; diagnostic printed strings are not a raw byte archive",
+    "No original later-full-value/no-intervening-input evidence independently audited here; all specific per-field publication explanations remain unverified",
+    "No source changes, peer filesystem reads, native/simulator/FIFO/import, shared ref mutation, CI trigger, integration or landing approval performed"
+  ]
+}
