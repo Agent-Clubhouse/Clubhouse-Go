@@ -1,9 +1,21 @@
 import SwiftUI
 import UIKit
 import Testing
+import Framebriar
 @testable import ClubhouseGo
 
 @MainActor struct CompanionFeedbackSettingsCaptureTests {
+    @Test func renewalStatusDistinguishesCheckingUnavailableAndEnrollmentStates() {
+        #expect(CompanionFeedbackSettings.label(nil, configured: true) == "Checking")
+        #expect(CompanionFeedbackSettings.label(nil, configured: false) == "Unavailable")
+        #expect(CompanionFeedbackSettings.label(.offline, responseRejected: true) == "Invitation not accepted")
+        for (access, expected) in [(AccessState.connected, "Connected"), (.offline, "Offline, will retry"),
+                                   (.expired, "Expired"), (.accessRequired, "Needs a new invitation"),
+                                   (.disconnected, "Not enrolled"), (.paused, "Paused")] {
+            #expect(CompanionFeedbackSettings.label(access) == expected)
+        }
+    }
+
     @Test func dismissalAndReplacementReleasePixelsEvenWhenDestinationRetainsHolder() {
         let first = CompanionFeedbackSettingsCapture(window: nil)
         var current: CompanionFeedbackSettingsCapture? = first

@@ -1007,6 +1007,64 @@ value-type CompanionHost; no owning class field or isolated-deinit policy change
 
 Toolbar presentation (#429): `CompanionToolbarUITests` checks Home, New agent, Chat, context-sheet close and Agent settings confirmation in light, dark, Latte and Mocha. Inspect the attached screenshots for monochrome secondary glyphs and the single filled primary action. The close/confirmation controls retain their existing accessibility labels and identifiers. `FeedbackTriggersUITests.testSendFeedbackInSettingsAndChatMenu` replaces the removed Home overflow-menu route and keeps the Settings/chat attachment assertions. Dispatch's toolbar is owned by #444 and is validated there.
 
+### Feedback renewal stays in Settings (#609)
+
+`FeedbackTriggersUITests` adds five renewal cases: expired enrollment with the keyboard,
+expired enrollment at Accessibility XXXL, offline enrollment, access-required enrollment, and
+ordinary registered/connected enrollment.
+Each launches `--feedback-renewal-ui-testing --companion-root-ui-testing` once, mounts the real
+AppRoot/Settings/chat, records keyboard/composer/Send/banner geometry, and rejects the old global
+renewal inset. It then opens Invitation & enrollment twice, focuses its native field, and navigates
+back, dismisses and reopens Settings. The existing Settings status must be spoken with the row,
+and renewal remains a reachable 44-point target at both text sizes.
+
+The DEBUG fixture installs its feedback factory before Runtime construction. Enrollment and two
+explicitly held reports are in memory; its transport counts attempts without sockets. Only registered
+mode answers a valid synthetic refresh; other requests throw. Its frozen clock keeps the preparatory
+offline failure in backoff. Expired/access-required launch must make zero requests; offline/registered
+must retain exactly one preparatory synthetic refresh attempt (failure/success respectively).
+An accessibility evidence value hashes enrollment/queued bytes and includes request count, queued
+report count, diagnostics mode and the three false shortcut preferences. The same per-launch UUID
+test suite supplies all runtime preferences, so even an intended baseline failure cannot leave cached
+navigation for another launch. The evidence also asserts whether actual SwiftUI Dynamic Type is
+Accessibility XXXL, rather than treating its launch argument as proof.
+The complete value must remain unchanged after navigation/dismissal/reopening. No Redeem, Retry,
+release-held, clear or Send action is invoked. SDK enrollment, consent, queue and foreground-pump
+code is unchanged; the fixture is not a real enrollment, provider, device-install or release test.
+Local XCTest stdout records both state values and each reopen cycle's status/renewal target frames;
+a retained text attachment also includes both state values for independent runtime inspection.
+Row navigation requires one named navigation bar, its unique immediate native navigation context,
+and exactly one descendant List in that context. A background List outside that ownership scope
+cannot be selected, and duplicate bars, contexts or owned Lists fail rather than choosing an index.
+The named navigation bar must have a hittable native control, and native alerts, popovers and
+confirmation sheets block revealing rows; the helper cannot scroll through a consent surface.
+The List itself need not report hittable: the original `d4c45d8d` hosted failures retained visible
+Settings/enrollment Lists whose whole-container hit tests were false. The helper logs ownership
+and container hittability separately from the required full target visibility and hittability.
+It logs the List frame, navigation/keyboard/tab limits,
+the fully contained target and a cell's before/after geometry, and pans within that viewport rather
+than using the last collection view or a whole-window swipe over Home's horizontal desktop chips.
+An absent/unrealized target, a stalled pan and a row larger than or blocked within its viewport
+remain distinct failures with hierarchy/screenshot evidence; hittability alone never permits a tap.
+The same local helper serves the older clear-queued and held-report cases, so both belong in the
+affected runtime map alongside all five renewal cases. The original hosted first-attempt failures
+remain evidence, not passes or permission to repeat a failed attempt.
+The held-report case inspects the confirmation's own Cancel and native named dismissal region.
+Without Cancel, its logged touch must lie on a noninteractive section heading within that region,
+outside navigation, the popover and all form/confirmation action frames. The popover must disappear
+and the exact held summary and queue result must remain unchanged before the separate explicit Send.
+A named region's checked touch proves sighted cancellation, not VoiceOver/accessibility activation.
+
+`CompanionFeedbackSettingsCaptureTests.renewalStatusDistinguishesCheckingUnavailableAndEnrollmentStates`
+covers pending, unavailable, rejected invitation and all six access states. The proof baseline
+`bold-gazelle/proof-609-tests` preserves main's banner/fallback, with only a behavior-neutral status
+helper extraction, accessibility IDs and DEBUG fixture seams. Identical tests/fixtures are retained
+in the candidate. Baseline execution targets the state test and both expired UI methods: expected
+failures are the three inaccurate fallback/error labels and the actual global inset, after a keyboard
+screenshot/geometry record. Candidate execution targets that state test and all five UI methods.
+Exact-head independent prebuild review and native fail-before/pass-after evidence remain required;
+syntax parsing is not native build/runtime proof.
+
 ### Composed chat menu feedback capture (#294)
 
 The chat menu label carries an explicit UIKit marker because SwiftUI exposes the menu's accessibility identifier as a virtual element in its composed toolbar. The capture adapter resolves that marker's enclosing UIControl before the opening press, and installs the existing native menu event hook there. It freezes the underlying screen before the menu, preserving the existing highlight/cancel, scene and secure-field cleanup; selecting feedback never takes a late image of the menu.
