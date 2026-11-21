@@ -447,6 +447,58 @@ import Testing
         #expect(await harness.transport.executed.count == 1)
     }
 
+    /// Go #626: the visible chat is kept unless the person confirms; asking again always starts from a fresh read.
+    @Test func cancellingClearChatSendsNothingAndAskingAgainReadsAFreshConfirmation() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        let on = try ContractFixtures.body("dispatcher-settings.json", "on")
+        await harness.transport.setRead("dispatcherSettings", withTokens(on, clear: "clear-1", forget: "forget-1"))
+        await harness.store.askDispatcherReset(.clearChat, hostID: hostID)
+        #expect(harness.store.dispatcherResetPrompt?.reset == .clearChat)
+        harness.store.cancelDispatcherReset()
+        #expect(harness.store.dispatcherResetPrompt == nil)
+        #expect(await harness.transport.executed.isEmpty, "Cancel never clears the chat")
+        #expect(harness.store.dispatcherResetNotices[hostID] == nil)
+
+        let reads = await settingsReads(harness)
+        await harness.transport.setRead("dispatcherSettings", withTokens(on, clear: "clear-2", forget: "forget-2"))
+        await harness.store.askDispatcherReset(.clearChat, hostID: hostID)
+        #expect(await settingsReads(harness) == reads + 1, "Each question reads the desktop's current confirmation")
+        #expect(harness.store.dispatcherResetPrompt?.expectedState == "clear-2")
+        #expect(await harness.transport.executed.isEmpty)
+    }
+
+    /// Go #626: a lost reply is not a result. The reset is sent once, never resent, and nothing claims the chat was cleared.
+    @Test func anUncertainClearIsSentOnceNeverRetriedAndClaimsNothing() async throws {
+        let harness = try await start()
+        defer { harness.stop() }
+        let hostID = LiveServiceHarness.hostID
+        let on = try ContractFixtures.body("dispatcher-settings.json", "on")
+        await harness.transport.setRead("dispatcherSettings", withTokens(on, clear: "clear-1", forget: "forget-1"))
+        await harness.store.askDispatcherReset(.clearChat, hostID: hostID)
+        let prompt = try #require(harness.store.dispatcherResetPrompt)
+        await harness.transport.enqueue(.thrown(.commandOutcomeUnknown(commandID: "lost-reply")))
+        await harness.store.confirmDispatcherReset(prompt)
+
+        #expect(await harness.transport.executed.map(\.kind) == [.clearDispatcherChat(expectedState: "clear-1")])
+        #expect(harness.store.dispatcherResetPrompt == nil, "An uncertain reply doesn't re-ask with the spent confirmation")
+        let notice = try #require(harness.store.dispatcherResetNotices[hostID])
+        #expect(notice == "The desktop may have received this command, but its reply was lost.")
+        #expect(!notice.contains("started over") && !notice.lowercased().contains("cleared"), "No outcome is claimed: \(notice)")
+        #expect(harness.store.dispatcherResetting.isEmpty)
+
+        // Nothing is resent later on its own, and the next question starts from the desktop's current state.
+        try await Task.sleep(for: .milliseconds(100))
+        #expect(await harness.transport.executed.count == 1)
+        let reads = await settingsReads(harness)
+        await harness.transport.setRead("dispatcherSettings", withTokens(on, clear: "clear-2", forget: "forget-2"))
+        await harness.store.askDispatcherReset(.clearChat, hostID: hostID)
+        #expect(await settingsReads(harness) == reads + 1)
+        #expect(harness.store.dispatcherResetPrompt?.expectedState == "clear-2")
+        #expect(await harness.transport.executed.count == 1)
+    }
+
     @Test func aRefusedClearSaysWhyAndDoesntAskAgain() async throws {
         let harness = try await start()
         defer { harness.stop() }
