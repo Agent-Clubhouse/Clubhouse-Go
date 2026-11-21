@@ -14,7 +14,8 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The scheduled run has its own group: a push never replaces a queued daily slice, nor the reverse.
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'schedule' && '-schedule' || '' }}
   # Each merge to main used to cancel main's run, so none finished. Let the run in progress finish.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
@@ -70,7 +71,9 @@ jobs:
             # Read the labels now (read-only), not from the event payload: after adding `ci:full`, push a commit or
             # re-run this workflow and it takes every lane. Adding a label alone starts no run; there is no `labeled`
             # trigger, so other labels never start or replace one.
-            if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx 'ci:full'; then
+            # A failed lookup fails the plan rather than silently narrowing.
+            LABELS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name')
+            if printf '%s\n' "$LABELS" | grep -qx 'ci:full'; then
               echo "ci:full label: every lane"
             else
               SELECT=true

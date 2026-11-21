@@ -57,6 +57,32 @@ class PreMergeScopeTests(unittest.TestCase):
                       "M\tAnnex/Annex.xcodeproj/project.pbxproj\n", "M\tAnnex/Annex/AnnexApp.swift\n"):
             self.assertTrue(plan(lines)["release"], lines)
 
+    def test_release_sees_deleted_spaced_quoted_and_in_region_swift_changes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "A.swift").write_text("let a = 1\n#if DEBUG\nlet b = 2\n#else\nlet c = 3\n#endif\nlet d = 4\n")
+            self.assertEqual(scope.conditional_compilation("--- a/A.swift\n+++ b/A.swift\n@@ -5 +5 @@\n-let c = 0\n+let c = 3\n", root),
+                             ["A.swift"])
+            self.assertEqual(scope.conditional_compilation("--- a/A.swift\n+++ b/A.swift\n@@ -7 +7 @@\n-let d = 0\n+let d = 4\n", root), [])
+            self.assertEqual(scope.conditional_compilation("--- a/Gone.swift\n+++ /dev/null\n@@ -1,3 +0,0 @@\n-#if DEBUG\n-x\n-#endif\n", root),
+                             ["Gone.swift"])
+            self.assertEqual(scope.conditional_compilation("--- a/My File.swift\t\n+++ b/My File.swift\t\n@@ -0,0 +1 @@\n+#if os(iOS)\n", root),
+                             ["My File.swift"])
+            self.assertEqual(scope.conditional_compilation('--- "a/\\303\\251.swift"\n+++ "b/\\303\\251.swift"\n@@ -0,0 +1 @@\n+#endif\n', root),
+                             ["\u00e9.swift"])
+
+    def test_the_hosted_bundle_is_inside_the_first_shards_budget(self):
+        inventory = scope.Inventory(ROOT)
+        everything = [f"{c}/{m}" for c, methods in inventory.methods.items() for m in methods]
+        for entry in scope.pack(everything, True, inventory)["include"]:
+            self.assertLessEqual(entry["minutes"], scope.SHARD_TEST_MINUTES)
+
+    def test_the_inventory_finds_every_ui_test_method(self):
+        import re
+        declared = sum(len(re.findall(r"\bfunc\s+test\w+\s*\(\s*\)", p.read_text(errors="replace")))
+                       for p in (ROOT / scope.UI_DIR).rglob("*.swift"))
+        self.assertEqual(sum(len(m) for m in scope.Inventory(ROOT).methods.values()), declared)
+
     def test_broad_representatives_stay_cheap_and_do_not_repeat_smoke(self):
         inventory = scope.Inventory(ROOT)
         reps = [rep for _, (_, _, _, rep) in scope.JOURNEYS.items() if rep]

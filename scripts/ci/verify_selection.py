@@ -4,7 +4,8 @@
 verify-xcresult.py checks that what ran passed. This checks that what was planned ran:
 - every test method the source declares in each class named by `-only-testing:<bundle>/<Class>` has a result;
 - a result of Skipped is accepted only for a method whose source has a documented skip guard (an XCTSkip call or the
-  appearance-matrix switch); any other skip is an unexpected non-execution;
+  appearance-matrix switch, in the method or in its class's setUp/setUpWithError, which gates every method); any
+  other skip is an unexpected non-execution;
 - a target-level selection (the catch-all) produced at least one executed (not skipped) case in that bundle.
 So a narrowed matrix can't hide a missing class, a missing method or an unintended skip behind other passing results.
 
@@ -40,21 +41,34 @@ def results(tests_json):
     return found
 
 
+def code_only(text):
+    """The source with string literals and comments blanked (same length), so braces and guards are code."""
+    return re.sub(r'"""[\s\S]*?"""|"(?:\\.|[^"\\\n])*"|//[^\n]*|/\*[\s\S]*?\*/',
+                  lambda m: re.sub(r"[^\n]", " ", m.group(0)), text)
+
+
+def bodies(text, header):
+    """{name: body} for each function whose header matches, braces counted in code only."""
+    found = {}
+    for match in re.finditer(header, text):
+        depth, index = 1, match.end()
+        while depth and index < len(text):
+            depth += {"{": 1, "}": -1}.get(text[index], 0)
+            index += 1
+        found[match.group(1)] = text[match.end():index]
+    return found
+
+
 def declared(root, bundle, suite):
     """{method: has documented skip guard} for the class's zero-argument test methods, or None if not found."""
     directory = root / SOURCES.get(bundle, "")
     for source in directory.glob("*.swift"):
-        text = source.read_text(errors="replace")
+        text = code_only(source.read_text(errors="replace"))
         if not re.search(rf"\bclass\s+{suite}\s*:", text):
             continue
-        methods = {}
-        for match in re.finditer(r"\bfunc\s+(test\w+)\s*\(\s*\)[^{]*\{", text):
-            depth, index = 1, match.end()
-            while depth and index < len(text):
-                depth += {"{": 1, "}": -1}.get(text[index], 0)
-                index += 1
-            methods[match.group(1)] = any(guard in text[match.end():index] for guard in SKIP_GUARDS)
-        return methods
+        guarded = lambda body: any(guard in body for guard in SKIP_GUARDS)
+        setup = any(guarded(body) for body in bodies(text, r"\boverride\s+func\s+(setUp(?:WithError)?)\s*\(\s*\)[^{]*\{").values())
+        return {name: setup or guarded(body) for name, body in bodies(text, r"\bfunc\s+(test\w+)\s*\(\s*\)[^{]*\{").items()}
     return None
 
 

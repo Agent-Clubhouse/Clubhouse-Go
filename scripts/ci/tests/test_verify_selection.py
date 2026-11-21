@@ -77,6 +77,28 @@ class ExecutionVerificationTests(unittest.TestCase):
                          ["ClubhouseGoUITests/GoneUITests was selected but its source class was not found"])
 
 
+    def test_a_setup_guard_covers_every_method_and_string_braces_do_not_leak_guards(self):
+        write(self.root, "Annex/AnnexUITests/LiveUITests.swift", """
+            final class LiveUITests: ReliableUITestCase {
+                override func setUpWithError() throws { try XCTSkipUnless(false, "live only") }
+                func testA() {}
+                func testB() {}
+            }
+            """)
+        write(self.root, "Annex/AnnexUITests/BraceUITests.swift", """
+            final class BraceUITests: ReliableUITestCase {
+                func testOpen() { let s = "{" // }
+                }
+                func testLive() throws { try XCTSkipUnless(false, "live only") }
+            }
+            """)
+        skipped = {("ClubhouseGoUITests", "LiveUITests", m): "Skipped" for m in ("testA", "testB")}
+        self.assertEqual(self.check("-only-testing:ClubhouseGoUITests/LiveUITests", skipped), [])
+        both = {("ClubhouseGoUITests", "BraceUITests", m): "Skipped" for m in ("testOpen", "testLive")}
+        self.assertEqual(self.check("-only-testing:ClubhouseGoUITests/BraceUITests", both),
+                         ["ClubhouseGoUITests/BraceUITests/testOpen was skipped without a documented skip guard"])
+
+
 class SelectionWorkflowTests(unittest.TestCase):
     def setUp(self):
         self.workflow = (ROOT / ".github/workflows/ci.yml").read_text()
@@ -97,6 +119,10 @@ class SelectionWorkflowTests(unittest.TestCase):
         self.assertNotIn("labeled", self.workflow.split("jobs:")[0])
         self.assertNotIn("actions: write", self.workflow)
         self.assertFalse((ROOT / ".github/workflows/ci-full-label.yml").exists())
+
+    def test_the_schedule_has_its_own_concurrency_group_and_a_failed_label_lookup_fails(self):
+        self.assertIn("github.event_name == 'schedule' && '-schedule'", self.workflow)
+        self.assertIn('LABELS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels"', self.workflow)
 
 
 if __name__ == "__main__":

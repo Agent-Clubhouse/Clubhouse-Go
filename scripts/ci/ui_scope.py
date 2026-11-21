@@ -13,13 +13,15 @@ Every change that builds into the app runs, before merge:
 - for a hub or an unknown product file, the BROAD tier: smoke plus one representative journey per area. This is an
   explicit escalation, not the full suite; add the `ci:full` label (then push or re-run) for every lane.
 The hosted unit bundle runs for any product or hosted-test change. The Release build runs only for release-sensitive
-diffs (project, settings, scheme, entitlements, privacy manifest, Info.plist, dependencies, assets, the app entry, or an
-added or removed #if/#else/#endif line in Swift) and for unknown build or workflow inputs, which escalate; the daily run
-always builds Release. The iPad lane only for iPad-specific code, iPad-run classes or areas that need it (privacy). The iPad run of the hosted
-bundle otherwise waits for the daily run. Everything else waits for the daily run.
+diffs (project, settings, scheme, entitlements, privacy manifest, Info.plist, dependencies, assets, the app entry, or
+an added, removed or edited #if/#else/#endif region in Swift) and for unknown build or workflow inputs, which
+escalate; the daily run always builds Release. The iPad lane runs only for iPad-specific code, iPad-run classes or
+areas that need it (privacy); the iPad run of the hosted bundle otherwise waits for the daily run, as does everything
+else.
 
-Input: `ui-shards=<json>` on stdin (the daily matrix; used only to keep the same output contract), and a
-`git diff --name-status -M` file, with `--diff` the same diff at -U0 (without it, any app change builds Release). Output for $GITHUB_OUTPUT: `ui-shards`, `ui`, `ipad`, `release`, `unit`.
+Input: `ui-shards=<json>` on stdin (the daily matrix; used only to keep the same output contract), a
+`git diff --name-status -M` file, and with `--diff` the same diff at -U0 (without it, any app change builds Release).
+Output for $GITHUB_OUTPUT: `ui-shards`, `ui`, `ipad`, `release`, `unit`.
 """
 import importlib.util
 import json
@@ -189,15 +191,50 @@ def configured_selectors():
     return selectors
 
 
-def conditional_compilation(diff_text):
-    """Files whose -U0 diff adds or removes an #if/#elseif/#else/#endif line in Swift."""
-    files, current = [], None
+def diff_path(header):
+    """The path in a `--- a/x` or `+++ b/x` header: None for /dev/null; tab-terminated and C-quoted names handled."""
+    name = header[4:].rstrip("\n").split("\t")[0]
+    if name.startswith('"') and name.endswith('"'):
+        name = name[1:-1].encode("latin-1", "backslashreplace").decode("unicode_escape").encode("latin-1").decode("utf-8", "replace")
+    return None if name == "/dev/null" else name[2:]
+
+
+def conditional_lines(text):
+    """1-based line numbers inside (or on) an #if ... #endif region."""
+    inside, depth = set(), 0
+    for number, line in enumerate(text.splitlines(), 1):
+        directive = re.match(r"\s*#\s*(if|elseif|else|endif)\b", line)
+        if directive and directive[1] == "if":
+            depth += 1
+        if depth or directive:
+            inside.add(number)
+        if directive and directive[1] == "endif":
+            depth = max(0, depth - 1)
+    return inside
+
+
+def conditional_compilation(diff_text, root):
+    """Swift files whose -U0 diff adds or removes an #if/#elseif/#else/#endif line, or edits inside such a region of
+    the new file (code that only Release, or only Debug, compiles)."""
+    files, old, new, regions = [], None, None, {}
     for line in diff_text.splitlines():
-        if line.startswith("+++ "):
-            current = line[6:] if line.startswith("+++ b/") else None
-        elif current and current.endswith(".swift") and not line.startswith(("+++", "---")) and CONDITIONAL.match(line):
-            if current not in files:
-                files.append(current)
+        if line.startswith("--- "):
+            old = diff_path(line)
+        elif line.startswith("+++ "):
+            new = diff_path(line)
+        elif line.startswith("@@") and new and new.endswith(".swift"):
+            hunk = re.match(r"@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@", line)
+            if hunk and new not in files:
+                first, count = int(hunk[1]), int(hunk[2] if hunk[2] is not None else 1)
+                if new not in regions:
+                    path = root / new
+                    regions[new] = conditional_lines(path.read_text(errors="replace")) if path.is_file() else set()
+                if regions[new] & set(range(max(first, 1) - (count == 0), first + max(count, 1))):
+                    files.append(new)
+        elif line[:1] in "+-" and CONDITIONAL.match(line):
+            path = new or old
+            if path and path.endswith(".swift") and path not in files:
+                files.append(path)
     return files
 
 
@@ -248,8 +285,8 @@ def plan(entries, root, changes, diff_text=None):
             broad = release = True; reasons.append(f"{candidate}: build, project or workflow input → broad tier and Release")
     if app and diff_text is None:
         release = True; reasons.append("no line diff: Release-only code can't be ruled out")
-    for path in conditional_compilation(diff_text or ""):
-        release = True; reasons.append(f"{path}: adds or removes conditional compilation → Release build")
+    for path in conditional_compilation(diff_text or "", root):
+        release = True; reasons.append(f"{path}: adds, removes or edits conditionally compiled code → Release build")
     if not ui:
         return {"ui": [], "unit": False, "release": release, "ipad": False, "build": app,
                 "reasons": reasons or ["no app lanes"]}
@@ -266,9 +303,9 @@ def plan(entries, root, changes, diff_text=None):
 
 
 def pack(selectors, unit, inventory):
-    """First-fit-decreasing shards of at most SHARD_TEST_MINUTES; the hosted bundle rides the first shard."""
+    """First-fit-decreasing shards of at most SHARD_TEST_MINUTES; the hosted bundle rides the first shard, inside it."""
     items = sorted(selectors, key=lambda s: -inventory.minutes(s))
-    shards = []
+    shards = [{"tests": [], "minutes": HOSTED_MINUTES}] if unit else []
     for selector in items:
         cost = inventory.minutes(selector)
         for shard in shards:
@@ -276,10 +313,6 @@ def pack(selectors, unit, inventory):
                 shard["tests"].append(selector); shard["minutes"] += cost; break
         else:
             shards.append({"tests": [selector], "minutes": cost})
-    if unit:
-        if not shards:
-            shards.append({"tests": [], "minutes": 0.0})
-        shards[0]["minutes"] += HOSTED_MINUTES
     include = []
     for index, shard in enumerate(shards):
         flags = [f"-only-testing:{UI_TARGET}/{s}" for s in sorted(shard["tests"])]
