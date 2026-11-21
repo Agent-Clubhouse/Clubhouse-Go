@@ -43,8 +43,6 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         var tabBar: CGRect?
         var viewport: CGRect
         var target: CGRect?
-        var targetID: String?
-        var targetLabel: String?
         var hittable: Bool
         var anchor: CGRect?
         var anchorLabel: String?
@@ -103,8 +101,8 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             let exists = row.exists
             let hasAnchor = anchor.exists
             return RevealState(container: bounds, navigation: nav, keyboard: keyboardFrame, tabBar: tabFrame,
-                viewport: viewport, target: exists ? row.frame : nil, targetID: exists ? row.identifier : nil,
-                targetLabel: exists ? row.label : nil, hittable: exists && row.isHittable,
+                viewport: viewport, target: exists ? row.frame : nil,
+                hittable: exists && row.isHittable,
                 anchor: hasAnchor ? anchor.frame : nil, anchorLabel: hasAnchor ? anchor.label : nil)
         }
         func revealed(_ sample: RevealState) -> Bool {
@@ -116,7 +114,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             return frame.isEmpty ? "unrealized target" : "realized target"
         }
         var before = state()
-        print("FEEDBACK_REVEAL title=\(title) container=\(form) id=\(form.identifier) query=\(row) before=\(before)")
+        print("FEEDBACK_REVEAL title=\(title) before=\(before)")
         for step in 0..<12 {
             checkTimeLeft("revealing the feedback row")
             if revealed(before) { return }
