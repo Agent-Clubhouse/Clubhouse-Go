@@ -59,7 +59,9 @@ SHARDS = [
         ],
     },
     {
-        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
+        # This lane finished in 38m56s on run 44686861649. Recovery previously
+        # never started in the 55m catchall; use existing measured headroom.
+        # This adds no runner/job and promises no future elapsed time.
         "name": "UI tests (unicode, home)",
         "tests": [
             "CompanionUnicodeFocusUITests",
@@ -68,6 +70,7 @@ SHARDS = [
             "CompanionHelperPresetsUITests",
             "CompanionLinkedProjectUITests",
             "CompanionMarkdownFileUITests",
+            "CompanionDispatcherRecoveryUITests",
         ],
     },
     {

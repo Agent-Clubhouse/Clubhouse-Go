@@ -68,11 +68,19 @@ import ClubhouseTransport
     private var editedHelperPresets: CompanionHelperRouting?
     /// The hosts last sent, so a Dispatcher settings change can send them again.
     private var sentHosts: [CompanionHost] = []
+    private var dispatcherRecoveryFixture: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-recovery")
+        #else
+        false
+        #endif
+    }
     var appUpdateInitialState: AnnexAppUpdate.State? = ProcessInfo.processInfo.environment["COMPANION_PREVIEW_APP_UPDATE_STATE"].flatMap(AnnexAppUpdate.State.init(rawValue:))
     /// Settings > Dispatcher on its preview Dispatcher (`--companion-preview-dispatcher-settings`). Set before `events()`.
     var showsDispatcherSettings: Bool = {
         #if DEBUG
         ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-settings")
+            || ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-recovery")
         #else
         false
         #endif
@@ -335,6 +343,14 @@ import ClubhouseTransport
             }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-combined-linked-home") {
                 hosts = CompanionHomeLinkedFixture.hosts()
+            }
+            #endif
+            #if DEBUG
+            if self.dispatcherRecoveryFixture {
+                hosts[0].controlEpoch = "synthetic-recovery-epoch"
+                hosts[0].dispatcher?.agent?.status = .working
+                hosts[0].dispatcher?.agent?.isSleepingOnDesktop = false
+                print("DISPATCHER_RECOVERY_FIXTURE ready host=\(Self.dispatcherTarget.hostID) chat=\(Self.dispatcherTarget.agentID)")
             }
             #endif
             self.sentHosts = hosts
@@ -682,6 +698,11 @@ import ClubhouseTransport
             ])
         }
         if target.projectID == CompanionDispatcher.defaultProjectID {
+            #if DEBUG
+            if dispatcherRecoveryFixture {
+                return .init(items: Self.dispatcherHistory, sessionID: "synthetic-visible-chat-session")
+            }
+            #endif
             return .init(items: Self.dispatcherHistory + (showsLongReply ? [
                 .message(.init(id: "dispatcher-long-reply", role: .assistant, text: Self.longReply))
             ] : []))
@@ -852,8 +873,39 @@ import ClubhouseTransport
         let name = ((href.components(separatedBy: "#").first ?? href).removingPercentEncoding ?? href) as NSString
         return .file(path: "/Users/river/clubhouse/" + (name as String), name: name.lastPathComponent, kind: "text", size: nil)
     }
-    func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
-    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            print("DISPATCHER_RECOVERY_FIXTURE interrupt host=\(target.hostID) chat=\(target.agentID) id=\(clientCommandID)")
+            sentHosts[0].dispatcher?.agent?.status = .idle
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw previewError
+    }
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            print("DISPATCHER_RECOVERY_FIXTURE stop host=\(target.hostID) chat=\(target.agentID) id=\(clientCommandID)")
+            sentHosts[0].dispatcher?.agent?.status = .sleeping
+            sentHosts[0].dispatcher?.agent?.isSleepingOnDesktop = true
+            sentHosts[0].dispatcher?.agent?.hasSession = true
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw previewError
+    }
+    func refreshSleepState(_ target: CompanionTarget) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw CompanionServiceError.unavailable("Reconnect to the desktop to check whether the agent is asleep.")
+    }
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
         #if DEBUG && canImport(UIKit)
@@ -1405,6 +1457,11 @@ extension CompanionPreviewService {
         case .forgetEverything: settings.forgetEverything.expectedState = prompt.expectedState + "+"
         }
         previewDispatcher = settings
+        #if DEBUG
+        if dispatcherRecoveryFixture {
+            print("DISPATCHER_RECOVERY_FIXTURE newChat host=\(prompt.hostID) chat=\(settings.agentID) id=\(clientCommandID)")
+        }
+        #endif
         return prompt.reset == .clearChat ? .chatCleared(now: settings.clearChat.applies == "now") : .forgot(removed: 3, heldNews: 0)
     }
 }

@@ -238,7 +238,7 @@ import Observation
 
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
-        !sleepRequests.contains(target) && providerFlows[target]?.blocksMutations != true && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
+        !dispatcherRecoveryUnknown.contains(target) && !sleepRequests.contains(target) && providerFlows[target]?.blocksMutations != true && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
@@ -1246,11 +1246,125 @@ import Observation
     private(set) var dispatcherResetting: Set<String> = []
     /// What the last reset did, or why it didn't, per host.
     var dispatcherResetNotices: [String: String] = [:]
+    private(set) var dispatcherRecoveryPreparing: Set<CompanionTarget> = []
+    /// A read cannot establish whether a lost clear-chat command ran. Never retry it with a new ID.
+    private(set) var dispatcherRecoveryUnknown: Set<CompanionTarget> = []
+    var dispatcherChatPrompt: CompanionDispatcherChatPrompt?
+    private var claimedDispatcherChatActions: [UUID: CompanionDispatcherChatPrompt] = [:]
+    private var claimedDispatcherNewChats: [UUID: (CompanionDispatcherResetPrompt, CompanionTarget)] = [:]
+
+    func askDispatcherChatAction(_ action: CompanionDispatcherChatPrompt.Action, target: CompanionTarget) {
+        guard let recovery = dispatcherRecovery(for: target),
+              action == .interrupt ? recovery.canInterrupt : recovery.canStop,
+              let epoch = host(for: target)?.controlEpoch, !epoch.isEmpty,
+              let session = conversation(for: target).sessionID, !session.isEmpty else { return }
+        dispatcherChatPrompt = .init(action: action, target: target, epoch: epoch, sessionID: session,
+                                    name: recovery.name, hostName: recovery.hostName)
+    }
+
+    /// Claim synchronously in the human's Button action, before SwiftUI dismisses its presentation.
+    func claimDispatcherChatAction(_ prompt: CompanionDispatcherChatPrompt) -> UUID? {
+        guard dispatcherChatPrompt == prompt,
+              let recovery = dispatcherRecovery(for: prompt.target),
+              prompt.action == .interrupt ? recovery.canInterrupt : recovery.canStop else { return nil }
+        dispatcherChatPrompt = nil
+        let claim = UUID()
+        claimedDispatcherChatActions[claim] = prompt
+        pendingCommands.insert(prompt.target)
+        return claim
+    }
+
+    func confirmDispatcherChatAction(_ claim: UUID) async {
+        guard let prompt = claimedDispatcherChatActions.removeValue(forKey: claim) else { return }
+        pendingCommands.remove(prompt.target)
+        guard let recovery = dispatcherRecovery(for: prompt.target),
+              host(for: prompt.target)?.controlEpoch == prompt.epoch,
+              conversation(for: prompt.target).sessionID == prompt.sessionID,
+              prompt.action == .interrupt ? recovery.canInterrupt : recovery.canStop else {
+            operationErrors[prompt.target] = "This chat changed. Review its current state before another action."
+            return
+        }
+        switch prompt.action {
+        case .interrupt: await cancel(prompt.target)
+        case .stop: await sleepAgent(prompt.target)
+        }
+    }
+
+    func dispatcherRecovery(for target: CompanionTarget) -> CompanionDispatcherRecovery? {
+        guard !isShutDown, let host = host(for: target), host.isDispatcher(target), let agent = agent(for: target) else { return nil }
+        let ready = canOperate(target) && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
+            && !pendingCommands.contains(target) && !dispatcherResetting.contains(host.id)
+            && !dispatcherRecoveryPreparing.contains(target)
+        let reason: String?
+        if dispatcherRecoveryUnknown.contains(target) { reason = CompanionDispatcherRecovery.unknownReset }
+        else if !host.connection.canOperate { reason = "Reconnect to \(host.name) before controlling this chat." }
+        else if host.dispatcher?.enabled != true || host.dispatcher?.mcpOff != nil { reason = "This Dispatcher isn't available for chat recovery on \(host.name)." }
+        else if !ready { reason = "Wait for the current action and conversation refresh to finish." }
+        else { reason = nil }
+        let hasSession = conversation(for: target).sessionID?.isEmpty == false && host.controlEpoch?.isEmpty == false
+        return .init(target: target, name: agent.displayName, hostName: host.name,
+                     canInterrupt: ready && hasSession && agent.status == .working && agent.capabilities.contains(.cancel),
+                     canStop: ready && hasSession && canSleep(target),
+                     canStartNewChat: ready && canEditDispatcherSettings(hostID: host.id), unavailableReason: reason)
+    }
+
+    /// Read a fresh host/principal-bound confirmation for exactly the visible chat the person opened.
+    func askDispatcherRecoveryNewChat(_ target: CompanionTarget) async {
+        guard dispatcherRecovery(for: target)?.canStartNewChat == true else { return }
+        dispatcherRecoveryPreparing.insert(target)
+        dispatcherResetNotices[target.hostID] = nil
+        defer { dispatcherRecoveryPreparing.remove(target) }
+        do {
+            let settings = try await service.dispatcherSettings(hostID: target.hostID)
+            guard !isShutDown, isDispatcher(target), settings.agentID == target.agentID,
+                  canOperate(target), !pendingCommands.contains(target),
+                  !dispatcherResetting.contains(target.hostID),
+                  canEditDispatcherSettings(hostID: target.hostID), host(for: target)?.connection.canOperate == true,
+                  let prompt = CompanionDispatcherResetPrompt(.clearChat, settings: settings, hostID: target.hostID) else {
+                throw CompanionServiceError.unavailable("This Dispatcher changed. Reopen its recovery controls and review it again.")
+            }
+            dispatcherResetPrompt = prompt
+        } catch { dispatcherResetNotices[target.hostID] = error.localizedDescription }
+    }
+
+    func claimDispatcherRecoveryNewChat(_ prompt: CompanionDispatcherResetPrompt, target: CompanionTarget) -> UUID? {
+        guard dispatcherResetPrompt == prompt, prompt.reset == .clearChat, prompt.hostID == target.hostID,
+              dispatcherRecovery(for: target)?.canStartNewChat == true else { return nil }
+        dispatcherResetPrompt = nil
+        let claim = UUID()
+        claimedDispatcherNewChats[claim] = (prompt, target)
+        pendingCommands.insert(target)
+        return claim
+    }
+
+    func confirmDispatcherRecoveryNewChat(_ claim: UUID) async {
+        guard let (prompt, target) = claimedDispatcherNewChats.removeValue(forKey: claim) else { return }
+        pendingCommands.remove(target)
+        guard dispatcherRecovery(for: target)?.canStartNewChat == true else {
+            dispatcherResetNotices[target.hostID] = "This Dispatcher changed. Review its current state before starting a new chat."
+            return
+        }
+        pendingCommands.insert(target)
+        dispatcherResetting.insert(target.hostID)
+        defer { pendingCommands.remove(target); dispatcherResetting.remove(target.hostID) }
+        do {
+            let outcome = try await service.resetDispatcher(prompt, clientCommandID: UUID().uuidString)
+            dispatcherResetNotices[target.hostID] = outcome.message
+        } catch CompanionDispatcherSettingsError.stale(let fresh) {
+            guard isDispatcher(target), fresh.agentID == target.agentID else { return }
+            dispatcherResetPrompt = CompanionDispatcherResetPrompt(.clearChat, settings: fresh, hostID: target.hostID,
+                changed: CompanionDispatcherResetPrompt.changes(.clearChat, from: dispatcherSettings(hostID: target.hostID), to: fresh))
+        } catch {
+            if case CompanionServiceError.uncertain = error { dispatcherRecoveryUnknown.insert(target) }
+            dispatcherResetNotices[target.hostID] = error.localizedDescription
+        }
+    }
 
     /// The host offers Settings > Dispatcher and its Dispatcher is on.
     func canEditDispatcherSettings(hostID: String) -> Bool {
         guard let host = hosts.first(where: { $0.id == hostID }) else { return false }
-        return host.canEditDispatcherSettings && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
+        return !dispatcherRecoveryUnknown.contains(where: { $0.hostID == hostID })
+            && host.canEditDispatcherSettings && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
     }
     /// The last settings the desktop sent, kept current by the service.
     func dispatcherSettings(hostID: String) -> CompanionDispatcherSettings? {

@@ -19,6 +19,7 @@ struct CompanionConversationView: View {
     #endif
     @State private var confirmCancel = false
     @State private var confirmSleep = false
+    @State private var showDispatcherRecovery = false
     @State private var showArchive = false
     @State private var showContextSettings = false
     @State private var showHeaderDetails = false
@@ -221,6 +222,10 @@ struct CompanionConversationView: View {
                         contextButton
                         Rectangle().fill(Color(palette.separator)).frame(width: 1, height: 20).accessibilityHidden(true)
                         Menu {
+                            if store.isDispatcher(target) {
+                                Button("Dispatcher recovery", systemImage: "lifepreserver") { showDispatcherRecovery = true }
+                                    .accessibilityIdentifier("dispatcher-recovery-menu")
+                            }
                             Button("Refresh conversation", systemImage: "arrow.clockwise") { Task { await store.load(target, force: true) } }
                             Button("Conversation archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
                             Button("Context and plan limits", systemImage: "circle") { showContextSettings = true }
@@ -317,6 +322,7 @@ struct CompanionConversationView: View {
             Button("Interrupt turn", role: .destructive) { Task { await store.cancel(target) } }
             Button("Cancel", role: .cancel) {}
         } message: { Text("The current turn will be interrupted. You can then send a new direction in the same conversation.") }
+        .sheet(isPresented: $showDispatcherRecovery) { CompanionDispatcherRecoveryView(store: store, target: target) }
         .alert("Request no longer waiting", isPresented: Binding(get: { store.grantRequestNotice != nil }, set: { if !$0 { store.grantRequestNotice = nil } })) {
             Button("OK", role: .cancel) { }
         } message: { Text(store.grantRequestNotice ?? "") }

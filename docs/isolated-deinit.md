@@ -18,6 +18,8 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
+Dispatcher visible-chat recovery adds five Store fields: two `Set<CompanionTarget>` values, an optional `CompanionDispatcherChatPrompt`, a UUID→chat-prompt map and a UUID→(reset-prompt, target) map. Targets contain String identifiers; chat prompts contain UUID, String and action-enum values; reset prompts contain Strings, optional Strings and the reset enum. These own no callbacks, tasks, UI objects, services or actor-bound teardown. Claims are explicitly consumed before commands; shutdown admission and the existing epoch/session checks refuse late dispatch. No deinit cleanup or constructor capture changes are required. The Store retains its empty ARC-only deinit and all other class ownership records remain unchanged.
+
 Agent-row access defaults (#434) add only two Store dictionaries keyed by Sendable project/agent targets
 with permission-level enum values. They retain no UI objects, callbacks or tasks and introduce no deinit
 work. The response fence also holds `accessDefaultGenerations: [String: UUID]`, a per-host map of

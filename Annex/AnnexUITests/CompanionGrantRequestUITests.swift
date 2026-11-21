@@ -176,8 +176,28 @@ import XCTest
         attach(app, "Grant request: desktop update mode in chat")
         waitAndTap(allow, untilGone: allow)
         XCTAssertTrue(card.waitForNonExistence(timeout: 5))
-        waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
+        returnToNeedsYouAfterAnswer(in: app)
         XCTAssertFalse(summary.exists, "Answering the update in chat also clears its Needs you card")
+    }
+
+    private func returnToNeedsYouAfterAnswer(in app: XCUIApplication) {
+        let needsYou = app.tabBars.buttons["Needs you"]
+        if !needsYou.exists {
+            // Scrolling the chat can leave only the selected Dispatch tab in the native bar.
+            // Expand that actual collapsed control before requiring the destination tab.
+            let dispatch = app.tabBars.buttons["Dispatch"]
+            guard dispatch.exists && dispatch.isSelected && dispatch.isHittable,
+                  (dispatch.value as? String)?.contains("Collapsed") == true else {
+                XCTFail("Needs you is absent without a hittable, selected, collapsed Dispatch tab")
+                return
+            }
+            dispatch.tap()
+        }
+        XCTAssertTrue(needsYou.waitForExistence(timeout: 5), "The native bar must expose Needs you")
+        XCTAssertTrue(needsYou.isHittable)
+        // Require a real destination tap even if a navigation-bar query could already match.
+        needsYou.tap()
+        XCTAssertTrue(app.navigationBars["Needs you"].waitForExistence(timeout: 10))
     }
 
     func testAllowOnceAndDeclineAnswerGrantRequests() {
