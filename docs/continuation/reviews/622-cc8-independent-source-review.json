@@ -1,0 +1,115 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "622-exact-cc8-reset-prompt-versus-claim-identity-regression-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "cc8ac47cd268ca8685da5ef78b49ea62421e1818",
+  "tree": "62c3a132a63beb030b2675894c21cbf0e3df96fd",
+  "base": "87d1a2a847c0361c3eaf9d86bb4a33f088582c7d",
+  "files": [
+    {
+      "path": "Tests/CompanionDomainTests/CompanionDispatcherRecoveryTests.swift",
+      "blob": "5d8e1ad644bfe69d9ab508a712295926d88deaac",
+      "bytes": 14863,
+      "sha256": "484c05b5b72b00706780980f085f3c004c9b2fd2c34a33947e6118d4269a00e3"
+    }
+  ],
+  "tracked_inventory": 761,
+  "dependencies": [
+    {
+      "path": "Annex/Annex/Companion/Domain/CompanionDispatcherSettings.swift",
+      "blob": "791f60b3a5a009a96409eb0d52da8ce4caa87442",
+      "bytes": 9945,
+      "sha256": "cdf3efc918de9fa37cb8965c8c9e9c87a561b1e874f705f5e41bb561b929b036",
+      "unchanged_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Domain/CompanionStore.swift",
+      "blob": "d96ae407d6908e299b3cb052ed32ead5289f90cb",
+      "bytes": 127344,
+      "sha256": "781d223af76b40ddd4894f2d1d78486ce0f6b3f91b2bf0a6fc9030839d1bd368",
+      "unchanged_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
+      "blob": "3dfaa3f858c292e75eb5c329b51abe72f94f2623",
+      "bytes": 156365,
+      "sha256": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+      "unchanged_parent": true
+    },
+    {
+      "path": "Tests/CompanionDomainTests/ScriptedAnnexTransport.swift",
+      "blob": "ea92ee962efead53473d73941d2d48e2f8b04d0c",
+      "bytes": 16605,
+      "sha256": "e74f779cdd5dba111e9dc9dfdec73e2e94d5a6540ee2f4462805113dcfe1ef97",
+      "unchanged_parent": true
+    },
+    {
+      "path": "Tests/Fixtures/AnnexContract/dispatcher-settings.json",
+      "blob": "d92136e15d4776131645ccbed4910f6cfb7659c7",
+      "bytes": 11899,
+      "sha256": "93549809d0e57c7c2c76effc9d15cf15a6795a4753c47863a24c9a70bdc78dfe",
+      "unchanged_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Adapters/CompanionDispatcherSettingsDecoding.swift",
+      "blob": "c5f0082e48168287f2c47cfd4cc31f8671574a22",
+      "bytes": 5568,
+      "sha256": "41042def1daff2141770c79c33bcbbf1dd3deea968e2910f76b4d31acb20514e",
+      "unchanged_parent": true
+    }
+  ],
+  "reviewer_erratum": {
+    "superseded_receipt": "f3ab0f188e4dba324fcb842afcf4aeed8cfaa6a5",
+    "superseded_acceptance_head": "87d1a2a847c0361c3eaf9d86bb4a33f088582c7d",
+    "error": "I incorrectly accepted fresh.id!=prompt.id by conflating deterministic CompanionDispatcherResetPrompt identity with distinct one-shot claim UUID. That was reviewer error. The computed id definition was not adequately inspected in that review.",
+    "immutable_prior_record_preserved": true,
+    "product_contract_changed": false
+  },
+  "verified": [
+    "Complete761 path/mode/blob inventory: ONLY one existing Recovery test file changes15+/1-. Only refusedNewChat method changes; exact whole-method inverse reconstructs ENTIRE parent file. All9 method names, all8 other bodies and setup exact87. No product/fixture/floor/workflow/script/timeout/Pin/waiter/Rediscovery/typing or GrantCopy carry",
+    "Actual ResetPrompt.id at166 is hostID|reset.rawValue|expectedState, intentionally stable for an unchanged desktop state. Its actual failable initializer requires nonempty expectedState. Claim identity is separately created by UUID() inside claimDispatcherRecoveryNewChat and stored as dictionary key; equality of prompts does not imply equality or reusability of claims",
+    "Fresh valid claim consumes current prompt, stores fresh UUID entry and marks target pending. confirm removes only the supplied UUID BEFORE touching pending or readiness. Replaying spent UUID while fresh claim pending therefore returns before modifying pending or dispatch; new assertions require original count1 AND pendingtrue",
+    "Two sequential confirms of fresh UUID: first removes its entry, clears pending before readiness check, dispatches reset exactly once and defers flag cleanup; second finds no entry and returns. New final assertions require totalcount2, actual last clearDispatcherChat(expectedState:fresh.expectedState), completed notice and no pending/resetting/unknown. This catches a spent replay consuming fresh claim or fresh replay dispatching again",
+    "Actual LiveService.resetDispatcher maps clearChat prompt to clearDispatcherChat with that exact token, validates completed payload, reads fresh settings and returns chatCleared(now:true) for cleared:now. This payload is also used by an unchanged old positive test. Malformed completion becomes uncertain; wrong action/token fails the explicit captured-kind equality. Reads are separate from executed command count in ScriptedAnnexTransport",
+    "Prior refusal notice, no automatic fresh mutation, noUnknown, recovery readiness and initial spent replay checks remain; correction strengthens the subsequent fresh-confirmation path rather than simply dropping the failing assertion",
+    "Independent actual-source Foundation model compiled under Swift6: complete Reset enum/Prompt/Outcome/error types plus actual ask/claim/confirm methods extracted unchanged. Explicit settings/readiness/service stubs allow a sequential identity/claim scenario without the actual package or LiveService",
+    "Actual model observes unchanged prompt IDs equal, fresh claim UUID distinct, spent replay count1/pendingtrue, two fresh confirms exactlyone extra dispatch/cleanup, changed-token old prompt cannot claim current confirmation, and missing token produces no prompt/mutation. Exact DEBUG frontend parse and Git whitespace diff pass",
+    "Read exact outcome decoder66-75: clearChat accepts only cleared now or next_start and maps now to chatCleared(true); missing/unrecognized value returnsnil, and LiveService converts that to uncertain. This new valid-result case does not itself exercise malformed wire payloads."
+  ],
+  "original_first_red": {
+    "run": 44881040110,
+    "job": 136776216923,
+    "head": "87d1a2a847c0361c3eaf9d86bb4a33f088582c7d",
+    "attempt": 1,
+    "direct_API_and_full_download_equal_supplied_blob": true,
+    "log_blob": "b5d61b2bebbed526ac496fa51ba0e47412330dcc",
+    "log_bytes": 700376,
+    "log_sha256": "b140fd2d1715c03b5e04a2a57c20c18535706646e79eeab5718c50cf629eea4b",
+    "failed_assertion": "RecoveryTests.swift120 fresh.id!=prompt.id, actual identical host|clearChat|state IDs",
+    "refusal_first_seconds": 23.526,
+    "disabled_first_pass_seconds": 23.644,
+    "root": "1748tests/208suites failed36.994s/oneissue",
+    "coverage_icon_vendor": "SKIPPED; no domain coverage measurement"
+  },
+  "inert_control": {
+    "source_blob": "74d20b6a9167acbb44c325a805f94734f2b45ca7",
+    "source_bytes": 12996,
+    "source_sha256": "9eed8b6237d489fbcb342ecc73d0ca8cf305ba9e51ef813041a6f085892474ae",
+    "stdout_blob": "5bdd0308514a7198f365f0eba7a0b830c69b95a1",
+    "stdout": "PASS stable actual prompt ID / distinct actual claim UUID / spent replay preserves fresh pending\nPASS two fresh confirmations send exactly one additional mutation and clean flags\nPASS actual prompt init rejects missing state; stale prompt cannot claim changed-token confirmation\n",
+    "limitations": "Only actual extracted reset value types and Store methods; host/recovery eligibility/settings/service/receipt effects are explicit stubs. Driver assertions are not SwiftTesting macros or execution of full cc8 test."
+  },
+  "findings": [],
+  "qualifications": [
+    "The same-token fixture does not discriminate using an old versus fresh token when values are equal. Existing separate stale-state test and source inspection cover changed-state logic; focused inert model adds old-prompt rejection after a changed token, not actual backend testing",
+    "Totalcount and explicit lastkind/token plus pending/noUnknown assertions together establish the proposed regression contract in source; no exhaustive actor/interleaving or wire/backend behavior proof. New actual cc8 tests have not executed",
+    "Disabled-after-claim test is byte-unchanged from87 and its original firstPASS is historical only, not exactcc8 runtime. Pending may already clear during disabled snapshot; prior qualification retained"
+  ],
+  "limits": [
+    "Exact SOURCE_ONLY correction verdict, not inherited full87 parent acceptance. Prior f3ab ID-oracle acceptance is explicitly superseded; actual firstred retained, no product bug or runtime cure inferred",
+    "No actual SwiftTesting/package/Node/iOSSDK/SUT build/native/simulator/FIFO/CI/manualrerun/shared ref/source edit by reviewer. Host Foundation extraction/parse only",
+    "Coverage26line gain/floor and full aggregate remain unmeasured; original root failure skipped coverage/icon/vendor. No metrics/routing/budget/threshold waiver",
+    "Other finaltarget05ced/GrantCopy/source composition belongs to author/publisher and is NOT reviewed/accepted here. Full raw original remains private; sanitized identifiers only in this source receipt"
+  ]
+}
