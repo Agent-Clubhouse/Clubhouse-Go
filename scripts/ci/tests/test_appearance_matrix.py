@@ -88,7 +88,7 @@ class AppearanceLaneVerifierTests(unittest.TestCase):
     def test_a_shortened_loop_fails(self):
         lane = Lane()
         loop = sorted(LOOPS)[0]
-        lane.lines = [line for line in lane.lines if loop not in line] + [marker(loop, "full", THEMES, ["Light", "Dark"])]
+        lane.lines = [line for line in lane.lines if loop.replace("/", " ") + "]" not in line] + [marker(loop, "full", THEMES, ["Light", "Dark"])]
         self.assertTrue(any(issue.startswith(f"{loop} ran ['Light', 'Dark'] of its variants") for issue in lane.problems()))
 
     def test_an_unexpected_skip_or_failure_elsewhere_fails(self):
@@ -99,7 +99,7 @@ class AppearanceLaneVerifierTests(unittest.TestCase):
     def test_a_marker_from_another_method_does_not_count(self):
         lane = Lane()
         target = lane.ids[2]
-        lane.lines = [line for line in lane.lines if target not in line]
+        lane.lines = [line for line in lane.lines if target.replace("/", " ") + "]" not in line]
         self.assertIn(f"{target} printed no APPEARANCE_MATRIX line", lane.problems())
 
 
