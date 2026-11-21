@@ -56,6 +56,23 @@ class UIClassCoverageTests(unittest.TestCase):
     def test_future_classes_are_covered_once_by_the_catchall(self):
         self.assert_partition(ui_classes() | {"FutureUIRegressionTests"})
 
+    def test_footer_and_archive_opening_cannot_starve_future_link_tests(self):
+        # The November 19 catchall ran out of its 55m allowance before either the
+        # new link class or archive-opening family ran. Keep those families in
+        # separate lanes while retaining automatic coverage of a new class.
+        link_class = "CompanionTextLinkUITests"
+        inventory = ui_classes() | {link_class}
+        entries = shards.matrix()["include"]
+        routes = {
+            cls: [index for index, entry in enumerate(entries) if cls in selected_classes(entry, inventory)]
+            for cls in ("CompanionComposerFooterSurfaceUITests", "CompanionReadingOpeningUITests", link_class)
+        }
+        self.assertTrue(all(len(indices) == 1 for indices in routes.values()), routes)
+        self.assertEqual(len({indices[0] for indices in routes.values()}), 3, routes)
+        remaining = next(index for index, entry in enumerate(entries)
+                         if entry["selection"].startswith(f"-only-testing:{shards.UI_TARGET} "))
+        self.assertEqual(routes[link_class], [remaining])
+
     def test_unknown_class_selector_fails(self):
         inventory = {"CurrentTests"}
         with self.assertRaises(AssertionError):

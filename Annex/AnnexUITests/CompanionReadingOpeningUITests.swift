@@ -67,6 +67,93 @@ import UIKit
         note.name = "Native content-top clearance and unchanged action semantics"; note.lifetime = .keepAlways; add(note)
     }
 
+    /// Post-test diagnostic only: no snapshot or extra query runs inside the original
+    /// five-second assertion. Every geometry below comes from ONE native snapshot.
+    private func recordClearanceSnapshot(in app: XCUIApplication) {
+        let started = Date().timeIntervalSince1970
+        var report: [String: Any] = ["phase": "post-test teardown; not failure instant",
+                                    "snapshotStarted": started,
+                                    "coordinateSpace": "one native app snapshot in screen points",
+                                    "requestedTextSize": "UICTContentSizeCategoryAccessibilityXXXL"]
+        do {
+            let root = try app.snapshot()
+            report["snapshotFinished"] = Date().timeIntervalSince1970
+            var selected: [String: [XCUIElementSnapshot]] = [:]
+            func collect(_ node: XCUIElementSnapshot, inTranscript: Bool) {
+                let transcript = inTranscript || node.identifier == "companion-transcript"
+                let key: String?
+                switch node.identifier {
+                case "companion-show-earlier": key = "earlier"
+                case "companion-latest": key = "latest"
+                case "companion-transcript": key = "transcript"
+                case "companion-composer-region": key = "composer"
+                case "reading-opening-state": key = "fixtureEnvironment"
+                default:
+                    if node.elementType == .button && node.label == "View River" { key = "banner" }
+                    else if transcript && node.elementType == .other && node.label.hasPrefix("Vertical scroll bar") { key = "nativeTrack" }
+                    else if node.elementType == .navigationBar { key = "navigationBar" }
+                    else { key = nil }
+                }
+                if let key { selected[key, default: []].append(node) }
+                node.children.forEach { collect($0, inTranscript: transcript) }
+            }
+            collect(root, inTranscript: false)
+            report["appFrame"] = NSCoder.string(for: root.frame)
+            let keys = ["earlier", "latest", "nativeTrack", "banner", "transcript", "composer", "navigationBar", "fixtureEnvironment"]
+            report["nodes"] = Dictionary(uniqueKeysWithValues: keys.map { key in
+                (key, (selected[key] ?? []).map { node in
+                    ["identifier": node.identifier, "label": node.label, "frame": NSCoder.string(for: node.frame),
+                     "value": node.value.map { String(describing: $0) } ?? "nil"]
+                })
+            })
+            func unique(_ key: String) -> XCUIElementSnapshot? {
+                guard let nodes = selected[key], nodes.count == 1 else { return nil }
+                return nodes[0]
+            }
+            if let earlier = unique("earlier"), let latest = unique("latest") {
+                report["latestIntersectsEarlier"] = latest.frame.intersects(earlier.frame)
+            }
+            if let earlier = unique("earlier"), let track = unique("nativeTrack"), let banner = unique("banner") {
+                report["snapshotOnlyOriginalGeometryComparisons"] = [
+                    "earlierNonempty": !earlier.frame.isEmpty, "trackNonempty": !track.frame.isEmpty,
+                    "earlierMinYAtOrBelowTrackMinY": earlier.frame.minY >= track.frame.minY,
+                    "earlierMaxYAtOrAboveTrackMaxY": earlier.frame.maxY <= track.frame.maxY,
+                    "trackMinYAtOrBelowBannerMaxY": track.frame.minY >= banner.frame.maxY
+                ]
+            }
+            if let transcript = unique("transcript"), let composer = unique("composer"),
+               let banner = unique("banner"), let navigation = unique("navigationBar"),
+               [root.frame, transcript.frame, composer.frame, banner.frame, navigation.frame].allSatisfy({
+                   !$0.isNull && !$0.isInfinite && !$0.isEmpty && $0.minX.isFinite && $0.minY.isFinite
+                       && $0.width.isFinite && $0.height.isFinite
+               }), root.frame.intersects(transcript.frame) {
+                let offered = transcript.frame.intersection(root.frame)
+                let top = max(offered.minY, max(banner.frame.maxY, navigation.frame.maxY))
+                let bottom = min(offered.maxY, composer.frame.minY)
+                report["usableViewportBasis"] = "transcript intersect app, below banner/navigation and above composer; Latest overlap recorded separately"
+                report["usableViewport"] = NSCoder.string(for: CGRect(x: offered.minX, y: top, width: offered.width, height: max(0, bottom - top)))
+            } else {
+                report["usableViewport"] = "unavailable: missing or ambiguous snapshot owners; inspect node arrays"
+            }
+            // Hittability is a live query, not a snapshot property. Keep its timing
+            // separate so it cannot masquerade as simultaneous geometry evidence.
+            report["liveHitQueryStarted"] = Date().timeIntervalSince1970
+            let earlier = app.buttons["companion-show-earlier"]
+            let exists = earlier.exists
+            report["liveEarlierExists"] = exists
+            if exists { report["liveEarlierHittable"] = earlier.isHittable }
+            report["liveHitQueryFinished"] = Date().timeIntervalSince1970
+        } catch {
+            report["snapshotError"] = String(describing: error)
+        }
+        let data = (try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "Clearance diagnostic serialization failed"
+        let attachment = XCTAttachment(string: data)
+        attachment.name = "XXXL post-test single-snapshot clearance diagnostic"
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
+
     private func openSoftwareKeyboard(_ composer: XCUIElement, in app: XCUIApplication) {
         composer.tap()
         let keyboard = app.keyboards.firstMatch
@@ -282,12 +369,14 @@ import UIKit
 
     /// Run on Pro Max at XXXL portrait; first-frame visibility and canonical-first content are video gates.
     func testRecordedXXXLPortraitFirstPausedFrameKeepsEarlierBelowThePinnedBanner() {
-        let app = launchFixture(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
+        let app = launchFixture(extra: ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL",
+                                        "--reading-opening-clearance-diagnostic"])
         control("paused", in: app)
         waitState("outcome=arrived", in: app)
         observation("XXXL portrait paused first-frame recording; later AX sample", in: app,
                     anchor: app.staticTexts["Reading marker 90."])
         tapChatStatusBar(in: app)
+        addTeardownBlock { @MainActor [self] in recordClearanceSnapshot(in: app) }
         assertEarlierIsClearOfThePinnedBanner(in: app)
     }
 

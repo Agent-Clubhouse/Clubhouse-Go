@@ -1,9 +1,11 @@
 #if DEBUG
 import SwiftUI
+import UIKit
 
 /// Opt-in recording harness. The user/test starts each mount after video recording has begun.
 /// Bookmarks use real preview histories; the production view draws immediately without opacity or a paint delay.
 struct CompanionReadingOpeningFixture: View {
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @State private var lifetime = CompanionStateLifetime {
         CompanionStore(service: CompanionPreviewService(showsReadingScenario: true))
     }
@@ -47,6 +49,9 @@ struct CompanionReadingOpeningFixture: View {
                 Tab("Home", systemImage: "house", value: 1) { Text("Recording fixture Home") }
             }
             Text(status).font(.caption2).lineLimit(3).frame(height: 48).accessibilityIdentifier("reading-opening-state")
+                .accessibilityValue(ProcessInfo.processInfo.arguments.contains("--reading-opening-clearance-diagnostic")
+                    ? "dynamicTypeSize=\(dynamicTypeSize) deviceModel=\(UIDevice.current.model) system=\(UIDevice.current.systemName) \(UIDevice.current.systemVersion) simulatorModel=\(ProcessInfo.processInfo.environment["SIMULATOR_MODEL_IDENTIFIER"] ?? "none")"
+                    : "")
             // DEBUG controls only: two visible rows replace the unreliable offscreen strip.
             // Their offered height is disclosed in the recording; the real chat uses the remaining viewport.
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 4), count: 6), spacing: 4) {

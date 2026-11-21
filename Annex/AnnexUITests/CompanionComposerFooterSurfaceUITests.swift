@@ -175,15 +175,46 @@ import Vision
     }
 
     private func focus(_ app: XCUIApplication) {
-        element(app, "companion-composer").tap()
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(composer.exists && composer.isEnabled && composer.isHittable)
+        let frame = composer.frame
+        XCTAssertFalse(frame.isEmpty)
+        XCTAssertTrue(app.frame.contains(frame), "The native editor must be visible before focusing")
+        // XCTest's activation point landed only 5pt inside the editor's upper-left edge on the
+        // first hosted pending-tray failure. Tap the visible editable frame's interior once.
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        print("FOOTER_FOCUS frame=\(frame) point=\(point)")
+        coordinate(point, in: app).tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
     }
 
+    /// AX exposes the transcript's full frame under the header, footer and keyboard.
+    /// Transcript gestures must begin on the actual visible reading surface.
+    private func visibleTranscript(_ app: XCUIApplication) throws -> CGRect {
+        let layout = try settledFrames(app)
+        let top = max(layout.transcript.minY, element(app, "companion-chat-header").frame.maxY)
+        let bottom = min(layout.footer.minY, layout.keyboardTop ?? layout.window.maxY)
+        let visible = layout.transcript.intersection(layout.window)
+            .intersection(CGRect(x: layout.window.minX, y: top, width: layout.window.width, height: max(0, bottom - top)))
+            .insetBy(dx: 4, dy: 4)
+        return try XCTUnwrap(!visible.isNull && !visible.isEmpty && visible.height > 20 ? visible : nil,
+                             "A real transcript gesture needs space above the footer: visible \(visible), layout \(layout)")
+    }
+
+    private func coordinate(_ point: CGPoint, in app: XCUIApplication) -> XCUICoordinate {
+        app.coordinate(withNormalizedOffset: .zero)
+            .withOffset(CGVector(dx: point.x - app.frame.minX, dy: point.y - app.frame.minY))
+    }
+
     /// Drags earlier messages into view, so transcript content lies under the footer.
-    private func scrollContentUnderFooter(_ app: XCUIApplication) {
-        let transcript = app.scrollViews["companion-transcript"].firstMatch
-        let start = transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.4))
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 140)), withVelocity: .slow, thenHoldForDuration: 0.2)
+    private func scrollContentUnderFooter(_ app: XCUIApplication) throws {
+        let visible = try visibleTranscript(app)
+        let start = CGPoint(x: visible.midX, y: visible.minY + visible.height * 0.2)
+        let end = CGPoint(x: visible.midX, y: min(start.y + 140, visible.maxY - visible.height * 0.2))
+        XCTAssertTrue(visible.contains(start) && visible.contains(end))
+        print("FOOTER_GESTURE visible=\(visible) start=\(start) end=\(end)")
+        coordinate(start, in: app).press(forDuration: 0.05, thenDragTo: coordinate(end, in: app),
+                                       withVelocity: .slow, thenHoldForDuration: 0.2)
         XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5), "Reading earlier messages")
     }
 
@@ -196,27 +227,29 @@ import Vision
         let app = launch(appearance)
         try assertFinalLineRestsAboveFooter(app, "\(name) keyboard down")
         try assertFooterMatchesChatSurface(app, "\(name) keyboard down")
-        scrollContentUnderFooter(app)
+        try scrollContentUnderFooter(app)
         try assertFooterMatchesChatSurface(app, "\(name) keyboard down, content under footer")
         returnToLatest(app)
 
         focus(app)
         try assertFinalLineRestsAboveFooter(app, "\(name) keyboard up")
         try assertFooterMatchesChatSurface(app, "\(name) keyboard up")
-        scrollContentUnderFooter(app)
+        try scrollContentUnderFooter(app)
         try assertFooterMatchesChatSurface(app, "\(name) keyboard up, content under footer")
 
         // Interactive dismissal (the 2a8633c2 report's path): nothing stays behind over the transcript.
-        let transcript = app.scrollViews["companion-transcript"].firstMatch
-        let start = transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 500)), withVelocity: .default, thenHoldForDuration: 0)
+        let visible = try visibleTranscript(app)
+        let startPoint = CGPoint(x: visible.midX, y: visible.minY + visible.height * 0.3)
+        let endPoint = CGPoint(x: visible.midX, y: min(startPoint.y + 500, app.frame.maxY - 10))
+        coordinate(startPoint, in: app).press(forDuration: 0.05, thenDragTo: coordinate(endPoint, in: app), withVelocity: .default, thenHoldForDuration: 0)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         returnToLatest(app)
         try assertFinalLineRestsAboveFooter(app, "\(name) after drag dismissal")
         try assertFooterMatchesChatSurface(app, "\(name) after drag dismissal")
 
         focus(app)
-        app.scrollViews["companion-transcript"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        let tappingRegion = try visibleTranscript(app)
+        coordinate(CGPoint(x: tappingRegion.midX, y: tappingRegion.minY + tappingRegion.height * 0.2), in: app).tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         try assertFinalLineRestsAboveFooter(app, "\(name) after tap dismissal")
         try assertFooterMatchesChatSurface(app, "\(name) after tap dismissal")

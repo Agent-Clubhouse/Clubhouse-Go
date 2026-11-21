@@ -94,8 +94,29 @@ jobs:
             !.build/*/*/codecov
           key: swiftpm-build-cov-${{ runner.os }}-${{ steps.xcode.outputs.xcode }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
+      - name: Report Swift test toolchain
+        shell: bash {0}
+        run: |
+          set -euo pipefail
+          {
+            swift --version
+            xcodebuild -version
+            sw_vers
+          } 2>&1 | tee swift-test-toolchain.log
+
       - name: Test transport package
-        run: swift test --enable-code-coverage
+        shell: bash {0}
+        run: |
+          set -euo pipefail
+          set +e
+          swift test --enable-code-coverage --xunit-output swift-package-results.xml 2>&1 | tee swift-package-tests.log
+          statuses=("${PIPESTATUS[@]}")
+          set -e
+          # Preserve the test's own failure if the receipt writer also fails.
+          if [ "${statuses[0]}" -ne 0 ]; then
+            exit "${statuses[0]}"
+          fi
+          exit "${statuses[1]}"
 
       # Same run as above; fails only if a target drops below coverage-baseline.json.
       - name: Check coverage ratchet
@@ -113,6 +134,17 @@ jobs:
 
       - name: Test bundled Framebriar package
         run: swift test --package-path Vendor/Framebriar
+
+      - name: Upload original package test receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-package-test-receipts
+          path: |
+            swift-test-toolchain.log
+            swift-package-tests.log
+            swift-package-results*.xml
+          retention-days: 7
 
   build:
     name: Build for testing
@@ -198,11 +230,13 @@ jobs:
     name: ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
-    # Eight lanes balance whole UI classes within the existing job budget.
+    # Fifteen lanes cover the current whole-class inventory within the existing job budget.
     # Keep per-test hang deadlines and retry reporting unchanged; see ui_shards.py.
     timeout-minutes: 55
     strategy:
       fail-fast: false
+      # Retain the previous eight-lane peak while the expanded inventory queues.
+      max-parallel: 8
       matrix: ${{ fromJSON(needs.changes.outputs.ui-shards) }}
     steps:
       - uses: actions/checkout@v4
@@ -298,10 +332,15 @@ jobs:
           retention-days: 7
 
   ipad-tests:
-    name: iPad hosted tests + UI smoke
+    name: iPad ${{ matrix.name }}
     needs: [changes, build]
     runs-on: macos-26
     timeout-minutes: 25
+    strategy:
+      # Keep the original single iPad slot. Each bounded job gets its own complete result.
+      fail-fast: false
+      max-parallel: 1
+      matrix: ${{ fromJSON('{"include":[{"name":"hosted","tests":"-only-testing:ClubhouseGoTests"},{"name":"UI smoke","tests":"-only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption"}]}') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -338,19 +377,19 @@ jobs:
       - name: Skip first-use keyboard education on the test simulator
         run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
 
-      # Reuse the iPhone build; qualify all hosted tests and the three iPad regressions
-      # without paying for another full UI suite or accepting a passing retry.
+      # Reuse the iPhone build. The full hosted suite and the same three UI regressions
+      # each run once; separating their runner handoff keeps the 25-minute job gate.
       - name: Run iPad tests without retries
+        env:
+          TEST_SELECTORS: ${{ matrix.tests }}
         run: |
+          read -ra selectors <<< "$TEST_SELECTORS"
           if ! xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
             -configuration Debug \
             -destination "$DEST" \
             -jobs 2 \
-            -only-testing:ClubhouseGoTests \
-            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings \
-            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled \
-            -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption \
+            "${selectors[@]}" \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
@@ -358,14 +397,14 @@ jobs:
             2>&1 | tee xcodebuild-ipad.log; then
             echo "::warning::xcodebuild exited unsuccessfully; checking the complete xcresult"
           fi
-          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad hosted tests + UI smoke" \
+          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad ${{ matrix.name }}" \
             --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests
 
       - name: Upload iPad test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-ipad
+          name: test-results-ipad-${{ strategy.job-index }}
           path: |
             TestResults
             xcodebuild-ipad.log

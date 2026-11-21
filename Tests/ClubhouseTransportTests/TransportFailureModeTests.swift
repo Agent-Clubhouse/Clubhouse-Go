@@ -482,15 +482,26 @@ private struct ScheduledConditionTimeout: Error {}
 /// A yield count can expire in milliseconds while the actor we await has not been scheduled.
 /// On timeout, the poll count separates a starved waiter (few polls) from a condition that never held (many).
 private func settle(_ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
-    let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+    let started = ContinuousClock.now
+    let deadline = started.advanced(by: .seconds(10))
     var polls = 0
+    var conditionTime = Duration.zero
+    var sleepTime = Duration.zero
     repeat {
         polls += 1
-        if await done() { return }
+        let conditionStarted = ContinuousClock.now
+        let ready = await done()
+        conditionTime += conditionStarted.duration(to: .now)
+        if ready { return }
+        let sleepStarted = ContinuousClock.now
         try await Task.sleep(for: .milliseconds(1))
+        sleepTime += sleepStarted.duration(to: .now)
     } while ContinuousClock.now < deadline
+    let waitElapsed = started.duration(to: .now)
+    let stateStarted = ContinuousClock.now
     let observed = await state?() ?? ""
-    Issue.record("Scheduled condition did not become true within 10 seconds (\(polls) polls)\(observed.isEmpty ? "" : "; " + observed)")
+    let stateTime = stateStarted.duration(to: .now)
+    Issue.record("Scheduled condition did not become true within 10 seconds (\(polls) polls)\(observed.isEmpty ? "" : "; " + observed); waitElapsed=\(waitElapsed) conditionTime=\(conditionTime) sleepTime=\(sleepTime) diagnosticStateTime=\(stateTime)")
     throw ScheduledConditionTimeout()
 }
 

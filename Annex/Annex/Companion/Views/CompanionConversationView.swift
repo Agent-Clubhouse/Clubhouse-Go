@@ -146,7 +146,6 @@ struct CompanionConversationView: View {
                     .environment(\.companionSenderResolver, CompanionSenderResolver(host: store.host(for: target), hosts: store.hosts))
             }
         }
-        .companionBackground()
         // The bottom bar reserves its real size before this boundary observes the safe region.
         // This boundary stays mounted while disclosure/focus/status changes.
         return GeometryReader { available in
@@ -283,6 +282,9 @@ struct CompanionConversationView: View {
                         .environment(\.companionPermissionMenuKeyboardVisible, keyboardVisible)
             }
         }
+        // Paint the transcript and its bars in the same coordinate space. A capped transcript can
+        // be shorter than an overflowing footer; its background must not end inside that footer.
+        .companionBackground()
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }

@@ -75,6 +75,23 @@ import XCTest
         if close.exists { waitAndTap(close, untilGone: close) }
     }
 
+    /// The root TabView uses `.tabBarMinimizeBehavior(.onScrollDown)`. Scrolling Needs you minimizes the native bar,
+    /// and Open Chat's programmatic switch to Dispatch keeps it minimized: only the selected item (value "Collapsed")
+    /// and Search remain. Expand it by tapping the selected item, as a person would, before choosing another tab.
+    private func selectTab(_ title: String, in app: XCUIApplication, until expected: XCUIElement,
+                           file: StaticString = #filePath, line: UInt = #line) {
+        let tab = app.tabBars.buttons[title]
+        if !tab.exists || !tab.isHittable {
+            let selected = app.tabBars.buttons.matching(NSPredicate(format: "selected == true")).firstMatch
+            XCTAssertEqual(selected.value as? String, "Collapsed", "\(title) is missing only because the native bar is minimized",
+                           file: file, line: line)
+            waitAndTap(selected, until: tab, attempts: 1, file: file, line: line)
+            XCTAssertTrue(waitFor(tab, NSPredicate(format: "hittable == true"), timeout: 5),
+                          "\(title) must be hittable after the native bar expands", file: file, line: line)
+        }
+        waitAndTap(tab, until: expected, file: file, line: line)
+    }
+
     func testAnswerInChatRemovesNeedsYouCardAndKeepsCLIApprovalSeparate() {
         let app = openNeedsYou()
         let call = app.staticTexts[callSummary]
@@ -153,7 +170,7 @@ import XCTest
         app.buttons["app-update-request"].tap()
         XCTAssertTrue(app.staticTexts["app-update-working-agents"].waitForExistence(timeout: 5))
         app.navigationBars.buttons.firstMatch.tap()
-        waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
+        selectTab("Needs you", in: app, until: app.navigationBars["Needs you"])
         let summary = app.staticTexts["Update Clubhouse to 1.1.0"]
         XCTAssertTrue(scrollUntilExists(summary, in: app))
         let card = app.descendants(matching: .any).matching(identifier: "companion-chat-grant-requests").firstMatch
@@ -176,7 +193,7 @@ import XCTest
         attach(app, "Grant request: desktop update mode in chat")
         waitAndTap(allow, untilGone: allow)
         XCTAssertTrue(card.waitForNonExistence(timeout: 5))
-        waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"])
+        selectTab("Needs you", in: app, until: app.navigationBars["Needs you"])
         XCTAssertFalse(summary.exists, "Answering the update in chat also clears its Needs you card")
     }
 

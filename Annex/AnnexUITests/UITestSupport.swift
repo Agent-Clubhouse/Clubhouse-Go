@@ -195,12 +195,15 @@ class ReliableUITestCase: XCTestCase {
 
     /// Swipes until `target` is on screen and hittable, stopping as soon as it is. The caller asserts.
     @discardableResult
+    /// `afterSwipe` is observation only: it runs after each swipe and cannot change the search.
     func scrollTo(_ target: XCUIElement, in app: XCUIApplication, up: Bool = true, maxSwipes: Int = 6,
-                  velocity: XCUIGestureVelocity = .default, file: StaticString = #filePath, line: UInt = #line) -> Bool {
-        for _ in 0..<maxSwipes {
+                  velocity: XCUIGestureVelocity = .default, afterSwipe: ((Int) -> Void)? = nil,
+                  file: StaticString = #filePath, line: UInt = #line) -> Bool {
+        for swipe in 0..<maxSwipes {
             checkTimeLeft("scrolling to \(target)", file: file, line: line)
             if target.exists && target.isHittable { return true }
             if up { app.swipeUp(velocity: velocity) } else { app.swipeDown(velocity: velocity) }
+            afterSwipe?(swipe)
         }
         return target.exists && target.isHittable
     }
