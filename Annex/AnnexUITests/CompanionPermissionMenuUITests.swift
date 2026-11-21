@@ -182,7 +182,7 @@ import XCTest
     }
 
     /// Native menu rows aren't themed: their frames matched across Light, Dark, Latte and Mocha in every sampled CI
-    /// run, so one theme measures the geometry. Theme rendering is covered by CompanionThemeContrastVisualTests.
+    /// run, so one theme measures the geometry. The Dark, Latte and Mocha screens are no longer checked natively here.
     func testPortraitEveryLevelFitsWithoutScrollingAcrossThemes() {
         for (name, flags) in [("Light", ["--companion-header-light"])] {
             let app = openMenu(flags)
@@ -204,7 +204,7 @@ import XCTest
         }
     }
 
-    /// As above at XLarge, in Catppuccin Mocha so a dark theme is still exercised natively.
+    /// As above at XLarge, in Catppuccin Mocha only, so a dark theme is still exercised natively.
     func testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes() {
         for (name, theme) in [("Catppuccin Mocha", ["--companion-header-mocha"])] {
             let app = openMenu(theme + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXL"])

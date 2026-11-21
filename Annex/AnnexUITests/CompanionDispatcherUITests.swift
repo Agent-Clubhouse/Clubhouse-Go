@@ -610,8 +610,8 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTFail("Sender part must expand")
     }
 
-    /// The native half: real chat navigation, VoiceOver label/value and the Copy menu. Fold state across refresh,
-    /// part independence, row reuse and collapsed body construction are proven in process by
+    /// One real transcript fold end to end: collapse, leave and reopen the chat, refresh, find the same row still
+    /// collapsed, then expand it to the correct body. Part and conversation/session key permutations are covered by
     /// CompanionRoutedFoldPersistenceTests and CompanionHelperMessagePresentationTests.
     func testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], allowance: 360)
@@ -628,21 +628,37 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(shortValue.contains("Mission") && shortValue.contains("Steered into the running turn"))
         XCTAssertTrue(shortValue.contains(":"), "The source and steer value also keeps the timestamp")
         let first = app.buttons["companion-routed-sender-preview-0"]
+        let body = element(app, "companion-routed-body-sender-preview-0")
         bringCaptionIntoView(first, in: app)
         XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "Long helper replies start readable with the live name")
         let openValue = first.value as? String ?? ""
         XCTAssertTrue(openValue.hasPrefix("Expanded") && openValue.contains("Mission") && openValue.contains("Steered into the running turn"))
+        XCTAssertTrue(openValue.contains(":"), "Open long parts keep their timestamp with the source and steer metadata")
         XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
         first.tap()
         XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
-        screenshot(app, "Helper avatar and collapsed long message")
 
-        // Leave the conversation and reopen it from Home: the fold is kept across real navigation.
+        // Leave the conversation and reopen it from Home.
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
         bringCaptionIntoView(first, in: app)
         XCTAssertEqual(first.value as? String, "Collapsed", "Leaving the conversation keeps its fold")
+
+        // A refreshed history snapshot keeps the same row collapsed.
+        let actions = app.navigationBars.buttons["Conversation actions"]
+        let refresh = app.buttons["Refresh conversation"]
+        waitAndTap(actions, until: refresh)
+        refresh.tap()
+        bringCaptionIntoView(first, in: app)
+        XCTAssertEqual(first.value as? String, "Collapsed", "A new history snapshot keeps the fold")
+        XCTAssertFalse(body.exists, "A collapsed part shows no body")
+
+        // Expanding the same row shows its own body again.
+        expandSender(first)
+        XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
+        XCTAssertTrue(body.exists, "The expanded part shows its body")
+        screenshot(app, "Helper avatar and re-expanded long message after refresh")
         longPressUntilMenu(first, shows: app.buttons["Copy message"])
     }
 
