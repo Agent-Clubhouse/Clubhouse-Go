@@ -43,8 +43,6 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         var tabBar: CGRect?
         var viewport: CGRect
         var target: CGRect?
-        var targetID: String?
-        var targetLabel: String?
         var hittable: Bool
         var anchor: CGRect?
         var anchorLabel: String?
@@ -103,8 +101,8 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             let exists = row.exists
             let hasAnchor = anchor.exists
             return RevealState(container: bounds, navigation: nav, keyboard: keyboardFrame, tabBar: tabFrame,
-                viewport: viewport, target: exists ? row.frame : nil, targetID: exists ? row.identifier : nil,
-                targetLabel: exists ? row.label : nil, hittable: exists && row.isHittable,
+                viewport: viewport, target: exists ? row.frame : nil,
+                hittable: exists && row.isHittable,
                 anchor: hasAnchor ? anchor.frame : nil, anchorLabel: hasAnchor ? anchor.label : nil)
         }
         func revealed(_ sample: RevealState) -> Bool {
@@ -116,7 +114,7 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             return frame.isEmpty ? "unrealized target" : "realized target"
         }
         var before = state()
-        print("FEEDBACK_REVEAL title=\(title) container=\(form) id=\(form.identifier) query=\(row) before=\(before)")
+        print("FEEDBACK_REVEAL title=\(title) before=\(before)")
         for step in 0..<12 {
             checkTimeLeft("revealing the feedback row")
             if revealed(before) { return }
@@ -137,7 +135,13 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
             let down = before.target.map { !$0.isEmpty && $0.minY < before.viewport.minY } ?? false
             let startPoint = CGPoint(x: before.viewport.minX + before.viewport.width * 0.15,
                                      y: before.viewport.minY + before.viewport.height * (down ? 0.2 : 0.8))
-            let delta = min(200, before.viewport.height * 0.35) * (down ? 1 : -1)
+            var distance = min(200, before.viewport.height * 0.35)
+            if let frame = before.target, !frame.isEmpty {
+                // Aim toward the viewport centre. A full drag for a barely clipped
+                // row can carry it past the opposite edge on the next sample.
+                distance = min(distance, abs(frame.midY - before.viewport.midY))
+            }
+            let delta = distance * (down ? 1 : -1)
             let endPoint = CGPoint(x: startPoint.x, y: startPoint.y + delta)
             XCTAssertTrue(before.viewport.contains(startPoint) && before.viewport.contains(endPoint))
             // Screen coordinates avoid resolving a background List as the gesture's coordinate space.
