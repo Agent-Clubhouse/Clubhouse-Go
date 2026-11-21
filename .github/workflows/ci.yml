@@ -64,8 +64,9 @@ jobs:
           set -euo pipefail
           SELECT=false
           if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            # Read the labels now, not from the event payload. Adding `ci:full` also dispatches a full run
-            # (ci-full-label.yml), so there is no `labeled` trigger here to start a run for every label.
+            # Read the labels now (read-only), not from the event payload: after adding `ci:full`, push a commit or
+            # re-run this workflow and it takes every lane. Adding a label alone starts no run; there is no `labeled`
+            # trigger, so other labels never start or replace one.
             if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx 'ci:full'; then
               echo "ci:full label: every lane"
             else
