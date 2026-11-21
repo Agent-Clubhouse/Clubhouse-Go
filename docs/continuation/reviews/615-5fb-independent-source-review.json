@@ -1,0 +1,78 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "615-exact-unsupported-check-immediate-notice-observation-order-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "5fbe8f488fda8b8933c3b9b66b11b218fa9f73d4",
+  "tree": "58de37e21f5a0fe10fd7c5db6d616a8f13bc730c",
+  "base": "0e55118a6abeb20aee4fc8cb19ae859b5cd6b470",
+  "tracked_inventory": 760,
+  "files": [
+    {
+      "path": "Tests/CompanionDomainTests/CompanionAppUpdateTests.swift",
+      "blob": "9b4ce58f5ad5b0144503f11ae6e5ddcd0dafdc87",
+      "bytes": 67933,
+      "sha256": "05e590642d100c613a9a0e0fee678c6bad14405837fcaf1163d678aec17fc467"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "Annex/Annex/Companion/Domain/CompanionStore.swift",
+      "blob": "9f83316ea96a3b2d88ab95e14bd6ba75cca344b2",
+      "bytes": 119892,
+      "sha256": "97a537e0f99ee5bbc143cbdb253d5a43ca9de0a679e1cd111119f7f2e034ba44",
+      "unchanged_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
+      "blob": "3dfaa3f858c292e75eb5c329b51abe72f94f2623",
+      "bytes": 156365,
+      "sha256": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+      "unchanged_parent": true
+    }
+  ],
+  "findings": [],
+  "verified": [
+    "Complete760 tracked path/mode/blob inventory changes only one existing AppUpdate test file. Exact two-predicate/comment inverse reconstructs ENTIRE0e test file. All other cases/setup/helpers and all predicate texts, zero-send/shutdown checks remain exact; no new wait/timeout/action/helper",
+    "Target suite and Store are MainActor. Unsupported check guard writes cannot-check error and returns before service await/send. Moving synchronous dictionary predicate immediately after this call avoids introducing the subsequent unrelated UpdateDesktop actor-property hop before that observation",
+    "Actual UpdateDesktop is an actor; sent is a stored command array. Reading sent has no modeled production publication side effect. The actor await permits other eligible MainActor listener work; source Store host reconciliation clears attempts/alreadyRunning/error for unsupported host even at unchanged controlEpoch",
+    "connect waits canUpdateApp and nonnil update; it is not an event-queue drain or stable-notice barrier. New test asks immediate refusal response, then unchanged zero-send and shutdown capability/error/inflight assertions, not error persistence after a later host report",
+    "Independently read full6027B supplied control; verified complete actual checkAppUpdate(hostID:String) Store method, isAlreadyChecking and clearAlreadyChecking byte-equal candidate production, and full actual host invalidation block byte-equal after indentation adjustment. Exact Store-only signature disambiguated from stub service overload",
+    "Own Swift6 Foundation execution of exact supplied source passes controlled old-await-then-notice FAIL/new-immediate-then-await PASS; exactlyone unchanged unsupported publication intervenes, both paths retain zeroServiceCalls/zeroDesktopSends and relevant shutdown assertions; removing notice remains FAIL",
+    "Exact DEBUG frontend parse and git diff whitespace check pass. Source blob of entire old test file also independently matches d5 and051; their historical runtime passes are not new5fb proof"
+  ],
+  "original": {
+    "run": 44869357081,
+    "job": 136740209077,
+    "head": "0e55118a6abeb20aee4fc8cb19ae859b5cd6b470",
+    "attempt": 1,
+    "direct_API_and_entire_log_match": true,
+    "log_blob": "18afdb900a16ca87aefe4674c367a4417ffaa1f6",
+    "log_bytes": 699439,
+    "log_sha256": "f7843c8ba5c9d194b0e0a62ebca3d150795e02083034768cfc7ee4d96b922466",
+    "first_failure": "olderDesktop line382 nil cannot-check predicate;17.036s",
+    "root": "1751tests/208suites failed31.174s/oneissue",
+    "causal_publication_identified": false
+  },
+  "inert_control": {
+    "source_blob": "89bd4a15d80e5aa42093e7c1da86f26a57226a8e",
+    "source_bytes": 6027,
+    "source_sha256": "a0c4457fb00525c8efa7624f08b71b0d0ee9bd18833c68fba6019d6145d2c5dd",
+    "stdout_blob": "c4b9c02a34634873fb1fa54bf66e0aefdbf570ed",
+    "stdout": "PASS exact actual check guard+host reconciliation: old await-then-notice FAIL, immediate-notice-then-await PASS\nPASS both paths exercised one intervening unchanged unsupported host publication and retained zero-send/shutdown\nPASS missing notice still FAIL; new observation does not claim persistence after host report\n",
+    "source_contract_verified": true,
+    "limitations": "Explicit host/readiness/service stubs, actor-read scheduling hook, publication counter and relevant shutdown statements; not actual UpdateDesktop getter/Store listener/LiveService/SwiftTesting or original event timeline."
+  },
+  "qualifications": [
+    "Predicate texts are unchanged but observation order intentionally changes acceptance for interleavings where a later host publication clears the notice. No claim fully equivalent temporal oracle or post-report notice persistence; this source verdict accepts the delegated immediate-response contract",
+    "Control hook explicitly forces an unsupported host publication during the other-actor read. It models a legal scheduling interleaving; it does not show that real sent getter emits events or identify which original event cleared the error",
+    "No new observation budget, wait, retry, error lifetime or production policy. Synchronous unsupported branch is the relevant path; no new universal scheduling/cancellation guarantee for other check paths",
+    "Identical old file on d5/051 and reported firstPASS there are historical different-head/workload comparisons, not controlled cause or5fb runtime acceptance"
+  ],
+  "limits": [
+    "SOURCE_ONLY on exact one-test observation reorder and scoped dependency compatibility. Not native/UI/link-feature/wholeparenttree or required aggregate acceptance",
+    "No actual candidate SwiftTesting/package/SDK/Node/SUT/native/simulator/FIFO/CI/rerun/sharedref/source mutation by reviewer. Foundation compile plus syntax/source analysis only",
+    "Original firstred retained; no actual original publication/timing/cure claim and no product-notice persistence guarantee",
+    "615 composer136762335009 and publication/firstnative watch remain runner-owned and untouched. Author owns any final target composition; unrelated606ready100/622cc8 are separate"
+  ]
+}
