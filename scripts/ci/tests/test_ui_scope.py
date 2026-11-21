@@ -14,8 +14,8 @@ changes = scope.load_changes(ROOT)
 SMOKE = set(scope.SMOKE)
 
 
-def plan(lines):
-    return scope.plan(scope.parse_changes(lines), ROOT, changes)
+def plan(lines, diff=""):
+    return scope.plan(scope.parse_changes(lines), ROOT, changes, diff)
 
 
 class PreMergeScopeTests(unittest.TestCase):
@@ -39,11 +39,29 @@ class PreMergeScopeTests(unittest.TestCase):
         self.assertTrue(decision["unit"])
         self.assertFalse(decision["ipad"])
 
-    def test_a_mapped_product_file_runs_smoke_its_journeys_hosted_and_release(self):
-        decision = plan("M\tAnnex/Annex/Companion/Views/CompanionTerminalView.swift\n")
+    def test_a_mapped_product_file_runs_smoke_its_journeys_and_hosted_without_release(self):
+        decision = plan("M\tAnnex/Annex/Companion/Views/CompanionTerminalView.swift\n",
+                        "+++ b/Annex/Annex/Companion/Views/CompanionTerminalView.swift\n+    let x = 1 // #if in a comment\n")
         self.assertEqual(set(decision["ui"]) - SMOKE, set(scope.JOURNEYS["terminal"][1]))
-        self.assertTrue(decision["unit"] and decision["release"])
-        self.assertFalse(decision["broad"])
+        self.assertTrue(decision["unit"])
+        self.assertFalse(decision["broad"] or decision["release"])
+
+    def test_conditional_compilation_and_build_inputs_get_the_release_build(self):
+        view = "M\tAnnex/Annex/Companion/Views/CompanionTerminalView.swift\n"
+        for diff in ("+++ b/Annex/Annex/Companion/Views/CompanionTerminalView.swift\n+#if DEBUG\n",
+                     "+++ b/Annex/Annex/Companion/Views/CompanionTerminalView.swift\n-    #endif\n"):
+            self.assertTrue(plan(view, diff)["release"], diff)
+        self.assertFalse(plan(view, "+++ b/docs/x.swift.md\n+#if\n")["release"])
+        self.assertTrue(scope.plan(scope.parse_changes(view), ROOT, changes)["release"], "no line diff fails safe")
+        for lines in ("M\tAnnex/Annex/Info.plist\n", "M\tAnnex/Annex/Annex.entitlements\n",
+                      "M\tAnnex/Annex.xcodeproj/project.pbxproj\n", "M\tAnnex/Annex/AnnexApp.swift\n"):
+            self.assertTrue(plan(lines)["release"], lines)
+
+    def test_broad_representatives_stay_cheap_and_do_not_repeat_smoke(self):
+        inventory = scope.Inventory(ROOT)
+        reps = [rep for _, (_, _, _, rep) in scope.JOURNEYS.items() if rep]
+        self.assertFalse(set(reps) & SMOKE)
+        self.assertLess(sum(inventory.minutes(rep) for rep in reps), 4.0)
 
     def test_critical_areas_run_their_whole_proof_classes(self):
         privacy = plan("M\tAnnex/Annex/Companion/Views/CompanionFeedbackPresenter.swift\n")
@@ -64,10 +82,16 @@ class PreMergeScopeTests(unittest.TestCase):
             for rep in (rep for _, (_, _, _, rep) in scope.JOURNEYS.items() if rep):
                 self.assertTrue(rep in selected or rep.split("/")[0] in selected, f"{lines}: {rep}")
 
-    def test_transport_runs_smoke_with_hosted_and_release(self):
+    def test_a_hub_gets_the_broad_tier_without_release_but_unknown_build_inputs_get_both(self):
+        self.assertFalse(plan("M\tAnnex/Annex/Companion/Domain/CompanionStore.swift\n")["release"])
+        self.assertTrue(plan("M\tAnnex/AnnexUITests/UITestSupport.swift\n")["broad"])
+        self.assertTrue(plan("M\t.github/workflows/ci.yml\n")["release"])
+
+    def test_transport_runs_smoke_with_hosted(self):
         decision = plan("M\tAnnex/Annex/Transport/AnnexWire.swift\n")
         self.assertEqual(set(decision["ui"]), SMOKE)
-        self.assertTrue(decision["unit"] and decision["release"])
+        self.assertTrue(decision["unit"])
+        self.assertFalse(decision["release"])
 
     def test_shards_stay_under_the_budget_and_carry_the_bundle_once(self):
         decision = plan("M\tAnnex/Annex/Companion/Views/CompanionFeedbackPresenter.swift\n"
@@ -90,7 +114,9 @@ class PreMergeScopeTests(unittest.TestCase):
             self.assertEqual(len(json.loads(result["ui-shards"])["include"]), 1)
 
     def test_the_workflow_plans_with_this_script(self):
-        self.assertIn("python3 scripts/ci/ui_scope.py changed-files.txt", (ROOT / ".github/workflows/ci.yml").read_text())
+        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn("python3 scripts/ci/ui_scope.py changed-files.txt --diff changes.diff", workflow)
+        self.assertIn("git diff -U0 -M HEAD^1 HEAD > changes.diff", workflow)
 
 
 if __name__ == "__main__":

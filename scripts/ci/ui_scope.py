@@ -12,12 +12,14 @@ Every change that builds into the app runs, before merge:
   even over budget;
 - for a hub or an unknown product file, the BROAD tier: smoke plus one representative journey per area. This is an
   explicit escalation, not the full suite; add the `ci:full` label (then push or re-run) for every lane.
-The hosted unit bundle runs for any product or hosted-test change; the Release build for any product change; the
-iPad lane only for iPad-specific code, iPad-run classes or areas that need it (privacy). The iPad run of the hosted
+The hosted unit bundle runs for any product or hosted-test change. The Release build runs only for release-sensitive
+diffs (project, settings, scheme, entitlements, privacy manifest, Info.plist, dependencies, assets, the app entry, or an
+added or removed #if/#else/#endif line in Swift) and for unknown build or workflow inputs, which escalate; the daily run
+always builds Release. The iPad lane only for iPad-specific code, iPad-run classes or areas that need it (privacy). The iPad run of the hosted
 bundle otherwise waits for the daily run. Everything else waits for the daily run.
 
 Input: `ui-shards=<json>` on stdin (the daily matrix; used only to keep the same output contract), and a
-`git diff --name-status -M` file. Output for $GITHUB_OUTPUT: `ui-shards`, `ui`, `ipad`, `release`, `unit`.
+`git diff --name-status -M` file, with `--diff` the same diff at -U0 (without it, any app change builds Release). Output for $GITHUB_OUTPUT: `ui-shards`, `ui`, `ipad`, `release`, `unit`.
 """
 import importlib.util
 import json
@@ -46,19 +48,20 @@ SMOKE = [
     "CompanionGrantRequestUITests/testAllowOnceAndDeclineAnswerGrantRequests",
     "FeedbackTriggersUITests/testShakeOpensOverSettingsAndClosesBackToSettings",
 ]
-# name: (file-name keywords, selectors, iPad, representative selector for the BROAD tier)
+# name: (file-name keywords, selectors, iPad, representative selector for the BROAD tier). Representatives are one
+# cheap behaviour per area that smoke doesn't already prove (security, markdown, home and settings are covered there).
 JOURNEYS = {
     "privacy": (["Feedback", "Framebriar", "Diagnostic", "Shake"],
                 ["FeedbackTriggersUITests", "FeedbackDiagnosticsWireUITests", "FeedbackMenuAttachmentUITests",
                  "FramebriarShakeUITests", "FramebriarShakeDiagnosticsUITests"], True,
-                "FeedbackTriggersUITests/testSettingsFromHomeToolbarAttachesCaptureOrOffersPhotos"),
+                "FeedbackTriggersUITests/testScreenshotPromptSettingTurnsItOff"),
     "security": (["Permission", "Grant", "Approval", "AccessLevel", "Pairing", "Trust"],
                  ["CompanionPermissionMenuUITests", "CompanionPermissionStatusUITests", "CompanionGrantRequestUITests",
                   "QA368GrantLayoutUITests", "CompanionAppLifetimeUITests"], False,
-                 "CompanionGrantRequestUITests/testAnswerInChatRemovesNeedsYouCardAndKeepsCLIApprovalSeparate"),
+                 None),
     "destructive": (["DispatcherSettings", "Recovery", "Dispose", "Sleep"],
                     ["CompanionDispatcherUITests/testBehaviorClearChatAndForgetEverything", "CompanionRecoveryIntegrationUITests"],
-                    False, "CompanionDispatcherUITests/testBehaviorClearChatAndForgetEverything"),
+                    False, "CompanionAppUpdateUITests/testSettingsWithoutUpdateShowsPlainVersionAndDestructiveForgetKeepsItsConfirmation"),
     "data": (["Draft", "Unicode", "Paste"],
              ["CompanionUnicodeFocusUITests", "CompanionComposerPasteUITests"], False,
              "CompanionUnicodeFocusUITests/testUserTapAndSendPreserveUnicodeBytes"),
@@ -67,32 +70,32 @@ JOURNEYS = {
                   "CompanionCompactComposerUITests/testIdleControlsStayCollapsedBeforeAndAfterTyping",
                   "CompanionCompactComposerUITests/testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation",
                   "CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays"], False,
-                 "CompanionCompactComposerUITests/testIdleControlsStayCollapsedBeforeAndAfterTyping"),
+                 "CompanionCompactComposerUITests/testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays"),
     "reading": (["Reading", "Conversation", "Timeline", "Transcript", "Latest", "Scroll", "Message"],
                 ["CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls",
                  "CompanionReadingUITests/testUserPositionedReplyStaysWhileStreaming"], False,
                 "CompanionReadingUITests/testStreamingKeepsFollowingWhenNobodyScrolls"),
     "terminal": (["Terminal"], ["CompanionTerminalUITests/testProjectTerminalEchoesTypingAndOffersTheKeyBar",
                                "CompanionTerminalUITests/testPasteButtonSendsBytesWithKeyboardShownAndHidden"], False,
-                 "CompanionTerminalUITests/testProjectTerminalEchoesTypingAndOffersTheKeyBar"),
+                 "CompanionTerminalUITests/testPasteButtonSendsBytesWithKeyboardShownAndHidden"),
     "search": (["Search"], ["CompanionSearchUITests/testOpenedAgentsAppearInRecentAndSurviveProcessRelaunch"], False, None),
     "markdown": (["Markdown", "Content", "PDF", "Preview"], ["CompanionMarkdownBlockUITests/testTableAndCodeOpenFullScreenWithCopyAndShare"],
-                 False, "CompanionMarkdownBlockUITests/testTableAndCodeOpenFullScreenWithCopyAndShare"),
+                 False, None),
     "projects": (["ProjectPage", "ProjectInfo", "Linked", "Project"],
                  ["CompanionProjectPageUITests/testSingleProjectMenuKeepsPinInactiveAndReadOnlyInfo",
                   "CompanionProjectPageUITests/testAllTerminalChoosesOneMachineAndOpensOnlyItsShell"],
                  False, "CompanionProjectPageUITests/testSingleProjectMenuKeepsPinInactiveAndReadOnlyInfo"),
     "update": (["AppUpdate"], ["CompanionAppUpdateUITests/testRestartNowAndCancelAreExplicitChoices",
                                "CompanionAppUpdateUITests/testSettingsWithoutUpdateShowsPlainVersionAndDestructiveForgetKeepsItsConfirmation"], False,
-               "CompanionAppUpdateUITests/testSettingsWithoutUpdateShowsPlainVersionAndDestructiveForgetKeepsItsConfirmation"),
+               None),
     "spawn": (["Spawn", "Managed", "Create"], ["CompanionManagedSpawnUITests/testManagedCreationRequiresAnExplicitChoiceAndBlankIsLocal",
                                              "CompanionSpawnVisualUITests/testLight"], False,
-              "CompanionSpawnVisualUITests/testLight"),
+              "CompanionManagedSpawnUITests/testManagedCreationRequiresAnExplicitChoiceAndBlankIsLocal"),
     "settings": (["AgentSettings", "Settings", "Helper", "Preset"], ["CompanionAgentSettingsVisualUITests/testLight"],
-                 False, "CompanionAgentSettingsVisualUITests/testLight"),
+                 False, None),
     "attachments": (["Attachment", "Image", "Icon", "Avatar"], ["CompanionImageAttachmentUITests/testPickRemoveAndSendImages"], False, None),
     "home": (["Home", "Root", "Toolbar", "Chips", "Tree", "Row"], ["CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption"],
-             False, "CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption"),
+             False, None),
     "dispatcher": (["Dispatcher", "Dispatch"], ["CompanionDispatcherLaunchUITests", "CompanionDispatchChipsUITests"], False, None),
     "header": (["Header", "Chrome", "ChatControls", "Glass"], ["CompanionChatHeaderUITests", "CompanionChatChromeUITests"], False, None),
     "limits": (["AutoQuota", "PlanLimits", "Context", "Usage"], ["CompanionAutoQuotaUITests", "CompanionContextWindowUITests"], False, None),
@@ -119,6 +122,12 @@ NO_UI_SUFFIXES = ("Decoding.swift",)
 BUILD_ONLY = ("scripts/isolated-deinit-policy.json", "scripts/check-isolated-deinits.py", "scripts/deinit_surface.py",
               "scripts/isolated-deinit-surface.swift", "scripts/deinit/")
 PLAN_ONLY = ("scripts/ci/tests/", "scripts/ci/ui_shards.py", "scripts/ci/ui_timings.json")
+# Release compiles and ships differently only through these: build settings, packaging, entitlements, dependencies,
+# the app entry, or conditional compilation; an unknown non-product build or workflow input also builds Release.
+RELEASE_SUFFIXES = (".pbxproj", ".xcconfig", ".xcscheme", ".entitlements", ".xcprivacy", "Info.plist", "Package.swift",
+                    "Package.resolved", "AnnexApp.swift")
+RELEASE_DIRS = ("Annex/Annex/Assets.xcassets/", "Annex/Annex.xcodeproj/")
+CONDITIONAL = re.compile(r"^[+-]\s*#\s*(if|elseif|else|endif)\b")
 IPAD_MARKERS = re.compile(r"horizontalSizeClass|userInterfaceIdiom|NavigationSplitView|\.pad\b")
 TEST_CLASS = re.compile(r"^(?:@\w+(?:\([^)]*\))?\s+)*(?:final\s+)?class\s+(\w+)\s*:\s*(?:ReliableUITestCase|XCTestCase)\b", re.M)
 TOP_LEVEL_TYPE = re.compile(r"^(?:@\w+(?:\([^)]*\))?\s+)*(?:(?:public|internal|private|fileprivate|final)\s+)*"
@@ -180,7 +189,19 @@ def configured_selectors():
     return selectors
 
 
-def plan(entries, root, changes):
+def conditional_compilation(diff_text):
+    """Files whose -U0 diff adds or removes an #if/#elseif/#else/#endif line in Swift."""
+    files, current = [], None
+    for line in diff_text.splitlines():
+        if line.startswith("+++ "):
+            current = line[6:] if line.startswith("+++ b/") else None
+        elif current and current.endswith(".swift") and not line.startswith(("+++", "---")) and CONDITIONAL.match(line):
+            if current not in files:
+                files.append(current)
+    return files
+
+
+def plan(entries, root, changes, diff_text=None):
     inventory = Inventory(root)
     missing = [s for s in configured_selectors() if not inventory.exists(s)]
     if missing:
@@ -195,6 +216,8 @@ def plan(entries, root, changes):
             if candidate.startswith(PLAN_ONLY):
                 reasons.append(f"{candidate}: Plan job or daily matrix only"); continue
             app = True
+            if candidate.endswith(RELEASE_SUFFIXES) or candidate.startswith(RELEASE_DIRS):
+                release = True; reasons.append(f"{candidate}: release-sensitive (settings, packaging, dependencies or entry)")
             if candidate.startswith(BUILD_ONLY):
                 reasons.append(f"{candidate}: build job deinit policy only"); continue
             ui = True
@@ -210,7 +233,7 @@ def plan(entries, root, changes):
                 unit = True; reasons.append(f"{candidate}: hosted bundle in the unit shard (iPad's run is daily)")
                 continue
             if candidate.startswith(PRODUCT_DIR):
-                unit = release = True
+                unit = True
                 name = Path(candidate).name
                 if candidate.startswith(NO_UI_DIRS) or candidate.endswith(NO_UI_SUFFIXES):
                     reasons.append(f"{candidate}: transport, proven by package and hosted tests"); continue
@@ -222,9 +245,13 @@ def plan(entries, root, changes):
                 for a in matched:
                     areas.add(a); reasons.append(f"{candidate}: {a} journeys")
                 continue
-            broad = True; reasons.append(f"{candidate}: build, project or workflow input → broad tier")
+            broad = release = True; reasons.append(f"{candidate}: build, project or workflow input → broad tier and Release")
+    if app and diff_text is None:
+        release = True; reasons.append("no line diff: Release-only code can't be ruled out")
+    for path in conditional_compilation(diff_text or ""):
+        release = True; reasons.append(f"{path}: adds or removes conditional compilation → Release build")
     if not ui:
-        return {"ui": [], "unit": False, "release": False, "ipad": False, "build": app,
+        return {"ui": [], "unit": False, "release": release, "ipad": False, "build": app,
                 "reasons": reasons or ["no app lanes"]}
     selected |= set(SMOKE)
     for a in areas:
@@ -272,14 +299,16 @@ def load_changes(root=ROOT):
 
 
 def main(argv, stdin=sys.stdin, stdout=sys.stdout, stderr=sys.stderr, root=ROOT):
-    manifest = argv[argv.index("--manifest") + 1] if "--manifest" in argv else None
-    args = [a for i, a in enumerate(argv) if a != "--manifest" and (i == 0 or argv[i - 1] != "--manifest")]
+    options = {"--manifest", "--diff"}
+    value = lambda name: argv[argv.index(name) + 1] if name in argv else None
+    manifest, diff = value("--manifest"), value("--diff")
+    args = [a for i, a in enumerate(argv) if a not in options and (i == 0 or argv[i - 1] not in options)]
     line = stdin.read().strip()
     if not line.startswith("ui-shards="):
         raise SystemExit("Expected a ui-shards= line on stdin")
     daily = json.loads(line[len("ui-shards="):])
     entries = parse_changes(Path(args[0]).read_text()) if args else []
-    decision = plan(entries, root, load_changes(root))
+    decision = plan(entries, root, load_changes(root), Path(diff).read_text(errors="replace") if diff else None)
     inventory = Inventory(root)
     matrix = pack(decision["ui"], decision["unit"], inventory)
     total = sum(entry["minutes"] for entry in matrix["include"])

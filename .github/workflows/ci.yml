@@ -6,8 +6,9 @@ on:
   pull_request:
     # Validate each mobile stack layer before its dependency lands on main.
     branches: [main, 'codex/mobile-*']
-  # The coalesced daily integration run takes every lane and UI class. Pull requests and pushes to main run a small
-  # pre-merge scope (scripts/ci/ui_scope.py); a `ci:full` label (then push or re-run) or a manual run takes them all.
+  # The coalesced daily run takes every lane, a fast UI core and one rotating slice of the extended UI inventory
+  # (scripts/ci/ui_tiers.py: every UI test at least weekly). Pull requests and pushes to main run a small pre-merge
+  # scope (scripts/ci/ui_scope.py); a `ci:full` label (then push or re-run) or a manual run takes every UI test.
   schedule:
     - cron: '23 10 * * *' # 10:23 UTC daily
   workflow_dispatch:
@@ -32,8 +33,9 @@ env:
 #
 # Pull requests and pushes to main run only the lanes their files need (scripts/ci/changes.py) and a small pre-merge
 # UI scope (scripts/ci/ui_scope.py): a fixed native smoke, the classes they edit and the critical journeys of the areas
-# they touch, with a broader tier for hubs and unknown files. The daily run, a manual run and the `ci:full` label run
-# every lane and UI class from scripts/ci/ui_shards.py.
+# they touch, with a broader tier for hubs and unknown files. The daily run takes every lane with the fast UI core and
+# today's extended slice (scripts/ci/ui_tiers.py); a manual run and the `ci:full` label run every lane and UI class
+# from scripts/ci/ui_shards.py.
 jobs:
   changes:
     name: Plan
@@ -77,19 +79,25 @@ jobs:
             SELECT=true  # one pushed commit (a squash merge) and its parent; anything else runs everything
           fi
           if [ "$SELECT" = true ]; then
-            # Statuses and renames come from one immutable local diff: the PR's merge commit against its base parent,
-            # or the pushed commit against its parent. No paginated or racing API file list.
+            # Statuses, renames and line hunks come from one immutable local diff: the PR's merge commit against its
+            # base parent, or the pushed commit against its parent. No paginated or racing API file list.
             git diff --name-status -M HEAD^1 HEAD > changed-files.txt
+            git diff -U0 -M HEAD^1 HEAD > changes.diff
             echo "Changed files:"; cat changed-files.txt
             cut -f2- changed-files.txt | tr '\t' '\n' | python3 scripts/ci/changes.py | tee -a "$GITHUB_OUTPUT"
             python3 scripts/ci/ui_shards.py \
-              | python3 scripts/ci/ui_scope.py changed-files.txt --manifest impact-manifest.json \
+              | python3 scripts/ci/ui_scope.py changed-files.txt --diff changes.diff --manifest impact-manifest.json \
+              | tee -a "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
+            python3 scripts/ci/ui_shards.py \
+              | python3 scripts/ci/ui_tiers.py --manifest impact-manifest.json \
               | tee -a "$GITHUB_OUTPUT"
           else
             python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
             python3 scripts/ci/ui_shards.py >> "$GITHUB_OUTPUT"
             printf 'ui=true\nipad=true\nrelease=true\nunit=true\n' >> "$GITHUB_OUTPUT"
-            echo '{"decision": {"full": true, "reason": "daily, manual, ci:full or multi-commit push"}}' > impact-manifest.json
+            echo '{"decision": {"full": true, "reason": "manual, ci:full or multi-commit push"}}' > impact-manifest.json
           fi
           # Lanes the selection doesn't need report as skipped; the CI result accepts success or skipped.
 

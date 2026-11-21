@@ -83,7 +83,7 @@ class SelectionWorkflowTests(unittest.TestCase):
 
     def test_changes_come_from_one_immutable_local_diff(self):
         self.assertIn("git diff --name-status -M HEAD^1 HEAD > changed-files.txt", self.workflow)
-        self.assertIn("python3 scripts/ci/ui_scope.py changed-files.txt --manifest impact-manifest.json", self.workflow)
+        self.assertIn("python3 scripts/ci/ui_scope.py changed-files.txt --diff changes.diff --manifest impact-manifest.json", self.workflow)
         self.assertIn("fetch-depth: 2", self.workflow)
         self.assertNotIn("/files", self.workflow, "No paginated, racing PR files API")
 
