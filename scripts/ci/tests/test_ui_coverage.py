@@ -56,6 +56,23 @@ class UIClassCoverageTests(unittest.TestCase):
     def test_future_classes_are_covered_once_by_the_catchall(self):
         self.assert_partition(ui_classes() | {"FutureUIRegressionTests"})
 
+    def test_text_links_including_saved_archive_use_the_headroom_lane_once(self):
+        inventory = ui_classes()
+        source = (ROOT / "Annex/AnnexUITests/CompanionTextLinkUITests.swift").read_text()
+        methods = set(re.findall(r"\bfunc\s+(test\w+)\s*\(\s*\)", source))
+        self.assertIn("testSavedSentAndReceivedRowsUseTheSameTapRoute", methods)
+        owners = [
+            entry["name"] for entry in shards.matrix()["include"]
+            if "CompanionTextLinkUITests" in selected_classes(entry, inventory)
+        ]
+        self.assertEqual(owners, ["UI tests (composer, sheets)"])
+        counts = collections.Counter(
+            method for entry in shards.matrix()["include"]
+            if "CompanionTextLinkUITests" in selected_classes(entry, inventory)
+            for method in methods
+        )
+        self.assertEqual(dict(counts), dict.fromkeys(methods, 1))
+
     def test_unknown_class_selector_fails(self):
         inventory = {"CurrentTests"}
         with self.assertRaises(AssertionError):
