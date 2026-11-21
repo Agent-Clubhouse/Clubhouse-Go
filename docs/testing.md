@@ -193,6 +193,22 @@ Landscape header tests require the composer actions to remain inside the keyboar
 speculative transcript space must not clip the footer. Package tests also cover bounded restoration exhaustion,
 generation/navigation cancellation, and the preview terminal's edits, interrupts and scoped size feedback.
 
+### Appearance matrix lane
+
+Some UI tests repeat one theme-independent layout in several themes only to capture screenshots. On every push they
+run one representative appearance. The scheduled `ui-appearance-nightly.yml` sets `CLUBHOUSE_UI_APPEARANCE_MATRIX=full`
+and runs every variant with the same assertions, retries and screenshots (`UIAppearanceMatrix.swift`):
+
+- The permission menu's portrait and XLarge loops. Native menu rows aren't themed: their frames matched across all
+  four themes in every sampled CI run. Every push measures Light (portrait) and Catppuccin Mocha (XLarge).
+- The pinned decision bar in dark, Latte and Mocha, and the dark largest-text request. Light, accessibility and the
+  standard largest-text request still run on every push.
+- The dark, Solarized Dark and Catppuccin Latte galleries for agent settings, spawn and managed spawn.
+- The dark and Catppuccin variants of the Needs you several-requests matrix. Light and XXXL run on every push.
+
+Contrast, color and theme-specific checks always run on every push. `scripts/ci/tests/test_appearance_matrix.py`
+fails if a method using the switch is missing from the nightly selection.
+
 ### Unicode focus integrity (#272)
 
 On an owned iPhone 17 simulator running iOS 26.0 (23A343), Xcode 26.0.1 (17A400), Swift 6.2,

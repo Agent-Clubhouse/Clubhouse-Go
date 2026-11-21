@@ -33,6 +33,7 @@ RULES = [
     # Scheduled workflows and their scripts; PR lanes never run them.
     (".github/workflows/e2e-nightly.yml", DOCS),
     (".github/workflows/annex-contract-drift.yml", DOCS),
+    (".github/workflows/ui-appearance-nightly.yml", DOCS),
     ("scripts/e2e-live*", DOCS),
     # SwiftPM-only test targets: the app's Xcode project never builds them.
     ("Tests/*", SWIFT),

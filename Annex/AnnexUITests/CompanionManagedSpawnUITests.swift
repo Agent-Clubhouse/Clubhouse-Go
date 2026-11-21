@@ -119,11 +119,15 @@ import XCTest
     }
 
     func testLightAppearance() throws { try appearance("light", flags: ["--companion-preview-light"]) }
-    func testDarkAppearance() throws { try appearance("dark", flags: ["--companion-preview-dark"]) }
+    func testDarkAppearance() throws {
+        try requireFullAppearanceMatrix("testDarkAppearance")
+        try appearance("dark", flags: ["--companion-preview-dark"])
+    }
     func testAccessibilityAppearance() throws {
         try appearance("accessibility XXXL", flags: ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
     }
     func testSolarizedDarkAppearance() throws {
+        try requireFullAppearanceMatrix("testSolarizedDarkAppearance")
         try appearance("Solarized Dark", flags: ["--companion-preview-dark"], colors: [
             "base": "#002b36", "mantle": "#00212b", "crust": "#001b24", "text": "#839496", "subtext0": "#657b83",
             "surface0": "#073642", "surface1": "#0a4050", "accent": "#268bd2", "accent2": "#2aa198",
@@ -131,6 +135,7 @@ import XCTest
         ])
     }
     func testCatppuccinLatteAppearance() throws {
+        try requireFullAppearanceMatrix("testCatppuccinLatteAppearance")
         try appearance("Catppuccin Latte", flags: ["--companion-preview-light"], colors: [
             "base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69", "subtext0": "#6c6f85",
             "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5", "accent2": "#209fb5",

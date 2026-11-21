@@ -38,7 +38,8 @@ class ChangesTests(unittest.TestCase):
     def test_scheduled_workflow_files_run_nothing(self):
         self.assertEqual(self.run_main([".github/workflows/e2e-nightly.yml", "scripts/e2e-live.sh",
                                         "scripts/e2e-live/desktop-fixture.spec.ts",
-                                        ".github/workflows/annex-contract-drift.yml"]),
+                                        ".github/workflows/annex-contract-drift.yml",
+                                        ".github/workflows/ui-appearance-nightly.yml"]),
                          {"swift": "false", "app": "false"})
 
     def test_package_tests_run_swift_only(self):

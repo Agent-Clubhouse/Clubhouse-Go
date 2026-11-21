@@ -36,9 +36,13 @@ import XCTest
     }
 
     func testLight() throws { try capture("light", appearance: "light") }
-    func testDark() throws { try capture("dark", appearance: "dark") }
+    func testDark() throws {
+        try requireFullAppearanceMatrix("testDark")
+        try capture("dark", appearance: "dark")
+    }
     func testAccessibility() throws { try capture("accessibility XXXL", appearance: "light", accessibility: true) }
     func testSolarizedDark() throws {
+        try requireFullAppearanceMatrix("testSolarizedDark")
         try capture("Solarized Dark", appearance: "dark", colors: [
             "base": "#002b36", "mantle": "#00212b", "crust": "#001b24", "text": "#839496", "subtext0": "#657b83",
             "surface0": "#073642", "surface1": "#0a4050", "accent": "#268bd2", "accent2": "#2aa198",
@@ -46,6 +50,7 @@ import XCTest
         ])
     }
     func testCatppuccinLatte() throws {
+        try requireFullAppearanceMatrix("testCatppuccinLatte")
         try capture("Catppuccin Latte", appearance: "light", colors: [
             "base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69", "subtext0": "#6c6f85",
             "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5", "accent2": "#209fb5",

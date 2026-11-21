@@ -1,0 +1,98 @@
+name: UI appearance matrix (nightly)
+
+# Theme-only appearance variants that repeat a layout already measured on every push (UIAppearanceMatrix.swift).
+# Pull requests and pushes run one representative of each. This scheduled lane runs every variant, with the same
+# assertions, retries and screenshots, so the full theme gallery is still checked daily. It never runs on PRs.
+on:
+  schedule:
+    - cron: '41 9 * * *' # 09:41 UTC nightly, after the live E2E slot
+  workflow_dispatch:
+
+concurrency:
+  group: ui-appearance-nightly
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PROJECT: Annex/Annex.xcodeproj
+  SCHEME: ClubhouseGo
+
+jobs:
+  appearance:
+    name: UI appearance matrix
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ./.github/actions/setup-xcode
+        with:
+          boot-simulator: 'true'
+
+      - name: Cache Swift package checkouts
+        uses: actions/cache@v4
+        with:
+          path: SourcePackages
+          key: xcode-spm-${{ hashFiles('Package.resolved', 'Annex/Annex.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved') }}
+
+      - name: Build for testing
+        run: |
+          xcodebuild build-for-testing \
+            -project "$PROJECT" \
+            -scheme "$SCHEME" \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath DerivedData \
+            -clonedSourcePackagesDirPath SourcePackages \
+            ARCHS=arm64 \
+            CODE_SIGNING_ALLOWED=NO \
+            ASSETCATALOG_COMPILER_SKIP_MIGRATION_CHECK=YES \
+            -quiet
+
+      - name: Wait for simulator boot
+        timeout-minutes: 5
+        run: python3 scripts/ci/wait_simulator.py "$SIMULATOR_UDID"
+
+      - name: Skip first-use keyboard education on the test simulator
+        run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
+
+      # Same retry and verification policy as the PR UI shards; only the selection and the matrix switch differ.
+      - name: Run the full appearance matrix
+        env:
+          TEST_RUNNER_CLUBHOUSE_UI_APPEARANCE_MATRIX: full
+        run: |
+          xcodebuild test-without-building \
+            -xctestrun "$(ls DerivedData/Build/Products/*.xctestrun)" \
+            -destination "$DEST" \
+            -only-testing:ClubhouseGoUITests/CompanionPermissionMenuUITests/testPortraitEveryLevelFitsWithoutScrollingAcrossThemes \
+            -only-testing:ClubhouseGoUITests/CompanionPermissionMenuUITests/testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes \
+            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard \
+            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testDarkDecisionBar \
+            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLatteDecisionBar \
+            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testMochaDecisionBar \
+            -only-testing:ClubhouseGoUITests/CompanionAgentSettingsVisualUITests \
+            -only-testing:ClubhouseGoUITests/CompanionSpawnVisualUITests \
+            -only-testing:ClubhouseGoUITests/CompanionManagedSpawnUITests/testDarkAppearance \
+            -only-testing:ClubhouseGoUITests/CompanionManagedSpawnUITests/testSolarizedDarkAppearance \
+            -only-testing:ClubhouseGoUITests/CompanionManagedSpawnUITests/testCatppuccinLatteAppearance \
+            -only-testing:ClubhouseGoUITests/CompanionNeedsYouActionCardUITests/testSeveralRequestsAndDesktopsAppearanceMatrix \
+            -parallel-testing-enabled NO \
+            -retry-tests-on-failure \
+            -test-iterations 3 \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -resultBundlePath TestResults/UITests.xcresult \
+            2>&1 | tee xcodebuild-ui.log || true
+
+          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "UI appearance matrix (nightly)"
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-appearance-results
+          path: |
+            TestResults
+            xcodebuild-*.log
+          retention-days: 14
