@@ -108,6 +108,22 @@ The method count is unchanged in every row. Sampled is the number of methods wit
 
 Pending the first PR run. Report actual durations for all eight shards and the Release job in the PR; compare Release against the audit median of 8.1 minutes per job (443 seconds for the build step). No speedup is promised before measurement.
 
+## Text-link coverage recovery, November 20
+
+The catchall in #615's original run, and in the current #617/#619 runs, stopped before any of the six `CompanionTextLinkUITests` methods started. Move that whole, unchanged class to the existing composer/sheets lane. Its saved-conversation method remains included: both `archive-sent` and `archive-received` still exercise the native Saved links path. The exact-once control checks every discovered method, including that archive case, against the emitted selectors. The catchall automatically skips the class; it still covers future classes. No lane, job, timeout, retry, assertion, fixture or native test method is added or changed.
+
+Observed job wall times include setup, tests and result handling:
+
+| Existing lane | #617 run 44853082221 | #619 run 44853095840 | Smallest headroom below 55m |
+| --- | ---: | ---: | ---: |
+| Preview/project pages | 51m03s | 49m38s | 3m57s |
+| Composer/sheets | 37m55s | 35m57s | 17m05s |
+| Unicode/home | 39m51s | 29m42s | 15m09s |
+
+Both composer/sheets observations succeeded. Preview is too close to its limit to receive this class. The six link methods contain thirteen successful-path fixture launches; the existing unsampled policy reserves 60 seconds per scenario, or 13 minutes, leaving an estimated 4m05s against the slower composer observation. That reserve is not a measured link duration or a guarantee. `launchApp` still uses its existing 240-second allowance, and slow native calls or retries can exhaust the unchanged job budget. Record every method's actual first outcome on the new head before accepting coverage or performance.
+
+These routing observations do not erase the existing Footer, header-detail or permission failures, establish a green aggregate, or transfer an older feature receipt to a changed head. The common released main is already an ancestor of #615, #617 and #619; this recovery does not require a new main merge or a #620 dependency.
+
 ## Unsigned Release device SDK
 
 A separate commit switches only the Release job destination from `generic/platform=iOS Simulator` to `generic/platform=iOS`, retaining the Release configuration, project/scheme and `CODE_SIGNING_ALLOWED=NO`. This gains the shipping arm64 iOS device SDK compile with Release optimization and conditional paths, for the configured iPhone and iPad families. It deliberately loses the Release-configuration compile of both simulator slices (arm64 and x86_64). Debug simulator builds, hosted/UI/iPad tests and all existing gate/timeout/retry rules remain unchanged. No archive, signing, launch or install is added.
