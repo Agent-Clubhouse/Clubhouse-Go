@@ -29,7 +29,11 @@ def body(text: str, signature: str) -> str:
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--ref", help="Read the exact source from an immutable Git revision instead")
+    parser.add_argument("--baseline", action="store_true",
+                        help="Counterfactual old immediate assertions; delayed positive must still fail")
     args = parser.parse_args()
+    if args.baseline and not args.ref:
+        parser.error("--baseline requires an explicit --ref")
     source = (subprocess.check_output(["git", "show", f"{args.ref}:{SOURCE}"], cwd=ROOT).decode()
               if args.ref else (ROOT / SOURCE).read_text())
     test = body(source, "    func testCheckingFlowsIntoLiveDownloadAndReadyInTheHostedViewWithoutCreatingAnApproval()")
@@ -47,13 +51,29 @@ struct Host { var appUpdate: Update?; var appUpdateApproval: String? = nil }
     var appUpdateChecksInFlight: Set<String> = []
     func apply(_ update: Update) { hosts[0].appUpdate = update }
 }
-@MainActor var issues: [String] = []
-@MainActor func XCTFail(_ message: String) { issues.append(message) }
-@MainActor func XCTAssertEqual<T: Equatable>(_ actual: T, _ expected: T) {
-    if actual != expected { issues.append("equality: \(actual) != \(expected)") }
+enum Issue: Equatable, CustomStringConvertible {
+    case state, percentage, inFlight, approval, wait(String), thrown(String)
+    var description: String {
+        switch self {
+        case .state: return "original state assertion"
+        case .percentage: return "original percentage assertion"
+        case .inFlight: return "original in-flight assertion"
+        case .approval: return "original approval assertion"
+        case .wait(let message): return "wait helper: \(message)"
+        case .thrown(let message): return "unexpected throw: \(message)"
+        }
+    }
 }
-@MainActor func XCTAssertTrue(_ value: Bool) { if !value { issues.append("not true") } }
-@MainActor func XCTAssertNil<T>(_ value: T?) { if value != nil { issues.append("not nil") } }
+@MainActor var issues: [Issue] = []
+@MainActor func XCTFail(_ message: String) { issues.append(.wait(message)) }
+@MainActor func XCTAssertEqual(_ actual: State?, _ expected: State?) {
+    if actual != expected { issues.append(.state) }
+}
+@MainActor func XCTAssertEqual(_ actual: Double?, _ expected: Double?) {
+    if actual != expected { issues.append(.percentage) }
+}
+@MainActor func XCTAssertTrue(_ value: Bool) { if !value { issues.append(.inFlight) } }
+@MainActor func XCTAssertNil<T>(_ value: T?) { if value != nil { issues.append(.approval) } }
 
 actor Gate {
     private var opened = false
@@ -76,7 +96,11 @@ POST_JOIN
 WAIT_HELPER
 
 @main struct Controls {
-    @MainActor static func run(_ name: String, final: Update?, shouldPass: Bool) async -> Bool {
+    private static let baseline = BASELINE_MODE
+    enum Scenario: String {
+        case delayed = "delayed ready/100", dropped = "dropped final delivery", wrong = "ready with wrong progress"
+    }
+    @MainActor static func run(_ scenario: Scenario, final: Update?) async -> Bool {
         let store = EventStore()
         let gate = Gate()
         let stream = AsyncStream<Update>.makeStream()
@@ -94,37 +118,50 @@ WAIT_HELPER
               store.hosts[0].appUpdate?.downloadProgress == 50 else {
             print("FAIL publisher completion control"); return false
         }
-        print("OBSERVED \(name): publisher finished, Store still downloading/50")
+        print("OBSERVED \(scenario.rawValue): publisher finished, Store still downloading/50")
         issues.removeAll()
         let release = Task {
             try? await Task.sleep(for: .milliseconds(20))
             await gate.open()
         }
+        var helperThrew = false
         do { try await verifyPostJoin(store, checking) }
-        catch { if issues.isEmpty { issues.append("threw \(error)") } }
-        let accepted = issues.isEmpty
+        catch AnnexTransportError.disconnected { helperThrew = true }
+        catch { issues.append(.thrown(String(describing: error))) }
+        // Classify at the observation boundary, BEFORE finish/open/join can deliver a later value.
         let captured = issues
+        let observed = store.hosts[0].appUpdate
+        let ready100 = observed?.state == .ready && observed?.downloadProgress == 100
+        let ready50 = observed?.state == .ready && observed?.downloadProgress == 50
+        let downloading50 = observed?.state == .downloading && observed?.downloadProgress == 50
+        let correct: Bool
+        switch scenario {
+        case .delayed:
+            correct = captured.isEmpty && !helperThrew && ready100
+        case .dropped:
+            correct = baseline
+                ? captured == [.state, .percentage] && !helperThrew && downloading50
+                : captured == [.wait("The synthetic desktop did not publish its update state")] && helperThrew && downloading50
+        case .wrong:
+            correct = baseline
+                ? captured == [.state, .percentage] && !helperThrew && downloading50
+                : captured == [.percentage] && !helperThrew && ready50
+        }
         stream.continuation.finish()
         await release.value
         await listener.value
-        let correct = accepted == shouldPass
-        print("\(correct ? "PASS" : "FAIL") \(name): accepted=\(accepted), issues=\(captured)")
-        if name == "ready with wrong progress" {
-            // In the candidate this reaches the unchanged percentage assertion after real model delivery.
-            guard store.hosts[0].appUpdate?.state == .ready,
-                  store.hosts[0].appUpdate?.downloadProgress == 50 else { return false }
-        }
+        print("\(correct ? "PASS" : "FAIL") \(scenario.rawValue): issues=\(captured), helperThrew=\(helperThrew), observed=\(String(describing: observed?.state))/\(String(describing: observed?.downloadProgress))")
         return correct
     }
     static func main() async {
-        let delayed = await run("delayed ready/100", final: Update(state: .ready, downloadProgress: 100), shouldPass: true)
-        let dropped = await run("dropped final delivery", final: nil, shouldPass: false)
-        let wrong = await run("ready with wrong progress", final: Update(state: .ready, downloadProgress: 50), shouldPass: false)
+        let delayed = await run(.delayed, final: Update(state: .ready, downloadProgress: 100))
+        let dropped = await run(.dropped, final: nil)
+        let wrong = await run(.wrong, final: Update(state: .ready, downloadProgress: 50))
         if !delayed || !dropped || !wrong { exit(1) }
         print("APP_UPDATE_DELIVERY_CONTROLS PASS")
     }
 }
-'''.replace("POST_JOIN", post_join).replace("WAIT_HELPER", wait)
+'''.replace("POST_JOIN", post_join).replace("WAIT_HELPER", wait).replace("BASELINE_MODE", str(args.baseline).lower())
     build = ROOT / ".build"
     build.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="app-update-delivery-", dir=build) as directory:
