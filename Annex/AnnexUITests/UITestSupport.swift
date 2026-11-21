@@ -394,40 +394,40 @@ class ReliableUITestCase: XCTestCase {
         XCTWaiter().wait(for: [XCTNSPredicateExpectation(predicate: predicate, object: element)], timeout: timeout) == .completed
     }
 
-    /// Upper bound for a field's accessibility value to publish text that `typeText` has already delivered. #237
-    /// set 10s for the same lag (#234). Run 44776415205 (e334c3cf) failure trees, taken about 0.5–3.5s after
-    /// each early read with no further input, show the complete text with keyboard focus. Unicode slash, an
-    /// earlier 5s waiter, matched exact bytes about 5s after typing.
+    /// Observation admission budget, not a completion bound for a synchronous accessibility request.
     nonisolated static let typedValuePublicationBudget: TimeInterval = 10
 
-    /// Asserts that `field` publishes exactly `expected` after text was typed ONCE. Call it straight after the
-    /// single `typeText`, in place of an immediate `XCTAssertEqual(field.value as? String, expected)`.
-    ///
-    /// Hosted iOS 26.5 can return `typeText` and report the app idle before the field's accessibility value
-    /// includes the last characters. #234's instrumented failure recorded all ten UIKit insertions with focus
-    /// held while AX still read `Still he`. In run 44776415205, reads of `Ec`, `Keep this dra`,
-    /// `After foregroun` and `H` came back while later trees showed the full string.
-    ///
-    /// This only waits for the observation and never hides a loss. Nothing retypes, so a dropped, extra or
-    /// reordered character never matches and still fails here. The comparison is on UTF-8 bytes, stricter than
-    /// `String ==`'s canonical equivalence. There is no prefix or partial acceptance. Every distinct value
-    /// observed is in the failure message, which tells a still-growing prefix from a wrong value.
+    /// Observes exact UTF-8 bytes without typing again. Each caller still needs evidence and authority for
+    /// replacing its immediate observation with a wait. One timely match is not proof of historical input
+    /// delivery or later durability. A blocking AX read cannot be interrupted; a late result cannot pass.
     func assertTypedValue(_ field: XCUIElement, equals expected: String,
                           timeout: TimeInterval = ReliableUITestCase.typedValuePublicationBudget,
                           _ message: String = "", file: StaticString = #filePath, line: UInt = #line) {
-        let deadline = Date().addingTimeInterval(timeout)
+        let clock = ContinuousClock()
+        let started = clock.now
+        let deadline = started.advanced(by: .seconds(timeout))
+        let expectedBytes = Array(expected.utf8)
         var observed: [String?] = []
-        var value: String?
-        repeat {
-            value = field.value as? String
-            if observed.last != .some(value) { observed.append(value) }
-            if let value, Array(value.utf8) == Array(expected.utf8) { return }
-            if Date() >= deadline { break }
-            Thread.sleep(forTimeInterval: 0.1)
-        } while true
+        var previousBytes: [UInt8]?
+        var hasObservation = false
+        while clock.now < deadline {
+            let value = field.value as? String
+            let bytes = value.map { Array($0.utf8) }
+            if !hasObservation || previousBytes != bytes { observed.append(value) }
+            previousBytes = bytes
+            hasObservation = true
+            guard clock.now < deadline else { break }
+            if bytes == expectedBytes { return }
+            let remaining = clock.now.duration(to: deadline).components
+            let seconds = Double(remaining.seconds) + Double(remaining.attoseconds) / 1e18
+            guard seconds > 0 else { break }
+            Thread.sleep(forTimeInterval: min(0.1, seconds))
+        }
         let trail = observed.map { $0.map { "\"\($0)\"" } ?? "nil" }.joined(separator: " → ")
-        XCTFail("\(message.isEmpty ? "" : message + ": ")typed value never published exactly \"\(expected)\" within "
-                + "\(timeout)s; observed \(trail)", file: file, line: line)
+        XCTFail("\(message.isEmpty ? "" : message + ": ")no exact typed value \"\(expected)\" observed before "
+                + "\(timeout)s admission deadline; elapsed \(started.duration(to: clock.now)); "
+                + "synchronous AX reads may finish later; observed \(trail.isEmpty ? "no reads admitted" : trail)",
+                file: file, line: line)
     }
 
     /// Stability needs two observations of one frame. On hosted runners one portrait evaluation (existence, frame
