@@ -3,7 +3,7 @@
 The hosted grant navigation case answered the desktop update and removed its
 chat request card, then failed to find Needs you. On d5f95a58, the three original
 failure hierarchies retain Dispatcher navigation and a collapsed native tab bar
-with only selected Dispatch (value `Collapsed, Selected`). Needs you is absent.
+with selected Dispatch (value `Collapsed, Selected`) alongside Search. Needs you is absent.
 The existing waitAndTap stops before any destination tap in that state.
 
 The private grant-test helper now expands only an existing, selected, hittable
