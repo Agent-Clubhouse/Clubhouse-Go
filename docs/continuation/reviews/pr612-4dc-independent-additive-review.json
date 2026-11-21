@@ -1,0 +1,93 @@
+{
+  "reviewer": "go-bug-runner",
+  "scope": "PR612 target-specific exact Permission component carry, not full design or new-head runtime review",
+  "verdict": "PASS_ADDITIVE_SOURCE_ONLY",
+  "head": "4dc73e81ffdb16b67c3ace66da0898fbd0487952",
+  "tree": "27c636e438d49fee08b97fd3fdb31cad24ce6e2e",
+  "direct_parent": "778657aceac306fb0dea2a96bd60dc4afdfc6818",
+  "files": [
+    {
+      "path": "Annex/AnnexUITests/CompanionPermissionMenuUITests.swift",
+      "mode": "100644",
+      "blob": "999bf3292f5b75e4a351f03516dccae6c8fea9c0",
+      "bytes": 29209,
+      "sha256": "eb76483fdf503aff4838ed54e19b8987187b268067941db8d289e62711fc79b4"
+    },
+    {
+      "path": "docs/pr612-permission-landscape-carry.md",
+      "mode": "100644",
+      "blob": "668595e069a48a3e154a1b0dc16c198132fdcdb3",
+      "bytes": 2196,
+      "sha256": "cd838df3b575c0684db9af3d896534985ee9e628051d2392bf284eefd87b0bec"
+    }
+  ],
+  "full_tracked_mode_blob_inventory": {
+    "parent": 747,
+    "candidate": 748,
+    "only_changes": "Permission file modification and one new direct documentation file",
+    "every_other_entry_exact_parent": true
+  },
+  "unchanged_FeedbackTriggers_fullfile": {
+    "blob": "cadcdf91fccbd1e69742049a7c898fb3e8a544f7",
+    "bytes": 35180,
+    "sha256": "3c819498d06216230618e5833c063c085d56de5406b163580e412583570b0045",
+    "tail_ownership_and_deadline_helpers": "Every byte exact778, including original1864B postcancel/held/queue/separateSend tail previously reviewed in6fb. No feedback consent/fixture/product policy changes."
+  },
+  "accepted_component_identity": {
+    "full_bytes_equal": [
+      "4ca357ad49c2ae428cc607eff431f42749a11d89",
+      "3569f0ba0375954d71bd63ec06d629eedf2d501b"
+    ],
+    "prior_receipt": "80f31961b91bb41f98d4dfe2d883eefb998054aa",
+    "prior_receipt_bytes": 11300,
+    "prior_receipt_sha256": "fadc1a8fd3cb924a563c528ca0b84b55d1c66c98767fd351d83b266d52a63080",
+    "prior_receipt_full_rehashed": true,
+    "inventory": "All seven original Permission method names retained plus accepted testNativePermissionContextRejectsUnloadedClippedAndCrossedLayouts regression, eight total; no new component logic beyond exact accepted file."
+  },
+  "actual_target_original_attribution": {
+    "run": 44862191194,
+    "job": 136730420828,
+    "job_name": "UI tests (search, permissions)",
+    "API_head": "778657aceac306fb0dea2a96bd60dc4afdfc6818",
+    "attempt": 1,
+    "conclusion": "failure",
+    "actual_tested_merge": "6f220cabef435772fab69847e162af04aff1b049",
+    "actual_tested_merge_tree": "8f2e33fd751c17fad45cd9c3cb1b008c346bc7d3",
+    "actual_tested_merge_parents": [
+      "cadce0a4575227a5ad24a6956f819f42913446d8",
+      "778657aceac306fb0dea2a96bd60dc4afdfc6818"
+    ],
+    "Feedback_and_Permission_tested_files_exact778": true,
+    "original_blob": "1c60368e1a2b637d4f876385cd44416f6ae374ce",
+    "original_bytes": 1055698,
+    "original_sha256": "3c257e8090980049486101d73dbd40483216d78d6d23ba76d6150e305f12d99f",
+    "fresh_direct_GitHub_job_log_bytes_equal_entire_blob": true,
+    "first_Feedback_methods": "All thirteen native source method names independently matched: exactly one Iteration1 start and one PASS terminal each; no missing start, interruption or retry borrowed.",
+    "held_first_seconds": 41.813,
+    "sole_Permission_case_failure": "testLandscapeEveryLevelIsReachableAndFullAccessStillConfirms",
+    "failure_source": "CompanionPermissionMenuUITests.swift:74",
+    "assertion": "Permissions != Auto-accept edits",
+    "first_failure_seconds": 56.313,
+    "separate_retry_failure_seconds": [31.887, 31.822],
+    "only_XCTest_assertion_error_lines": "Three, same landscape title error. First remains FAIL; retries do not erase it.",
+    "private_original_and_first_rows_preserved": true
+  },
+  "checks": [
+    "Full direct-parent/tree identity and complete tracked mode/blob comparison",
+    "Full accepted Permission component byte equality, not abbreviated diff or selector-only proxy",
+    "Complete direct documentation read; distinguishes prior component/current target and queued iPad acceptance",
+    "Original full job API identity and exact full direct-log comparison",
+    "Actual tested merge target-file attribution",
+    "Thirteen Feedback first-start/terminal matches and three separate landscape failures",
+    "Git diff --check PASS"
+  ],
+  "findings": [],
+  "limits": [
+    "Additive source-only verdict on exact4dc vs direct778; does not accept arbitrary other carries or inherited full package/current aggregate.",
+    "Prior80f source receipt and old136135075435 eight Permission firstPASS are component history, not4dc native/SDK/aggregate acceptance. No new design or native re-audit performed.",
+    "Original778 iPhone thirteen firstPASS applies to actual6f220 tested merge, not iPad or automatically to a changed candidate. No AX/movie/pixel/native root-cause inference from title mismatch.",
+    "No current iPad observation performed: author owns existing watch. Preserve pending778 iPad first outcome where possible; publication sequencing remains author/parent responsibility, with exact shared head guards.",
+    "All eight candidate Permission methods plus required exact-head hosted/iPad/aggregate checks remain gates; no rerun, retry or timeout/allowance waiver.",
+    "No reviewer native/SUT/SDK/package/simulator/FIFO/CI/new helper/source edit/shared-ref publication. Evidence stays private ownGit/local; no remote custody presumed."
+  ]
+}
