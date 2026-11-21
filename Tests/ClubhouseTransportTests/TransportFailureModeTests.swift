@@ -589,31 +589,35 @@ private final class SignallingClock: @unchecked Sendable {
     }
 }
 
-/// Wait up to 10 seconds of wall time for scheduled work's actual condition, re-checking it after every
-/// observed state change instead of polling a sleep. A sleep-based waiter could resume past the deadline and
-/// give up without looking again, even though the condition already held (#611). Timeout is now declared only
-/// by a check that started at or after the deadline, so a late wake-up still gets one final look.
+/// Re-check after observable changes, accepting readiness only when observed before the 10-second deadline.
+/// Executor scheduling can delay timeout reporting, but must not admit a late condition.
 private func settle(on changes: StateChanges, _ done: () async -> Bool, state: (() async -> String)? = nil) async throws {
+    try Task.checkCancellation()
     let started = ContinuousClock.now
     let deadline = started.advanced(by: .seconds(10))
     var checks = 0
     var lastCheck = started
-    let held: Bool = await withTaskGroup(of: Void.self) { group in
+    let held: Bool = try await withThrowingTaskGroup(of: Void.self) { group in
         // Wakes the loop at the deadline even if nothing else changes.
-        group.addTask { try? await Task.sleep(until: deadline, clock: .continuous); changes.signal() }
+        group.addTask { try await Task.sleep(until: deadline, clock: .continuous); changes.signal() }
         defer { group.cancelAll() }
-        while !Task.isCancelled {
+        while true {
+            try Task.checkCancellation()
             let seen = changes.current
-            checks += 1
             lastCheck = .now
-            if await done() { return true }
             if lastCheck >= deadline { return false }
+            checks += 1
+            let ready = await done()
+            try Task.checkCancellation()
+            if ContinuousClock.now >= deadline { return false }
+            if ready { return true }
             await changes.wait(past: seen)
         }
-        return false
     }
+    try Task.checkCancellation()
     if held { return }
     let observed = await state?() ?? ""
+    try Task.checkCancellation()
     Issue.record("Scheduled condition did not become true within 10 seconds (\(checks) checks, \(changes.current) state changes, final check started \(started.duration(to: lastCheck)) after the wait began)\(observed.isEmpty ? "" : "; " + observed); waitElapsed=\(started.duration(to: .now))")
     throw ScheduledConditionTimeout()
 }
