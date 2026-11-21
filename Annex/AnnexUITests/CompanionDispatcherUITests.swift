@@ -315,8 +315,13 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         _ = paste.waitForExistence(timeout: 1)
         waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
         paste.tap()
-        // Focused UITextView AX values can lag the visibly pasted text on iOS 26.5. Reopening also proves
-        // the complete raw delivery reached the draft binding, rather than only the UIKit editor.
+        // Native plain-text paste loads asynchronously. Leave editing, then require completion before Back.
+        // The focused UITextView AX value can lag, so use the existing real keyboard-dismissal gesture.
+        dismissKeyboard(app)
+        let pasted = app.textFields["companion-composer"]
+        XCTAssertTrue(waitFor(pasted, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "System Paste completes with the entire raw delivery before navigation")
+        // Reopening separately proves the complete raw delivery reached the saved draft binding.
         app.navigationBars.buttons.firstMatch.tap()
         XCTAssertTrue(river.waitForExistence(timeout: 10))
         XCTAssertTrue(scrollTo(river, in: app))
