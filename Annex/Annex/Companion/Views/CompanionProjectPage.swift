@@ -323,7 +323,7 @@ struct CompanionLinkedProjectStateMenuItems: View {
     }
 }
 
-private struct CompanionSingleProjectStateMenuItems: View {
+struct CompanionSingleProjectStateMenuItems: View {
     @Bindable var store: CompanionStore
     let preferences: CompanionPreferences
     let entry: CompanionProjectEntry
@@ -370,8 +370,9 @@ private struct CompanionSingleProjectStateMenuItems: View {
         .disabled(state != nil && !entry.host.connection.canOperate)
     }
 
-    private func change(local: () -> Void, remote: @escaping () async -> Void) {
-        guard let current = store.projectEntry(containing: entry.id) else { return }
+    func change(local: () -> Void, remote: @escaping () async -> Void) {
+        guard let current = store.resolveProjectActionEntry(containing: entry.id,
+            expectedLinkID: legacyLinkID ?? entry.linkID) else { return }
         if current.isLinked {
             // Only the explicitly rendered old-host group may use per-copy state. Recheck
             // authority and identity at the action, so a stale menu cannot bypass migration.

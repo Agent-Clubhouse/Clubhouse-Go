@@ -169,10 +169,8 @@ import Testing
         await harness.transport.emit(snapshot(true))
         try await harness.waitUntil { harness.store.agent(for: harness.target)?.hasSession == true }
         #expect(harness.store.wakeChoices(for: harness.target).count == 2)
-        guard case .object(var result) = try ContractFixtures.body("agent-settings.json") else { Issue.record("Missing settings"); return }
-        result["sessionReset"] = .bool(true)
-        await harness.transport.enqueue(.completed(.object(result)))
-        _ = try await harness.store.updateSettings(.init(orchestrator: "codex-cli"), target: harness.target)
+        // An independently initiated desktop reset still updates wake choices.
+        // Generic provider updates are no longer a mobile path to session reset.
         await harness.transport.emit(snapshot(false))
         try await harness.waitUntil { harness.store.agent(for: harness.target)?.hasSession == false }
         #expect(harness.store.wakeChoices(for: harness.target) == [.newSession])
