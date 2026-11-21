@@ -167,6 +167,14 @@ struct CompanionDesktopConnectionBanner: View {
         let retry: () -> Void
     }
     var hostedTestSeam: ((HostedTestSeam) -> Void)? = nil
+    /// Hosted geometry checks read the actual Retry and card frames, and hide Retry at the same layout
+    /// so the pixels it alone draws can be isolated without assuming its style or color.
+    struct GeometrySeam {
+        var hidesRetry = false
+        var retryFrame: ((CGRect) -> Void)? = nil
+        var cardFrame: ((CGRect) -> Void)? = nil
+    }
+    var geometrySeam: GeometrySeam? = nil
     #endif
 
     var body: some View {
@@ -188,11 +196,18 @@ struct CompanionDesktopConnectionBanner: View {
                             Text("Retry").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
                         }
                         .buttonStyle(.bordered).buttonBorderShape(.capsule)
+                        #if DEBUG
+                        .opacity(geometrySeam?.hidesRetry == true ? 0 : 1)
+                        .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.retryFrame?($0) }
+                        #endif
                         .disabled(retryDisabled(notice.retryHostIDs))
                         .accessibilityLabel(notice.retryLabel)
                         .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
                     }
                 }
+                #if DEBUG
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.cardFrame?($0) }
+                #endif
                 .accessibilityElement(children: .contain)
             }
         }
