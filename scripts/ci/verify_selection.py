@@ -6,7 +6,9 @@ verify-xcresult.py checks that what ran passed. This checks that what was planne
 - a result of Skipped is accepted only for a method whose source has a documented skip guard (an XCTSkip call or the
   appearance-matrix switch, in the method or in its class's setUp/setUpWithError, which gates every method); any
   other skip is an unexpected non-execution;
-- a target-level selection (the catch-all) produced at least one executed (not skipped) case in that bundle.
+- a target-level UI selection expands every source UI class/method, respecting its explicit exclusions;
+- a target-level hosted selection produced at least one executed (not skipped) case in that bundle (the complete
+  xcresult verifier also retains its original strict no-retry policy).
 So a narrowed matrix can't hide a missing class, a missing method or an unintended skip behind other passing results.
 
 Usage: verify_selection.py "<selection flags>" <tests.json from `xcresulttool get test-results tests`> [<source root>]
@@ -75,6 +77,11 @@ def declared(root, bundle, suite):
 def problems(selection, tests_json, root):
     ran = results(tests_json)
     issues = []
+    flags = [flag.split(":", 1) for flag in selection.split()]
+    skipped = [selector for mode, selector in flags if mode == "-skip-testing"]
+    def excluded(bundle, suite, method):
+        return any(s in (bundle, f"{bundle}/{suite}", f"{bundle}/{suite}/{method}") for s in skipped)
+
     for flag in selection.split():
         mode, selector = flag.split(":", 1)
         if mode != "-only-testing":
@@ -85,20 +92,32 @@ def problems(selection, tests_json, root):
             executed = sum(1 for (b, _), cases in ran.items() if b == bundle for r in cases.values() if r != "Skipped")
             if not executed:
                 issues.append(f"{bundle} was selected but executed no test case")
-            continue
-        expected = declared(root, bundle, suite)
-        if expected is None:
-            issues.append(f"{bundle}/{suite} was selected but its source class was not found")
-            continue
-        if method:
-            expected = {method: expected.get(method, False)}
-        actual = ran.get((bundle, suite), {})
-        for name, guarded in sorted(expected.items()):
-            outcome = actual.get(name)
-            if outcome is None:
-                issues.append(f"{bundle}/{suite}/{name} was selected but produced no result")
-            elif outcome == "Skipped" and not guarded:
-                issues.append(f"{bundle}/{suite}/{name} was skipped without a documented skip guard")
+            if bundle != "ClubhouseGoUITests":
+                continue
+            # The catch-all must prove its full source inventory, not just one
+            # successful case. Whole-class exclusions retain their original owner.
+            suites = set()
+            for source in (root / SOURCES[bundle]).glob("*.swift"):
+                suites.update(re.findall(r"\bclass\s+(\w+)\s*:\s*(?:ReliableUITestCase|XCTestCase)\b",
+                                         code_only(source.read_text(errors="replace"))))
+            expected_suites = [(name, declared(root, bundle, name)) for name in sorted(suites)]
+        else:
+            expected_suites = [(suite, declared(root, bundle, suite))]
+        for suite, expected in expected_suites:
+            if expected is None:
+                issues.append(f"{bundle}/{suite} was selected but its source class was not found")
+                continue
+            if method:
+                expected = {method: expected.get(method, False)}
+            actual = ran.get((bundle, suite), {})
+            for name, guarded in sorted(expected.items()):
+                if excluded(bundle, suite, name):
+                    continue
+                outcome = actual.get(name)
+                if outcome is None:
+                    issues.append(f"{bundle}/{suite}/{name} was selected but produced no result")
+                elif outcome == "Skipped" and not guarded:
+                    issues.append(f"{bundle}/{suite}/{name} was skipped without a documented skip guard")
     return issues
 
 

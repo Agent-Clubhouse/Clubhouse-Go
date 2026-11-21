@@ -15,108 +15,122 @@ import sys
 UI_TARGET = "ClubhouseGoUITests"
 UNIT_TARGET = "ClubhouseGoTests"
 
-# Estimates use first-attempt method medians from the 2026-11-16 CI audit.
-# Unsampled methods reserve 60s per appearance/checked viewport; add 5m setup and
-# 5m for hosted tests in the unit shard. These are estimates, not timeout gates.
-# See docs/ci-shard-balance.md for the unchanged inventory and measurement limits.
+# Source and cost provenance, unknown-duration and retry sensitivity are recorded in
+# docs/ci-execution-budget.md. Placement changes no class/method, retry, timeout,
+# iPad repeat, hosted bundle or required check. Timings are estimates, not waivers.
+# Same eight jobs, balanced over the complete retained class inventory.
 SHARDS = [
     {
-        # Estimated elapsed: 41.0 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (preview, project pages)",
         "tests": [
+            "CompanionAgentSettingsVisualUITests",
+            "CompanionCombinedLinkedHomeUITests",
+            "CompanionHardwareKeyboardUITests",
+            "CompanionLiveSmokeTests",
             "CompanionPreviewSmokeTests",
-            "CompanionSpawnVisualUITests",
-            "CompanionComposerPasteUITests",
-            "CompanionAppLifetimeUITests",
-            "FramebriarShakeDiagnosticsUITests",
+            "CompanionProjectInfoUITests",
+            "CompanionSessionModelUITests",
+            "CompanionWorkingActivityUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.7 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (feedback, needs you)",
         "tests": [
-            "FeedbackDiagnosticsWireUITests",
+            "CompanionAutoQuotaUITests",
+            "CompanionDispatcherUITests",
+            "CompanionGrantRequestUITests",
+            "CompanionLinkedProjectUITests",
+            "CompanionLongReplyUITests",
             "CompanionNeedsYouActionCardUITests",
-            "CompanionPinnedDecisionUITests",
-            "CompanionProjectPageUITests",
-            "CompanionContextWindowUITests",
-            "CompanionNeedsYouUITests",
+            "CompanionWakeFocusUITests",
+            "FramebriarShakeDiagnosticsUITests",
+            "QA368GrantLayoutUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.6 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (dispatcher, terminal)",
         "tests": [
-            "CompanionDispatcherUITests",
-            "CompanionSessionModelUITests",
-            "CompanionTerminalUITests",
-            "CompanionGrantRequestUITests",
-            "FramebriarShakeUITests",
-            "DiagnosticSettingsTests",
-            "CompanionQueuedBurstUITests",
-            "CompanionAdditionalProviderTests",
-            "CompanionPhoneWorkflowTests",
+            "CompanionAppUpdateUITests",
+            "CompanionComposerPasteUITests",
+            "CompanionGlassSchemeUITests",
+            "CompanionHeaderReflowUITests",
+            "CompanionHomeVisibilityUITests",
+            "CompanionLinkedHomeUITests",
+            "CompanionReviewUITests",
+            "CompanionToolbarUITests",
+            "FeedbackDiagnosticsWireUITests",
+            "FeedbackMenuAttachmentUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (unicode, home)",
         "tests": [
-            "CompanionUnicodeFocusUITests",
+            "CompanionAccessoryUITests",
+            "CompanionAdditionalProviderTests",
+            "CompanionAgentTreeUITests",
+            "CompanionCompactComposerUITests",
+            "CompanionContextWindowUITests",
+            "CompanionDispatcherLaunchUITests",
             "CompanionHomeSubtitleUITests",
-            "CompanionAppUpdateUITests",
-            "CompanionHelperPresetsUITests",
-            "CompanionLinkedProjectUITests",
-            "CompanionMarkdownFileUITests",
+            "CompanionQueuedBurstUITests",
+            "CompanionReadingOpeningUITests",
+            "CompanionReadingRestoreUITests",
+            "CompanionRecoveryIntegrationUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.9 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (search, permissions)",
         "tests": [
+            "CompanionAgentSheetsTests",
+            "CompanionContextLimitsUITests",
+            "CompanionDesktopQuestionsUITests",
+            "CompanionDispatchChipsUITests",
+            "CompanionHeaderEdgeUITests",
+            "CompanionManagedSpawnUITests",
             "CompanionOfflineBannerUITests",
-            "CompanionSearchUITests",
-            "CompanionPermissionMenuUITests",
-            "FeedbackTriggersUITests",
-            "CompanionMarkdownBlockUITests",
-            "CompanionLongReplyUITests",
-            "CompanionImageAttachmentUITests",
+            "CompanionProjectPageUITests",
+            "CompanionQuestionUITests",
+            "CompanionSettingsRegroupUITests",
         ],
     },
     {
-        # Estimated elapsed: 41.1 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (composer, sheets)",
         "tests": [
-            "CompanionCompactComposerUITests",
-            "CompanionManagedSpawnUITests",
-            "CompanionRecoveryIntegrationUITests",
-            "CompanionAgentSettingsVisualUITests",
-            "CompanionWakeFocusUITests",
-            "CompanionHardwareKeyboardUITests",
-            "CompanionReviewUITests",
+            "CompanionChatHeaderUITests",
+            "CompanionImageAttachmentUITests",
+            "CompanionKeyboardDismissalUITests",
+            "CompanionLiveE2ETests",
+            "CompanionMarkdownBlockUITests",
+            "CompanionPermissionMenuUITests",
+            "CompanionPhoneWorkflowTests",
+            "CompanionPinnedDecisionUITests",
+            "CompanionProviderSmokeTests",
+            "CompanionReadingUITests",
+            "CompanionSpawnVisualUITests",
+            "FramebriarShakeUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (reading, grants) + unit tests",
         "unit": True,
         "tests": [
-            "CompanionReadingUITests",
-            "CompanionAutoQuotaUITests",
-            "QA368GrantLayoutUITests",
-            "CompanionAgentTreeUITests",
-            "CompanionChatHeaderUITests",
-            "CompanionQuestionUITests",
+            "CompanionChatHeaderVisualUITests",
+            "CompanionHomeDesktopScopeUITests",
+            "CompanionLatestUITests",
+            "CompanionLinkedProjectStateUITests",
+            "CompanionNeedsYouUITests",
+            "CompanionPermissionStatusUITests",
+            "CompanionSlashCommandUITests",
+            "DiagnosticSettingsTests",
+            "FeedbackTriggersUITests",
         ],
     },
     {
-        # Estimated elapsed: 40.6 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (other)",
-        # Catch all remaining classes, including future additions and live-test guards.
+        # Current complement and every future class remain owned by the catch-all.
         "tests": None,
     },
 ]
-
 
 def matrix(shards=SHARDS):
     listed = [test for shard in shards if shard["tests"] for test in shard["tests"]]
