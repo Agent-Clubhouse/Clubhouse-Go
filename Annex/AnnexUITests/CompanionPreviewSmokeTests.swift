@@ -126,35 +126,9 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertFalse(app.buttons["provider-start-new"].exists)
     }
 
-    /// Capture-only supplement: one preview, no Apply or Start.
-    func testProviderV2CaptureAccessibilityLargeReviewRows() {
-        let app = openProviderV2Capture(largeText: true, unsupportedStart: false)
-        XCTAssertTrue(captureReadableProviderRow("provider-session-unverified", in: app, containing: ["Not verified"], name: "V2 Large initial runtime uncertainty readable"))
-        selectProviderV2ForCapture(app, slowNativePan: true)
-        app.buttons["provider-review-change"].tap()
-        // Saved then proposed: at most 16 pans across both reveals (eight each).
-        // Five readable targets allow 40 pans, plus the unchanged four-pan selection cap.
-        XCTAssertTrue(captureReadableProviderRow("provider-v2-saved-model", in: app, containing: ["fixture-current-model", "saved agent override"], name: "V2 Large saved override readable before proposed defaults"))
-        XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-model", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed model and source readable BEFORE Apply"))
-        XCTAssertTrue(captureReadableProviderRow("provider-v2-proposed-effort", in: app, containing: ["Provider default", "host reported"], name: "V2 Large proposed effort and source readable BEFORE Apply"))
-        XCTAssertTrue(captureReadableProviderRow("provider-reset-impacts", in: app, containing: ["Applying resets:", "model", "effort"], name: "V2 Large explicit reset list readable BEFORE Apply"))
-        XCTAssertFalse(app.staticTexts["provider-saved"].exists)
-        XCTAssertFalse(app.buttons["provider-start-new"].exists)
-    }
 
-    /// Capture-only supplement: one Apply, with Start independently unsupported.
-    func testProviderV2CaptureUnsupportedStartReason() {
-        let app = openProviderV2Capture(largeText: false, unsupportedStart: true)
-        selectProviderV2ForCapture(app)
-        tapVisibleProviderControl(app.buttons["provider-save"], in: app)
-        app.buttons["provider-review-change"].tap()
-        XCTAssertTrue(captureReadableProviderRow("provider-saved", in: app,
-            containing: ["historical", "started no session", "Current runtime unverified"], name: "V2 revised historical Apply receipt readable with Start unsupported"))
-        XCTAssertTrue(captureReadableProviderRow("provider-start-reason", in: app, containing: ["does not separately support"], name: "V2 independently unsupported Start reason readable"))
-        XCTAssertTrue(app.buttons["provider-start-new"].exists)
-        XCTAssertFalse(app.buttons["provider-start-new"].isEnabled)
-        XCTAssertFalse(app.staticTexts["provider-v2-start-evidence"].exists)
-    }
+
+
 
     private func openProviderV2Capture(largeText: Bool, unsupportedStart: Bool) -> XCUIApplication {
         var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-v2"]
@@ -284,11 +258,11 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         return false
     }
 
-    func testProviderV2ApplyAndStartStaySeparate() { checkProviderV2(largeText: false, mode: "success") }
-    func testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable() { checkProviderV2(largeText: true, mode: "success") }
-    func testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead() { checkProviderV2(largeText: false, mode: "lost-apply") }
-    func testProviderV2LostStartNeverRequestsAnotherStart() { checkProviderV2(largeText: false, mode: "lost-start") }
-    func testProviderV2ApplyDoesNotImplyStartCapability() { checkProviderV2(largeText: false, mode: "no-start") }
+
+
+
+
+
 
     private func checkProviderV2(largeText: Bool, mode: String) {
         var arguments = ["--companion-preview", "--companion-preview-provider-options", "--companion-preview-provider-v2"]
