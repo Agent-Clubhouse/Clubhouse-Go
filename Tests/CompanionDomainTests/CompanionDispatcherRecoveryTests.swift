@@ -117,9 +117,23 @@ import Testing
         #expect(await h.transport.executed.count == 1)
         await h.store.askDispatcherRecoveryNewChat(target)
         let fresh = try #require(h.store.dispatcherResetPrompt)
-        #expect(fresh.id != prompt.id)
         #expect(h.store.dispatcherResetNotices[target.hostID] == nil)
         #expect(await h.transport.executed.count == 1, "A fresh confirmation read must not repeat a refused mutation")
+        // The prompt identifies the desktop state; the claim identifies this human confirmation.
+        let freshClaim = try #require(h.store.claimDispatcherRecoveryNewChat(fresh, target: target))
+        #expect(freshClaim != claim)
+        #expect(h.store.dispatcherResetPrompt == nil)
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        #expect(await h.transport.executed.count == 1, "The spent claim must not consume the new confirmation")
+        #expect(h.store.pendingCommands.contains(target))
+        await h.transport.enqueue(.completed(.object(["cleared": .string("now")])))
+        await h.store.confirmDispatcherRecoveryNewChat(freshClaim)
+        await h.store.confirmDispatcherRecoveryNewChat(freshClaim)
+        let sent = await h.transport.executed
+        #expect(sent.count == 2 && sent.last?.kind == .clearDispatcherChat(expectedState: fresh.expectedState))
+        #expect(h.store.dispatcherResetNotices[target.hostID] == "Its conversation started over.")
+        #expect(!h.store.pendingCommands.contains(target) && !h.store.dispatcherResetting.contains(target.hostID))
+        #expect(!h.store.dispatcherRecoveryUnknown.contains(target))
     }
 
     @Test func dispatcherTurnedOffAfterClaimCannotReceiveANewChatMutation() async throws {
