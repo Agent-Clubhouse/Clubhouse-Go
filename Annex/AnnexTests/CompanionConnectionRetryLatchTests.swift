@@ -62,41 +62,70 @@ import Vision
     }
 
     /// #624: a bordered style padded its 44pt label into a ~68×56pt near-circle that filled the card.
-    /// The 44pt target itself stays covered by the native `assertMinimumTarget` Retry checks.
-    func testRetryCapsuleStaysTextSizedInsideItsTarget() async throws {
-        try await withBanner(hosts: hosts("one")) { _, _, window, _ in
-            let image = self.capture(window, "Retry capsule at the default text size")
-            let capsule = try self.region(matching: CompanionPalette(theme: .clubhouse, dark: false).tintSoft, in: image)
-            XCTAssertGreaterThanOrEqual(capsule.area, 200, "The Retry capsule must be drawn: \(capsule)")
-            XCTAssertLessThanOrEqual(capsule.bounds.height, 36, "Visible Retry capsule stays text-sized: \(capsule)")
-            XCTAssertGreaterThanOrEqual(capsule.bounds.width / max(capsule.bounds.height, 1), 1.6, "Retry reads as a pill, not a circle: \(capsule)")
-        }
+    /// Binds the actual Retry: its hit frame and the card frame come from the mounted banner, and its painted
+    /// pixels come from rendering one layout with Retry shown and hidden, so neither style nor color is assumed.
+    /// The recognized "Retry" label must lie inside that painted region. Native 44pt checks stay in the UI tests.
+    func testRetryVisibleControlIsTextSizedInsideItsTargetAndCard() async throws {
+        try await assertRetryGeometry(size: .large, name: "default")
     }
 
-    /// Bounds and filled area, in points, of the opaque pixels within 4/255 of `color`.
-    private func region(matching color: CompanionRGB, in image: UIImage) throws -> (bounds: CGRect, area: CGFloat) {
-        let cgImage = try XCTUnwrap(image.cgImage)
-        let width = cgImage.width, height = cgImage.height
-        let context = try XCTUnwrap(CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
-                                            space: CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB(),
-                                            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-        let bytes = try XCTUnwrap(context.data).assumingMemoryBound(to: UInt8.self)
-        let target = [color.red, color.green, color.blue].map { Int(($0 * 255).rounded()) }
-        var minX = width, minY = height, maxX = -1, maxY = -1, count = 0
-        for y in 0..<height {
-            for x in 0..<width {
-                let offset = (y * width + x) * 4
-                guard bytes[offset + 3] >= 252, (0..<3).allSatisfy({ abs(Int(bytes[offset + $0]) - target[$0]) <= 4 }) else { continue }
-                minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y); count += 1
-            }
+    func testRetryVisibleControlKeepsCardClearanceAtAccessibilitySize() async throws {
+        try await assertRetryGeometry(size: .accessibility5, name: "accessibility XXXL")
+    }
+
+    private func assertRetryGeometry(size: DynamicTypeSize, name: String) async throws {
+        let service = HeldReconnectService()
+        let store = CompanionStore(service: service)
+        store.apply(.hosts(hosts("one")))
+        let toggle = RetryVisibility()
+        var retryFrame: CGRect?, cardFrame: CGRect?
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive })
+        let original = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        window.rootViewController = UIHostingController(rootView: RetryGeometryHost(store: store, toggle: toggle, size: size,
+            retryFrame: { retryFrame = $0 }, cardFrame: { cardFrame = $0 }))
+        window.makeKeyAndVisible()
+        defer {
+            service.beginTeardown()
+            window.isHidden = true
+            window.rootViewController = nil
+            store.stop()
+            original?.makeKey()
         }
-        let scale = CGFloat(width) / image.size.width
-        guard count > 0 else { return (.zero, 0) }
-        // The bitmap's origin is top-left in row order, matching UIKit points.
-        return (CGRect(x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
-                       width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale),
-                CGFloat(count) / (scale * scale))
+        try await waitUntil { retryFrame != nil && cardFrame != nil }
+        try await Task.sleep(for: .milliseconds(150))
+        let shown = capture(window, "Retry shown, \(name)")
+        let hit = try XCTUnwrap(retryFrame), card = try XCTUnwrap(cardFrame)
+        toggle.hidden = true
+        try await Task.sleep(for: .milliseconds(150))
+        let hidden = capture(window, "Retry hidden at the same layout, \(name)")
+        XCTAssertEqual(retryFrame, hit, "Hiding Retry must not move it")
+        XCTAssertEqual(cardFrame, card, "Hiding Retry must not resize the card")
+        let shownImage = try XCTUnwrap(shown.cgImage)
+        let scale = CGFloat(shownImage.width) / shown.size.width
+        let visible = BannerActionGeometry.visibleBounds(shown: shownImage, hidden: try XCTUnwrap(hidden.cgImage), scale: scale, within: hit)
+        let label = try visible.flatMap { try recognizedText("Retry", in: shownImage, scale: scale, within: $0) }
+        let metrics = visible.map { BannerActionGeometry.Metrics(visible: $0, hit: hit, card: card, label: label, defaultSize: !size.isAccessibilitySize) }
+        print("RETRY_GEOMETRY \(name) visible=\(visible.map { "\($0)" } ?? "none") label=\(label.map { "\($0)" } ?? "none") hit=\(hit) card=\(card)")
+        let failures = BannerActionGeometry.failures(metrics)
+        XCTAssertTrue(failures.isEmpty, "\(name): " + failures.joined(separator: "; "))
+        XCTAssertEqual(service.calls, [:], "Measuring must not reconnect")
+    }
+
+    /// The window-point bounds of `text` recognized inside `region` of the rendered window.
+    private func recognizedText(_ text: String, in image: CGImage, scale: CGFloat, within region: CGRect) throws -> CGRect? {
+        let pixels = CGRect(x: region.minX * scale, y: region.minY * scale, width: region.width * scale, height: region.height * scale).integral
+        let crop = try XCTUnwrap(image.cropping(to: pixels))
+        let request = VNRecognizeTextRequest()
+        request.recognitionLevel = .accurate
+        request.usesLanguageCorrection = false
+        try VNImageRequestHandler(cgImage: crop).perform([request])
+        guard let box = request.results?.first(where: { $0.topCandidates(1).first?.string == text })?.boundingBox else { return nil }
+        // Vision boxes are normalized with a bottom-left origin.
+        let width = CGFloat(crop.width), height = CGFloat(crop.height)
+        return CGRect(x: (pixels.minX + box.minX * width) / scale, y: (pixels.minY + (1 - box.maxY) * height) / scale,
+                      width: box.width * width / scale, height: box.height * height / scale)
     }
 
     private func hosts(_ ids: String...) -> [CompanionHost] {
@@ -182,6 +211,24 @@ import Vision
     }
 }
 
+@Observable @MainActor private final class RetryVisibility { var hidden = false }
+
+private struct RetryGeometryHost: View {
+    let store: CompanionStore
+    let toggle: RetryVisibility
+    let size: DynamicTypeSize
+    let retryFrame: (CGRect) -> Void
+    let cardFrame: (CGRect) -> Void
+    var body: some View {
+        VStack {
+            CompanionDesktopConnectionBanner(store: store, identifierPrefix: "test",
+                geometrySeam: .init(hidesRetry: toggle.hidden, retryFrame: retryFrame, cardFrame: cardFrame))
+            Spacer()
+        }
+        .padding(16).dynamicTypeSize(size).companionTheme(.clubhouse).environment(\.colorScheme, .light)
+    }
+}
+
 @MainActor private final class HeldReconnectService: CompanionService {
     var calls: [String: Int] = [:]
     private var pending: [String: [CheckedContinuation<Void, Never>]] = [:]
@@ -211,5 +258,98 @@ import Vision
     func respond(to approvalID: String, optionID: String, target: CompanionTarget, clientCommandID: String) async throws { throw CompanionServiceError.unavailable("Fixture only") }
     func spawn(_ request: CompanionSpawnRequest) async throws -> CompanionCommandReceipt { throw CompanionServiceError.unavailable("Fixture only") }
 }
+
+// BEGIN BannerActionGeometry: CoreGraphics only, so its oracle can be exercised off-device.
+/// What a control alone draws: pixels that differ between two renders of one layout, shown and hidden, that are
+/// 8-connected to a changed pixel inside the control's own frame. Unrelated content is identical in both renders,
+/// and changed pixels that never touch the control's frame are ignored, whatever their color.
+enum BannerActionGeometry {
+    struct Metrics: Equatable {
+        var visible: CGRect
+        var hit: CGRect
+        var card: CGRect
+        /// The recognized label, in the same window coordinates.
+        var label: CGRect?
+        /// The absolute height ceiling applies only at the default text size; other limits are text-relative.
+        var defaultSize: Bool
+    }
+    static let minimumTarget: CGFloat = 44
+    static let maximumDefaultHeight: CGFloat = 36
+    static let maximumHeightPerLabelHeight: CGFloat = 2.6
+    static let minimumAspect: CGFloat = 1.6
+    static let minimumClearance: CGFloat = 4
+
+    static func failures(_ metrics: Metrics?) -> [String] {
+        guard let m = metrics else { return ["Retry drew nothing inside its own frame"] }
+        var result: [String] = []
+        guard let label = m.label else { return ["the Retry label was not recognized inside its painted region"] }
+        if !m.visible.insetBy(dx: -0.5, dy: -0.5).contains(label) { result.append("label \(label) lies outside the painted control \(m.visible)") }
+        if m.hit.width < minimumTarget || m.hit.height < minimumTarget { result.append("hit target \(m.hit.size) is below 44×44pt") }
+        if !m.hit.insetBy(dx: -0.5, dy: -0.5).contains(m.visible) { result.append("painted control \(m.visible) extends past its hit target \(m.hit)") }
+        if m.visible.height >= m.hit.height { result.append("painted control fills its whole hit target height") }
+        if m.defaultSize && m.visible.height > maximumDefaultHeight { result.append("painted control is \(m.visible.height)pt tall, above \(maximumDefaultHeight)pt") }
+        if m.visible.height > label.height * maximumHeightPerLabelHeight {
+            result.append("painted control is \(m.visible.height)pt tall for a \(label.height)pt label")
+        }
+        if m.visible.width < m.visible.height * minimumAspect { result.append("painted control \(m.visible.size) reads as round, not a pill") }
+        if m.visible.minY - m.card.minY < minimumClearance { result.append("painted control is \(m.visible.minY - m.card.minY)pt from the card top") }
+        if m.card.maxY - m.visible.maxY < minimumClearance { result.append("painted control is \(m.card.maxY - m.visible.maxY)pt from the card bottom") }
+        return result
+    }
+
+    static func visibleBounds(shown: CGImage, hidden: CGImage, scale: CGFloat, within frame: CGRect, threshold: Int = 8) -> CGRect? {
+        guard shown.width == hidden.width, shown.height == hidden.height,
+              let a = rgba(shown), let b = rgba(hidden) else { return nil }
+        let width = shown.width, height = shown.height
+        var changed = [Bool](repeating: false, count: width * height)
+        for index in 0..<(width * height) {
+            let offset = index * 4
+            changed[index] = (0..<4).contains { abs(Int(a[offset + $0]) - Int(b[offset + $0])) > threshold }
+        }
+        let seed = CGRect(x: frame.minX * scale, y: frame.minY * scale, width: frame.width * scale, height: frame.height * scale)
+            .integral.intersection(CGRect(x: 0, y: 0, width: width, height: height))
+        guard !seed.isNull, !seed.isEmpty else { return nil }
+        var visited = [Bool](repeating: false, count: width * height)
+        var queue: [Int] = []
+        for y in Int(seed.minY)..<Int(seed.maxY) {
+            for x in Int(seed.minX)..<Int(seed.maxX) where changed[y * width + x] {
+                visited[y * width + x] = true; queue.append(y * width + x)
+            }
+        }
+        guard !queue.isEmpty else { return nil }
+        var minX = width, minY = height, maxX = -1, maxY = -1, head = 0
+        while head < queue.count {
+            let index = queue[head]; head += 1
+            let x = index % width, y = index / width
+            minX = min(minX, x); maxX = max(maxX, x); minY = min(minY, y); maxY = max(maxY, y)
+            for dy in -1...1 {
+                for dx in -1...1 where dx != 0 || dy != 0 {
+                    let nx = x + dx, ny = y + dy
+                    guard nx >= 0, ny >= 0, nx < width, ny < height else { continue }
+                    let next = ny * width + nx
+                    if changed[next] && !visited[next] { visited[next] = true; queue.append(next) }
+                }
+            }
+        }
+        return CGRect(x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
+                      width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale)
+    }
+
+    /// Top row first, in sRGB, matching UIKit point coordinates.
+    private static func rgba(_ image: CGImage) -> [UInt8]? {
+        var bytes = [UInt8](repeating: 0, count: image.width * image.height * 4)
+        let drawn: Bool = bytes.withUnsafeMutableBytes { buffer in
+            guard let space = CGColorSpace(name: CGColorSpace.sRGB),
+                  let context = CGContext(data: buffer.baseAddress, width: image.width, height: image.height, bitsPerComponent: 8,
+                                          bytesPerRow: image.width * 4, space: space,
+                                          bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue)
+            else { return false }
+            context.draw(image, in: CGRect(x: 0, y: 0, width: image.width, height: image.height))
+            return true
+        }
+        return drawn ? bytes : nil
+    }
+}
+// END BannerActionGeometry
 
 #endif

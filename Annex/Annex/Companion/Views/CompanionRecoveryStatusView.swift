@@ -167,6 +167,14 @@ struct CompanionDesktopConnectionBanner: View {
         let retry: () -> Void
     }
     var hostedTestSeam: ((HostedTestSeam) -> Void)? = nil
+    /// Hosted geometry checks read the actual Retry and card frames, and hide Retry at the same layout
+    /// so the pixels it alone draws can be isolated without assuming its style or color.
+    struct GeometrySeam {
+        var hidesRetry = false
+        var retryFrame: ((CGRect) -> Void)? = nil
+        var cardFrame: ((CGRect) -> Void)? = nil
+    }
+    var geometrySeam: GeometrySeam? = nil
     #endif
 
     var body: some View {
@@ -186,11 +194,18 @@ struct CompanionDesktopConnectionBanner: View {
                     if !notice.retryHostIDs.isEmpty {
                         Button("Retry") { retry(notice.retryHostIDs) }
                             .buttonStyle(CompanionBannerActionButtonStyle())
-                        .disabled(retryDisabled(notice.retryHostIDs))
-                        .accessibilityLabel(notice.retryLabel)
-                        .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
+                            #if DEBUG
+                            .opacity(geometrySeam?.hidesRetry == true ? 0 : 1)
+                            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.retryFrame?($0) }
+                            #endif
+                            .disabled(retryDisabled(notice.retryHostIDs))
+                            .accessibilityLabel(notice.retryLabel)
+                            .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
                     }
                 }
+                #if DEBUG
+                .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.cardFrame?($0) }
+                #endif
                 .accessibilityElement(children: .contain)
             }
         }
@@ -235,6 +250,8 @@ struct CompanionBannerActionButtonStyle: ButtonStyle {
                 .padding(.horizontal, 12).padding(.vertical, 6)
                 .background(Color(palette.tintSoft), in: Capsule())
                 .opacity(isEnabled ? (configuration.isPressed ? 0.6 : 1) : 0.45)
+                // Keeps the pill off the card edge when accessibility text makes it taller than 44pt.
+                .padding(.vertical, 4)
                 .frame(minWidth: 44, minHeight: 44)
                 .contentShape(Rectangle())
         }
