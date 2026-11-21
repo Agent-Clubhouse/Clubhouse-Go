@@ -69,7 +69,9 @@ test.assertTypedValue(XCUIElement {
 require(nilReads == 3 && failures.isEmpty, "Repeated nil observations must not suppress later success")
 print("PASS nil-to-timely-match")
 '''
-with tempfile.TemporaryDirectory(prefix="typed-value-controls-", dir=ROOT / ".build") as directory:
+scratch = ROOT / ".build"
+scratch.mkdir(exist_ok=True)
+with tempfile.TemporaryDirectory(prefix="typed-value-controls-", dir=scratch) as directory:
     path = Path(directory) / "controls.swift"
     path.write_text(fixture)
     result = subprocess.run(["swift", str(path)], cwd=ROOT, capture_output=True, text=True, timeout=60)
