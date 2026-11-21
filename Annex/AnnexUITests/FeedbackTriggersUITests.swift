@@ -10,6 +10,32 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         return popover.exists ? popover : app.sheets.containing(.staticText, identifier: title).firstMatch
     }
 
+    @MainActor private func uniqueHeldConfirmation(_ app: XCUIApplication, titled title: String) throws -> XCUIElement {
+        let popovers = app.popovers.containing(.staticText, identifier: title).allElementsBoundByIndex
+        if !popovers.isEmpty {
+            return try XCTUnwrap(popovers.count == 1 ? popovers.first : nil,
+                                 "The titled held-report confirmation must be unique")
+        }
+        let sheets = app.sheets.containing(.staticText, identifier: title).allElementsBoundByIndex
+        return try XCTUnwrap(sheets.count == 1 ? sheets.first : nil,
+                             "The titled held-report confirmation must be unique")
+    }
+
+    @MainActor private func heldPopoverDismissal(_ app: XCUIApplication, titled title: String) throws -> XCUIElement {
+        _ = try XCTUnwrap(app.popovers.containing(.staticText, identifier: title).count == 1 ? true : nil,
+                          "Outside cancellation requires the unique current titled popover")
+        // Presented Settings can leave its own inactive dismissal regions in AX.
+        let hosts = app.otherElements.containing(.popover, identifier: nil).allElementsBoundByIndex.filter {
+            $0.children(matching: .popover).containing(.staticText, identifier: title).count == 1
+        }
+        let host = try XCTUnwrap(hosts.count == 1 ? hosts.first : nil,
+                                "The current held-report popover must have one immediate native host")
+        let dismissals = host.children(matching: .other).matching(NSPredicate(
+            format: "identifier == %@ OR label ==[c] %@", "PopoverDismissRegion", "dismiss popup"))
+        return try XCTUnwrap(dismissals.count == 1 ? dismissals.allElementsBoundByIndex.first : nil,
+                             "Only the current confirmation's unique native dismissal region may cancel it")
+    }
+
     private struct RevealState: Equatable {
         var container: CGRect
         var navigation: CGRect
@@ -299,36 +325,57 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         let result = app.staticTexts["feedback-queue-status"]
         let resultBeforeCancel = result.exists ? result.label : nil
         release.tap()
-        let confirmation = confirmation(app, titled: "Send 2 reports saved under a previous enrollment with this one?")
+        let confirmationTitle = "Send 2 reports saved under a previous enrollment with this one?"
+        XCTAssertTrue(app.staticTexts[confirmationTitle].waitForExistence(timeout: 5))
+        let confirmation = try uniqueHeldConfirmation(app, titled: confirmationTitle)
         XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
         XCTAssertTrue(confirmation.staticTexts["Send 2 reports saved under a previous enrollment with this one?"].exists)
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = "Held release confirmation native hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
         let cancel = confirmation.buttons["Cancel"]
-        let dismiss = app.descendants(matching: .any).matching(NSPredicate(
-            format: "identifier == %@ OR label ==[c] %@", "PopoverDismissRegion", "dismiss popup")).firstMatch
-        print("FEEDBACK_CANCEL cancel=\(cancel.exists) namedDismissal=\(dismiss.exists)")
+        print("FEEDBACK_CANCEL cancel=\(cancel.exists)")
         if cancel.exists {
             print("FEEDBACK_CANCEL route=nativeCancel frame=\(cancel.frame) hittable=\(cancel.isHittable)")
             XCTAssertTrue(cancel.isHittable)
             cancel.tap()
         } else {
+            let dismiss = try heldPopoverDismissal(app, titled: confirmationTitle)
             XCTAssertTrue(dismiss.exists, "The native popover must expose its named dismissal region")
             print("FEEDBACK_CANCEL namedDismissal id=\(dismiss.identifier) label=\(dismiss.label) frame=\(dismiss.frame) hittable=\(dismiss.isHittable); accessibilityActivation=unproven")
             XCTAssertTrue(dismiss.isHittable)
             let region = dismiss.frame
-            let heading = app.staticTexts["Developer feedback"]
-            XCTAssertTrue(heading.exists)
-            let headingFrame = heading.frame
-            let form = app.collectionViews.containing(.staticText, identifier: "feedback-held-summary").firstMatch
+            let forms = app.collectionViews.containing(.staticText, identifier: "feedback-held-summary")
+            let form = try XCTUnwrap(forms.count == 1 ? forms.allElementsBoundByIndex.first : nil,
+                                    "The held-report form must be unique")
             XCTAssertTrue(form.exists)
             XCTAssertTrue(form.buttons["feedback-release-held"].exists && form.buttons["feedback-clear-held"].exists)
             XCTAssertTrue(confirmation.buttons["Send"].exists)
             let navigation = app.navigationBars["Fixture settings"].frame
             let popover = confirmation.frame
             let actions = (form.buttons.allElementsBoundByIndex + confirmation.buttons.allElementsBoundByIndex).map(\.frame)
+            // The section heading may be virtualized after revealing the held rows on
+            // iPad. Both candidates are actual, non-action text in the same form.
+            var anchor: (label: String, frame: CGRect)?
+            for label in ["Developer feedback", "Send queues these reports for the current enrollment. Delivery needs a service receipt."] {
+                let matches = form.staticTexts.matching(NSPredicate(format: "label == %@", label))
+                let count = matches.count
+                guard count <= 1 else { XCTFail("The cancellation anchor must be unambiguous"); return }
+                guard count == 1 else { continue }
+                let frame = matches.element(boundBy: 0).frame
+                let centre = CGPoint(x: frame.midX, y: frame.midY)
+                if !frame.isEmpty && !frame.isNull && !frame.isInfinite,
+                   [frame.minX, frame.minY, frame.width, frame.height].allSatisfy({ $0.isFinite }),
+                   app.frame.contains(frame) && form.frame.contains(frame),
+                   frame.minY > navigation.maxY, !popover.intersects(frame), region.contains(centre),
+                   !actions.contains(where: { $0.contains(centre) }) {
+                    anchor = (label, frame)
+                    break
+                }
+            }
+            let selected = try XCTUnwrap(anchor, "Cancellation needs visible non-action text outside the current popover")
+            let headingFrame = selected.frame
             let point = CGPoint(x: headingFrame.midX, y: headingFrame.midY)
-            print("FEEDBACK_CANCEL route=namedRegionCheckedTouch region=\(region) heading=\(headingFrame) navigation=\(navigation) popover=\(popover) actions=\(actions) point=\(point)")
+            print("FEEDBACK_CANCEL route=namedRegionCheckedTouch region=\(region) anchor=\(selected.label) frame=\(headingFrame) navigation=\(navigation) popover=\(popover) actions=\(actions) point=\(point)")
             XCTAssertFalse(headingFrame.isEmpty)
             XCTAssertTrue(app.frame.contains(headingFrame) && form.frame.contains(headingFrame))
             XCTAssertTrue(region.contains(point), "Cancel inside the actual native dismissal region")
