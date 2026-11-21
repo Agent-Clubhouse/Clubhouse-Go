@@ -610,9 +610,10 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTFail("Sender part must expand")
     }
 
-    /// One real transcript fold end to end: collapse, leave and reopen the chat, refresh, find the same row still
-    /// collapsed, then expand it to the correct body. Part and conversation/session key permutations are covered by
-    /// CompanionRoutedFoldPersistenceTests and CompanionHelperMessagePresentationTests.
+    /// One native fold round trip: collapse, leave and reopen the chat, tap Refresh, find the same row still collapsed,
+    /// then expand it to the correct body. Refresh starts an asynchronous load this test doesn't observe being applied;
+    /// the refresh itself and the part/conversation/session permutations are proven at the Store level by
+    /// CompanionRoutedFoldPersistenceTests (and CompanionHelperMessagePresentationTests).
     func testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], allowance: 360)
         let home = tab(app, "Home")
@@ -645,13 +646,13 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         bringCaptionIntoView(first, in: app)
         XCTAssertEqual(first.value as? String, "Collapsed", "Leaving the conversation keeps its fold")
 
-        // A refreshed history snapshot keeps the same row collapsed.
+        // After tapping Refresh (its load is asynchronous and not observed here), the same row is still collapsed.
         let actions = app.navigationBars.buttons["Conversation actions"]
         let refresh = app.buttons["Refresh conversation"]
         waitAndTap(actions, until: refresh)
         refresh.tap()
         bringCaptionIntoView(first, in: app)
-        XCTAssertEqual(first.value as? String, "Collapsed", "A new history snapshot keeps the fold")
+        XCTAssertEqual(first.value as? String, "Collapsed", "The fold stays after a Refresh tap")
         XCTAssertFalse(body.exists, "A collapsed part shows no body")
 
         // Expanding the same row shows its own body again.

@@ -207,8 +207,12 @@ light or accessibility method, but its own themed native screen is no longer che
 - Agent settings, new-agent spawn and managed spawn galleries: dark, Solarized Dark and Catppuccin Latte.
 - Needs you several requests and desktops: dark, Catppuccin Latte and Catppuccin Mocha.
 
-The routed-message fold test keeps one real transcript round trip natively; its part, message, conversation and
-session key permutations moved to `CompanionRoutedFoldPersistenceTests`.
+The routed-message fold test keeps one native round trip: collapse, leave and reopen the chat, tap Refresh, and find
+the same row collapsed before expanding it to its body. It doesn't observe the refreshed history being applied (the
+button starts an asynchronous load), so it's an attempted native refresh. The refresh itself is proven at the Store
+level by `CompanionRoutedFoldPersistenceTests`, along with the part, message, conversation and session permutations.
+No longer checked natively: the second part's independent fold, scrolling the row away and back, and the expanded
+state surviving navigation.
 
 ### Unicode focus integrity (#272)
 
@@ -954,7 +958,7 @@ Physical-device checks aren't automated. These still need to be done by hand: mu
 
 `CompanionPermissionMenuUITests` uses the socket-free chat fixture to check all five permission rows and their full VoiceOver labels. At standard portrait size every row must be wholly within the native clipping pane above a visibly onscreen software keyboard without scrolling. Every run first proves a visible software keyboard and an entered draft. Standard landscape and portrait accessibility XXXL retain the same vertical menu and may require scrolling; the native menu may dismiss the keyboard, which is asserted and logged rather than mistaking an offscreen AX keyboard for a visible one. each level must remain readable and reachable, and Full access must retain its confirmation and the draft. Native menu rows aren't themed (their frames matched across all four themes in every sampled CI run), so standard portrait measures Light only and XLarge portrait measures Catppuccin Mocha only; XXXL is unchanged. `CompanionChatChromeUITests` also checks the compact control's actual 44pt accessibility target at XXXL.
 
-The XLarge portrait matrix requires the same whole-row containment without scrolling in all four themes.
+XLarge portrait requires the same whole-row containment without scrolling, in Catppuccin Mocha only.
 Keyboard-up XLarge rows omit visual subtitles without changing the independently expected native back title.
 The standard portrait and description tests also protect SE's single-line layout and bottom margin,
 roomy standard subtitles, and keyboard-down descriptions.
