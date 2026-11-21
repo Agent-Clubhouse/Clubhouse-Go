@@ -105,17 +105,23 @@ import ClubhouseTransport
         // These panels belong to this fixed-size fixture, not to production avatar coordinates.
         let rowPanel = CGRect(x: 16, y: 16, width: 328, height: 64)
         let senderPanel = CGRect(x: 16, y: 100, width: 328, height: 96)
-        let deadline = ContinuousClock.now.advanced(by: .seconds(2))
+        let started = ContinuousClock.now
+        let deadline = started.advanced(by: .seconds(2))
         var image: UIImage
         var rowArea: CGFloat = 0, senderArea: CGFloat = 0
-        repeat {
+        var samples = 0, expired = false
+        // The image tasks only get the main actor during the sleep, so the deadline is read after
+        // it and the frame that follows the last wait is always measured, even after a stall.
+        while true {
             image = snapshot(view)
+            samples += 1
             rowArea = try profilePixelArea(in: image, panel: rowPanel)
             senderArea = try profilePixelArea(in: image, panel: senderPanel)
-            if rowArea >= 100 && senderArea >= 100 { break }
+            if (rowArea >= 100 && senderArea >= 100) || expired { break }
             try await Task.sleep(for: .milliseconds(10)) // Await both visible cached-image tasks.
-        } while ContinuousClock.now < deadline
-        print("AVATAR_PROFILE_PIXELS rowPointArea=\(rowArea) senderPointArea=\(senderArea)")
+            expired = ContinuousClock.now >= deadline
+        }
+        print("AVATAR_PROFILE_PIXELS rowPointArea=\(rowArea) senderPointArea=\(senderArea) samples=\(samples) elapsed=\(started.duration(to: .now))")
         XCTAssertGreaterThanOrEqual(rowArea, 100, "Pinned row must render the cyan profile image over its emoji", file: file, line: line)
         XCTAssertGreaterThanOrEqual(senderArea, 100, "Routed sender must render the cyan profile image over its emoji", file: file, line: line)
         return image
