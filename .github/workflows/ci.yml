@@ -6,8 +6,8 @@ on:
   pull_request:
     # Validate each mobile stack layer before its dependency lands on main.
     branches: [main, 'codex/mobile-*']
-  # The coalesced daily integration run takes every lane and UI class. Pull requests and pushes to main run the lanes
-  # and UI classes their change can affect (scripts/ci/ui_impact.py); a `ci:full` label or a manual run takes them all.
+  # The coalesced daily integration run takes every lane and UI class. Pull requests and pushes to main run a small
+  # pre-merge scope (scripts/ci/ui_scope.py); a `ci:full` label (then push or re-run) or a manual run takes them all.
   schedule:
     - cron: '23 10 * * *' # 10:23 UTC daily
   workflow_dispatch:
@@ -30,9 +30,10 @@ env:
 #          └─ release-build                         (parallel; not on the critical path)
 # ci-result gathers them into one check.
 #
-# Pull requests and pushes to main run only the lanes their files need (scripts/ci/changes.py), and the UI classes,
-# hosted tests, iPad and Release lanes their change can affect (scripts/ci/ui_impact.py). The daily run, a manual run
-# and the `ci:full` label run everything. UI shards come from scripts/ci/ui_shards.py.
+# Pull requests and pushes to main run only the lanes their files need (scripts/ci/changes.py) and a small pre-merge
+# UI scope (scripts/ci/ui_scope.py): a fixed native smoke, the classes they edit and the critical journeys of the areas
+# they touch, with a broader tier for hubs and unknown files. The daily run, a manual run and the `ci:full` label run
+# every lane and UI class from scripts/ci/ui_shards.py.
 jobs:
   changes:
     name: Plan
@@ -82,7 +83,7 @@ jobs:
             echo "Changed files:"; cat changed-files.txt
             cut -f2- changed-files.txt | tr '\t' '\n' | python3 scripts/ci/changes.py | tee -a "$GITHUB_OUTPUT"
             python3 scripts/ci/ui_shards.py \
-              | python3 scripts/ci/ui_impact.py changed-files.txt --manifest impact-manifest.json \
+              | python3 scripts/ci/ui_scope.py changed-files.txt --manifest impact-manifest.json \
               | tee -a "$GITHUB_OUTPUT"
           else
             python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
