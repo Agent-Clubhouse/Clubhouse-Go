@@ -1,0 +1,110 @@
+{
+  "reviewer": "go-bug-runner",
+  "verdict": "PASS_TARGET_ADDITIVE_SOURCE_ONLY",
+  "head": "98ef6f0eb32c080027d175ab2864b38790577eec",
+  "tree": "0adece06b66e32591cc3b3176a01013f7a12141f",
+  "direct_parent": "cadce0a4575227a5ad24a6956f819f42913446d8",
+  "findings": [],
+  "scope": "Canonical main-based Permission-only complete reviewed component carry and direct documentation; source applicability, exact original attribution and normal routing only",
+  "entire_mode_blob_inventory": {
+    "parent_entries": 755,
+    "candidate_entries": 756,
+    "only_changed_paths": [
+      "Annex/AnnexUITests/CompanionPermissionMenuUITests.swift",
+      "docs/main-permission-landscape-repair.md"
+    ],
+    "all_other_modes_blobs_identical_to_main": true
+  },
+  "file_pins": [
+    {
+      "path": "Annex/AnnexUITests/CompanionPermissionMenuUITests.swift",
+      "mode": "100644",
+      "blob": "999bf3292f5b75e4a351f03516dccae6c8fea9c0",
+      "bytes": 29209,
+      "sha256": "eb76483fdf503aff4838ed54e19b8987187b268067941db8d289e62711fc79b4",
+      "whole_file_equal_reviewed_3569_4ca": true,
+      "parent_blob": "643f8d0a91113b3aa6f3fb8f27c598128556ab7b"
+    },
+    {
+      "path": "docs/main-permission-landscape-repair.md",
+      "mode": "100644",
+      "blob": "277368c49c0ddee9219313dcc349f3e45db2eff5",
+      "bytes": 2755,
+      "sha256": "b1c7473f0d48ac46c20c471e60d14455b892c67e054ebccf9e53c76aef4b488f"
+    }
+  ],
+  "consumed_component_provenance": {
+    "accepted_4ca_source_canonical": "80f31961b91bb41f98d4dfe2d883eefb998054aa",
+    "bytes": 11300,
+    "sha256": "fadc1a8fd3cb924a563c528ca0b84b55d1c66c98767fd351d83b266d52a63080",
+    "scope_retained": "Additive source only; historical eight hosted first passes do not establish new target execution",
+    "other_local_receipt": "54e2772534fbd6ccdcb4bea9c638629dbe7100cc",
+    "local_receipt_scope_retained": "Only four local iOS26.0 methods; not all eight local, hosted26.5, combined XXXL/landscape or sub24 native recognition",
+    "complete_component_not_partial_fix": "Includes loaded native section classifier, clipping pane extraction, bounded row-pan convergence and the geometry control, not merely a title relaxation",
+    "entire_parent_to_head_permission_diff_equal_reviewed_616_carry": true
+  },
+  "target_dependency_checks": {
+    "whole_files_equal_accepted_4ca": {
+      "Annex/AnnexUITests/UITestSupport.swift": "2d57d7e9dcb4cc08093e76dbb6553369cdea6563",
+      "Annex/Annex/Companion/Views/CompanionChatControlsBar.swift": "7f5f426c542ac4e8da2da95d26bf07b62c48cd6c",
+      "Annex/Annex/Companion/Views/CompanionConversationView.swift": "db98a5656b8dde09f1980055c6f320dd08dd0e6d"
+    },
+    "header_fixture_target_blob": "1d91d0843c7bd5623051a57ddf669b2c8589d60b",
+    "header_fixture_inherited_difference_from_4ca": "Main does not contain the Send-only terminal palette, evidence overlay, queue-capability flag or evidence view. Entire difference inspected; Permission source invokes none of their --companion-header-terminal/--companion-header-send-contrast/--companion-header-queue gates. Target fixture is unchanged from direct main, not falsely described as whole-file equal4ca.",
+    "products_helpers_fixtures_workflow_packages_policy": "Entire target bytes unchanged from direct main; no product/consent action or shared helper modification",
+    "permission_assertions_retained": "Unique loaded back/first-row/section geometry, captured entry and back-title agreement, full labels/all five actions/current checkmark/exact draft/real Full access confirmation/containment/hittability, existing allowances and eight-pan limit",
+    "no_source_logic_finding": true
+  },
+  "official_main_original": {
+    "run": 44562137808,
+    "event": "push",
+    "head": "cadce0a4575227a5ad24a6956f819f42913446d8",
+    "attempt": 1,
+    "job": 135906933940,
+    "job_status": "completed",
+    "job_conclusion": "failure",
+    "independent_direct_job_run_API_and_full_log_download": true,
+    "checkout_log_explicitly_prints_exact_cadce": true,
+    "full_original_blob": "39485bcf67b9a04487c0414bcf36f87acfba609e",
+    "bytes": 653298,
+    "sha256": "310e6496c1746d18bf7177cfc7874c09b426c0b3c9ac0e49f5de90569dab121e",
+    "download_exact_bytes_equal_supplied_immutable_original": true,
+    "landscape_first_fail_seconds": 27.168,
+    "landscape_retry_fail_seconds": [37.470, 31.781],
+    "all_three_exact_original_errors": "Permission74 Permissions != Auto-accept edits, each preceded by shortWindow=true keyboard=nil tight=false",
+    "other_six_one_start_first_pass_seconds": {
+      "testPortraitEveryLevelFitsWithoutScrollingAcrossThemes": 200.337,
+      "testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes": 212.038,
+      "testFullAccessConfirmationExplainsUnpromptedEditsAndCommands": 37.411,
+      "testAutoConfirmationExplainsApprovalChoice": 43.109,
+      "testPermissionDescriptionsUseEditingRoomAndRemainVisibleWithKeyboardDown": 49.384,
+      "testLargestTextPortraitEveryLevelKeepsFullVoiceOverTextAndRemainsReachable": 64.420
+    },
+    "no_original_geometric_or_causal_inference": "Original proxy/title mismatch is verified, not expanded-section geometry/AX/pixel proof, physical pan recipient, sole product cause or guarantee that the carried classifier cures the original"
+  },
+  "independent_normal_routing": {
+    "native_classes_parent_and_candidate": 79,
+    "parent_zero_argument_methods": 440,
+    "candidate_zero_argument_methods": 441,
+    "all_parent_440_identities_retained": true,
+    "only_added_identity": "CompanionPermissionMenuUITests/testNativePermissionContextRejectsUnloadedClippedAndCrossedLayouts",
+    "all_seven_old_permission_methods_and_one_geometry_method_retained": true,
+    "generated_matrix_entire_equal_main": true,
+    "lane_count": 8,
+    "permission_whole_class_exactly_once": "UI tests (search, permissions)",
+    "five_existing_repository_ui_coverage_controls_on_fresh_exact_git_materialization": "PASS, 5 tests/0.029s",
+    "command": "python3 -m unittest discover -s scripts/ci/tests -p test_ui_coverage.py",
+    "git_diff_check": "PASS"
+  },
+  "limits": [
+    "PASS_TARGET_ADDITIVE_SOURCE_ONLY on exact98ef, not fresh target native/layout/pixel/touch-delivery proof, SDK build/typecheck, package result, cure or whole-CI acceptance.",
+    "Original main six first passes and historical carried-component eight first passes remain head-bound textual evidence, not new-head passes.",
+    "No duplicate native/design re-review of immutable component; target full bytes/dependencies/original/docs/routing reviewed instead.",
+    "Author host Foundation/CoreGraphics model and frontend parse remain owner evidence, not independently rerun by this reviewer; reviewer executed only five pure-Python routing controls and static/official-original checks.",
+    "Footer, Settings, ContextLimits, chips and every other shared first failure remain outside this carry and unresolved; no cross-component acceptance.",
+    "No reviewer product/test/shared edit, PR creation, shared-ref push, CI submission/rerun/cancellation, native/SDK/package/simulator/FIFO use, publication or landing.",
+    "Author must complete immediate dedupe/current-main/ref and normal PR publication gates under existing parent authorization; this receipt adds no landing/protected-branch authority.",
+    "New ordinary exact-head first outcomes for all eight Permission selectors and required aggregate checks remain pending; retries never replace original first failures.",
+    "Private ownGit receipt and original custody are not public/remote artifact custody."
+  ]
+}
