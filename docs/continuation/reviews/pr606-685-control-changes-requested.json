@@ -1,0 +1,89 @@
+{
+  "reviewer": "go-bug-runner",
+  "verdict": "CHANGES_REQUESTED_BOUNDED_CONTROL_GATE",
+  "head": "685a164a83e54c97a3c0af57f3daae9752003d25",
+  "tree": "ece11c080626a67d0e9f139f40086750b0f3c626",
+  "base": "5165f16003d397429dd0468fa3592bcbb628e357",
+  "scope": "Three-file hosted delivery observation/control/docs boundary, not product or new-head native acceptance",
+  "finding": {
+    "priority": "P2",
+    "file": "scripts/ci/app_update_delivery_controls.py",
+    "line": 110,
+    "title": "Negative controls accept rejection at the wrong asynchronous boundary",
+    "mechanism": "accepted == shouldPass accepts any failure for wrong-progress and dropped-delivery cases. The ready/50 check at114 runs after release.value and listener.value, so eventual consumer state does not establish the failure boundary during verifyPostJoin.",
+    "independent_reproduction": "Only in private inert materialization, change the added ready predicate to ready && downloadProgress ==100. Exact script still exits0 and prints APP_UPDATE_DELIVERY_CONTROLS PASS; wrong-ready/50 issues are the wait failure message, not the original percentage assertion. Delayed-ready/100 positive still passes.",
+    "impact": "The gate can approve precisely the wait-for100 regression the scoped contract excludes, while claiming preserved original percentage-assertion sensitivity.",
+    "required_narrow_change": "Require candidate wrong-ready/50 rejection specifically and solely at original percentage assertion and dropped-final rejection at actual helper wait failure. Account explicitly for old baseline's two equality mismatches so inverse retains its documented interpretation. No hosted/product change requested."
+  },
+  "source_verified": {
+    "full_tracked_mode_blob_inventory": "757->759, only three declared paths",
+    "hosted_file": "Removing exactly added comment+wait169B reconstructs entire old7378B file from candidate7547B; all four tests, helper, initial downloading observation, final ready/progress100/inflightempty/approvalnil assertions exact",
+    "production": "Every other baseline entry exact, including Preview/Store/UI/fixture/workflow/timeouts/allowances/retries",
+    "sequencing": "Exact source Preview1050-1068 yields ready/100 before return. Store.start144-152 listens/applies on separate Task; checkAppUpdate819-842 awaits service and removes in-flight via defer. Publisher join is not listener application.",
+    "budget": "New postjoin observation uses unchanged400x5ms wait helper, nominal2s plus scheduling, nonpreemptive. Documentation explicitly discloses additional phase; no unchanged-total-wait claim.",
+    "cancellation": "Hosted helper pending Task.sleep propagates cancellation/errors and original defer stops Store listener. No new cancellation guarantee or independent cancellation control credited; Foundation harness is not full Store."
+  },
+  "files": [
+    {
+      "path": "Annex/AnnexTests/CompanionAppUpdateViewTests.swift",
+      "blob": "f6536d7569ef2715c4cf5dd6984c80c564a87e48",
+      "bytes": 7547,
+      "sha256": "3971e73f83c285657ca774603d17dbff045609a1650fca553f28be286ddb562f"
+    },
+    {
+      "path": "scripts/ci/app_update_delivery_controls.py",
+      "blob": "ab8216bed70a62f7078239a6b034deae49098d70",
+      "bytes": 5906,
+      "sha256": "54307069edf0f20662d514a1532d1f884030416873e01c413bc33c4a44aeb8c7"
+    },
+    {
+      "path": "docs/pr606-hosted-app-update-delivery.md",
+      "blob": "7403d4e61be02aae15ec51b08613f34aee48e96f",
+      "bytes": 3546,
+      "sha256": "6ca2ff1a540eab58b9e408c6374f7290dafadd1ee3034dc62d50bc2fca5e1dfd"
+    }
+  ],
+  "independent_Foundation_only_controls": {
+    "fresh_materialization": "Exact Git candidate source/control/docs, no .build before script ran; no UIKit/full Store/package/native execution",
+    "candidate": {
+      "exit": 0,
+      "output_blob": "8faea088a05d252f9f39540dd2d2bf695aa9edac",
+      "observed_wrong50_issue": "equality: Optional(50.0) != Optional(100.0)"
+    },
+    "baseline_ref5165": {
+      "script_exit": 1,
+      "only_failed_named_control": "delayed ready/100, original two equality mismatches",
+      "output_blob": "f75613db5f693dcdcacdaf9ed8dd7794c5467a69"
+    },
+    "wait_for_progress100_mutant": {
+      "exit": 0,
+      "output_blob": "17aaeb32712821190ea65f7a8e64e78c49279e8f",
+      "source_blob": "f2748dda2f1813833828179125c2c9d4565994c6",
+      "observed_wrong50_issue": "The synthetic desktop did not publish its update state",
+      "private_source_restored_after_capture": true
+    }
+  },
+  "trusted_original": {
+    "run": 44863839254,
+    "job": 136763353628,
+    "head": "5165f16003d397429dd0468fa3592bcbb628e357",
+    "attempt": 1,
+    "direct_API_job_and_entire_log_verified": true,
+    "blob": "a7cbffc95783096a3f31fbf9eafa709001c52203",
+    "bytes": 1309497,
+    "sha256": "4910c279098ec4a2fa57e8784f2c031ee3b8938dcf4c179822d6b5aaf7ae9d92",
+    "sole_failed_testcase": "testCheckingFlowsIntoLiveDownloadAndReadyInTheHostedViewWithoutCreatingAnApproval",
+    "first_seconds": 8.777,
+    "errors": "116 downloading!=ready;117 progress50!=100",
+    "hosted_summary": "218 executed,3 existing skips,2 assertion failures in one case",
+    "three_native_UI_single_start_PASS_seconds": [36.950, 39.670, 48.270],
+    "job_wall_seconds": 1345,
+    "limits": "Text first outcomes only. No artifact/pixel/native original delayed-final causal trace/replay or candidate cure inferred."
+  },
+  "limits": [
+    "Finding blocks the requested control-gate acceptance of exact685, not evidence of a product flaw or defect in its ready-only hosted predicate.",
+    "Original first failures and first native passes remain tied to5165, not transferred to685 or any successor.",
+    "No source branch/public test code/product/shared-ref/CI/native/package/FIFO/simulator/iOS SDK change by reviewer. Only private inert mutation used, preserved then restored.",
+    "Successor exact independent review and normal hosted/required aggregate evidence still needed; no prior component/runtime borrowing."
+  ]
+}

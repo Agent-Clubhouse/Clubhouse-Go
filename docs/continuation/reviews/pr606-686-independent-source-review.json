@@ -1,0 +1,91 @@
+{
+  "reviewer": "go-bug-runner",
+  "verdict": "PASS_SOURCE_ONLY",
+  "independent_inert_boundary_controls": "PASS",
+  "head": "68657c8c30641e57f4e460aec7b2cd0b765ed6e9",
+  "tree": "f74f76857b593ab7037f75de5600fd8592637fe2",
+  "direct_parent": "685a164a83e54c97a3c0af57f3daae9752003d25",
+  "full_scope_base": "5165f16003d397429dd0468fa3592bcbb628e357",
+  "superseded_finding_for_old_control": "0eca073321023219f8da0ab0a97d106f81f67c6d",
+  "inventory": {
+    "parent_and_child_tracked_entries": 759,
+    "only_child_mode_blob_changes": [
+      "scripts/ci/app_update_delivery_controls.py",
+      "docs/pr606-hosted-app-update-delivery.md"
+    ],
+    "entire_hosted_file_exact685": true,
+    "full5165_to686_scope": "Only hosted comment+ready-only wait, control script and direct docs; all other production/fixture/UI/workflow/allowance/retry bytes unchanged",
+    "hosted_reconstruction": "Remove exact169B comment+wait to recover complete7378B old file; all four original test methods and final assertions preserved"
+  },
+  "files": [
+    {
+      "path": "Annex/AnnexTests/CompanionAppUpdateViewTests.swift",
+      "blob": "f6536d7569ef2715c4cf5dd6984c80c564a87e48",
+      "bytes": 7547,
+      "sha256": "3971e73f83c285657ca774603d17dbff045609a1650fca553f28be286ddb562f"
+    },
+    {
+      "path": "scripts/ci/app_update_delivery_controls.py",
+      "blob": "cca383a88d3ad54f9dee3252ac5c898060990184",
+      "bytes": 7859,
+      "sha256": "f34e0c98ef841272829707f2e543ca4a748a1c7719f7782b73b79c72af471a7a"
+    },
+    {
+      "path": "docs/pr606-hosted-app-update-delivery.md",
+      "blob": "e77b835fa942984e127332d9eab2afe5ff09d5c8",
+      "bytes": 4499,
+      "sha256": "c507da68dc4717240b20e1095e6f392c89dff879d39b1c9ef9440fa4f9846abf"
+    }
+  ],
+  "code_review": {
+    "boundary_capture": "Typed issues, thrown disposition and value-state snapshot captured/computed before stream.finish, release.value or listener.value. No await interleaves snapshot and classification on MainActor.",
+    "delayed_positive": "Exactly no issues, no helper throw, observed ready100",
+    "dropped_final": "Exactly actual helper wait-message issue plus disconnected helper throw, observed downloading50",
+    "wrong_percentage": "Exactly original percentage assertion issue, no helper throw, already observed ready50",
+    "unexpected_errors": "Explicit typed unexpected-throw issue rejects strict classification",
+    "explicit_baseline": "Requires --ref or parser exits2; old dropped/wrong cases require exact original state+percentage issues/no throw/downloading50, old delayed positive still fails",
+    "original_control_falsepass": "Fixed: waiting for ready AND100 now fails wrong-progress control, not accepted merely because an error occurred"
+  },
+  "independent_controls": {
+    "environment": "Fresh ownGit materialization, no .build before script executed, Foundation-only extracted exact postjoin/helper; no UIKit/full Store/package/iOS SDK/SUT execution",
+    "candidate": {
+      "exit": 0,
+      "output_blob": "14f530d35d46174e4fd776f70a9680e4cc8e4edb",
+      "output_bytes": 714,
+      "output_sha256": "d16594971e926f61a02ff10eeb883bc792c0b7a8001f3f46ddd52cdd7f183f5d",
+      "observations": "Publisher finished while Store50; delayed ready100 accepted, dropped helper failure/throw and wrong percentage-only failure classified before cleanup exactly"
+    },
+    "baseline": {
+      "command_suffix": ["--ref", "5165f16003d397429dd0468fa3592bcbb628e357", "--baseline"],
+      "script_exit": 1,
+      "only_failed_named_control": "delayed ready/100 with original two issues, observed downloading50/no throw before cleanup",
+      "output_blob": "e71d2305758418f49b0e087f70bc559d0233e1fb",
+      "output_bytes": 1782,
+      "output_sha256": "5c07769b3f074642d5000facae611e22e0f6f67085f1333270208795fc55579d"
+    },
+    "ready_plus100_mutant": {
+      "source_blob": "f2748dda2f1813833828179125c2c9d4565994c6",
+      "script_exit": 1,
+      "only_failed_named_control": "wrong progress: actual wait issue/helperThrewtrue/observedready50, not percentage assertion",
+      "output_blob": "75d9ac92c8e2b69dd264c6eaa8891713531f8299",
+      "output_bytes": 1738,
+      "output_sha256": "7943b78c3235477b8429d6016027d67e3c6b961789cb5a24a3d0caac15f7c2f1",
+      "private_source_restored_exact686": true
+    },
+    "syntax_and_diff": "Python AST and exact child Git diff check PASS"
+  },
+  "preserved_source_budget_cancellation": {
+    "producer_consumer": "Previously verified exact Preview yields ready100 before return; Store applies via separate listener Task. Publisher join alone is not consumer-apply barrier.",
+    "budget": "Existing ready-only wait400x5ms adds nominal2s after checking.value, plus scheduling; nonpreemptive, not unchanged total observation time. Child adds no further hosted wait or allowance.",
+    "oracles": "Original final ready/progress100/inflightempty/noapproval assertions intact; ready50 not hidden by waiting for100",
+    "cancellation": "Existing pending helper Task.sleep propagates cancellation/errors; original test defer stops listener. No new universal cancellation bound/control claimed.",
+    "original_runtime": "Previous independently trusted5165/iPad136763353628/run44863839254 full loga7cb1309497B/SHA4910 showed sole8.777s hosted116/117 failure, three native UI firstPASS and1345s job. Those remain historical, not686 runtime/cure."
+  },
+  "findings": [],
+  "limits": [
+    "Exact source/inert-control verdict only; not hosted UIKit or full production Store reproduction, native runtime, iOS SDK build/typecheck, package, FIFO, simulator or aggregate acceptance.",
+    "Original source-supported scheduling possibility is not proof of original delayed-final trace, later delivery, pixel cause or actual candidate cure.",
+    "Old0eca finding and old685 remain preserved; child fixes only control acceptance. No inherited component runtime or old native pass borrowed as current head acceptance.",
+    "Reviewer changed no public code/branch/shared ref/CI state; only private inert mutation captured and restored. Author remains responsible for preservation/publication/head guards and normal exact-head hosted/required checks."
+  ]
+}
