@@ -32,6 +32,13 @@ import XCTest
         let icons = springboard.icons.matching(identifier: "Clubhouse Go")
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(timeout))
+        func withinDeadline(_ phase: String) -> Bool {
+            guard clock.now < deadline else {
+                print("SPRINGBOARD_ICON disposition=admission-deadline-exceeded phase=\(phase)")
+                return false
+            }
+            return true
+        }
         var previous: CGRect?
         while clock.now < deadline {
             let root: XCUIElementSnapshot
@@ -41,10 +48,7 @@ import XCTest
                 print("SPRINGBOARD_ICON disposition=snapshot-failure deadlineExceeded=\(clock.now >= deadline) error=\(error)")
                 throw error
             }
-            guard clock.now < deadline else {
-                print("SPRINGBOARD_ICON disposition=observation-finished-after-admission-deadline")
-                return nil
-            }
+            guard withinDeadline("snapshot-return") else { return nil }
             let screen = root.frame
             guard screen.width > 0, screen.height > 0,
                   [screen.minX, screen.minY, screen.maxX, screen.maxY].allSatisfy({ $0.isFinite }) else {
@@ -68,21 +72,21 @@ import XCTest
                 throw NSError(domain: "SpringBoardIconObservation", code: 1,
                               userInfo: [NSLocalizedDescriptionKey: "Multiple visible Clubhouse Go icons"])
             }
-            guard clock.now < deadline else { return nil }
+            guard withinDeadline("snapshot-selection") else { return nil }
             let current = matches.first
             if let current, current == previous {
                 let candidates = icons.allElementsBoundByIndex
-                guard clock.now < deadline else { return nil }
+                guard withinDeadline("live-query-return") else { return nil }
                 let icon = try XCTUnwrap(candidates.count == 1 ? candidates.first : nil,
                                          "A single live Clubhouse Go icon must own the stable snapshot frame")
                 let liveFrame = icon.frame
-                guard clock.now < deadline else { return nil }
+                guard withinDeadline("live-frame-return") else { return nil }
                 guard liveFrame == current else {
                     throw NSError(domain: "SpringBoardIconObservation", code: 2,
                                   userInfo: [NSLocalizedDescriptionKey: "The live icon frame \(liveFrame) does not match the stable snapshot \(current)"])
                 }
                 print("SPRINGBOARD_ICON disposition=stable-live-bound frame=\(current)")
-                guard clock.now < deadline else { return nil }
+                guard withinDeadline("stable-success") else { return nil }
                 return HomeIcon(element: icon, frame: current)
             }
             previous = current
