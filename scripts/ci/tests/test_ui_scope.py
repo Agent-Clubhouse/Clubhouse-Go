@@ -75,7 +75,8 @@ class PreMergeScopeTests(unittest.TestCase):
         inventory = scope.Inventory(ROOT)
         everything = [f"{c}/{m}" for c, methods in inventory.methods.items() for m in methods]
         for entry in scope.pack(everything, True, inventory)["include"]:
-            self.assertLessEqual(entry["minutes"], scope.SHARD_TEST_MINUTES)
+            self.assertLessEqual(entry["minutes"], scope.SHARD_TEST_MINUTES + scope.MIN_SHARD_MINUTES)
+            self.assertGreaterEqual(entry["minutes"], scope.MIN_SHARD_MINUTES)
 
     def test_the_inventory_finds_every_ui_test_method(self):
         import re

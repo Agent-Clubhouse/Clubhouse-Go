@@ -35,6 +35,7 @@ UI_DIR, HOSTED_DIR, PRODUCT_DIR = "Annex/AnnexUITests/", "Annex/AnnexTests/", "A
 UI_TARGET, UNIT_TARGET = "ClubhouseGoUITests", "ClubhouseGoTests"
 SHARD_TEST_MINUTES = 35.0   # leaves room for retries and setup under the 55-minute job timeout
 HOSTED_MINUTES = 4.0
+MIN_SHARD_MINUTES = 2.0    # a shard under this rides another one instead of paying ~4.4 minutes of setup
 UNSAMPLED_SECONDS = 60.0
 
 SMOKE = [
@@ -313,6 +314,11 @@ def pack(selectors, unit, inventory):
                 shard["tests"].append(selector); shard["minutes"] += cost; break
         else:
             shards.append({"tests": [selector], "minutes": cost})
+    # A sliver of a shard costs a whole job's setup; fold it into the lightest other shard (a little over budget).
+    if len(shards) > 1 and shards[-1]["minutes"] < MIN_SHARD_MINUTES:
+        sliver = shards.pop()
+        lightest = min(shards, key=lambda shard: shard["minutes"])
+        lightest["tests"] += sliver["tests"]; lightest["minutes"] += sliver["minutes"]
     include = []
     for index, shard in enumerate(shards):
         flags = [f"-only-testing:{UI_TARGET}/{s}" for s in sorted(shard["tests"])]
