@@ -132,8 +132,8 @@ WAIT_HELPER
         swift = work / "controls.swift"
         executable = work / "controls"
         swift.write_text(program)
-        subprocess.run(["swiftc", "-parse-as-library", "-swift-version", "5", str(swift), "-o", str(executable)], check=True)
-        subprocess.run([str(executable)], check=True)
+        subprocess.run(["swiftc", "-parse-as-library", "-swift-version", "5", str(swift), "-o", str(executable)], check=True, timeout=60)
+        subprocess.run([str(executable)], check=True, timeout=60)
 
 
 if __name__ == "__main__":
