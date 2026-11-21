@@ -107,7 +107,7 @@ import XCTest
         XCTAssertTrue(message.waitForExistence(timeout: 5))
         phase("no-tap-type-\(text)")
         app.typeText(text)
-        XCTAssertEqual(message.value as? String, text)
+        assertTypedValue(message, equals: text)
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["wake-send"].isEnabled)
         phase("exact-value-and-keyboard-\(text)")
@@ -137,7 +137,7 @@ import XCTest
         phase("rotate-presented-sheet")
         XCUIDevice.shared.orientation = .landscapeLeft
         app.typeText(" rotated")
-        XCTAssertEqual(message.value as? String, "After foreground rotated")
+        assertTypedValue(message, equals: "After foreground rotated")
         cancel(message, in: app)
         let landscapeMessage = presentAndType("Landscape presentation", in: app)
         cancel(landscapeMessage, in: app)

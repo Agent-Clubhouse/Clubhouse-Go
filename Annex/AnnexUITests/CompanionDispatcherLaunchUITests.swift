@@ -133,7 +133,7 @@ import XCTest
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "Cold handoff focuses the composer")
         XCTAssertTrue(composer.exists)
         app.typeText("Keep this draft")
-        XCTAssertEqual(composer.value as? String, "Keep this draft")
+        assertTypedValue(composer, equals: "Keep this draft")
         nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))

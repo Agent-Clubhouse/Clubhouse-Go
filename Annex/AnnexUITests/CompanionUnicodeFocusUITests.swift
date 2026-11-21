@@ -37,11 +37,10 @@ import XCTest
         return app
     }
 
-    private func requireBytes(_ field: XCUIElement, _ expected: String) {
-        let value = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value == %@", expected), object: field)
-        let result = XCTWaiter.wait(for: [value], timeout: 5)
-        XCTAssertEqual(Array((field.value as? String ?? "").utf8), Array(expected.utf8))
-        XCTAssertEqual(result, .completed)
+    /// Same 5s bound and exact UTF-8 bytes as before. The shared helper re-reads about every 0.1s, where
+    /// XCTNSPredicateExpectation polled about once a second: run 44776415205 timed out, then matched exact bytes.
+    private func requireBytes(_ field: XCUIElement, _ expected: String, file: StaticString = #filePath, line: UInt = #line) {
+        assertTypedValue(field, equals: expected, timeout: 5, file: file, line: line)
     }
 
     func testCreatedNoticeFocusAndSendPreserveUnicodeBytes() {

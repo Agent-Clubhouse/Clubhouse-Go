@@ -51,7 +51,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         // The value is right aligned; target its trailing text so the space is internal.
         name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
         name.typeText(" two")
-        XCTAssertEqual(name.value as? String, "brave-otter two")
+        assertTypedValue(name, equals: "brave-otter two")
         let problem = element(app, "new-agent-name-error")
         scrollTo(problem, in: app, maxSwipes: 3)
         XCTAssertTrue(problem.waitForExistence(timeout: 5))
@@ -152,7 +152,7 @@ final class CompanionAgentSheetsTests: ReliableUITestCase {
         let name = element(app, "new-agent-name")
         name.coordinate(withNormalizedOffset: CGVector(dx: 0.99, dy: 0.5)).tap()
         name.typeText("-kept")
-        XCTAssertEqual(name.value as? String, "brave-otter-kept")
+        assertTypedValue(name, equals: "brave-otter-kept")
         finishNameEditing(app)
         let workspace = app.buttons["new-agent-workspace-tools"]
         scrollTo(workspace, in: app, maxSwipes: 4)

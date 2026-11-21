@@ -483,7 +483,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         assertStacked("placeholder", editing: false)
         composer.tap()
         composer.typeText("Hey")
-        XCTAssertEqual(composer.value as? String, "Hey")
+        assertTypedValue(composer, equals: "Hey")
         assertStacked("one line", editing: true)
         let screenshot = XCTAttachment(screenshot: app.screenshot())
         screenshot.name = "Composer at accessibility text size"
@@ -1031,7 +1031,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         add(beforeTyping)
         message.typeText("No-tap wake autofocus")
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(message.value as? String, "No-tap wake autofocus")
+        assertTypedValue(message, equals: "No-tap wake autofocus")
         XCTAssertTrue(app.buttons["wake-send"].isEnabled)
         app.buttons["Cancel"].tap()
         XCTAssertTrue(message.waitForNonExistence(timeout: 5))

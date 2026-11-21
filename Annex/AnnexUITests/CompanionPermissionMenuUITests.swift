@@ -34,7 +34,7 @@ import XCTest
         XCTAssertTrue(waitFor(app, NSPredicate { _, _ in self.visibleKeyboardFrame(app) != nil }, timeout: 5),
                       "A software keyboard must visibly occupy the screen, not merely exist in AX")
         composer.typeText("Permission menu draft")
-        XCTAssertEqual(composer.value as? String, "Permission menu draft")
+        assertTypedValue(composer, equals: "Permission menu draft")
         XCTAssertNotNil(visibleKeyboardFrame(app), "The draft starts with a visibly onscreen keyboard")
         print("PERMISSION_KEYBOARD before-menu=\(String(describing: visibleKeyboardFrame(app)))")
         let controls = app.buttons["companion-level-menu"]

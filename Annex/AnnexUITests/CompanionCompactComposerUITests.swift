@@ -365,7 +365,7 @@ import XCTest
         try dismissChatControls(app)
         focus(composer, in: app)
         composer.typeText("Keep this draft")
-        XCTAssertEqual(composer.value as? String, "Keep this draft")
+        assertTypedValue(composer, equals: "Keep this draft")
         XCTAssertTrue(app.buttons["companion-send"].isEnabled && app.buttons["companion-send"].isHittable)
         try assertRow(app, working: false, state: "idle typed focused", editing: true)
     }
@@ -545,7 +545,7 @@ import XCTest
         focus(composer, in: app)
         let direction = largestText ? "Keep this direction\nAnd this detail" : "Keep this direction"
         composer.typeText(direction)
-        XCTAssertEqual(composer.value as? String, direction)
+        assertTypedValue(composer, equals: direction)
         XCTAssertTrue(send.isEnabled)
         try assertRow(app, working: true, state: "working typed focused", editing: true, dismissButton: true, reviewButton: largestText)
         for id in ["companion-level-menu", "companion-attach", "companion-interrupt", "companion-send", "companion-dismiss-keyboard"] {
@@ -646,7 +646,7 @@ import XCTest
         let oneLineFloor = composer.frame.height
         let draft = (1...8).map { "Line \($0)" }.joined(separator: "\n")
         composer.typeText(draft)
-        XCTAssertEqual(composer.value as? String, draft)
+        assertTypedValue(composer, equals: draft)
         try assertRow(app, working: true, state: "pending grant eight lines", editing: true)
         let snapshot = try layout(app)
         XCTAssertGreaterThanOrEqual(pixelAligned(try XCTUnwrap(snapshot["companion-composer"]).height),

@@ -76,7 +76,7 @@ import XCTest
         XCTAssertTrue(returnKey.waitForExistence(timeout: 5))
         returnKey.tap()
         input.typeText("Second line")
-        XCTAssertEqual(input.value as? String, "On-screen first line\nSecond line")
+        assertTypedValue(input, equals: "On-screen first line\nSecond line")
         XCTAssertFalse(sendRefusal(app).exists)
         XCTAssertTrue(input.debugDescription.contains("Keyboard Focused"))
     }
