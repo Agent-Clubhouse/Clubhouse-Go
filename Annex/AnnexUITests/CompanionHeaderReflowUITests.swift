@@ -74,14 +74,24 @@ import XCTest
                         CGVector(dx: 0.5, dy: scrolled == 0 ? 0.65 : 0.35)))
                 case .pushPop:
                     if scrolled == 0 {
-                        // A back-swipe that's released early, so the chat stays. Hold before lifting: a release while
-                        // still moving lets UIKit finish the pop on velocity alone, which left hosted runs on the root
-                        // with no Back button. At rest, 20% of the width is below the pop threshold and it cancels.
+                        // A back-swipe that's released early, so the chat stays. iOS 26 UIKit
+                        // (-[_UINavigationInteractiveTransitionBase popGesture:withRemainingDuration:shouldPopWithVelocity:],
+                        // augmented procedure, on by default) pops when
+                        //   progress + averageVelocity × 0.35s (+ ½ × averageAcceleration × 0.35s²) > min(187.5pt / width, 0.5)
+                        // with averageVelocity the mean of the recognizer's velocity over its last 3 moving samples, in
+                        // widths per second. A stationary hold adds no moving sample, so it can't lower that average.
+                        // That's why the held .default (500pt/s) swipe still popped on all 3 hosted attempts in run
+                        // 44776415205: 0.19 + 1.24 × 0.35 ≈ 0.63 > 0.47. At 100pt/s the same 19%-of-width drag projects to
+                        // ≈ 0.28 and UIKit cancels. (.slow, 250pt/s, projects to ≈ 0.41, too close to the threshold.)
                         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
                         edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)),
-                                   withVelocity: .default, thenHoldForDuration: 0.3)
+                                   withVelocity: XCUIGestureVelocity(rawValue: 100), thenHoldForDuration: 0.3)
                     } else {
-                        app.navigationBars.buttons["Back"].firstMatch.tap()
+                        // The tap below needs Back anyway. Checking it first names the cause when the first swipe popped.
+                        let back = app.navigationBars.buttons["Back"].firstMatch
+                        XCTAssertTrue(back.waitForExistence(timeout: 5),
+                                      "The early-released back-swipe must cancel and leave the chat; Back is gone, so the pop completed")
+                        back.tap()
                         let open = app.buttons["header-fixture-open-chat"]
                         if open.waitForExistence(timeout: 5) { open.tap() }
                         _ = app.buttons["companion-chat-header"].waitForExistence(timeout: 5)

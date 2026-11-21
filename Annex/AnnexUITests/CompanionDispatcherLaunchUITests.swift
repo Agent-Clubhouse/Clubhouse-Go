@@ -21,19 +21,40 @@ import XCTest
     /// opens App Library, and `isHittable` on a still-animating icon frame raised "Activation point invalid".
     /// Accept an icon only after two observations of one fully on-screen frame, and move between Home pages by the
     /// page control's own value, never past the last page.
+    ///
+    /// Polled from a plain loop rather than an XCTWaiter block predicate. In run 44776415205 the cold launch never
+    /// showed a settled on-screen icon in 10s (the warm launches settled on their second check). At the timeout the
+    /// waiter interrupted the XCUI query running inside the block ("Failed to resolve remote element … Interrupted by
+    /// waiter."), and XCTest recorded that as a test failure before the page walk could run. Each observation here is
+    /// one SpringBoard snapshot taken outside any waiter, and `try?` absorbs a failed snapshot. When time runs out
+    /// the function returns nil and the caller walks the Home pages.
     private func settledHomeIcon(_ springboard: XCUIApplication, timeout: TimeInterval = 10) -> XCUIElement? {
-        final class Observation { var frame: CGRect?; var icon: XCUIElement? }
-        let observed = Observation()
         let icons = springboard.icons.matching(identifier: "Clubhouse Go")
-        let settled = NSPredicate { _, _ in
-            let screen = springboard.frame
-            let visible = icons.allElementsBoundByIndex.lazy.map { ($0, $0.frame) }.first { !$1.isEmpty && screen.contains($1) }
-            defer { observed.frame = visible?.1 }
-            guard let visible, visible.1 == observed.frame else { return false }
-            observed.icon = visible.0
-            return true
+        let deadline = Date().addingTimeInterval(timeout)
+        var previous: CGRect?
+        while true {
+            var current: (index: Int, frame: CGRect)?
+            if let root = try? springboard.snapshot() {
+                // Depth-first order is the descendant query's index order. The query's "IN identifiers" matches the
+                // identifier or the label, so match both here as well.
+                var matches: [CGRect] = []
+                func walk(_ node: XCUIElementSnapshot) {
+                    if node.elementType == .icon, node.identifier == "Clubhouse Go" || node.label == "Clubhouse Go" {
+                        matches.append(node.frame)
+                    }
+                    node.children.forEach(walk)
+                }
+                walk(root)
+                let screen = root.frame
+                if let index = matches.firstIndex(where: { !$0.isEmpty && screen.contains($0) }) {
+                    current = (index, matches[index])
+                }
+            }
+            if let current, current.frame == previous { return icons.element(boundBy: current.index) }
+            previous = current?.frame
+            guard Date() < deadline else { return nil }
+            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
         }
-        return waitFor(springboard, settled, timeout: timeout) ? observed.icon : nil
     }
 
     private func homePage(_ control: XCUIElement) -> (current: Int, count: Int)? {
