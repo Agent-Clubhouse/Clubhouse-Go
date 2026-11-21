@@ -30,11 +30,9 @@ import XCTest
     }
 
     func testSeveralRequestsAndDesktopsAppearanceMatrix() {
+        // Light and XXXL: the dark and Catppuccin themes repeated Light's checks; theme rendering is covered in process.
         let variants: [(String, [String])] = [
             ("light", ["--companion-preview-light"]),
-            ("dark", ["--companion-preview-dark"]),
-            ("Catppuccin Latte", ["--companion-preview-light", "--companion-preview-theme-latte"]),
-            ("Catppuccin Mocha", ["--companion-preview-dark", "--companion-preview-theme-mocha"]),
             ("accessibility XXXL", ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         ]
         for (name, flags) in variants {
