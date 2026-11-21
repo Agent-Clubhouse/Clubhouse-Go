@@ -82,6 +82,50 @@ average is about 80.4s each before any additional retry/overhead. One additional
 240s attempt in the other three affected lanes would also exceed 55 minutes.
 Eight first allowances reserve neither all retry time nor arbitrary load.
 
+### Closed historical comparison for the twelve cases
+
+All twelve have a closed first pass in run `44685281882` on #620 head `ab6c7149`.
+The logs identify Xcode 26.5, iPhone 17 / iOS 26.5, serial execution, the same
+three-iteration failure-retry policy and default native command allowance. The
+five PreviewSmoke bodies and their complete file-local private helper closure are
+byte-identical between ab6 and this candidate. Both other class files, the shared
+ReliableUITestCase base and simulator boot helper are byte-identical. Thus their
+fixture arguments, appearance/theme setup and native selectors match. The product
+trees and lane scheduling differ (fifteen lanes, maximum eight parallel, versus
+this eight-lane matrix), so these are comparable historical observations, not a
+controlled performance measurement or current-head result.
+
+| Class/method (prefixes abbreviated) | First pass seconds | Job |
+| --- | ---: | --- |
+| PreviewSmoke / ScratchAndHomeTextOpenInApp | 42.644 | 136135075449 |
+| PreviewSmoke / SleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal | 69.068 | 136135075449 |
+| PreviewSmoke / SleepingAgentOffersWakeAndResumeAndStartNewSession | 45.449 | 136135075449 |
+| PreviewSmoke / UnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu | 65.656 | 136135075449 |
+| PreviewSmoke / WakeSheetAcceptsTextWithoutTapping | 38.190 | 136135075449 |
+| SpawnVisual / Accessibility | 33.406 | 136135075435 |
+| SpawnVisual / CatppuccinLatte | 16.404 | 136135075435 |
+| SpawnVisual / Dark | 16.846 | 136135075435 |
+| SpawnVisual / Light | 17.981 | 136135075435 |
+| SpawnVisual / SolarizedDark | 16.042 | 136135075435 |
+| ShakeDiagnostics / CompanionLayoutShakeAcrossNavigationAndComposerFocus | 46.184 | 136135075543 |
+| ShakeDiagnostics / UnenrolledShakeExplainsEnrollmentInsteadOfDoingNothing | 36.447 | 136135075543 |
+
+Each has exactly one iteration-1 start and one passed terminal result in its full
+closed job log. Their total is 444.317s; substituting those observations for the
+720s reserve gives preview 2779.694s (46m20s), about 8m40s below the limit before
+new overhead/retries. No case remains historically unsampled in this set, but all
+twelve remain unobserved on the current 434 run. Keep the 60/90/120s sensitivity,
+80.4s break-even and retry warning above: historical passes do not close successor
+hosted gates or guarantee future timing.
+
+Historical direct log SHA256 values, respectively:
+`54a00926f4ca2a5ea71febe8ceb043826a6d75474398660d32a8ee9ce5b862e6`
+(617954 bytes),
+`262a395ba5e01c6765e0977baf6787e4e1b642b922f549cf5644952eb858a7ae`
+(893302 bytes), and
+`cc37a97fb1103b340f7aa33dcbab8b1fa04cbe11b3d4f1e0c4ef20ee6146cd21`
+(555864 bytes). No historical job is rerun for this comparison.
+
 Configured aggregate allowance stays eight times 55 minutes (440 runner-minutes),
 with no additional runner setup or job. The estimates have only 2–4 minutes of
 slack on the affected lanes and cannot close any hosted method or aggregate gate.
