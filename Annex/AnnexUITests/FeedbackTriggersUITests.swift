@@ -326,9 +326,16 @@ final class FeedbackTriggersUITests: ReliableUITestCase {
         let resultBeforeCancel = result.exists ? result.label : nil
         release.tap()
         let confirmationTitle = "Send 2 reports saved under a previous enrollment with this one?"
-        XCTAssertTrue(app.staticTexts[confirmationTitle].waitForExistence(timeout: 5))
+        let presentationClock = ContinuousClock()
+        let presentationDeadline = presentationClock.now.advanced(by: .seconds(5))
+        let titlePresented = app.staticTexts[confirmationTitle].waitForExistence(timeout: 5)
+        guard titlePresented, presentationClock.now < presentationDeadline else {
+            XCTFail("The held-report confirmation must present within five seconds"); return
+        }
         let confirmation = try uniqueHeldConfirmation(app, titled: confirmationTitle)
-        XCTAssertTrue(confirmation.waitForExistence(timeout: 5))
+        guard confirmation.exists, presentationClock.now < presentationDeadline else {
+            XCTFail("The unique held-report confirmation must resolve within the same five seconds"); return
+        }
         XCTAssertTrue(confirmation.staticTexts["Send 2 reports saved under a previous enrollment with this one?"].exists)
         let hierarchy = XCTAttachment(string: app.debugDescription)
         hierarchy.name = "Held release confirmation native hierarchy"; hierarchy.lifetime = .keepAlways; add(hierarchy)
