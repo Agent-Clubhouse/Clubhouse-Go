@@ -4,6 +4,16 @@ import Testing
 @testable import CompanionDomain
 
 struct CompanionReadingPositionTests {
+    @Test(arguments: [0.0, 0.4, 0.6]) func captureRequiresHalfAPointOfVisibleEntryWithoutMovingTheRestore(overlap: Double) {
+        let frames: [String: ClosedRange<Double>] = ["previous": 0...(100 + overlap), "next": (100 + overlap)...200]
+        var position = CompanionReadingPosition(followsLatest: false)
+        position.capture(offset: 100, frames: frames)
+        #expect(position.entryID == (overlap > CompanionReadingPosition.minimumVisibleExtent ? "previous" : "next"))
+        #expect(position.restoredOffset(frames: frames) == 100)
+        let shifted = frames.mapValues { ($0.lowerBound + 250)...($0.upperBound + 250) }
+        #expect(position.restoredOffset(frames: shifted) == 350,
+                "Changing which boundary row is captured must not change the restored pixel")
+    }
     @Test @MainActor func stalledRestorationExhaustsItsBudgetWithoutLosingTheReadingBookmark() {
         let bookmark = CompanionReadingBookmark()
         bookmark.position = .init(followsLatest: false, entryID: "message:reading", distanceFromEntry: 8, offset: 400)

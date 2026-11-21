@@ -5,6 +5,80 @@ import ClubhouseTransport
 @testable import ClubhouseGo
 
 @MainActor final class CompanionProjectPageVisualTests: XCTestCase {
+    func testCapturedLegacyStateMenuDoesNotMutateAfterUnlinking() async throws {
+        for shared in [false, true] { try await assertStateMenuAction(.unlink, shared: shared) }
+    }
+
+    func testCapturedLegacyStateMenuStillRefusesRelinkingAndMigration() async throws {
+        for transition in [StateMenuTransition.relink, .migrate] {
+            for shared in [false, true] { try await assertStateMenuAction(transition, shared: shared) }
+        }
+    }
+
+    func testCurrentSingleAndLegacyStateMenusKeepTheirLocalOrSharedPolicy() async throws {
+        for transition in [StateMenuTransition.currentSingle, .currentLegacy] {
+            for shared in [false, true] { try await assertStateMenuAction(transition, shared: shared) }
+        }
+    }
+
+    private enum StateMenuTransition { case unlink, relink, migrate, currentSingle, currentLegacy }
+
+    private func assertStateMenuAction(_ transition: StateMenuTransition, shared: Bool) async throws {
+        let store = CompanionStore(service: CompanionPreviewService())
+        let references: [AnnexProjectLinks.Reference] = ["first", "second"].map { .init(machine: $0, projectId: "copy") }
+        var hosts = ["first", "second"].map { id in
+            var host = CompanionHost(id: id, name: id, endpoint: "", connection: .connected,
+                                     projects: [.init(id: "copy", name: "Synthetic project", agents: [])])
+            host.canLinkProjects = true
+            host.projectLinks = .init(projectLinks: transition == .currentSingle ? [] : [.init(id: "original-link", projects: references)])
+            host.canSyncProjectState = shared
+            host.projectState = shared ? ["copy": .init()] : nil
+            return host
+        }
+        store.apply(.hosts(hosts))
+        let target = CompanionProjectTarget(hostID: "first", projectID: "copy")
+        let group = try XCTUnwrap(store.projectEntry(containing: target))
+        XCTAssertEqual(group.isLinked, transition != .currentSingle)
+        let member = try XCTUnwrap(group.members.first { $0.id == target })
+        let suite = "project-menu-identity-\(UUID().uuidString)"
+        let defaults = try XCTUnwrap(UserDefaults(suiteName: suite))
+        let preferences = CompanionPreferences(defaults: defaults, systemDeviceName: "Tests")
+        defer { store.shutdown(); defaults.removePersistentDomain(forName: suite) }
+        let menu = CompanionSingleProjectStateMenuItems(store: store, preferences: preferences,
+            entry: .init(host: member.host, project: member.project), legacyLinkID: group.linkID)
+        let key = CompanionProjectOrdering.key(target)
+        for index in hosts.indices {
+            switch transition {
+            case .unlink: hosts[index].projectLinks = .init(projectLinks: [])
+            case .relink: hosts[index].projectLinks = .init(projectLinks: [.init(id: "replacement-link", projects: references)])
+            case .migrate:
+                hosts[index].canSyncProjectState = true
+                hosts[index].canSyncLinkedProjectState = true
+                hosts[index].projectState = ["copy": .init(linked: true)]
+            case .currentSingle, .currentLegacy: break
+            }
+        }
+        store.apply(.hosts(hosts))
+        let permitsChange = transition == .currentSingle || transition == .currentLegacy
+        let expectedLocal = permitsChange && !shared ? 2 : 0
+        let expectedRemote = permitsChange && shared ? 2 : 0
+        var localChanges = 0, remoteChanges = 0
+        let remote = expectation(description: "Only the current menu's shared-state callbacks may run")
+        remote.isInverted = expectedRemote == 0
+        remote.expectedFulfillmentCount = max(1, expectedRemote)
+        menu.change(local: { localChanges += 1; preferences.togglePinned(key) },
+                    remote: { remoteChanges += 1; remote.fulfill() })
+        menu.change(local: { localChanges += 1; preferences.markInactive(key) },
+                    remote: { remoteChanges += 1; remote.fulfill() })
+        await fulfillment(of: [remote], timeout: expectedRemote == 0 ? 0.1 : 5)
+        XCTAssertEqual(localChanges, expectedLocal, "\(transition), shared=\(shared)")
+        XCTAssertEqual(remoteChanges, expectedRemote, "\(transition), shared=\(shared)")
+        if !permitsChange {
+            XCTAssertTrue(preferences.pinnedProjects.isEmpty)
+            XCTAssertTrue(preferences.inactiveProjects.isEmpty)
+        }
+    }
+
     func testProjectPageVisualMatrix() async throws {
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first)
         let previous = scene.windows.first(where: \.isKeyWindow)

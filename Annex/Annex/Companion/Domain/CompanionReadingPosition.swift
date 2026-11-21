@@ -62,6 +62,8 @@ struct CompanionReadingGesture {
 /// Content coordinates avoid depending on estimates of row heights. One visible entry and its pixel offset survive
 /// prepends, grouping changes above it, and keyboard/composer resizing. Stored per conversation outside snapshots.
 struct CompanionReadingPosition: Equatable, Sendable {
+    /// Ignore an edge that is effectively at the viewport top, including floating-point rounding noise.
+    static let minimumVisibleExtent: Double = 0.5
     var followsLatest = true
     var entryID: String?
     var distanceFromEntry: Double = 0
@@ -73,7 +75,7 @@ struct CompanionReadingPosition: Equatable, Sendable {
     mutating func capture(offset: Double, frames: [String: ClosedRange<Double>]) {
         self.offset = offset
         var first: (key: String, value: ClosedRange<Double>)?
-        for entry in frames where entry.value.upperBound > offset {
+        for entry in frames where entry.value.upperBound > offset + Self.minimumVisibleExtent {
             if first == nil || entry.value.lowerBound < first!.value.lowerBound { first = entry }
         }
         if let first {
@@ -91,6 +93,24 @@ struct CompanionReadingPosition: Equatable, Sendable {
             return false
         }
         return isSummary ? min(max(restored, frame.lowerBound), frame.upperBound) : restored
+    }
+}
+
+/// Value-only initial transcript window. Pixel alignment still belongs to the bounded restore.
+struct CompanionReadingOpening: Equatable, Sendable {
+    let followsLatest: Bool
+    let shownEntries: Int
+    let entryID: String?
+
+    init(position: CompanionReadingPosition, hasMounted: Bool, initialLimit: Int, rows: [CompanionTimelineRow]) {
+        followsLatest = position.followsLatest
+        // Match the existing history task: only an already mounted bookmark owns an expanded window.
+        shownEntries = hasMounted ? max(initialLimit, position.shownEntries) : initialLimit
+        guard !position.followsLatest, let id = position.entryID,
+              let row = rows.first(where: { $0.contains(entryID: id) }) else { entryID = nil; return }
+        // The paused opening window begins at this row's canonical entry. Do not prepare hidden Markdown.
+        // Reuse the existing grouped-question alias rule, while keeping the original semantic bookmark intact.
+        entryID = CompanionTimelineEntry.jumpTarget(for: id, in: CompanionTimelineEntry.entries(for: [row]))?.id
     }
 }
 

@@ -468,6 +468,7 @@ enum CompanionAgentCommandError {
         case "managed_options_conflict": return "The desktop sets workspace, tools and Access for managed agents. Choose a template or Blank again."
         case "template_not_found": return "That template is no longer available. Choose Blank or reopen this sheet to load the latest templates."
         case "managed_agent": return "This setup is managed on the desktop. Change it there."
+        case "provider_change_requires_preview": return CompanionProviderReason.message(code)
         case "create_refused": return detail ?? "The desktop couldn't create this agent."
         case "invalid_name": return detail ?? "Choose a different agent name."
         case "invalid_folder_name": return detail ?? "Choose a different folder name."

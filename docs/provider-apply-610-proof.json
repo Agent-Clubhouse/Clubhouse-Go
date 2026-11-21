@@ -1,0 +1,125 @@
+{
+  "base": "85ee757ae3de9d962d0cafab81ad0011314522ab",
+  "branch": "ux-root/provider-apply-610",
+  "review_scope": "V1 implementation only; no v2 compatibility/backend acceptance",
+  "source_sha256": {
+    "Annex/Annex/Companion/Views/CompanionGuidedProviderScreen.swift": "2eebd11929aa1eed300d7a8b2db6470da4bd3d9a5ab0bf04837ac75443ca5449",
+    "Annex/Annex/Companion/Views/CompanionAgentSettingsSheet.swift": "c46e0ea1995b34818a78f7ca93b69c87a71ae8c118213b09b33f1d6302451cef",
+    "Annex/Annex/Companion/Domain/CompanionProviderFlow.swift": "0dc21c9e0534ab83aeb4976e3229ed6c396785e03b19ffe2e19c8cecf5e02cd6",
+    "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift": "0580e14b3796219b52d1cafbe5e5daee5783b9639d6a5ba3f52916df7f607e2a",
+    "Annex/Annex/Companion/Adapters/CompanionLiveService.swift": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+    "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift": "6d1b80c3119f2824862fdb58ac2ce8fb4e64befd528989d0686fb99b8e9928e9",
+    "Tests/CompanionDomainTests/CompanionProviderFlowTests.swift": "3fb1493e85bf2d0b97f19f113d86d491f6c72e25e6ef24a3a7004ece9e7b2261",
+    "Tests/CompanionDomainTests/CompanionProviderBoundaryTests.swift": "ebb96cc7b091154d9547b1b6f4ab72fa2f0df6f019260e57c1d1cb0d6e326fff",
+    "Tests/CompanionDomainTests/CompanionSettingsContractTests.swift": "a2c904e6e25034fcb6cbabad833c0978ca864b7dd7d1236c0bad44dc6fa21e2e",
+    "Annex/AnnexUITests/CompanionPreviewSmokeTests.swift": "aa3989b820852e63e7657a31a5b854484243f83423ba5bcd459728fa32a7cddc",
+    "scripts/isolated-deinit-policy.json": "acf67b2b194b57d4c92fb4f19798e066871d7df3b03d83ea8be325318bc12a6a",
+    "docs/isolated-deinit.md": "8ea3af82c9004d902d0ef970094b8cbc860c92e6022538707ee21a27562a8ca1"
+  },
+  "synthetic_only": true,
+  "device_install_release": false,
+  "real_config_session_provider_actions": false,
+  "queue": "after #609 exact cleanup; default FIFO only; no preemption or any-slot",
+  "guard": {
+    "free_plus_inactive_bytes_min": 8589934592,
+    "idle_percent_min": 40,
+    "swap_growth_per_10s_bytes_max": 67108864,
+    "runtime_swap_record_only": true
+  },
+  "stop": "Any unexpected outcome/count/recovery/fixture failure stops; no executed retries or tuning",
+  "phases": [
+    {
+      "id": "P0",
+      "kind": "package fail-before",
+      "head": "main + identical CompanionProviderBoundaryTests overlay",
+      "command": "swift test --jobs 2 --filter CompanionProviderBoundaryTests/genericCrossProviderUpdateNeverDispatchesEvenWithGuidedSupport",
+      "expected": "2 argument executions fail intended command-spy assertions; no network",
+      "hard_seconds": 900
+    },
+    {
+      "id": "B0",
+      "kind": "fresh Debug/deinit/policy",
+      "head": "main + identical UI test overlay only",
+      "hard_seconds": 900
+    },
+    {
+      "id": "T0",
+      "kind": "UI fail-before",
+      "device": "iPhone17 / installed iOS26.0",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate"
+      ],
+      "expected": "exact1 intended missing Apply-before-selection failure; fixture reaches Provider screen; no retry/crash",
+      "hard_seconds": 600
+    },
+    {
+      "id": "P1",
+      "kind": "head package matrix",
+      "filter": "CompanionProviderFlowTests|CompanionProviderBoundaryTests|ProviderControlTests|CompanionSettingsContractLiveTests|AnnexContractDispatcherMCPOffTests",
+      "expected": "all enumerated methods and argument cases pass once, no new skips",
+      "hard_seconds": 900
+    },
+    {
+      "id": "A",
+      "kind": "fresh head Debug/deinit/policy",
+      "jobs": 2,
+      "hard_seconds": 900
+    },
+    {
+      "id": "TPHONE",
+      "kind": "affected head native UI callers",
+      "device": "iPhone17 / installed iOS26.0",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderFlowAtLargeText",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyAtAccessibilitySizeKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyCannotSilentlyReplaceAnExplicitRuntime"
+      ],
+      "expected": "6/6 once; no E/skip/retry/recovery; unchanged full geometry/cancel/replay/Start assertions and command identity/order; standard/Accessibility Large visual review",
+      "hard_seconds": 1800
+    },
+    {
+      "id": "TSE",
+      "kind": "affected head native UI callers",
+      "device": "iPhoneSE3 / installed iOS26.0",
+      "selectors": [
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testGuidedProviderFlowAtLargeText",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyAtAccessibilitySizeKeepsSavedProposalAndStartSeparate",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked",
+        "ClubhouseGoUITests/CompanionPreviewSmokeTests/testProviderApplyCannotSilentlyReplaceAnExplicitRuntime"
+      ],
+      "expected": "6/6 once; no E/skip/retry/recovery; unchanged full geometry/cancel/replay/Start assertions and command identity/order; standard/Accessibility Large visual review",
+      "hard_seconds": 1800
+    },
+    {
+      "id": "D",
+      "kind": "fresh combined coverage current main rechecked at run",
+      "command": "scripts/coverage.sh --check (jobs2 shim only)",
+      "hard_seconds": 1200
+    }
+  ],
+  "required_review": "Exact source+implementation/test diff and manifest independent UX/source/security PASS before execution; exact originals/runtime/UX review before PR; no raw private evidence uploaded",
+  "ui_discoverability": "Immediately after selection: assert Apply+reason fully on-screen without identifier search scrolling; actual Review change control reveals comparison",
+  "visual_originals_required": [
+    "initial top and last-reported state",
+    "session provider explicitly unverified",
+    "actual Review comparison: saved Claude versus proposed Codex plus persistent Apply and reason",
+    "native-primary/reset warnings",
+    "matching Apply receipt before separate Start",
+    "separately requested Start still unverified"
+  ],
+  "native_method_execution_seconds": 240,
+  "native_identity_carry": {
+    "head": "882f2d1b9308efc97173a82240dc45580cd0a1d6",
+    "selectors": [
+      "testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal",
+      "testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu"
+    ],
+    "scope": "Unchanged methods and transitive helpers, neither calls the measured helper; each passed once on both devices. Prior phone8/8 PASS and SE7/8 FAIL remain scoped to882; no fresh8/8 claim.",
+    "review_required": true
+  }
+}
