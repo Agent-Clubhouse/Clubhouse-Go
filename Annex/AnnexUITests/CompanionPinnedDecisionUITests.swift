@@ -140,7 +140,7 @@ import Vision
 
     /// The same contract in dark appearance; also captures the Review-only look for review.
     func testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard() throws {
-        try requireFullAppearanceMatrix("The dark largest-text request")
+        try requireFullAppearanceMatrix("dark largest text")
         try requestArrivingWhileTypingAtLargestText(appearance: ["--companion-preview-dark"])
     }
 
@@ -512,15 +512,15 @@ import Vision
 
     func testLightDecisionBar() { appearance("light", flags: ["--companion-preview-light"]) }
     func testDarkDecisionBar() throws {
-        try requireFullAppearanceMatrix("The dark decision bar")
+        try requireFullAppearanceMatrix("dark")
         appearance("dark", flags: ["--companion-preview-dark"])
     }
     func testLatteDecisionBar() throws {
-        try requireFullAppearanceMatrix("The Catppuccin Latte decision bar")
+        try requireFullAppearanceMatrix("Catppuccin Latte")
         appearance("Catppuccin Latte", flags: ["--companion-preview-light", "--companion-preview-theme-latte"])
     }
     func testMochaDecisionBar() throws {
-        try requireFullAppearanceMatrix("The Catppuccin Mocha decision bar")
+        try requireFullAppearanceMatrix("Catppuccin Mocha")
         appearance("Catppuccin Mocha", flags: ["--companion-preview-dark", "--companion-preview-theme-mocha"])
     }
     func testAccessibilityDecisionBar() {

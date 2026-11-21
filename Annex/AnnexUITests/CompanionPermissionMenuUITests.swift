@@ -189,7 +189,7 @@ import XCTest
             ("Dark", []),
             ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
             ("Catppuccin Mocha", ["--companion-header-mocha"]),
-        ], everyPush: { $0.0 == "Light" }) {
+        ], name: { $0.0 }, everyPush: { $0.0 == "Light" }) {
             let app = openMenu(flags)
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
@@ -216,7 +216,7 @@ import XCTest
             ("Dark", []),
             ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
             ("Catppuccin Mocha", ["--companion-header-mocha"]),
-        ], everyPush: { $0.0 == "Catppuccin Mocha" }) {
+        ], name: { $0.0 }, everyPush: { $0.0 == "Catppuccin Mocha" }) {
             let app = openMenu(theme + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXL"])
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))

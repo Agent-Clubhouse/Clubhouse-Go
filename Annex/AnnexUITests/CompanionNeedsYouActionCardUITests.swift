@@ -37,7 +37,7 @@ import XCTest
             ("Catppuccin Latte", ["--companion-preview-light", "--companion-preview-theme-latte"]),
             ("Catppuccin Mocha", ["--companion-preview-dark", "--companion-preview-theme-mocha"]),
             ("accessibility XXXL", ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
-        ], everyPush: { ["light", "accessibility XXXL"].contains($0.0) })
+        ], name: { $0.0 }, everyPush: { ["light", "accessibility XXXL"].contains($0.0) })
         for (name, flags) in variants {
             let app = launchApp(["--companion-preview", "--companion-preview-home-five-desktops", "--companion-preview-needs-you-multiple-desktops"] + flags, allowance: 360, attempts: 1)
             waitAndTap(app.tabBars.buttons["Needs you"], until: app.navigationBars["Needs you"], timeout: 15, attempts: 1)

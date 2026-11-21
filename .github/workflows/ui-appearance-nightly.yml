@@ -57,26 +57,18 @@ jobs:
       - name: Skip first-use keyboard education on the test simulator
         run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
 
-      # Same retry and verification policy as the PR UI shards; only the selection and the matrix switch differ.
+      # Same retry and verification policy as the PR UI shards. The selection comes from the sources, and the lane
+      # fails unless every gated method ran in full mode, passed, and exercised every listed variant.
       - name: Run the full appearance matrix
         env:
           TEST_RUNNER_CLUBHOUSE_UI_APPEARANCE_MATRIX: full
         run: |
+          SELECTION=$(python3 scripts/ci/appearance_matrix.py selectors)
+          echo "Selection: $SELECTION"
           xcodebuild test-without-building \
             -xctestrun "$(ls DerivedData/Build/Products/*.xctestrun)" \
             -destination "$DEST" \
-            -only-testing:ClubhouseGoUITests/CompanionPermissionMenuUITests/testPortraitEveryLevelFitsWithoutScrollingAcrossThemes \
-            -only-testing:ClubhouseGoUITests/CompanionPermissionMenuUITests/testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes \
-            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard \
-            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testDarkDecisionBar \
-            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testLatteDecisionBar \
-            -only-testing:ClubhouseGoUITests/CompanionPinnedDecisionUITests/testMochaDecisionBar \
-            -only-testing:ClubhouseGoUITests/CompanionAgentSettingsVisualUITests \
-            -only-testing:ClubhouseGoUITests/CompanionSpawnVisualUITests \
-            -only-testing:ClubhouseGoUITests/CompanionManagedSpawnUITests/testDarkAppearance \
-            -only-testing:ClubhouseGoUITests/CompanionManagedSpawnUITests/testSolarizedDarkAppearance \
-            -only-testing:ClubhouseGoUITests/CompanionManagedSpawnUITests/testCatppuccinLatteAppearance \
-            -only-testing:ClubhouseGoUITests/CompanionNeedsYouActionCardUITests/testSeveralRequestsAndDesktopsAppearanceMatrix \
+            $SELECTION \
             -parallel-testing-enabled NO \
             -retry-tests-on-failure \
             -test-iterations 3 \
@@ -86,6 +78,8 @@ jobs:
             2>&1 | tee xcodebuild-ui.log || true
 
           python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "UI appearance matrix (nightly)"
+          xcrun xcresulttool get test-results tests --path TestResults/UITests.xcresult > TestResults/tests.json
+          python3 scripts/ci/appearance_matrix.py verify TestResults/tests.json xcodebuild-ui.log
 
       - name: Upload test results
         if: always()
