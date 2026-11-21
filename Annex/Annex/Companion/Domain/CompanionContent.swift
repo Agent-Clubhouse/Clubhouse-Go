@@ -153,11 +153,16 @@ enum CompanionContentReference: Hashable, Sendable, Identifiable {
 
     /// The `/content` route answers a missing file, an unreadable one and a folder alike.
     static func unavailableLinkMessage(hostName: String) -> String {
-        "Not available on the phone: this target may be missing, unreadable, or a folder on \(hostName). Open it on your desktop to check."
+        "This target can't be previewed from \(hostName). It may be missing, unreadable, a folder, or unavailable for sharing. Open it on your desktop to check."
     }
 
-    static let richContentOffHint = "Turn on Rich chat content in the desktop's Experimental settings to preview images and files on your phone."
-    /// With Rich chat content off, one hint replaces every link: under the latest row that would have had some.
+    static func richContentUnavailableMessage(hostName: String, enabled: Bool?) -> String {
+        if enabled == false {
+            return "Rich chat content is off on \(hostName). Turn it on in Settings > Agents & providers > Rich chat content on your desktop."
+        }
+        return "Rich previews aren't available from \(hostName). Check Settings > Agents & providers > Rich chat content on your desktop, and update Clubhouse if needed."
+    }
+    /// While rich previews are unavailable, one hint replaces every link, under the latest eligible row.
     static func hintRowID(in rows: [CompanionTimelineRow], richContentAvailable: Bool) -> String? {
         guard !richContentAvailable else { return nil }
         return rows.last { !offered(references(in: $0), richContentAvailable: true).isEmpty }?.id
