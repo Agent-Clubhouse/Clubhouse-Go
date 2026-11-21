@@ -100,15 +100,21 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
 @Test func raceTakesTheFirstAnsweringRouteWhenHomeIsUnreachable() async throws {
     let clock = ContinuousClock()
     let start = clock.now
-    let best = await AnnexRediscovery.firstAnswering(try remembered("192.168.1.26"), routes: [try lan(), try tailnet()], timeout: .seconds(30)) { endpoint in
+    let host = try remembered("192.168.1.26")
+    let routes = [try lan(), try tailnet()]
+    let operationStarted = clock.now
+    let best = await AnnexRediscovery.firstAnswering(host, routes: routes, timeout: .seconds(30)) { endpoint in
         // Away from home: the LAN address never answers, Tailscale does quickly.
         if endpoint.route == .localNetwork { try await Task.sleep(for: .seconds(30)) }
         return pin
     }
+    let operationReturned = clock.now
     #expect(best?.host == "100.81.200.13")
+    let identityChecked = clock.now
+    let elapsed = identityChecked - start
     // Well under the 30 s timeout and the dead route's 30 s sleep: proves it didn't wait for either,
     // with headroom for loaded CI runners (which measured up to 5 s against the old 4 s bound).
-    #expect(clock.now - start < .seconds(20), "Must not wait for the dead home address")
+    #expect(elapsed < .seconds(20), "Must not wait for the dead home address; fixture=\(operationStarted - start), operation=\(operationReturned - operationStarted), operationReturn=\(operationReturned - start), identityExpectation=\(identityChecked - operationReturned), total=\(elapsed)")
 }
 
 @Test func racePrefersTheEarlierRouteWhenBothAnswerWithinGrace() async throws {
