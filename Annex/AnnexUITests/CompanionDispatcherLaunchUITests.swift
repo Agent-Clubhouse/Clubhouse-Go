@@ -21,40 +21,78 @@ import XCTest
     /// opens App Library, and `isHittable` on a still-animating icon frame raised "Activation point invalid".
     /// Accept an icon only after two observations of one fully on-screen frame, and move between Home pages by the
     /// page control's own value, never past the last page.
-    ///
-    /// Polled from a plain loop rather than an XCTWaiter block predicate. In run 44776415205 the cold launch never
-    /// showed a settled on-screen icon in 10s (the warm launches settled on their second check). At the timeout the
-    /// waiter interrupted the XCUI query running inside the block ("Failed to resolve remote element … Interrupted by
-    /// waiter."), and XCTest recorded that as a test failure before the page walk could run. Each observation here is
-    /// one SpringBoard snapshot taken outside any waiter, and `try?` absorbs a failed snapshot. When time runs out
-    /// the function returns nil and the caller walks the Home pages.
-    private func settledHomeIcon(_ springboard: XCUIApplication, timeout: TimeInterval = 10) -> XCUIElement? {
+    /// The monotonic deadline admits observations and successful returns; a synchronous AX request cannot be
+    /// interrupted by this loop. Snapshot failures propagate instead of being mistaken for an absent icon.
+    private struct HomeIcon {
+        let element: XCUIElement
+        let frame: CGRect
+    }
+
+    private func settledHomeIcon(_ springboard: XCUIApplication, timeout: TimeInterval = 10) throws -> HomeIcon? {
         let icons = springboard.icons.matching(identifier: "Clubhouse Go")
-        let deadline = Date().addingTimeInterval(timeout)
+        let clock = ContinuousClock()
+        let deadline = clock.now.advanced(by: .seconds(timeout))
         var previous: CGRect?
-        while true {
-            var current: (index: Int, frame: CGRect)?
-            if let root = try? springboard.snapshot() {
-                // Depth-first order is the descendant query's index order. The query's "IN identifiers" matches the
-                // identifier or the label, so match both here as well.
-                var matches: [CGRect] = []
-                func walk(_ node: XCUIElementSnapshot) {
-                    if node.elementType == .icon, node.identifier == "Clubhouse Go" || node.label == "Clubhouse Go" {
-                        matches.append(node.frame)
-                    }
-                    node.children.forEach(walk)
-                }
-                walk(root)
-                let screen = root.frame
-                if let index = matches.firstIndex(where: { !$0.isEmpty && screen.contains($0) }) {
-                    current = (index, matches[index])
-                }
+        while clock.now < deadline {
+            let root: XCUIElementSnapshot
+            do {
+                root = try springboard.snapshot()
+            } catch {
+                print("SPRINGBOARD_ICON disposition=snapshot-failure deadlineExceeded=\(clock.now >= deadline) error=\(error)")
+                throw error
             }
-            if let current, current.frame == previous { return icons.element(boundBy: current.index) }
-            previous = current?.frame
-            guard Date() < deadline else { return nil }
-            RunLoop.current.run(until: Date().addingTimeInterval(0.5))
+            guard clock.now < deadline else {
+                print("SPRINGBOARD_ICON disposition=observation-finished-after-admission-deadline")
+                return nil
+            }
+            let screen = root.frame
+            guard screen.width > 0, screen.height > 0,
+                  [screen.minX, screen.minY, screen.maxX, screen.maxY].allSatisfy({ $0.isFinite }) else {
+                throw NSError(domain: "SpringBoardIconObservation", code: 3,
+                              userInfo: [NSLocalizedDescriptionKey: "SpringBoard returned an invalid screen frame"])
+            }
+            var matches: [CGRect] = []
+            func walk(_ node: XCUIElementSnapshot) {
+                if node.elementType == .icon, node.identifier == "Clubhouse Go" || node.label == "Clubhouse Go" {
+                    let frame = node.frame
+                    if frame.width > 0, frame.height > 0,
+                       [frame.minX, frame.minY, frame.maxX, frame.maxY].allSatisfy({ $0.isFinite }),
+                       screen.contains(frame) {
+                        matches.append(frame)
+                    }
+                }
+                node.children.forEach(walk)
+            }
+            walk(root)
+            guard matches.count <= 1 else {
+                throw NSError(domain: "SpringBoardIconObservation", code: 1,
+                              userInfo: [NSLocalizedDescriptionKey: "Multiple visible Clubhouse Go icons"])
+            }
+            guard clock.now < deadline else { return nil }
+            let current = matches.first
+            if let current, current == previous {
+                let candidates = icons.allElementsBoundByIndex
+                guard clock.now < deadline else { return nil }
+                let icon = try XCTUnwrap(candidates.count == 1 ? candidates.first : nil,
+                                         "A single live Clubhouse Go icon must own the stable snapshot frame")
+                let liveFrame = icon.frame
+                guard clock.now < deadline else { return nil }
+                guard liveFrame == current else {
+                    throw NSError(domain: "SpringBoardIconObservation", code: 2,
+                                  userInfo: [NSLocalizedDescriptionKey: "The live icon frame \(liveFrame) does not match the stable snapshot \(current)"])
+                }
+                print("SPRINGBOARD_ICON disposition=stable-live-bound frame=\(current)")
+                guard clock.now < deadline else { return nil }
+                return HomeIcon(element: icon, frame: current)
+            }
+            previous = current
+            let remaining = clock.now.duration(to: deadline).components
+            let seconds = Double(remaining.seconds) + Double(remaining.attoseconds) / 1e18
+            guard seconds > 0 else { return nil }
+            RunLoop.current.run(until: Date().addingTimeInterval(min(0.5, seconds)))
         }
+        print("SPRINGBOARD_ICON disposition=absent-or-unsettled-at-admission-deadline")
+        return nil
     }
 
     private func homePage(_ control: XCUIElement) -> (current: Int, count: Int)? {
@@ -64,12 +102,12 @@ import XCTest
         return (current, count)
     }
 
-    private func nativeAction() {
+    private func nativeAction() throws {
         XCUIDevice.shared.press(.home)
         let springboard = XCUIApplication(bundleIdentifier: "com.apple.springboard")
         let pages = springboard.pageIndicators.matching(identifier: "Page control").firstMatch
         XCTAssertTrue(pages.waitForExistence(timeout: 10), "Home returns to an icon page")
-        var icon = settledHomeIcon(springboard)
+        var icon = try settledHomeIcon(springboard)
         var visited = Set<Int>()
         while icon == nil, let page = homePage(pages) {
             visited.insert(page.current)
@@ -81,7 +119,7 @@ import XCTest
             guard waitFor(pages, NSPredicate(format: "value != %@", before), timeout: 5) else {
                 XCTFail("A Home swipe must change page from \(before)"); break
             }
-            if let landed = homePage(pages), !visited.contains(landed.current) { icon = settledHomeIcon(springboard) }
+            if let landed = homePage(pages), !visited.contains(landed.current) { icon = try settledHomeIcon(springboard) }
         }
         let tree = XCTAttachment(data: Data(springboard.debugDescription.utf8), uniformTypeIdentifier: "public.plain-text")
         tree.name = "SpringBoard before native quick action"; tree.lifetime = .keepAlways; add(tree)
@@ -89,8 +127,19 @@ import XCTest
             XCTFail("No settled, on-screen Clubhouse Go icon on any Home page (\(pages.value as? String ?? "no page control")); native delivery unverified")
             return
         }
-        XCTAssertTrue(waitFor(icon, NSPredicate(format: "hittable == true"), timeout: 5), "The settled Home icon is hittable")
-        icon.press(forDuration: 1)
+        guard waitFor(icon.element, NSPredicate(format: "hittable == true"), timeout: 5) else {
+            XCTFail("The settled Home icon must be hittable before its native press")
+            return
+        }
+        let candidates = springboard.icons.matching(identifier: "Clubhouse Go").allElementsBoundByIndex
+        let current = try XCTUnwrap(candidates.count == 1 ? candidates.first : nil,
+                                   "The quick action still belongs to one live Clubhouse Go icon")
+        let frame = current.frame
+        guard frame == icon.frame, springboard.frame.contains(frame), current.isHittable else {
+            XCTFail("The unique live icon must retain its settled on-screen frame before the native press")
+            return
+        }
+        current.press(forDuration: 1)
         let action = springboard.buttons["Message Dispatcher"]
         XCTAssertTrue(action.waitForExistence(timeout: 10), "Info.plist registers the native quick action")
         action.tap()
@@ -102,7 +151,7 @@ import XCTest
         let app = launchApp(["--companion-preview"], attempts: 1)
         app.terminate()
         XCTAssertTrue(app.wait(for: .notRunning, timeout: 10))
-        nativeAction()
+        try nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         let restoreError = app.alerts["Could not restore desktops"]
         let guidanceTitle = app.navigationBars["Message Dispatcher"]
@@ -148,21 +197,21 @@ import XCTest
         }
     }
 
-    func testColdSingleDispatcherFocusesWithoutSendingAndWarmNativeActionKeepsDraft() {
+    func testColdSingleDispatcherFocusesWithoutSendingAndWarmNativeActionKeepsDraft() throws {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", cold], attempts: 1)
         XCTAssertTrue(app.navigationBars["Dispatcher"].waitForExistence(timeout: 15))
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "Cold handoff focuses the composer")
         XCTAssertTrue(composer.exists)
         app.typeText("Keep this draft")
         XCTAssertEqual(composer.value as? String, "Keep this draft")
-        nativeAction()
+        try nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
         XCTAssertEqual(composer.value as? String, "Keep this draft", "Opening never sends or replaces the existing draft")
         screenshot(app, "native-warm-action-draft-preserved")
     }
 
-    private func warmActionWhileSettingsIsPresented(multiple: Bool) {
+    private func warmActionWhileSettingsIsPresented(multiple: Bool) throws {
         var flags = ["--companion-preview"]
         if multiple { flags += ["--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"] }
         let app = launchApp(flags, attempts: 1)
@@ -173,7 +222,7 @@ import XCTest
         settings.tap()
         let summary = app.descendants(matching: .any).matching(identifier: "agent-settings-summary").firstMatch
         XCTAssertTrue(summary.waitForExistence(timeout: 10))
-        nativeAction()
+        try nativeAction()
         XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
         XCTAssertTrue(summary.waitForNonExistence(timeout: 10), "The original sheet actually dismisses")
         XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 10))
@@ -183,8 +232,8 @@ import XCTest
         } else { XCTAssertTrue(app.descendants(matching: .any).matching(identifier: "dispatcher-launch-unavailable").firstMatch.exists) }
         screenshot(app, multiple ? "warm-settings-to-chooser" : "warm-settings-to-guidance")
     }
-    func testWarmManyDispatcherActionDismissesExistingSettingsBeforeChoosing() { warmActionWhileSettingsIsPresented(multiple: true) }
-    func testWarmZeroDispatcherActionDismissesExistingSettingsBeforeGuidance() { warmActionWhileSettingsIsPresented(multiple: false) }
+    func testWarmManyDispatcherActionDismissesExistingSettingsBeforeChoosing() throws { try warmActionWhileSettingsIsPresented(multiple: true) }
+    func testWarmZeroDispatcherActionDismissesExistingSettingsBeforeGuidance() throws { try warmActionWhileSettingsIsPresented(multiple: false) }
 
     private func chooser(_ appearance: [String], name: String, colors: [String: String] = [:]) {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers",
