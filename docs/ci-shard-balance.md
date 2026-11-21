@@ -110,7 +110,7 @@ Pending the first PR run. Report actual durations for all eight shards and the R
 
 ## Text-link coverage recovery, November 20
 
-The catchall in #615's original run, and in the current #617/#619 runs, stopped before any of the six `CompanionTextLinkUITests` methods started. Move that whole, unchanged class to the existing composer/sheets lane. Its saved-conversation method remains included: both `archive-sent` and `archive-received` still exercise the native Saved links path. The exact-once control checks every discovered method, including that archive case, against the emitted selectors. The catchall automatically skips the class; it still covers future classes. No lane, job, timeout, retry, assertion, fixture or native test method is added or changed.
+The catchall in #615's original run, and in the current #617/#619 runs, stopped before any of the six `CompanionTextLinkUITests` methods started. Move that whole, unchanged class to the existing composer/sheets lane. Its saved-conversation method remains included: both `archive-sent` and `archive-received` still exercise the native Saved links path. The exact-once control checks every discovered method, including that archive case, against the emitted selectors. The catchall automatically skips the class; it still covers future classes. No lane, job, timeout, retry, native assertion, fixture or native test method is added or changed.
 
 Observed job wall times include setup, tests and result handling:
 
