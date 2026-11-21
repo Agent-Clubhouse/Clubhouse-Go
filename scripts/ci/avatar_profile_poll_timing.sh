@@ -10,6 +10,14 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 sed -n '/^\/\/ BEGIN AvatarProfilePoll/,/^\/\/ END AvatarProfilePoll/p' "$source_file" > "$work/poll.swift"
 grep -q 'enum AvatarProfilePoll' "$work/poll.swift"
+# Failure preservation: between the poll result and the original assertions, nothing may throw,
+# suspend or capture again, so a failed poll always reaches its assertions with its measured frame.
+between="$(sed -n '/print("AVATAR_PROFILE_PIXELS/,/XCTAssertGreaterThanOrEqual(rowArea/p' "$source_file")"
+[ -n "$between" ] || { echo "FAIL: poll-to-assertion span not found"; exit 1; }
+if grep -nE '\btry\b|\bawait\b|snapshot\(|profilePixelArea\(' <<<"$between"; then
+    echo "FAIL: the poll-to-assertion span can throw, suspend or capture"; exit 1
+fi
+echo "AVATAR_PROFILE_FAILURE_PATH PASS"
 cat > "$work/main.swift" <<'SWIFT'
 import Foundation
 

@@ -118,19 +118,6 @@ import ClubhouseTransport
         print(poll.trace.summary)
         if !poll.passed {
             for step in poll.trace.steps { print(step.line) }
-            // Diagnostic only: one wait and one frame after the poll gave up. Never the assertion evidence.
-            let wait = elapsed()
-            try await Task.sleep(for: .milliseconds(10))
-            let capture = elapsed()
-            let diagnostic = snapshot(view)
-            let captured = elapsed()
-            let row = try profilePixelArea(in: diagnostic, panel: rowPanel)
-            let sender = try profilePixelArea(in: diagnostic, panel: senderPanel)
-            print("AVATAR_PROFILE_DIAGNOSTIC_AFTER_POLL rowPointArea=\(row) senderPointArea=\(sender) sleep=\(AvatarProfilePoll.ms(wait))-\(AvatarProfilePoll.ms(capture))ms capture=\(AvatarProfilePoll.ms(capture))-\(AvatarProfilePoll.ms(captured))ms")
-            let attachment = XCTAttachment(image: diagnostic)
-            attachment.name = "Diagnostic only, after the failed poll (not assertion evidence)"
-            attachment.lifetime = .keepAlways
-            add(attachment)
         }
         XCTAssertGreaterThanOrEqual(rowArea, 100, "Pinned row must render the cyan profile image over its emoji", file: file, line: line)
         XCTAssertGreaterThanOrEqual(senderArea, 100, "Routed sender must render the cyan profile image over its emoji", file: file, line: line)
