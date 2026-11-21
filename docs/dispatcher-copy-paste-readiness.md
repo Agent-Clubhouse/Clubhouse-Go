@@ -36,5 +36,6 @@ failure does not identify whether insertion or persistence failed.
 
 Independent source review and fresh hosted first execution remain required.
 The new precondition could fail earlier and provide better attribution; a pass
-or improvement is not assumed. No new local app, SDK build, simulator or native
+or improvement is not assumed. If XCTest continues after a failed assertion,
+Back may still run; the first failed assertion identifies the observed stage. No new local app, SDK build, simulator or native
 test was executed. Grant tab reveal and all package findings remain separate.
