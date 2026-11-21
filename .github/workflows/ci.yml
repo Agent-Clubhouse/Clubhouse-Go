@@ -6,6 +6,11 @@ on:
   pull_request:
     # Validate each mobile stack layer before its dependency lands on main.
     branches: [main, 'codex/mobile-*']
+  # The coalesced daily integration run takes every lane and UI class. Pull requests and pushes to main run the lanes
+  # and UI classes their change can affect (scripts/ci/ui_impact.py); a `ci:full` label or a manual run takes them all.
+  schedule:
+    - cron: '23 10 * * *' # 10:23 UTC daily
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,8 +30,9 @@ env:
 #          └─ release-build                         (parallel; not on the critical path)
 # ci-result gathers them into one check.
 #
-# Pull requests run only the lanes their files need (scripts/ci/changes.py); pushes to main run everything.
-# UI shards come from scripts/ci/ui_shards.py.
+# Pull requests and pushes to main run only the lanes their files need (scripts/ci/changes.py), and the UI classes,
+# hosted tests, iPad and Release lanes their change can affect (scripts/ci/ui_impact.py). The daily run, a manual run
+# and the `ci:full` label run everything. UI shards come from scripts/ci/ui_shards.py.
 jobs:
   changes:
     name: Plan
@@ -36,8 +42,14 @@ jobs:
       swift: ${{ steps.plan.outputs.swift }}
       app: ${{ steps.plan.outputs.app }}
       ui-shards: ${{ steps.plan.outputs.ui-shards }}
+      ui: ${{ steps.plan.outputs.ui }}
+      ipad: ${{ steps.plan.outputs.ipad }}
+      release: ${{ steps.plan.outputs.release }}
     steps:
+      # Two commits: a pull request's merge commit and its base, or a push and its parent, for the line diff.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Test CI scripts
         run: python3 -m unittest discover -s scripts/ci/tests
@@ -47,15 +59,42 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
+          PUSHED_COMMITS: ${{ github.event_name == 'push' && toJSON(github.event.commits) || '[]' }}
         run: |
-          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > changed-files.txt
+          set -euo pipefail
+          SELECT=false
+          if [ "$GITHUB_EVENT_NAME" = pull_request ] && [ "$FULL_LABEL" != true ]; then
+            # Status, path and previous path, so renames and deletions count on both sides.
+            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" \
+              --jq '.[] | [.status, .filename, (.previous_filename // empty)] | @tsv' > changed-files.txt
+            git diff -U0 HEAD^1 HEAD > changes.diff
+            SELECT=true
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [ "$(echo "$PUSHED_COMMITS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" = 1 ]; then
+            # A single pushed commit (a squash merge) and its parent; anything else runs everything.
+            git diff --name-status -M HEAD^1 HEAD > changed-files.txt
+            git diff -U0 HEAD^1 HEAD > changes.diff
+            SELECT=true
+          fi
+          if [ "$SELECT" = true ]; then
             echo "Changed files:"; cat changed-files.txt
-            python3 scripts/ci/changes.py < changed-files.txt | tee -a "$GITHUB_OUTPUT"
+            cut -f2- changed-files.txt | tr '\t' '\n' | python3 scripts/ci/changes.py | tee -a "$GITHUB_OUTPUT"
+            python3 scripts/ci/ui_shards.py \
+              | python3 scripts/ci/ui_impact.py changed-files.txt --diff changes.diff --manifest impact-manifest.json \
+              | tee -a "$GITHUB_OUTPUT"
           else
             python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
+            python3 scripts/ci/ui_shards.py >> "$GITHUB_OUTPUT"
+            printf 'ui=true\nipad=true\nrelease=true\nunit=true\n' >> "$GITHUB_OUTPUT"
+            echo '{"decision": {"full": true, "reason": "daily, manual, ci:full or multi-commit push"}}' > impact-manifest.json
           fi
-          python3 scripts/ci/ui_shards.py >> "$GITHUB_OUTPUT"
+
+      # The selection record, for replaying or auditing exactly what this run chose.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: impact-manifest
+          path: impact-manifest.json
+          retention-days: 14
 
   swift-packages:
     name: Swift packages
@@ -167,7 +206,7 @@ jobs:
   release-build:
     name: Release build
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    if: needs.changes.outputs.app == 'true' && needs.changes.outputs.release == 'true'
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -197,6 +236,7 @@ jobs:
   ui-tests:
     name: ${{ matrix.name }}
     needs: [changes, build]
+    if: needs.changes.outputs.ui == 'true'
     runs-on: macos-26
     # Eight lanes balance whole UI classes within the existing job budget.
     # Keep per-test hang deadlines and retry reporting unchanged; see ui_shards.py.
@@ -300,6 +340,7 @@ jobs:
   ipad-tests:
     name: iPad hosted tests + UI smoke
     needs: [changes, build]
+    if: needs.changes.outputs.ipad == 'true'
     runs-on: macos-26
     timeout-minutes: 25
     steps:
