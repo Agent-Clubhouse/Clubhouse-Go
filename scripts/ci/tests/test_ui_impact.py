@@ -1,4 +1,9 @@
-"""Impact selection must run what a change can affect and fall back to everything when it can't tell."""
+"""Narrowing must stay within verified ownership; everything uncertain runs every lane.
+
+Includes the counterexamples from review 71e74130: dependency chains and negated launch flags in product code, a
+method-level or inconsistent matrix, a requested class without an owner, hosted and iPad-run classes, and a planned
+selection that never executes.
+"""
 import importlib.util
 import io
 import json
@@ -8,9 +13,23 @@ import textwrap
 import unittest
 
 ROOT = Path(__file__).resolve().parents[3]
-spec = importlib.util.spec_from_file_location("ui_impact", ROOT / "scripts/ci/ui_impact.py")
-impact = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(impact)
+
+
+def load(name):
+    spec = importlib.util.spec_from_file_location(name, ROOT / f"scripts/ci/{name}.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+impact = load("ui_impact")
+verify = load("verify_selection")
+WHOLE_CLASS = {"include": [
+    {"name": "UI (search)", "selection": "-only-testing:ClubhouseGoUITests/SearchUITests", "unit": False},
+    {"name": "UI (unit)", "selection": "-only-testing:ClubhouseGoUITests/TerminalUITests -only-testing:ClubhouseGoTests", "unit": True},
+    {"name": "UI (other)", "selection": "-only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/SearchUITests "
+                                       "-skip-testing:ClubhouseGoUITests/TerminalUITests", "unit": False},
+]}
 
 
 def write(root, path, text):
@@ -20,184 +39,158 @@ def write(root, path, text):
 
 
 class Fixture:
-    """A small tree: two screens, a shared container, a fixture, a transport file and UI test classes."""
-
     def __init__(self):
         self.directory = tempfile.TemporaryDirectory()
         root = self.root = Path(self.directory.name)
         (root / "scripts/ci").mkdir(parents=True)
         (root / "scripts/ci/changes.py").write_text((ROOT / "scripts/ci/changes.py").read_text())
-        write(root, "Annex/Annex/Companion/Views/SearchScreen.swift", """
-            struct SearchScreen: View { var body: some View { Text("x").accessibilityIdentifier("search-field-box") } }
+        write(root, ".github/workflows/ci.yml", """
+            jobs:
+              ipad-tests:
+                steps:
+                  - run: xcodebuild -only-testing:ClubhouseGoTests -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testOne
+              ci-result:
+                steps: []
             """)
-        write(root, "Annex/Annex/Companion/Views/SearchRow.swift", """
-            struct SearchRow: View { var body: some View { Text("row") } }
-            extension SearchScreen { var row: SearchRow { SearchRow() } }
-            """)
-        write(root, "Annex/Annex/Companion/Views/TerminalScreen.swift", """
-            struct TerminalScreen: View { var body: some View { Text("t").accessibilityIdentifier("terminal-done-key") } }
-            """)
-        write(root, "Annex/Annex/Companion/Views/OrphanThing.swift", """
-            struct OrphanThing { let value = 1 }
-            """)
-        write(root, "Annex/Annex/Companion/Views/CompanionPermissionBadge.swift", """
-            struct CompanionPermissionBadge: View { var body: some View { Text("p") } }
-            """)
-        write(root, "Annex/Annex/Transport/AnnexWire.swift", """
-            struct AnnexWire { let bytes = 0 }
-            """)
-        write(root, "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift", """
-            final class CompanionPreviewService {
-                func hosts() {
-                    shared()
-                    if ProcessInfo.processInfo.arguments.contains("--companion-preview-search-fixture") {
-                        searchOnly()
-                    }
-                }
-            }
-            """)
-        write(root, "Annex/AnnexUITests/UITestSupport.swift", """
-            class ReliableUITestCase: XCTestCase {}
-            """)
-        write(root, "Annex/AnnexUITests/SearchUITests.swift", """
-            final class SearchUITests: ReliableUITestCase {
-                func testSearch() { app.launchArguments = ["--companion-preview-search-fixture"]; _ = app.textFields["search-field-box"] }
-            }
-            """)
-        write(root, "Annex/AnnexUITests/TerminalUITests.swift", """
-            final class TerminalUITests: ReliableUITestCase {
-                func testTerminal() { _ = app.buttons["terminal-done-key"] }
-            }
-            """)
-        write(root, "Annex/AnnexUITests/MixedUITests.swift", """
-            final class MixedUITests: ReliableUITestCase {
-                func testMixed() {}
-            }
-            extension ReliableUITestCase { func helper() {} }
-            """)
-        write(root, "Annex/AnnexUITests/CompanionPermissionMenuUITests.swift", """
-            final class CompanionPermissionMenuUITests: ReliableUITestCase {
-                func testMenu() {}
-            }
-            """)
+        write(root, "Annex/Annex/Companion/Views/SearchScreen.swift", "struct SearchScreen {}\n")
+        write(root, "Annex/AnnexUITests/UITestSupport.swift", "class ReliableUITestCase: XCTestCase {}\n")
+        for cls in ("SearchUITests", "TerminalUITests", "FeedbackTriggersUITests", "NewUITests"):
+            write(root, f"Annex/AnnexUITests/{cls}.swift",
+                  f"final class {cls}: ReliableUITestCase {{\n    func testOne() {{}}\n}}\n")
+        write(root, "Annex/AnnexUITests/MixedUITests.swift",
+              "final class MixedUITests: ReliableUITestCase {\n    func testOne() {}\n}\nextension ReliableUITestCase { func helper() {} }\n")
         write(root, "Annex/AnnexTests/StoreTests.swift", "final class StoreTests: XCTestCase { func testStore() {} }\n")
-        self.matrix = {"include": [
-            {"name": "UI (search)", "selection": "-only-testing:ClubhouseGoUITests/SearchUITests", "unit": False},
-            {"name": "UI (unit)", "selection": "-only-testing:ClubhouseGoUITests/TerminalUITests -only-testing:ClubhouseGoTests", "unit": True},
-            {"name": "UI (other)", "selection": "-only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/SearchUITests "
-                                               "-skip-testing:ClubhouseGoUITests/TerminalUITests", "unit": False},
-        ]}
+        self.matrix = json.loads(json.dumps(WHOLE_CLASS))
 
-    def run(self, changed, diff=None):
+    def run(self, changed, matrix=None):
         (self.root / "changed.txt").write_text(changed)
-        argv = [str(self.root / "changed.txt")]
-        if diff is not None:
-            (self.root / "changes.diff").write_text(diff)
-            argv += ["--diff", str(self.root / "changes.diff")]
         out, err = io.StringIO(), io.StringIO()
-        impact.main(argv, stdin=io.StringIO("ui-shards=" + json.dumps(self.matrix)), stdout=out, stderr=err, root=self.root)
-        lines = dict(line.split("=", 1) for line in out.getvalue().splitlines())
-        lines["ui-shards"] = json.loads(lines["ui-shards"])
-        lines["summary"] = err.getvalue()
-        return lines
-
-    def selected(self, result):
-        return [entry["selection"] for entry in result["ui-shards"]["include"]]
+        impact.main([str(self.root / "changed.txt")], stdin=io.StringIO("ui-shards=" + json.dumps(matrix or self.matrix)),
+                    stdout=out, stderr=err, root=self.root)
+        result = dict(line.split("=", 1) for line in out.getvalue().splitlines())
+        result["ui-shards"] = json.loads(result["ui-shards"])
+        result["summary"] = err.getvalue()
+        return result
 
 
-class ImpactSelectionTests(unittest.TestCase):
+def selections(result):
+    return [entry["selection"] for entry in result["ui-shards"]["include"]]
+
+
+class OwnershipSelectionTests(unittest.TestCase):
     def setUp(self):
         self.fixture = Fixture()
 
     def tearDown(self):
         self.fixture.directory.cleanup()
 
-    def assertFull(self, result):
-        self.assertEqual(result["ui-shards"], self.fixture.matrix)
-        self.assertEqual([result[k] for k in ("ui", "ipad", "release", "unit")], ["true"] * 4)
+    def assertFull(self, result, matrix=None):
+        self.assertEqual(result["ui-shards"], matrix or self.fixture.matrix)
+        self.assertEqual([result[k] for k in ("ui", "ipad", "release", "unit")], ["true"] * 4, result["summary"])
 
-    def test_a_ui_test_class_change_runs_exactly_that_class(self):
+    def test_a_single_ui_class_file_runs_exactly_that_class(self):
         result = self.fixture.run("M\tAnnex/AnnexUITests/TerminalUITests.swift\n")
-        self.assertEqual(self.fixture.selected(result), ["-only-testing:ClubhouseGoUITests/TerminalUITests"])
-        self.assertEqual((result["release"], result["ipad"], result["unit"]), ("false", "false", "false"))
+        self.assertEqual(selections(result), ["-only-testing:ClubhouseGoUITests/TerminalUITests"])
+        self.assertEqual((result["ui"], result["ipad"], result["release"], result["unit"]), ("true", "false", "false", "false"))
 
-    def test_a_new_class_in_the_catch_all_runs_from_the_catch_all_shard(self):
-        write(self.fixture.root, "Annex/AnnexUITests/NewUITests.swift",
-              "final class NewUITests: ReliableUITestCase {\n    func testNew() {}\n}\n")
-        result = self.fixture.run("added\tAnnex/AnnexUITests/NewUITests.swift\n")
-        self.assertEqual(self.fixture.selected(result), ["-only-testing:ClubhouseGoUITests/NewUITests"])
+    def test_a_new_class_runs_from_the_catch_all(self):
+        result = self.fixture.run("A\tAnnex/AnnexUITests/NewUITests.swift\n")
+        self.assertEqual(selections(result), ["-only-testing:ClubhouseGoUITests/NewUITests"])
 
-    def test_shared_ui_helpers_mixed_files_and_deleted_tests_run_everything(self):
+    def test_a_class_the_ipad_job_runs_also_runs_the_ipad_lane(self):
+        self.assertEqual(self.fixture.run("M\tAnnex/AnnexUITests/FeedbackTriggersUITests.swift\n")["ipad"], "true")
+
+    def test_hosted_tests_run_the_bundle_in_the_unit_shard_and_on_ipad(self):
+        result = self.fixture.run("M\tAnnex/AnnexTests/StoreTests.swift\n")
+        self.assertEqual(selections(result), ["-only-testing:ClubhouseGoTests"])
+        self.assertEqual((result["unit"], result["ipad"], result["release"]), ("true", "true", "false"))
+
+    def test_every_product_change_runs_everything(self):
+        # Review 71e74130: dependency chains and negated launch flags make product impact unbounded here.
+        self.assertFull(self.fixture.run("M\tAnnex/Annex/Companion/Views/SearchScreen.swift\n"))
+        self.assertFull(self.fixture.run("M\tAnnex/Annex/Companion/Adapters/CompanionPreviewService.swift\n"))
+        self.assertFull(self.fixture.run("M\tAnnex/AnnexUITests/TerminalUITests.swift\nM\tAnnex/Annex/Transport/AnnexWire.swift\n"))
+
+    def test_shared_mixed_deleted_and_renamed_test_files_run_everything(self):
         self.assertFull(self.fixture.run("M\tAnnex/AnnexUITests/UITestSupport.swift\n"))
         self.assertFull(self.fixture.run("M\tAnnex/AnnexUITests/MixedUITests.swift\n"))
         self.assertFull(self.fixture.run("D\tAnnex/AnnexUITests/GoneUITests.swift\n"))
         self.assertFull(self.fixture.run("R100\tAnnex/AnnexUITests/OldUITests.swift\tAnnex/AnnexUITests/TerminalUITests.swift\n"))
+        self.assertFull(self.fixture.run("R090\tAnnex/AnnexTests/Old.swift\tAnnex/AnnexTests/StoreTests.swift\n"))
 
-    def test_hosted_tests_run_only_the_unit_bundle(self):
-        result = self.fixture.run("M\tAnnex/AnnexTests/StoreTests.swift\n")
-        self.assertEqual(self.fixture.selected(result), ["-only-testing:ClubhouseGoTests"])
-        self.assertEqual(result["unit"], "true")
+    def test_unsupported_matrix_topologies_run_everything(self):
+        by_method = json.loads(json.dumps(WHOLE_CLASS))
+        by_method["include"][0]["selection"] = "-only-testing:ClubhouseGoUITests/SearchUITests/testOne"
+        self.assertFull(self.fixture.run("M\tAnnex/AnnexUITests/TerminalUITests.swift\n", by_method), by_method)
+        drifted = json.loads(json.dumps(WHOLE_CLASS))
+        drifted["include"][2]["selection"] = "-only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/SearchUITests"
+        self.assertFull(self.fixture.run("M\tAnnex/AnnexUITests/TerminalUITests.swift\n", drifted), drifted)
+        no_unit = json.loads(json.dumps(WHOLE_CLASS))
+        no_unit["include"][1]["unit"] = False
+        no_unit["include"][1]["selection"] = "-only-testing:ClubhouseGoUITests/TerminalUITests"
+        self.assertFull(self.fixture.run("M\tAnnex/AnnexTests/StoreTests.swift\n", no_unit), no_unit)
 
-    def test_a_product_file_selects_its_identifiers_and_its_consumers(self):
-        result = self.fixture.run("M\tAnnex/Annex/Companion/Views/SearchScreen.swift\n")
-        self.assertEqual(self.fixture.selected(result),
-                         ["-only-testing:ClubhouseGoUITests/SearchUITests", "-only-testing:ClubhouseGoTests"])
-        self.assertEqual((result["release"], result["unit"]), ("true", "true"))
-        # SearchRow has no identifier of its own; SearchScreen, which uses it, names the scenario.
-        row = self.fixture.run("M\tAnnex/Annex/Companion/Views/SearchRow.swift\n")
-        self.assertIn("-only-testing:ClubhouseGoUITests/SearchUITests", self.fixture.selected(row))
+    def test_project_workflow_and_script_changes_run_everything(self):
+        self.assertFull(self.fixture.run("M\tAnnex/Annex.xcodeproj/project.pbxproj\n"))
+        self.assertFull(self.fixture.run("M\tscripts/ci/ui_shards.py\n"))
+        self.assertFull(self.fixture.run("M\t.github/workflows/ci.yml\n"))
 
-    def test_untraceable_new_or_removed_product_files_run_everything(self):
-        self.assertFull(self.fixture.run("M\tAnnex/Annex/Companion/Views/OrphanThing.swift\n"))
-        self.assertFull(self.fixture.run("D\tAnnex/Annex/Companion/Views/Gone.swift\n"))
-        self.assertFull(self.fixture.run("renamed\tAnnex/Annex/Companion/Views/SearchScreen.swift\tAnnex/Annex/Old.swift\n"))
-
-    def test_critical_scenarios_run_even_without_identifiers(self):
-        result = self.fixture.run("M\tAnnex/Annex/Companion/Views/CompanionPermissionBadge.swift\n")
-        self.assertIn("-only-testing:ClubhouseGoUITests/CompanionPermissionMenuUITests", " ".join(self.fixture.selected(result)))
-        self.assertIn("security", result["summary"])
-
-    def test_transport_runs_package_and_hosted_tests_without_ui(self):
-        result = self.fixture.run("M\tAnnex/Annex/Transport/AnnexWire.swift\n")
-        self.assertEqual(self.fixture.selected(result), ["-only-testing:ClubhouseGoTests"])
-        self.assertEqual(result["release"], "true")
-
-    def test_a_flag_gated_fixture_edit_selects_the_flag_users_and_shared_code_runs_everything(self):
-        path = "Annex/Annex/Companion/Adapters/CompanionPreviewService.swift"
-        gated = f"+++ b/{path}\n@@ -5,0 +6,1 @@\n+        searchOnly()\n"
-        result = self.fixture.run(f"M\t{path}\n", gated)
-        self.assertEqual(self.fixture.selected(result),
-                         ["-only-testing:ClubhouseGoUITests/SearchUITests", "-only-testing:ClubhouseGoTests"])
-        shared = f"+++ b/{path}\n@@ -3,0 +4,1 @@\n+        shared()\n"
-        self.assertFull(self.fixture.run(f"M\t{path}\n", shared))
-        self.assertFull(self.fixture.run(f"M\t{path}\n"))  # no line diff: can't bound it
-
-    def test_docs_and_package_only_changes_add_no_macos_ui_work(self):
+    def test_docs_and_package_changes_need_no_app_lanes_and_keep_a_valid_matrix(self):
         result = self.fixture.run("M\tdocs/testing.md\nM\tTests/X/YTests.swift\n")
         self.assertEqual(result["ui"], "false")
         self.assertEqual(len(result["ui-shards"]["include"]), 1, "GitHub rejects an empty matrix even for a skipped job")
 
-    def test_unknown_paths_and_the_project_run_everything(self):
-        self.assertFull(self.fixture.run("M\tAnnex/Annex.xcodeproj/project.pbxproj\n"))
-        self.assertFull(self.fixture.run("M\tscripts/ci/ui_shards.py\n"))
-
     def test_status_parsing(self):
-        self.assertEqual(impact.parse_changes("R087\told.swift\tnew.swift\nremoved\tgone.swift\nplain.swift\n"),
-                         [("renamed", "new.swift", "old.swift"), ("removed", "gone.swift", None), ("modified", "plain.swift", None)])
-        self.assertEqual(impact.parse_changes("renamed\tnew.swift\told.swift\n"), [("renamed", "new.swift", "old.swift")])
+        self.assertEqual(impact.parse_changes("R087\told.swift\tnew.swift\nD\tgone.swift\nA\tnew2.swift\nplain.swift\n"),
+                         [("renamed", "new.swift", "old.swift"), ("removed", "gone.swift", None),
+                          ("added", "new2.swift", None), ("modified", "plain.swift", None)])
 
 
-class ImpactWorkflowTests(unittest.TestCase):
-    def test_the_workflow_feeds_statuses_previous_names_and_line_diffs(self):
-        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-        self.assertIn("previous_filename", workflow)
-        self.assertIn("scripts/ci/ui_impact.py changed-files.txt --diff changes.diff", workflow)
-        self.assertIn("fetch-depth: 2", workflow)
+class ExecutionVerificationTests(unittest.TestCase):
+    @staticmethod
+    def results(bundles):
+        return {"testNodes": [{"nodeType": "Test Plan", "children": [
+            {"nodeType": "UI test bundle" if b.endswith("UITests") else "Unit test bundle", "name": b, "children": [
+                {"nodeType": "Test Suite", "name": s, "children": [{"nodeType": "Test Case", "result": "Skipped"}] * n}
+                for s, n in suites.items()]} for b, suites in bundles.items()]}]}
 
-    def test_the_daily_and_labelled_runs_take_every_lane(self):
-        workflow = (ROOT / ".github/workflows/ci.yml").read_text()
-        self.assertIn("schedule:", workflow)
-        self.assertIn("ci:full", workflow)
+    def test_every_planned_class_and_bundle_must_produce_results(self):
+        ran = self.results({"ClubhouseGoUITests": {"TerminalUITests": 1}, "ClubhouseGoTests": {"StoreTests": 3}})
+        self.assertEqual(verify.missing("-only-testing:ClubhouseGoUITests/TerminalUITests -only-testing:ClubhouseGoTests", ran), [])
+        self.assertEqual(verify.missing("-only-testing:ClubhouseGoUITests/SearchUITests -only-testing:ClubhouseGoTests", ran),
+                         ["ClubhouseGoUITests/SearchUITests was selected but produced no test results"])
+
+    def test_a_passing_bundle_cannot_hide_an_empty_ui_selection(self):
+        only_unit = self.results({"ClubhouseGoTests": {"StoreTests": 3}})
+        self.assertEqual(verify.missing("-only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/X", only_unit),
+                         ["ClubhouseGoUITests was selected but produced no test results"])
+
+    def test_method_selectors_check_their_class(self):
+        ran = self.results({"ClubhouseGoUITests": {"FeedbackTriggersUITests": 1}})
+        self.assertEqual(verify.missing("-only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testOne", ran), [])
+
+
+class SelectionWorkflowTests(unittest.TestCase):
+    def setUp(self):
+        self.workflow = (ROOT / ".github/workflows/ci.yml").read_text()
+
+    def test_changes_come_from_one_immutable_local_diff(self):
+        self.assertIn("git diff --name-status -M HEAD^1 HEAD > changed-files.txt", self.workflow)
+        self.assertIn("python3 scripts/ci/ui_impact.py changed-files.txt --manifest impact-manifest.json", self.workflow)
+        self.assertIn("fetch-depth: 2", self.workflow)
+        self.assertNotIn("/files", self.workflow, "No paginated, racing PR files API")
+
+    def test_planned_selection_is_verified_after_running(self):
+        self.assertIn('python3 scripts/ci/verify_selection.py "${{ matrix.selection }}" TestResults/tests.json', self.workflow)
+
+    def test_full_runs_daily_by_dispatch_and_by_label(self):
+        self.assertIn("schedule:", self.workflow)
+        self.assertIn("workflow_dispatch:", self.workflow)
+        self.assertNotIn("labeled", self.workflow.split("jobs:")[0])
+        label = (ROOT / ".github/workflows/ci-full-label.yml").read_text()
+        self.assertIn("types: [labeled]", label)
+        self.assertIn("github.event.label.name == 'ci:full'", label)
+        self.assertIn("gh workflow run ci.yml", label)
 
 
 if __name__ == "__main__":

@@ -46,7 +46,7 @@ jobs:
       ipad: ${{ steps.plan.outputs.ipad }}
       release: ${{ steps.plan.outputs.release }}
     steps:
-      # Two commits: a pull request's merge commit and its base, or a push and its parent, for the line diff.
+      # Two commits: a pull request's merge commit and its base, or a push and its parent.
       - uses: actions/checkout@v4
         with:
           fetch-depth: 2
@@ -59,28 +59,29 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
-          FULL_LABEL: ${{ contains(github.event.pull_request.labels.*.name, 'ci:full') }}
           PUSHED_COMMITS: ${{ github.event_name == 'push' && toJSON(github.event.commits) || '[]' }}
         run: |
           set -euo pipefail
           SELECT=false
-          if [ "$GITHUB_EVENT_NAME" = pull_request ] && [ "$FULL_LABEL" != true ]; then
-            # Status, path and previous path, so renames and deletions count on both sides.
-            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" \
-              --jq '.[] | [.status, .filename, (.previous_filename // empty)] | @tsv' > changed-files.txt
-            git diff -U0 HEAD^1 HEAD > changes.diff
-            SELECT=true
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
+            # Read the labels now, not from the event payload. Adding `ci:full` also dispatches a full run
+            # (ci-full-label.yml), so there is no `labeled` trigger here to start a run for every label.
+            if gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name' | grep -qx 'ci:full'; then
+              echo "ci:full label: every lane"
+            else
+              SELECT=true
+            fi
           elif [ "$GITHUB_EVENT_NAME" = push ] && [ "$(echo "$PUSHED_COMMITS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" = 1 ]; then
-            # A single pushed commit (a squash merge) and its parent; anything else runs everything.
-            git diff --name-status -M HEAD^1 HEAD > changed-files.txt
-            git diff -U0 HEAD^1 HEAD > changes.diff
-            SELECT=true
+            SELECT=true  # one pushed commit (a squash merge) and its parent; anything else runs everything
           fi
           if [ "$SELECT" = true ]; then
+            # Statuses and renames come from one immutable local diff: the PR's merge commit against its base parent,
+            # or the pushed commit against its parent. No paginated or racing API file list.
+            git diff --name-status -M HEAD^1 HEAD > changed-files.txt
             echo "Changed files:"; cat changed-files.txt
             cut -f2- changed-files.txt | tr '\t' '\n' | python3 scripts/ci/changes.py | tee -a "$GITHUB_OUTPUT"
             python3 scripts/ci/ui_shards.py \
-              | python3 scripts/ci/ui_impact.py changed-files.txt --diff changes.diff --manifest impact-manifest.json \
+              | python3 scripts/ci/ui_impact.py changed-files.txt --manifest impact-manifest.json \
               | tee -a "$GITHUB_OUTPUT"
           else
             python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
@@ -88,6 +89,7 @@ jobs:
             printf 'ui=true\nipad=true\nrelease=true\nunit=true\n' >> "$GITHUB_OUTPUT"
             echo '{"decision": {"full": true, "reason": "daily, manual, ci:full or multi-commit push"}}' > impact-manifest.json
           fi
+          # Lanes the selection doesn't need report as skipped; the CI result accepts success or skipped.
 
       # The selection record, for replaying or auditing exactly what this run chose.
       - uses: actions/upload-artifact@v4
@@ -297,6 +299,9 @@ jobs:
 
           python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}" \
             ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }}
+          # Every planned class must have run, so a narrowed shard can't pass on an empty or partial selection.
+          xcrun xcresulttool get test-results tests --path TestResults/UITests.xcresult > TestResults/tests.json
+          python3 scripts/ci/verify_selection.py "${{ matrix.selection }}" TestResults/tests.json
 
       # Opt-in preview diagnostics contain closed reasons and numeric geometry only.
       # Preserve them even when a UI assertion fails; the app runs in a separate process.
