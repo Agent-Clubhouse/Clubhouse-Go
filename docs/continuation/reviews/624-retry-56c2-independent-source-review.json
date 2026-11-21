@@ -1,0 +1,72 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "624-shared-Retry-style-and-geometry-oracle-source-only",
+  "verdict": "CHANGES_REQUESTED_SOURCE_ONLY",
+  "source_verdict": "CHANGES_REQUESTED_SOURCE_ONLY",
+  "acceptance": false,
+  "head": "56c2b3311013f0b1c02be315eeaa02602f38b193",
+  "tree": "965e4a85b6d761f4aab3d6f603f087b4e396ff68",
+  "base": "cadce0a4575227a5ad24a6956f819f42913446d8",
+  "files": [
+    {
+      "path": "Annex/Annex/Companion/Views/CompanionRecoveryStatusView.swift",
+      "blob": "f60a79fa4daa6e60e286afe6a02df8b3ac0e2077",
+      "bytes": 12514,
+      "sha256": "291a3b684a82aad753ccbc2313e021665a8cae8046c731e23619145b3b4228cc"
+    },
+    {
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "blob": "fe5b2ede35d9f4293e064e527f1528d7fc2dc110",
+      "bytes": 12083,
+      "sha256": "802ec5f54104e1fe65ddd4631274eb9e6e5bc5390dbdce56a69b9efa8b1c2845"
+    },
+    {
+      "path": "docs/testing.md",
+      "blob": "aea08d5949c27e1ab3c298229d30798c7079add4",
+      "bytes": 119679,
+      "sha256": "772287113f7380db0ec4a8c167616644b59188f93b2071ca1c356b749985ddc5"
+    }
+  ],
+  "findings": [
+    {
+      "priority": "P1",
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "symbol": "testRetryCapsuleStaysTextSizedInsideItsTarget / region(matching:in:)",
+      "problem": "Whole-window tintSoft bounding union is not bound to Retry, its label, target or banner. An unrelated matching rectangle or disconnected patches can satisfy every new area/height/aspect assertion while Retry itself is wrong. There is no card-margin or target-inset check.",
+      "evidence": "Actual extracted raw-pixel scan + same three assertions accepts unrelated64x28 patch when modeledRetry56x56 is elsewhere; disconnected16x10 patches also pass. Inert buffers demonstrate oracle susceptibility, not current actual UIKit render."
+    },
+    {
+      "priority": "P1",
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "symbol": "testRetryCapsuleStaysTextSizedInsideItsTarget / docs before-change claim",
+      "problem": "Changing native bordered styling to explicit tintSoft changes the pixels used to find the alleged capsule. Zero matching tintSoft area in the old style can fail the first assertion even when geometry is identical. Therefore a color-only fail-before does not establish a geometry regression.",
+      "evidence": "Actual scan applied to identical64x28 bounds passes target fill and fails solely with another opaque fill. No native before-change image or68x56 independent measurement was audited."
+    }
+  ],
+  "source_observations": [
+    "Authentic CompanionDesktopConnectionBanner Button/action, per-host retry IDs/disabled latch, explicit notice.retryLabel and identifiers retained; no policy/consent change found",
+    "Custom style puts text padding12horizontal/6vertical and Capsule tintSoft background before outer min44 frame/contentShape Rectangle. Source intent preserves actual button target while shrinking paint, not a fake separate tap overlay",
+    "Compact/banner accessibility-layout branches unchanged; source banner sets subheadline and palette.label foreground. Actual label wrapping/clipping/semantic traits/hit area under DynamicType are not proved by syntax",
+    "Only shared Home/NeedsYou banner retry changes to custom style; RecoveryStatusDetails/native bordered buttons remain outside this patch",
+    "Enabled/pressed/disabled rendering now includes whole-pill opacity1/.6/.45. Actual foreground/fill contrast and material composites are not established by pure palette label fitting against card or this tint-only scan",
+    "New hosted pixel case uses only Large/light/clubhouse and existing OCR/seam setup; no actual native activation/hit/capsule association or default-vs-accessibility visual margin coverage is added"
+  ],
+  "own_controls": "COUNTEREXAMPLE PASS: incorrect56x56Retry ignored; unrelated64x28coloredrectangle satisfies current oracle\nCOUNTEREXAMPLE PASS: identical64x28geometry changes from pass to fail solely by fillcolor\nCOUNTEREXAMPLE PASS: disconnected colorpatches satisfy one whole-window pill predicate\n",
+  "checks": [
+    "Exact three-file delta/context read including actual shared banner/compact/AX branches, hosted fixture and palette role definition",
+    "Own exact raw scan extracted after CGContext conversion into inert RGBA arrays; all three counterexamples independently reproduced",
+    "Exact DEBUG frontend parses and Git diff whitespace PASS; initial control lacked CoreGraphics import, corrected only inert import, not repository code"
+  ],
+  "recommended_oracle": [
+    "Bind the actual Retry instance, label, painted capsule and banner/outer-target geometry in one UIWindow coordinate space. Existing in-process HostedTestSeam explicitly says native AX traversal unreliable: do not invent a batch/native AX accessor. Supported SwiftUI layout probes may provide crop geometry but must be non-layout-affecting and are not native hit proof.",
+    "Crop that actual rendered control region and positively identify its label/connected painted surface relative to the measured label and card. Reject unrelated/disconnected matching pixels. Assert actual capsule containment, target>=44, relative text padding and card/target margins; use text-relative rules for accessibility sizes rather than applying default36pt ceiling universally.",
+    "Use geometry discrimination that identifies both native-bordered baseline and tintSoft candidate despite color differences: control-local edge/background contrast or otherwise calibrated segmentation. Establish the old control exists and fails the geometric condition, not only a new-color search. Retain original screenshot attachment; verify coordinate/bitmap conversion before interpreting positions.",
+    "Keep native exact-head Retry hit/disabled routing/accessibility label and light/dark/theme default/accessibility rendered geometry plus enabled/pressed/disabled text contrast as separate future proof obligations under existing grants. No run is authorized by this review."
+  ],
+  "limits": [
+    "Source-only CHANGES_REQUESTED; production shape intent not rejected as a demonstrated rendering defect, but regression/proof claim is insufficient",
+    "No UIKit/SwiftUI/UIImage rendering, real pixels, native/VoiceOver/hit, SDK typecheck/build, SUT/simulator/FIFO/CI/PR/shared ref change",
+    "Inert scan checks omit CGContext/UIImage color-space and orientation conversion; no claim that current fixture actually has unrelated matching pixels",
+    "No original before-change geometry or palette mismatch image independently viewed; docs68x56 claim remains author attribution. Corrected child needs exact review before source acceptance"
+  ]
+}

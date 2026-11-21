@@ -1,0 +1,49 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "616-target-specific-state-waiter-additive-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "051fb85b507d8b9d11b5ddad19b1f275e90f8e8c",
+  "tree": "7cea27ff1357116c9769cb6f3b3362380d910a43",
+  "base": "7e781fedd4a7036beca5bd3468024c852d77d6aa",
+  "component_head": "cfa68fe65a96accd117444865eed8ebf5eb113d1",
+  "component_review": "9fa7bbd4fca0c9e332fc1062bead2997293da058",
+  "tracked_inventory": 771,
+  "files": [
+    {
+      "path": "Tests/ClubhouseTransportTests/TransportFailureModeTests.swift",
+      "blob": "684128e099928c2617bde08ca833cb9cc3bd6ae8",
+      "bytes": 62133,
+      "sha256": "a8c05f1243c076e511000442ba8df73fa0747737bccd2e05772125300e303e83"
+    }
+  ],
+  "verified": [
+    "Complete target inventory modes/blobs unchanged except one file, which exactly matches accepted cfa; independent temporary-index single-blob reconstruction yields exact051 tree",
+    "Actual target diff163+/34- read in full; all13 predicate bodies unchanged; declaration/assertion/manual-advance lines exact target",
+    "Target old helper lacks c538 expanded timing fields: those were never on actual target. New checks/generation/elapsed message replaces old poll count with same single Issue.record and ScheduledConditionTimeout",
+    "Clock/IO/Package.swift/resolved exact reviewed base. Telemetry observer/exporter prefix exact; only providerV2 command-diagnostic switch cases differ. AnnexTransport diff only providerV2 execution capability guards; existing socket/grace/backoff implementation retained",
+    "All target providerV2 production, commands and new files retained unchanged; no whole component parent tree merged",
+    "Exact changed file already reviewed in9fa, whose actual focused controls and source/typecheck credit stays on cfa; no duplicated runtime claim"
+  ],
+  "counts": {
+    "@Test": 40,
+    "#expect": 147,
+    "#require": 16,
+    "clock.advance(": 25
+  },
+  "qualifications": [
+    "Intentional tightening: base could accept a true predicate returned afterdeadline or duringcancellation; successor rejects. No claim identical acceptance of those legacy loopholes",
+    "SignallingClock is NOT full AnnexManualClock equivalence: waitForSleepers observes CURRENT count and returnsvoid on cancellation, unlike old one-shot registration latch. A cancelled barrier return is not evidence targetcount reached. Clock.sleep cancellation still throws. Source comments calling it equivalent must not be used as an unqualified publication claim",
+    "Signals counter is cumulative generation including pre-wait activity and synthetic deadline wake, not a count of actual IO changes during this wait. It is diagnostic only",
+    "Five fixtures now construct IO before their local signalling clock; relative manual advances and original assertions remain, but no identical whole scheduling/interleaving claim is made"
+  ],
+  "limits": [
+    "SOURCE_ONLY, not installable native/aggregate/package/runtime approval of cfa or held78155/base6bba. Original firstfailures/cause and currentd5 run remain separate",
+    "Host controls use explicit AnnexClock wrapper, telemetry callback and Issue sinks plus synthetic predicates, not actual transport/Testing macro/SDK/Node/full40tests or original-host starvation replay",
+    "Eligibility deadline is not hard preemptive completion: predicate/lock/scheduler, TaskGroup drain and diagnostic state query can finish after10s. Timely observation may returnlater. No wall-time/latency/cure claim",
+    "Only focused cancellation/registration races exercised; no exhaustive scheduling or equal-deadline/due-removal/cancel interleaving equivalence. Actual full-suite normal firstoutcomes still required under unchanged coverage/defaultpolicy",
+    "No source edits, package test, SDK/SUT build, native/simulator/FIFO/Node/CI/manualrerun/shared ref write or parentauthority expansion byreviewer",
+    "TARGET-specific source compatibility only; no full providerV2 package compile/test or exact051 hosted/feature acceptance. Existing616 grace493/590 first failure remains unresolved as a runtime outcome; no622 hypothetical tree or current-run mutation."
+  ],
+  "findings": []
+}

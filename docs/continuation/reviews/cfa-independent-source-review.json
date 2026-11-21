@@ -1,0 +1,47 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "622-full-state-waiter-successor-source-cancellation-deadline-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "cfa68fe65a96accd117444865eed8ebf5eb113d1",
+  "tree": "5373247e73fff1adf47d85e991efc4ae0ef6430f",
+  "base": "6bba2f744815104f91ce21b5e56fb1010bb2bcb5",
+  "held_parent": "78155d81ed30e2b721cca6c6a960ca4ac7e55b8e",
+  "held_parent_acceptance_borrowed": false,
+  "files": [
+    {
+      "path": "Tests/ClubhouseTransportTests/TransportFailureModeTests.swift",
+      "blob": "684128e099928c2617bde08ca833cb9cc3bd6ae8",
+      "bytes": 62133,
+      "sha256": "a8c05f1243c076e511000442ba8df73fa0747737bccd2e05772125300e303e83"
+    }
+  ],
+  "tracked_inventory": 764,
+  "findings": [],
+  "verified": [
+    "Read full changed source scope vs6bba, not merelycfa child: FailureSocket/SessionIO state signals, StateChanges, SignallingClock, complete settle and13 affected predicates/callers; production baseline API dependencies inspected",
+    "Complete inventory onlyone existing test file changed; all40@Test declaration lines,147#expect lines,16#require lines and allmanual clock advance expressions exactbase. No production/Package/workflow/priority/timeLimit/Pin/Rediscovery/typing or otherfile carry",
+    "Child-vs-held inverse replacement of settle+comment reconstructs ENTIRE held78155 file; this establishes boundary only, not acceptance ofheld parent",
+    "StateChanges generation captured before predicate; registration compares seen/current underlock and checks cancellation, handlers remove waiter underlock; signal removes ownership underlock and resumes outside. Source covers13 predicates via receiveCalls/closed/pings/sent/openAttempts/sockets, sleeper changes and explicitly observed handshake records",
+    "Current inherited observeRecords API supports independent observers and invokes callbacks outside exporter lock; weakself callback avoids retainingStateChanges. This is source inspection, not SDK callback runtime proof",
+    "Exactlyone real10s ContinuousClock deadline, pre-predicate and post-await strict checks reject observations>=deadline. Entry/loop/postpredicate/postgroup/postdiagnostic cancellation checks propagate CancellationError instead of synthetic timeout Issue",
+    "Throwing TaskGroup has cancellable continuous-clock deadline child, defercancelAll and no swallowed child-sleep cancellation; timelysuccess survives child cancellation in actual host control",
+    "Independent actual extracted helper/classes Foundation controls: pre-signal and during-predicate change handshake; precancelled true rejected; registeredwaiter removal/cancel0issues; in-flight cancelled true rejected0issues; SignallingClock pre/registeredcancel anddue removal; real10s in-flight true at10.1578155 rejects; firstgeneration lockdelay10.151016833 admits0predicates then timesout",
+    "Additional exact-helper timely registered signal success passes with0issues and0remainingwaiters; no repeat20s deadline controls needed",
+    "Exact DEBUG frontend parse/diff whitespace PASS; actual helper/classes plus concurrency-safe inert stubs also Swift6 typecheck PASS (package uses tools6.2)"
+  ],
+  "controls_stdout": "PASS pre-signal and signal-during-predicate generation handshake\nPASS precancelled readiness throws CancellationError with0issues\nPASS registered waiter removed on cancellation, no timeout issue\nPASS cancelled in-flight true rejected withouttimeout issue\nPASS exact SignallingClock precancel/registeredcancel/due wake removal\nPASS real10s helper rejects in-flighttrue at 10.1578155 seconds\nPASS real10s helper admits0 predicates afterfirst-generation lockdelay 10.151016833 seconds\nPASS registered state-change wake gives timely success; child cancellation does not override success\n",
+  "qualifications": [
+    "Intentional tightening: base could accept a true predicate returned afterdeadline or duringcancellation; successor rejects. No claim identical acceptance of those legacy loopholes",
+    "SignallingClock is NOT full AnnexManualClock equivalence: waitForSleepers observes CURRENT count and returnsvoid on cancellation, unlike old one-shot registration latch. A cancelled barrier return is not evidence targetcount reached. Clock.sleep cancellation still throws. Source comments calling it equivalent must not be used as an unqualified publication claim",
+    "Signals counter is cumulative generation including pre-wait activity and synthetic deadline wake, not a count of actual IO changes during this wait. It is diagnostic only",
+    "Five fixtures now construct IO before their local signalling clock; relative manual advances and original assertions remain, but no identical whole scheduling/interleaving claim is made"
+  ],
+  "limits": [
+    "SOURCE_ONLY, not installable native/aggregate/package/runtime approval of cfa or held78155/base6bba. Original firstfailures/cause and currentd5 run remain separate",
+    "Host controls use explicit AnnexClock wrapper, telemetry callback and Issue sinks plus synthetic predicates, not actual transport/Testing macro/SDK/Node/full40tests or original-host starvation replay",
+    "Eligibility deadline is not hard preemptive completion: predicate/lock/scheduler, TaskGroup drain and diagnostic state query can finish after10s. Timely observation may returnlater. No wall-time/latency/cure claim",
+    "Only focused cancellation/registration races exercised; no exhaustive scheduling or equal-deadline/due-removal/cancel interleaving equivalence. Actual full-suite normal firstoutcomes still required under unchanged coverage/defaultpolicy",
+    "No source edits, package test, SDK/SUT build, native/simulator/FIFO/Node/CI/manualrerun/shared ref write or parentauthority expansion byreviewer"
+  ]
+}

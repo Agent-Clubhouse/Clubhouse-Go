@@ -1,0 +1,66 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "615-existing-eight-lane-TextLink-routing-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "0e55118a6abeb20aee4fc8cb19ae859b5cd6b470",
+  "tree": "aa8d206975a588f908abe07c861e8eda041b4825",
+  "base": "0258e49cf24b0c91707acae671bdd52ce872cc38",
+  "files": [
+    {
+      "path": "docs/ci-shard-balance.md",
+      "blob": "8f5af61fbd0e2d87e5f3b2f7766702928851df50",
+      "bytes": 11217,
+      "sha256": "212cce6b57e2ca30e2cf18d8754016417004a3db605f2c7e77a83500052db42c"
+    },
+    {
+      "path": "scripts/ci/tests/test_ui_coverage.py",
+      "blob": "af564a57cdecde1aae875ecab6859dba9e506b12",
+      "bytes": 4377,
+      "sha256": "46051d530524652d91788424a03efedf2747efcd0df628e07a641991d3692dde"
+    },
+    {
+      "path": "scripts/ci/ui_shards.py",
+      "blob": "a57989335386c132b01e91d4250b98d5a7112f2c",
+      "bytes": 5966,
+      "sha256": "cf34d014fd22ba76ddba1649c8f5ae45818a111692fe4a578160ab30a63af40d"
+    }
+  ],
+  "tracked_inventory": 760,
+  "native_methods_unchanged": [
+    "testSentAndRelayedLiteralRowsDeliverTheExactURLOnce",
+    "testReceivedAndDispatcherRowsKeepLabeledAndBareDestinations",
+    "testSavedSentAndReceivedRowsUseTheSameTapRoute",
+    "testTableAndMarkdownFileExternalLinksDoNotSwallowOrDuplicateTaps",
+    "testCodeAndBlockedRoutesNeverReachTheSystemOpen",
+    "testApprovedLocalFileStillUsesTheDesktopPreviewRoute"
+  ],
+  "findings": [],
+  "verified": [
+    "Read complete three-file delta, actual ui_shards/coverage controls/native6methods/archive open path/helpers and historical reserve-policy context",
+    "Complete tracked mode/blob inventory only3paths changed; every native source/fixture/helper/product/project/workflow/unit/iPad selector/timeouts/retry byte unchanged. Entire TextLink file4642B/SHA6417e213672b108e22069dec14dd6c43984daa4587a92bc0d2de6852ff15d915 identicalbase",
+    "Actual emitted JSON before/after preserves8 lane names/unit flags; ONLY additions are class-only TextLink flag in composer/sheets and matching skip in catchall, no removed flag or new job",
+    "Every discovered TextLink source method selected exactlyonce as wholeclass, including original archive-sent/archive-received Saved method; futureclass catchall and allsource exactonce controls retained",
+    "Independently executed actualcandidate6 UIcoverage plus4 UIShard controls=10PASS in own materialized full UI-source inventory; originalmatrix with newcontrol fails specific catchall!=composer owner assertion, not setup",
+    "GitHub original closed jobs API independently confirms success wall durations:617 composer2275s/preview3063s/unicode2391s;619 composer2157s/preview2978s/unicode1782s. These are job-success/timing observations, not first-method pass audit",
+    "Source read confirms13 successful-path fixture launches across six unchanged methods, using existing60s/scenario planning policy only; 3300-2275=1025s headroom; reserve780s; projected245s margin. Preview min237s insufficient; unicode min909s lessheadroom than composer",
+    "Exact full delta Git diff whitespace PASS"
+  ],
+  "planning": {
+    "no_extra_UI_jobs": true,
+    "UI_lanes": 8,
+    "historical_composer_max_wall_seconds": 2275,
+    "existing_job_limit_seconds": 3300,
+    "launch_scenario_reserve_seconds": 780,
+    "estimated_remaining_seconds": 245
+  },
+  "limits": [
+    "SOURCE_ONLY routing/coverage control, not SDK build/XCTest discovery/native execution onnewhead or measuredsixmethod runtime. All six actual first outcomes inclarchive must run on exactpublishedhead before feature acceptance",
+    "Compiledselector/ObjC/xctestrun availability and zero6starts in oldcatchall were author-provided context; no binary, originalxcresult or historicalnative sixmethod re-audit performed here",
+    "10 checks are Python source/selector controls only. Classflag coverage is not proof XCTest discovered/executed those methods or app actions succeeded",
+    "Historical completed-success jobs may contain retries; no individual first-pass assertion inferred. Durations include setup/results and are sampledplanning evidence, not guaranteedcapacity or speedup",
+    "launchApp240/internal deadline resets perlaunch and existing retries/slowAX may exceed55m; source addsno hard perclass runtimecap. No timeout/retry/allowance waiver",
+    "No blanket62015lane matrix, newjob/budget, Footer/Header/permission/product fix, 619TextLink overwrite or newmain merge. Preserve619extra Save/Share absence assertions on any later carry",
+    "No newhelper/native/package/simulator/FIFO/CI/PR/sharedref/rerun/source edit byreviewer; aggregate/landing/currenthead proof remain required"
+  ]
+}

@@ -1,0 +1,129 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "624-corrected-control-bound-Retry-geometry-source-reassessment",
+  "verdict": "CHANGES_REQUESTED_SOURCE_ONLY",
+  "source_verdict": "CHANGES_REQUESTED_SOURCE_ONLY",
+  "acceptance": false,
+  "head": "5130a1227db5cebe3942693ae88313bc12a91725",
+  "tree": "63af3f71594ca5d44a1b0ee543d8fddaa753c68f",
+  "baseline": "71bc177c75a97a7d81fe3480089619701a7829bf",
+  "baseline_tree": "044bfdb3045653cb2e198912759aad98601b98d7",
+  "prior_held_head": "56c2b3311013f0b1c02be315eeaa02602f38b193",
+  "prior_review": "7be8f5166e3e4dd23b064b56a6991b20d76e6605",
+  "files": [
+    {
+      "path": "Annex/Annex/Companion/Views/CompanionRecoveryStatusView.swift",
+      "blob": "a3bf4899977c230fdace4d9173af5b28c34f746c",
+      "bytes": 13518,
+      "sha256": "e9e787a18f991c526d3236dca088777181a964368be3170e0c821be5ea6d2dcb",
+      "identical_baseline": false
+    },
+    {
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "blob": "f269d0b46b47cd28d63519b6e7acd53f6b786672",
+      "bytes": 20259,
+      "sha256": "5bf6c5ba5b5c489ede5573e03a7af5c6e653d6be1c6449599f8019ddbe8db7d7",
+      "identical_baseline": true
+    },
+    {
+      "path": "scripts/ci/banner_action_geometry_controls.sh",
+      "blob": "0ee7def0cfc16e1cf47233e5c87fb79704edb880",
+      "bytes": 8627,
+      "sha256": "9d4620a0b4c93153f0260754aa9271a83dcd9445079a3e5dfed093c1d3704b24",
+      "identical_baseline": true
+    },
+    {
+      "path": "docs/testing.md",
+      "blob": "549a8eaf17fcc0744f387410dbb4d58cbbab83fd",
+      "bytes": 120401,
+      "sha256": "f21e2bb9b03c3f60f64bcc695248bfee5aea65e1b52321846a370e706e852dd7",
+      "identical_baseline": true
+    }
+  ],
+  "tracked_inventory": 756,
+  "previous_findings_addressed": [
+    "No hardcodedtintSoft whole-window search: shown/hidden same-layout render difference seeded at actualRetry frame; unrelateddisconnected outsidepatch controls nowignored",
+    "Baseline and candidate tests/scripts/docs are ENTIRE identical bytes; positively measured control+color-independent high-contrast synthetic shape differs geometrically, not solelynewfill expectation"
+  ],
+  "findings": [
+    {
+      "priority": "P1",
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "symbol": "BannerActionGeometry.failures",
+      "problem": "The method promises Retry inside its card but validates only vertical card clearances. It never checks card horizontal containment/clearance, so an actualRetry entirely outsidecard horizontally passes every predicate.",
+      "counterexample": {
+        "card": [
+          16,
+          20,
+          200,
+          44
+        ],
+        "hit": [
+          316,
+          20,
+          56,
+          44
+        ],
+        "visible": [
+          316,
+          26,
+          56,
+          32
+        ],
+        "label": [
+          330,
+          35,
+          28,
+          14
+        ],
+        "actual_failures": []
+      },
+      "requested": "Require finite positive same-space geometry and fullcard/control containment plus horizontal clearance as appropriate; add actual shared-oracle reject control to both baseline and candidate, retaining existing vertical/size rules."
+    },
+    {
+      "priority": "P1",
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "symbol": "visibleBounds / failures",
+      "problem": "A difference of the label pixels alone is accepted as the painted capsule. No minimum enclosing background or label-to-paint padding is required; OCR label presence does not prove a visible pill.",
+      "counterexample": {
+        "card": [
+          16,
+          20,
+          368,
+          44
+        ],
+        "hit": [
+          316,
+          20,
+          56,
+          44
+        ],
+        "only_changed_paint_and_supplied_label": [
+          330,
+          35,
+          28,
+          14
+        ],
+        "actual_failures": []
+      },
+      "requested": "Require positively measured enclosing painted background/insets around the label, or another control-local pill-presence criterion that rejects glyph-only paint. Keep same-oracle baseline/candidate and add a reject control; do not infer fill/capsule presence from OCR alone."
+    }
+  ],
+  "verified": [
+    "Read full newproductionStyle/debugseam, actual hostedtest, render-difference/component/OCR helper and script; entireinventory baseline->head onlyproductionView differs, alltest/script/docbytes equal",
+    "Own original syntheticCoreGraphics scriptPASS; reviewer-added actualshared-oracle controls accepted horizontaloutsidecard andglyph-only paint, finalscriptalsoPASS confirms missing rejection",
+    "Same-layout opacity seam preserves viewlayout by source intent; hit/card callbacks globalSwiftUIframes and exactequal shown/hidden frame assertions retained. No source activation/reconnect added; service.calls assertion remains empty",
+    "ProductionStyle still authenticsharedButton/latch/voice/IDs and inherits banner subheadline/palette.label context; adds4verticalpadding outside capsule for AX clearance. Other nativebordered Retry controls unchanged",
+    "DEBUGgeometryseam absent inRelease and defaultsnil inDebug; evennil modifiers have instrumentation overhead. Actual coordinate conversion/frame stability/material independence must be observed, not assumed",
+    "Component extraction seeds allchangedcomponents touchinghitframe, returns their unionbounds, not proof of one filledcapsule or unchangedoutsidepixels. OCR returnsfirstmatchingRetry in measuredcrop, not a unique semantic/native binding",
+    "Exact DEBUG frontend parses and baseline->head diff whitespacePASS"
+  ],
+  "remaining_proof": [
+    "Correct bothsource oracle holes with same baseline/candidate tests and controls, then exactchildsource reassessment",
+    "Actual instrumentedbaseline must positivelyrender identifiedRetry and fail geometricconditions; candidate mustpass onexactnewhead. Synthetic68x56 scenes are not originalUIKit before-change measurement",
+    "Verify SwiftUIglobal/Window/pixel/Vision-coordinate mapping, pairedrender visual stability and material/animation noise; equality of layoutframes alone doesnot establish identical unrelatedpixels",
+    "Actualnativehit>=44/routing/disabled/accessibilitylabel and light/dark/pressed/disabled contrast remain separate; currentgeometryfixture coversLarge andaccessibility5 inlightclubhouse only",
+    "No UIKit/Vision/native/SUT SDK build, simulator/FIFO/CI/PR/sharedref edit or run authorised/performed bythis source review"
+  ],
+  "controls_limit": "SyntheticCoreGraphics uses suppliedlabelrectangles, not actual OCR. These demonstrate metrics susceptibility, not that current candidate actually renders outsidecard or withoutcapsule."
+}

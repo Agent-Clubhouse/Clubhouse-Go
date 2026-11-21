@@ -1,0 +1,64 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "624-retry-corrected-paired-visual-oracle-and-style-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "af7bb4bc05bb3eafc63d3f35f7095488d571ddbb",
+  "tree": "ebbf21a809e272383773a96227510fa5397aa5e6",
+  "paired_baseline": "fee5cd2128e3f836729d994b2edf00b9707603ed",
+  "paired_baseline_tree": "f441490452111059021cf231ee7e953976d84f98",
+  "tracked_inventory": 756,
+  "files": [
+    {
+      "path": "Annex/Annex/Companion/Views/CompanionRecoveryStatusView.swift",
+      "blob": "a3bf4899977c230fdace4d9173af5b28c34f746c",
+      "bytes": 13518,
+      "sha256": "e9e787a18f991c526d3236dca088777181a964368be3170e0c821be5ea6d2dcb",
+      "identical_to_paired_baseline": false
+    },
+    {
+      "path": "Annex/AnnexTests/CompanionConnectionRetryLatchTests.swift",
+      "blob": "636cdcd765564fc6bffc0960865d7f825dde36e0",
+      "bytes": 23529,
+      "sha256": "6a2f49c81e77bbb03d00c46b284ece11eaa89765c4c8e73df1ea2445ea0210d6",
+      "identical_to_paired_baseline": true
+    },
+    {
+      "path": "scripts/ci/banner_action_geometry_controls.sh",
+      "blob": "54f1b725f5dc7091c69652f78408e3b7fd770b1e",
+      "bytes": 10521,
+      "sha256": "62222d689737bf646dc53a4694e178b081c093de13bd049542ad251cbcfc71fa",
+      "identical_to_paired_baseline": true
+    },
+    {
+      "path": "docs/testing.md",
+      "blob": "dfe8e38776a500f39a2e419113dc0b54d571fea4",
+      "bytes": 120763,
+      "sha256": "5c1b2eb8d7377b7fee0a4172c6d7fc59435ed2c2b544b0cfe15e4c3616dde399",
+      "identical_to_paired_baseline": true
+    }
+  ],
+  "superseded_findings_receipt": "af930215000efd3d409f4b38f7a86301befd897d",
+  "findings": [],
+  "verified": [
+    "Complete pair inventories have identical paths/modes/blobs except RecoveryStatusView; tests, control script and docs entire bytes exactly equal. Same oracle can be exercised on instrumented native-bordered baseline and custom-style candidate; no actual paired native outcome inferred",
+    "Full actual shared Retry source read. Same retry hostIDs, reconnect method, disabled latch, accessibilityLabel/identifier, shared Home/NeedsYou ownership and compact/AX ViewThatFits layout. Actual Button uses custom style, text padding12x6/Capsule tintSoft/outer vertical4/min44/contentShape; details Retry and other styles unchanged",
+    "DEBUG seams read actual Button/card global frames and hide entire Retry through opacity without authored frame changes; no production seam callback is supplied. Paired baseline carries same seam. Actions are not invoked during geometry measurement and service.calls must remain empty",
+    "Geometry uses >8 per-channel shown-hidden pixel difference seeded in Retry frame and eight-neighbour flood traversal; bounds and coverage derive from actual changed members. Unrelated disconnected regions outside target cannot alone satisfy oracle",
+    "Corrected metric rejects nonfinite/nonempty rectangle failures, requires painted bounds inside card in both axes and inside target, label within painted bounds, at least44 target, shorter paint than target, <=36 default height, <=2.6 label heights, aspect>=1.6, >=4 top/bottom clearance",
+    "Corrected enclosure requires min of all four 1-to3pt bands outside recognized label to have >=.9 changed-member coverage; glyph-only rectangle no longer passes. This is enclosure of sampled paint, not mathematical capsule-shape equivalence",
+    "Independently ran exact candidate script: BANNER_ACTION_GEOMETRY_CONTROLS PASS, with previous outside-card/glyph-only negatives, alternate colors, unrelated/disconnected patches, oversized/default/AX shapes and nonfinite samples",
+    "Additional reviewer exact-source CoreGraphics scenes reject original af930 outside-card narrower200pt card and original glyph-only case; each individually missing enclosure band rejects; all four invalid metric fields and NaN/infinite/nonpositive scales reject; .899 enclosure rejects and .9 admits",
+    "Exact DEBUG frontend parses of test and view, Bash syntax and paired diff whitespace checks pass. No SDK typecheck or native compile/run performed"
+  ],
+  "limits": [
+    "SOURCE_ONLY. Synthetic label rectangles supplied by controls are not authentic OCR, UIKit/SwiftUI/glass rendering or actual baseline-fail/candidate-pass evidence. Neither direction of rendering error is excluded by synthetic tests alone",
+    "Actual pair must execute same tests and retain shown/hidden captures, real recognized Retry box, measured card/target/paint/enclosure and reasoned baseline failure/candidate pass. No color-only synthetic pass substitutes for paired native result",
+    "Pixel difference detects changes, not semantic ownership or all capsule geometry: multiple components inside the target are seeded and unioned. Four enclosure strips plus aspect/height do not prove an exact capsule perimeter or continuity everywhere; production Capsule source supplies intended shape",
+    "Shown and hidden captures are sequential. Equal reported frames do not prove unrelated material/glass/animation stayed pixel-identical; changed material inside or touching seed may inflate paint, low contrast/antialiasing or matching background may erase paint. Both false acceptance and rejection remain possible pending authentic captures",
+    "Global SwiftUI geometry and UIKit window pixels/OCR conversion require actual coordinate calibration. First matching OCR Retry in crop is not a native identifier/unique-semantic identity proof. Rect validation is not a formal arbitrary-oversized-coordinate or malformed-framework-output safety proof",
+    "Geometry fixture currently light Clubhouse at Large and accessibility5, enabled. Source min44/contentShape, disabled latch and accessibilityLabel are not observed native hit/activation/VoiceOver, compact wrapping, disabled/pressed/other-theme foreground contrast or device/layout proof",
+    "Custom opacity affects foreground and background (.45 disabled/.6 pressed); no numeric or rendered contrast acceptance inferred. Existing UI coverage mentioned by docs is not current-head execution proof",
+    "No local native/SUT/simulator/FIFO/package/SDK build/CI/PR/shared-ref action or original-image audit by reviewer; original failures retained. No permission to bypass independent exact proof or landing checks"
+  ]
+}
