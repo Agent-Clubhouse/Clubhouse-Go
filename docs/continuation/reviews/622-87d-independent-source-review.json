@@ -1,0 +1,107 @@
+{
+  "reviewer": "go-feedback-review",
+  "scope": "622-exact-target-two-dispatcher-recovery-regression-tests-source-only",
+  "verdict": "PASS_SOURCE_ONLY",
+  "source_verdict": "PASS_SOURCE_ONLY",
+  "head": "87d1a2a847c0361c3eaf9d86bb4a33f088582c7d",
+  "tree": "5db1886cf1469c1c4113ab98fb23af23da8970a2",
+  "base": "d5f95a5821bd25907f06773e09a553e93fc222ef",
+  "tracked_inventory": 761,
+  "files": [
+    {
+      "path": "Tests/CompanionDomainTests/CompanionDispatcherRecoveryTests.swift",
+      "blob": "29f93271344f448ab6906a85c57f1c889aba2a6e",
+      "bytes": 13721,
+      "sha256": "1a35e0e466b90a5eafab16f5592c91dce9ab9375f8548a5509cdec5cd7f74905"
+    }
+  ],
+  "dependency_identity_pins": [
+    {
+      "path": "Annex/Annex/Companion/Domain/CompanionStore.swift",
+      "blob": "d96ae407d6908e299b3cb052ed32ead5289f90cb",
+      "bytes": 127344,
+      "sha256": "781d223af76b40ddd4894f2d1d78486ce0f6b3f91b2bf0a6fc9030839d1bd368",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Adapters/CompanionLiveService.swift",
+      "blob": "3dfaa3f858c292e75eb5c329b51abe72f94f2623",
+      "bytes": 156365,
+      "sha256": "ff26ce531306fdc1093be606cdbfde674e2b750d1b43172e4fb13bfa47d60bb5",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Domain/CompanionAgentSettings.swift",
+      "blob": "5af3b4fa9753fd235dee46bbd661aa7a3993aa7f",
+      "bytes": 31004,
+      "sha256": "0580e14b3796219b52d1cafbe5e5daee5783b9639d6a5ba3f52916df7f607e2a",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Annex/Annex/Companion/Domain/CompanionModels.swift",
+      "blob": "ae5d8fb260f75041bbed2cf180b31d5f09e24919",
+      "bytes": 61579,
+      "sha256": "4119b1d7ed32b6005a6576c6b3071e864c7f31355ce4f0b775fe01c63b8f4596",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Tests/CompanionDomainTests/ScriptedAnnexTransport.swift",
+      "blob": "ea92ee962efead53473d73941d2d48e2f8b04d0c",
+      "bytes": 16605,
+      "sha256": "e74f779cdd5dba111e9dc9dfdec73e2e94d5a6540ee2f4462805113dcfe1ef97",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Tests/Fixtures/AnnexContract/dispatcher-settings.json",
+      "blob": "d92136e15d4776131645ccbed4910f6cfb7659c7",
+      "bytes": 11899,
+      "sha256": "93549809d0e57c7c2c76effc9d15cf15a6795a4753c47863a24c9a70bdc78dfe",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Tests/CompanionDomainTests/AnnexContractDispatcherSettingsTests.swift",
+      "blob": "5c8485e476b122fe7260398daef8258282624d28",
+      "bytes": 35248,
+      "sha256": "7b54a4071c37897d37e00c38ad34e7af0fb1b999852e84dbef41bc28f0f029ca",
+      "unchanged_from_target_parent": true
+    },
+    {
+      "path": "Package.swift",
+      "blob": "8e64079df16563760eaa784fc2dd0e8813b4649b",
+      "bytes": 1351,
+      "sha256": "27b85de39a35b2aea5c1217278aad5e137246a68ba5c2a71f2f0bef6e37a6fe3",
+      "unchanged_from_target_parent": true
+    }
+  ],
+  "findings": [],
+  "verified": [
+    "Entire761 path/mode/blob inventory changes only existing Recovery test file,41 added lines. Removing the contiguous two-test addition reconstructs ENTIRE10833B parent file; all seven old test bodies, setup and order exact; nine total @Test names afterward",
+    "Read complete changed test and scoped real Store/LiveService/receipt mapping/harness/model/fixture context. Both new methods use existing @MainActor suite, independently created LiveServiceHarness, real Store+LiveService and ScriptedAnnexTransport, defer h.stop; no new fixture scheduler or predicate deadline",
+    "Refusal case claims a real fresh prompt, scripts a rejected dispatcher_off receipt before confirm, then verifies translated notice, no automatic re-prompt/unknown latch, cleared pending/resetting, recovery reenabled, spent-claim replay sends nothing extra, and fresh human prompt changes UUID/clears notice without another mutation",
+    "Trace: confirm removes claim first, clears pending, checks canStartNewChat, sets pending/resetting then defers cleanup. resetDispatcher uses validateReceipt:false only to handle stale_state specially, then receiptError maps rejected via rejectionMessage to CompanionAgentCommandError dispatcher_off. Definite rejection is distinct from uncertain failed/lost outcome, so no unknown latch is expected",
+    "Disabled-after-claim case emits actual snapshot event with enabled:false/flagOn:true; waits observed host.dispatcher.enabled==false through existing bounded event-wait helper before confirm. No blind delay or direct state-field injection substitutes for event application",
+    "Trace: rememberDispatcher resolves explicit false and no mcp_off contract, drops Dispatcher catalog; applyCatalog/emitHosts exposes disabled state and Store clearRemovedChats removes old conversation/pending. Claimed-new-chat dictionary is not cleared there (only claim/confirm mutate it). confirm therefore still consumes claim then rejects current recovery readiness, sets exact changed notice and sends zero transport commands; replay sends zero again",
+    "New refusal claim API is distinct from old aRefusedClearSaysWhyAndDoesntAskAgain settings-reset API. Existing changedChatDuringConfirmationCannotReceiveAStop covers a different session-bound stop guard, not new-chat clear mutation readiness",
+    "Assertions discriminate meaningful regressions: uncertain/refusal conflation, lost cleanup/recovery readiness, repeated claim mutation, incorrect translated message and missing confirm-time disabled guard. Not accessor-only or coverage-counter tests",
+    "Exact DEBUG frontend parse and git diff --check pass. No actual SwiftTesting/package execution or synthetic runtime control executed by reviewer"
+  ],
+  "qualifications": [
+    "Disabled snapshot removes pending/conversation before confirm through existing Store cleanup; that case alone does not isolate pending cleanup to confirm. Its zero-dispatch plus changed-notice and replay assertions still test confirm-time spent claim/readiness behavior. Refusal case separately exercises confirm defer cleanup",
+    "The event wait observes current actual host flag, not receipt/executor completion as a proxy. Existing harness wait is1000 polls with5ms sleeps, not a new strict wall-clock guarantee; unchanged asynchronous actor/stream scheduling still requires normal execution",
+    "Fresh prompt assertion establishes new UUID/no second command in this scenario, not an exhaustive settings-read freshness, stale-token race or all cancellation-interleaving proof"
+  ],
+  "coverage": {
+    "owner_reported_old_covered": 14972,
+    "owner_reported_old_executable": 16144,
+    "owner_reported_floor_percent": 92.9,
+    "conditional_extra_lines_if_same_denominator": 26,
+    "independently_measured_new_coverage": false,
+    "note": "Arithmetic and unchanged source inventory only. Missing original per-file coverage attribution retained; no claim these tests cover26new production lines or guarantee floor/aggregate green."
+  },
+  "limits": [
+    "SOURCE_ONLY on two added tests and scoped production compatibility, not full d5 parent review, runtime/feature/SDK/coverage/CI or other-source approval",
+    "Original1746/20829.016s, fastPin15.245s and coverage totals are owner-reported context, not independently re-audited logs or per-file coverage. New87 tests have not run; next necessary normal suite/coverage measurement remains required",
+    "No production, coverage baseline, scripts/workflow/matrix, typing/Pin/waiter/Rediscovery changes or new runtime permission. Existing skipped icon/vendor disposition and original failures stay separate",
+    "No reviewer package/SwiftTesting/Node/SDK/SUT build/native/simulator/FIFO/CI/manual rerun/shared ref/source edit, no new control stubs or changed thresholds"
+  ]
+}
