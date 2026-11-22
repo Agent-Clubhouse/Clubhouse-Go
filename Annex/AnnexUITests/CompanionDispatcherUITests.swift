@@ -155,6 +155,60 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Drag in the transcript dismisses the keyboard")
     }
 
+    /// The expanded pasted draft leaves a short viewport whose center can be Latest.
+    /// Use the leading padding convention from KeyboardDismissalUITests, only when it is clear.
+    private func routedPasteBlankPoint(window: CGRect, navigation: CGRect, transcript: CGRect,
+                                       composer: CGRect, keyboard: CGRect, occupied: [CGRect]) -> CGPoint? {
+        let frames = [window, navigation, transcript, composer, keyboard] + occupied
+        guard frames.allSatisfy({ frame in
+            [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height, frame.maxX, frame.maxY].allSatisfy(\.isFinite)
+                && frame.size.width >= 0 && frame.size.height >= 0
+        }) else { return nil }
+        let visible = transcript.intersection(window)
+        let top = max(visible.minY, navigation.maxY)
+        let bottom = min(visible.maxY, composer.minY, keyboard.minY)
+        guard visible.width > 16, bottom - top > 48 else { return nil }
+        let viewport = CGRect(x: visible.minX, y: top, width: visible.width, height: bottom - top)
+        // Stay within the first 48pt even if asynchronous Paste shortens the viewport.
+        let point = CGPoint(x: viewport.minX + 8, y: viewport.minY + 24)
+        guard point.x.isFinite, point.y.isFinite, viewport.insetBy(dx: 4, dy: 4).contains(point),
+              !occupied.contains(where: { !$0.isEmpty && $0.insetBy(dx: -4, dy: -4).contains(point) }) else { return nil }
+        return point
+    }
+
+    /// One real user tap, scoped to routed Copy/Paste; the shared drag helper's callers are unchanged.
+    private func dismissRoutedPasteKeyboard(_ app: XCUIApplication) -> Bool {
+        guard app.keyboards.firstMatch.exists else { return true }
+        guard let root = try? app.snapshot() else { XCTFail("Capture the current River layout before dismissing Paste"); return false }
+        var nodes: [XCUIElementSnapshot] = []
+        func visit(_ node: XCUIElementSnapshot) {
+            nodes.append(node)
+            for child in node.children { visit(child) }
+        }
+        visit(root)
+        let navigation = nodes.filter { $0.elementType == .navigationBar && $0.identifier == "River" }
+        let transcript = nodes.filter { $0.elementType == .other && $0.identifier == "companion-transcript" }
+        let composer = nodes.filter { $0.identifier == "companion-composer-region" }
+        let keyboard = nodes.filter { $0.elementType == .keyboard }
+        guard navigation.count == 1, transcript.count == 1, composer.count == 1, keyboard.count == 1 else {
+            XCTFail("One River navigation bar, visible transcript marker, composer and keyboard must identify the current route"); return false
+        }
+        let interactive: [XCUIElement.ElementType] = [.button, .link, .staticText, .textField, .secureTextField,
+            .textView, .cell, .slider, .switch, .stepper, .picker, .pickerWheel, .segmentedControl, .menuItem, .key]
+        let occupied = nodes.filter { interactive.contains($0.elementType) }.map(\.frame)
+        guard let point = routedPasteBlankPoint(window: root.frame, navigation: navigation[0].frame, transcript: transcript[0].frame,
+                                                composer: composer[0].frame, keyboard: keyboard[0].frame, occupied: occupied) else {
+            XCTFail("Paste needs clear, visible transcript padding outside the current controls and text"); return false
+        }
+        XCTContext.runActivity(named: "Routed Paste ONE blank tap \(point); viewport \(transcript[0].frame); keyboard \(keyboard[0].frame); excluded frames \(occupied.count)") { _ in
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: point.x - root.frame.minX, dy: point.y - root.frame.minY)).tap()
+        }
+        let dismissed = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
+        XCTAssertTrue(dismissed, "The blank transcript tap ends editing after System Paste")
+        return dismissed
+    }
+
     private func text(_ app: XCUIApplication, containing fragment: String) -> XCUIElement {
         app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", fragment)).firstMatch
     }
@@ -316,8 +370,9 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
         paste.tap()
         // Native plain-text paste loads asynchronously. Leave editing, then require completion before Back.
-        // The focused UITextView AX value can lag, so use the existing real keyboard-dismissal gesture.
-        dismissKeyboard(app)
+        // The focused UITextView AX value can lag. Tap verified blank padding: the expanded draft's
+        // viewport center can be covered by Latest, so the shared center-origin drag is unsuitable here.
+        guard dismissRoutedPasteKeyboard(app) else { return }
         let pasted = app.textFields["companion-composer"]
         XCTAssertTrue(waitFor(pasted, NSPredicate(format: "value == %@", raw), timeout: 5),
                       "System Paste completes with the entire raw delivery before navigation")
