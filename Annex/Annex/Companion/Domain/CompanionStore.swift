@@ -1194,13 +1194,17 @@ import Observation
         return settings
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
-        guard !hasDispatcherRecoveryMutation(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        guard !hasDispatcherRecoveryMutation(target), !pendingCommands.contains(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
         guard !sleepRequests.contains(target), !hasPendingProviderAction(target) else {
             throw CompanionServiceError.rejected("Wait for the desktop to confirm that the agent is asleep.")
         }
         guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
         }
+        // The service may read current settings before sending a same-provider edit.
+        // Reserve this target across that suspension; a rejected writer never owns/removes it.
+        pendingCommands.insert(target)
+        defer { pendingCommands.remove(target) }
         let generation = accessDefaultReadGeneration(hostID: target.hostID)
         let saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
         if let host = accessDefaultHost(hostID: target.hostID, generation: generation), host.agent(for: target) != nil {
@@ -1410,13 +1414,15 @@ import Observation
         return try await service.dispatcherSettings(hostID: hostID)
     }
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String) async throws -> CompanionDispatcherSettings {
-        try requireDispatcherConnection(hostID)
+        let target = try reserveDispatcherSettingsMutation(hostID)
+        defer { if let target { pendingCommands.remove(target) } }
         let saved = try await service.updateDispatcher(update, hostID: hostID, clientCommandID: UUID().uuidString)
         invalidateDispatcherSettings(hostID: hostID)
         return saved
     }
     func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String) async throws -> CompanionDispatcherSettings {
-        try requireDispatcherConnection(hostID)
+        let target = try reserveDispatcherSettingsMutation(hostID)
+        defer { if let target { pendingCommands.remove(target) } }
         let saved = try await service.setDispatcherModels(models, hostID: hostID, clientCommandID: UUID().uuidString)
         invalidateDispatcherSettings(hostID: hostID)
         return saved
@@ -1437,6 +1443,13 @@ import Observation
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change the Dispatcher.")
         }
+    }
+    private func reserveDispatcherSettingsMutation(_ hostID: String) throws -> CompanionTarget? {
+        try requireDispatcherConnection(hostID)
+        guard let target = hosts.first(where: { $0.id == hostID })?.dispatcher?.agent?.id else { return nil }
+        guard !pendingCommands.contains(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        pendingCommands.insert(target)
+        return target
     }
     /// Reads the settings right before asking, so the confirmation is as fresh as it can be, then asks.
     func askDispatcherReset(_ reset: CompanionDispatcherReset, hostID: String) async {

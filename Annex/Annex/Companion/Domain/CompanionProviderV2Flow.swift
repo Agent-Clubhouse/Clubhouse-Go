@@ -126,6 +126,13 @@ enum CompanionProviderV2StartOutcome: Sendable {
         do {
             let witness = try await service.providerPreviewV2(target, provider: applied.value.contract.saved.provider)
             reportedSaved = witness.value.contract.saved
+            // Recovery may have taken ownership while the fresh read was in flight.
+            // Recheck external admission, not canStart (our own busy flag is set).
+            guard canRequest() else {
+                startWitness = nil
+                error = "Another action is pending for this agent. Review its result before confirming Start again."
+                return
+            }
             // Start uses the Apply-issued token, NEVER the original proposal token or a new token.
             guard matchesStartWitness(witness, applied: applied), service.providerV2WitnessIsCurrent(witness, starting: true) else {
                 startEligibleApply = nil; startWitness = nil; preview = nil
