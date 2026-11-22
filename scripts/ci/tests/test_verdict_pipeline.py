@@ -1,6 +1,8 @@
 """Run the real workflow verifier tails against fake tools, never an SDK."""
 from pathlib import Path
 import os
+import json
+import shutil
 import subprocess
 import tempfile
 import textwrap
@@ -29,7 +31,7 @@ class VerdictPipelineTests(unittest.TestCase):
                     root = Path(directory)
                     (root / 'TestResults').mkdir()
                     for name, body in {
-                        'python3': 'echo "$1" >> "$CALLS"; case "$1" in *verify-xcresult.py) exit "$VERDICT";; *) exit "$INVENTORY";; esac',
+                        "python3": 'echo "$1" >> "$CALLS"; case "$1" in *verify-xcresult.py) shift; while [ "$1" != "--tests-json-output" ]; do shift; done; shift; rm -f "$1"; echo export >> "$CALLS"; if [ "$EXPORT" = 0 ]; then echo "{}" > "$1"; fi; exit "$VERDICT";; *) exit "$INVENTORY";; esac',
                         'xcrun': 'echo export >> "$CALLS"; echo "{}"; exit "$EXPORT"',
                     }.items():
                         script = root / name
@@ -45,6 +47,57 @@ class VerdictPipelineTests(unittest.TestCase):
                     self.assertIn('scripts/verify-xcresult.py', calls)
                     self.assertIn('export', calls)
                     self.assertEqual('scripts/ci/verify_selection.py' in calls, export == 0)
+
+
+class RealVerifierTailTests(unittest.TestCase):
+    def test_single_sdk_export_and_real_gates_on_both_workflow_tails(self):
+        for ipad in (False, True):
+            for scenario in ('passed', 'test-red', 'missing-method', 'empty', 'malformed', 'sdk-error', 'summary-error', 'hosted-retry'):
+                with self.subTest(ipad=ipad, scenario=scenario), tempfile.TemporaryDirectory() as directory:
+                    root = Path(directory)
+                    for relative in ('scripts/verify-xcresult.py', 'scripts/ci/verify_selection.py'):
+                        target = root / relative
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        shutil.copyfile(ROOT / relative, target)
+                    source = root / 'Annex/AnnexUITests/Example.swift'
+                    source.parent.mkdir(parents=True)
+                    source.write_text('final class Example: ReliableUITestCase { func testOne() {} }')
+                    ui = {'nodeType': 'Test Case', 'name': 'testOne()', 'result': 'Passed'}
+                    hosted = {'nodeType': 'Test Case', 'name': 'testHost()', 'result': 'Passed'}
+                    if scenario == 'hosted-retry':
+                        hosted['children'] = [{'nodeType': 'Repetition', 'result': r} for r in ('Failed', 'Passed')]
+                    details = {'testNodes': [
+                        {'nodeType': 'UI test bundle', 'name': 'ClubhouseGoUITests', 'children': [
+                            {'nodeType': 'Test Suite', 'name': 'Example', 'children': [] if scenario == 'missing-method' else [ui]}]},
+                        {'nodeType': 'Unit test bundle', 'name': 'ClubhouseGoTests', 'children': [
+                            {'nodeType': 'Test Suite', 'name': 'Host', 'children': [hosted]}]}]}
+                    (root / 'sdk-summary.json').write_text(json.dumps({'result': 'Failed' if scenario == 'test-red' else 'Passed', 'passedTests': 2, 'failedTests': int(scenario == 'test-red')}))
+                    (root / 'sdk-details.json').write_text('not JSON' if scenario == 'malformed' else json.dumps({} if scenario == 'empty' else details))
+                    (root / 'TestResults').mkdir()
+                    output = root / 'TestResults' / ('ipad-tests.json' if ipad else 'tests.json')
+                    output.write_text('stale previous response')
+                    sdk = root / 'xcrun'
+                    sdk.write_text('#!/bin/bash\necho "$4" >> "$CALLS"\n'
+                                   'if [ "$4" = summary ]; then [ "$SCENARIO" = summary-error ] && exit 9; cat "$SDK_SUMMARY"; '
+                                   'else [ "$SCENARIO" = sdk-error ] && exit 9; cat "$SDK_DETAILS"; fi\n')
+                    sdk.chmod(0o755)
+                    env = dict(os.environ, PATH=str(root) + ':' + os.environ['PATH'], CALLS=str(root / 'calls'),
+                               SDK_SUMMARY=str(root / 'sdk-summary.json'), SDK_DETAILS=str(root / 'sdk-details.json'),
+                               SCENARIO=scenario, TEST_LANE='test lane', TEST_SELECTION='-only-testing:ClubhouseGoUITests/Example',
+                               GITHUB_STEP_SUMMARY=str(root / 'summary.md'))
+                    command = 'pipeline_status=(65 0 0)\n' + workflow_tail(ipad)
+                    result = subprocess.run(['bash', '-e', '-o', 'pipefail', '-c', command], cwd=root, env=env,
+                                            capture_output=True, text=True)
+                    self.assertEqual(result.returncode == 0, scenario == 'passed', result.stdout + result.stderr)
+                    self.assertEqual((root / 'calls').read_text().splitlines(), ['summary', 'tests'])
+                    usable = scenario not in ('empty', 'malformed', 'sdk-error')
+                    self.assertEqual(output.exists(), usable)
+                    if usable:
+                        self.assertEqual(json.loads(output.read_text()), details)
+                    if scenario == 'missing-method':
+                        self.assertIn('testOne was selected but produced no result', result.stdout)
+                    if scenario == 'hosted-retry':
+                        self.assertIn('must pass without a retry', result.stderr)
 
 
 if __name__ == '__main__':

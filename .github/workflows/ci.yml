@@ -337,12 +337,15 @@ jobs:
           result_status=0
           if (( pipeline_status[1] != 0 || pipeline_status[2] != 0 )); then result_status=1; fi
           python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "$TEST_LANE" \
+            --tests-json-output TestResults/tests.json \
             ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }} || result_status=$?
           # Every planned class must have run, so a narrowed shard can't pass on an empty or partial selection.
           # Also audit inventory when the complete-result verdict failed.
-          if xcrun xcresulttool get test-results tests --path TestResults/UITests.xcresult > TestResults/tests.json; then
+          # Reuse the verifier's fresh, atomic SDK details export; do not query the bundle twice.
+          if [ -s TestResults/tests.json ]; then
             python3 scripts/ci/verify_selection.py "${{ matrix.selection }}" TestResults/tests.json || result_status=1
           else
+            echo "::error::No fresh XCTest details export for the planned inventory"
             result_status=1
           fi
           exit "$result_status"
@@ -461,10 +464,12 @@ jobs:
           result_status=0
           if (( pipeline_status[1] != 0 || pipeline_status[2] != 0 )); then result_status=1; fi
           python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad hosted tests + UI smoke" \
+            --tests-json-output TestResults/ipad-tests.json \
             --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests || result_status=$?
-          if xcrun xcresulttool get test-results tests --path TestResults/iPad.xcresult > TestResults/ipad-tests.json; then
+          if [ -s TestResults/ipad-tests.json ]; then
             python3 scripts/ci/verify_selection.py "$TEST_SELECTION" TestResults/ipad-tests.json || result_status=1
           else
+            echo "::error::No fresh XCTest details export for the planned iPad inventory"
             result_status=1
           fi
           exit "$result_status"

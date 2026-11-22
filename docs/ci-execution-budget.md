@@ -135,3 +135,76 @@ actual workflow verifier tails against fake tools. These are Python/shell contro
 not native or SDK execution. Preserve first-annotation vs post-xcresult timestamps,
 actual inventory/skips/attempts, job execution, queue/pre-Plan, artifact closure
 and all retained checks in the single full hosted validation report.
+
+
+## First full measurement and bounded verification correction
+
+PR #629's sole opened-event full run is
+[44962660538](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44962660538)
+on `f7a483f5c38c863711717f3e18280fcd4bc3820d`. Plan's downloaded manifest
+actually selected full mode. Packages, coverage (CompanionDomain 14843/15968,
+92.95%), Release and Build passed. The assigned Plan+Build execution prefix is
+10+362=372s, excluding pre-Plan and dependency queue waits.
+
+The first recovered warning is AgentRowMenu's
+`testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes`, assertion line 24,
+at 23:49:42.762623Z. The server log signal is 388.763s after that lane's assignment:
+**760.763s execution-path time** (12m40.763), versus **767.763s wall time** since
+run creation. The 7s difference is pre-Plan 2s, Build queue 2s and device queue 3s.
+This misses ten minutes even if the log-line signal were immediately visible.
+Check API annotations were still empty at 00:21:25.529Z; their eventual closed
+response has no creation timestamp. No precise dashboard-visibility claim follows
+from the log's timestamp. Preserve interval bounds separately.
+
+At the recovery checkpoint, four device jobs had exceeded the unchanged 55m
+limit. Other ran 3428s (57m08 including finalization/cleanup), so **372+3428=3800s
+(63m20) is already a queue-excluded lower bound**, before aggregate completion.
+The three remaining iPhone jobs were still active; this is not a full-run pass.
+Closed raw originals: Preview 1167253 bytes / SHA256
+`b3346620db7071a8d6d157c5d1deefea33fef3a210cfc65b92aeeddb0fd4ba21`;
+Other 1011748 bytes /
+`474666905e8bc624d65c93595c787b8a642013afff81d661e371e38b2785ca25`;
+Dispatcher lane 1026426 bytes /
+`15967b39633c7dca2ce54fb20af5138d7e57ff836a41a549b4f27045f77cd49c`;
+Feedback 1008952 bytes /
+`571ca57d1fee50cc3c34885aff812edc09b77380f28fbece9ec828fe705801c3`;
+Search 736496 bytes /
+`8775dd9ffd9b9790a68cae817da9ba0efd67c38054b82c3d983ef55cd46a69c0`.
+
+Preview produced all 47 expected native terminal rows, no failed attempts and
+`TEST EXECUTE SUCCEEDED` at 00:38:16.959Z, then was cancelled at 00:38:26.145Z
+before successful workflow verification. Other had only 38/48 terminal identities
+(one further identity started), Dispatcher 53/54 (last started), Feedback all
+53 terminals but real failures; none of those cancelled jobs receives acceptance.
+Search completed all 55 planned methods and workflow verification in 46m07s.
+iPad passed its unchanged strict hosted+three-UI selection.
+
+A prototype using the 246 fully completed measured identities, retained prior
+measurements and **47 still-unknown methods at 60s** totals 23146.417s UI bodies.
+Adding hosted713 and the old modeled overhead430/lane gives mean3412.427s/lane,
+above3300 independently of packing. Whole-class LPT max2990.182s body+host;
+splitting only PreviewSmoke lowers that maximum just5.882s. No method split or
+routing-only rerun is justified by that gain. A conservative usable-body budget
+with120s verification and480s preparation/runner/upload/cleanup reserve is
+`8*(3300-600)-713=20887s`, below the current body estimate by2259.417s. These
+reserves are planning assumptions, not measured upper bounds or changed timeouts.
+The actual final first-pass/unfinished/retry inventory must refine this estimate.
+
+The concrete execution redundancy is in verification: `verify-xcresult.py` already
+reads the SDK `tests` response for retry checking and reporting; each workflow then
+read that same bundle again for inventory. The correction adds an optional
+`--tests-json-output` argument, atomically publishes that **same fresh response**,
+and reuses it for inventory on both devices. It deletes stale output first; an
+empty/malformed/failed details read cannot publish a usable file and fails a
+requested export. A red test verdict still exports valid details so inventory can
+run. A failed summary cannot turn green, but no longer prevents a valid details
+export for the separate inventory diagnostic. Strict no-retry checks are unchanged.
+Standalone callers without an export retain their previous advisory-details behavior.
+
+Search's interval from native success to Run-tests completion was about104s.
+The old log does not separate its two details reads, summary query and inventory:
+**the correction cannot claim all104s as removable duplicate work**. New telemetry
+separately times the single SDK details query and atomic JSON serialization.
+No measured savings, overall budget achievement, or corrected-head native runtime
+acceptance is claimed by fake-SDK controls. Original first failures, cancellation
+annotations, missing IDs, prior reporter correction and deferred acceptance remain.
