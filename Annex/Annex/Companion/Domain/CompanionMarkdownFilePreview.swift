@@ -71,7 +71,7 @@ nonisolated struct CompanionMarkdownFilePreview: Sendable {
         var nextSuffix: [String: Int] = [:]
         var anchorCandidateChecks = 0
         try checkCancellation()
-        for markup in Document(parsing: source).children {
+        for markup in CompanionMarkdown.markup(source).children {
             try checkCancellation()
             if let paragraph = markup as? Paragraph, paragraph.childCount == 1,
                let image = paragraph.child(at: 0) as? Markdown.Image {

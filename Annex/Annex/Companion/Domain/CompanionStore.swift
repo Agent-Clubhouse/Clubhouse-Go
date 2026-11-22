@@ -45,6 +45,7 @@ import Observation
     private(set) var sleepRefreshes: Set<CompanionTarget> = []
     private var confirmedSleepCommands: [CompanionTarget: String] = [:]
     private var providerFlows: [CompanionTarget: CompanionProviderFlow] = [:]
+    private var providerV2Flows: [CompanionTarget: CompanionProviderV2Flow] = [:]
     private(set) var settingsRevisions: [CompanionTarget: UUID] = [:]
     /// Learned only from reads the user already requested; listing agents never fetches settings.
     private(set) var projectAccessDefaults: [CompanionProjectTarget: CompanionPermissionLevel] = [:]
@@ -163,6 +164,7 @@ import Observation
         pendingLinkedProjectStates.removeAll()
         linkedProjectStateSources.removeAll()
         providerFlows.removeAll()
+        providerV2Flows.removeAll()
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
         appUpdateErrors.removeAll()
@@ -238,7 +240,7 @@ import Observation
 
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
-        !dispatcherRecoveryUnknown.contains(target) && !sleepRequests.contains(target) && providerFlows[target]?.blocksMutations != true && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
+        !dispatcherRecoveryUnknown.contains(target) && !sleepRequests.contains(target) && !hasPendingProviderAction(target) && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
@@ -250,7 +252,7 @@ import Observation
     }
     /// A sleeping durable agent on a connected desktop, which a long-press can offer to wake before its chat is read.
     func mayWake(_ target: CompanionTarget) -> Bool {
-        guard !sleepRequests.contains(target), providerFlows[target]?.blocksMutations != true else { return false }
+        guard !sleepRequests.contains(target), !hasPendingProviderAction(target) else { return false }
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
         guard let agent = agent(for: target), !agent.isQuick, agent.status == .sleeping || agent.status == .stopped else { return false }
         return host(for: target)?.connection.canOperate == true && !pendingCommands.contains(target)
@@ -275,8 +277,8 @@ import Observation
             return .init(kind: "image", name: image.name ?? "Image", mimeType: image.mimeType, bytes: local.data)
         }
         guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
-        guard host.richContentAvailable else {
-            throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
+        guard host.richContentAvailable == true else {
+            throw CompanionServiceError.unavailable(richContentUnavailableMessage(for: target))
         }
         if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
@@ -294,14 +296,18 @@ import Observation
     /// Entries skip the conversation's path hints: the desktop listed them and still authorizes every read.
     func linkContent(_ href: String, target: CompanionTarget) async throws -> CompanionContent {
         guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
-        guard host.richContentAvailable else {
-            throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
+        guard host.richContentAvailable == true else {
+            throw CompanionServiceError.unavailable(richContentUnavailableMessage(for: target))
         }
         guard host.canResolveLinks else { throw CompanionServiceError.unavailable(CompanionContentReference.linksNeedUpdate) }
         return try await CompanionContentReference.open(link: href, hostName: host.name, resolve: { try await service.resolveLink($0, target: target) },
                                                         load: { try await service.content($0, target: target) })
     }
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
+    func richContentUnavailableMessage(for target: CompanionTarget) -> String {
+        let host = host(for: target)
+        return CompanionContentReference.richContentUnavailableMessage(hostName: host?.name ?? "your desktop", enabled: host?.richContentAvailable)
+    }
     func contentRoots(for target: CompanionTarget) -> CompanionContentRoots {
         // A removed conversation cannot leave its old hints active when the host or agent returns.
         guard conversations[target]?.isLoaded == true else { return .init() }
@@ -1135,13 +1141,30 @@ import Observation
         let flow = CompanionProviderFlow(target: target, service: service) { [weak self] in
             guard let self else { return false }
             return self.canEditSettings(target) && self.host(for: target)?.canControlProvider == true
+                && self.host(for: target)?.providerV2Advertised != true && self.providerV2Flows[target]?.blocksMutations != true
                 && self.host(for: target)?.connection.canOperate == true && !self.sleepRequests.contains(target)
                 && !self.pendingCommands.contains(target) && self.agent(for: target)?.isSleepingOnDesktop == true
         }
         providerFlows[target] = flow
         return flow
     }
-    func hasPendingProviderAction(_ target: CompanionTarget) -> Bool { providerFlows[target]?.blocksMutations == true }
+    func providerV2Flow(for target: CompanionTarget, requestedRuntime: String) -> CompanionProviderV2Flow {
+        if let flow = providerV2Flows[target] { flow.updateRequestedRuntime(requestedRuntime); return flow }
+        let flow = CompanionProviderV2Flow(target: target, service: service, requestedRuntime: requestedRuntime, canRequest: { [weak self] in
+            guard let self else { return false }
+            return self.canEditSettings(target) && self.host(for: target)?.providerApplyV2?.isSupported == true
+                && self.host(for: target)?.connection.canOperate == true && !self.sleepRequests.contains(target)
+                && !self.pendingCommands.contains(target) && self.agent(for: target)?.isSleepingOnDesktop == true
+                && self.providerFlows[target]?.blocksMutations != true
+        }, startAdvertised: { [weak self] in self?.host(for: target)?.providerStartV2?.isSupported == true })
+        providerV2Flows[target] = flow
+        return flow
+    }
+    func hasPendingProviderV2Action(_ target: CompanionTarget) -> Bool { providerV2Flows[target]?.blocksMutations == true }
+    func hasPendingLegacyProviderAction(_ target: CompanionTarget) -> Bool { providerFlows[target]?.blocksMutations == true }
+    func hasPendingProviderAction(_ target: CompanionTarget) -> Bool {
+        providerFlows[target]?.blocksMutations == true || providerV2Flows[target]?.blocksMutations == true
+    }
     func helperRouting(hostID: String, projectID: String? = nil, agentID: String? = nil) async throws -> CompanionHelperRouting {
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Connect to the desktop to read helper presets.") }
         return try await service.helperRouting(hostID: hostID, projectID: projectID, agentID: agentID)
@@ -1162,7 +1185,7 @@ import Observation
         return settings
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
-        guard !sleepRequests.contains(target), providerFlows[target]?.blocksMutations != true else {
+        guard !sleepRequests.contains(target), !hasPendingProviderAction(target) else {
             throw CompanionServiceError.rejected("Wait for the desktop to confirm that the agent is asleep.")
         }
         guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
@@ -1932,7 +1955,10 @@ import Observation
             conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
             if homeDecisionItems[target] != nil { homeDecisionItems[target] = nil }
             sleepRequests.remove(target); sleepRefreshes.remove(target)
-            confirmedSleepCommands[target] = nil; providerFlows[target] = nil
+            confirmedSleepCommands[target] = nil
+            providerFlows[target] = nil
+            // A reconnect/catalog omission cannot erase an unresolved v2 action.
+            if providerV2Flows[target]?.blocksMutations != true { providerV2Flows[target] = nil }
             settingsRevisions[target] = nil
         }
     }

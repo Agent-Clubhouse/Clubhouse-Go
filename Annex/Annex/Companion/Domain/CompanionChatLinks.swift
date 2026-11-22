@@ -93,7 +93,7 @@ enum CompanionLinkError: Error, LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .missing(let hostName): "Not found on \(hostName)"
-        case .notAllowed: "Not shared with the phone"
+        case .notAllowed: "This target can't be previewed"
         }
     }
 }

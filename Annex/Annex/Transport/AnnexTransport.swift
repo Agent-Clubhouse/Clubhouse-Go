@@ -324,6 +324,13 @@ public actor AnnexTransport: AnnexTransporting {
             guard let capabilities, capabilities.controlAvailable == true, capabilities.epoch == command.epoch, capabilities.commands.contains(command.type) else {
                 throw AnnexTransportError.unsupportedCapability(command.type)
             }
+            switch command.kind {
+            case .providerPreviewV2, .providerChangeV2:
+                guard capabilities.supportsProviderApplyV2 else { throw AnnexTransportError.unsupportedCapability("providerControlV2") }
+            case .providerStartV2:
+                guard capabilities.supportsProviderStartV2 else { throw AnnexTransportError.unsupportedCapability("providerStartV2") }
+            default: break
+            }
             if case .create(let create) = command.kind, create.isManaged, !capabilities.supportsManagedCreate {
                 throw AnnexTransportError.unsupportedCapability("managedCreate")
             }

@@ -158,6 +158,132 @@ import XCTest
         }
     }
 
+    func testTerminalSendGlyphContrastWithKeyboardForIdleQueueAndSteering() throws {
+        try checkSendGlyphContrast(theme: ["--companion-header-terminal"])
+    }
+
+    func testLightAccentDarkThemeSendGlyphContrastWithKeyboard() throws {
+        try checkSendGlyphContrast(theme: ["--companion-header-mocha"])
+    }
+
+    func testLightAppearanceSendGlyphContrastWithKeyboard() throws {
+        try checkSendGlyphContrast(theme: ["--companion-header-latte", "--companion-header-light"])
+    }
+
+    private func checkSendGlyphContrast(theme: [String]) throws {
+        for (state, flags, label) in [
+            ("idle", ["--companion-header-idle"], "Send message"),
+            ("queue", ["--companion-header-queue"], "Queue message"),
+            ("steering", [], "Send steering message")
+        ] {
+            let app = launch(theme + flags + ["--companion-header-send-contrast"])
+            defer { app.terminate() }
+            let composer = element(app, "companion-composer")
+            focus(app)
+            let send = app.buttons["companion-send"]
+            XCTAssertTrue(waitFor(composer, NSPredicate(format: "value == %@", draft), timeout: 5),
+                          "Native typing must finish: value=\(String(describing: composer.value)), editor=\(composer.debugDescription), sendEnabled=\(send.isEnabled)")
+            XCTAssertEqual(composer.value as? String, draft)
+            XCTAssertEqual(send.label, label)
+            XCTAssertTrue(send.isEnabled && send.isHittable)
+            XCTAssertEqual(send.frame.width, 44, accuracy: 1)
+            XCTAssertEqual(send.frame.height, 44, accuracy: 1)
+            try assertSendGlyphContrast(app, state: "\(theme) \(state) enabled")
+            composer.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: draft.count))
+            let emptied = waitFor(composer, NSPredicate { _, _ in
+                guard let value = composer.value as? String else { return false }
+                return (value.isEmpty || value == composer.placeholderValue) && !send.isEnabled
+            }, timeout: 5)
+            let value = composer.value as? String
+            let placeholder = composer.placeholderValue
+            // An empty native field may expose its placeholder as its AX value.
+            let remainingDraft = value.map { $0 == placeholder ? "" : $0 }
+            let focused = composer.debugDescription.contains("Keyboard Focused")
+            let evidence = "SEND_DRAFT \(theme) \(state) emptied=\(emptied) value=\(String(describing: value)) placeholder=\(String(describing: placeholder)) remainingDraft=\(String(describing: remainingDraft)) focused=\(focused) sendEnabled=\(send.isEnabled) keyboard=\(app.keyboards.firstMatch.exists)"
+            print(evidence)
+            let editing = XCTAttachment(string: evidence)
+            editing.name = "Send draft after native deletion \(theme) \(state)"
+            editing.lifetime = .keepAlways
+            add(editing)
+            if !emptied {
+                let screenshot = XCTAttachment(screenshot: app.screenshot())
+                screenshot.name = "Send draft deletion failure \(theme) \(state)"
+                screenshot.lifetime = .keepAlways
+                add(screenshot)
+                let hierarchy = XCTAttachment(string: app.debugDescription)
+                hierarchy.name = "Send draft deletion failure hierarchy \(theme) \(state)"
+                hierarchy.lifetime = .keepAlways
+                add(hierarchy)
+            }
+            XCTAssertTrue(emptied, evidence)
+            XCTAssertEqual(remainingDraft, "", evidence)
+            XCTAssertTrue(focused, evidence)
+            XCTAssertFalse(send.isEnabled)
+            XCTAssertTrue(app.keyboards.firstMatch.exists, "The disabled state is also measured while editing")
+            try assertSendGlyphContrast(app, state: "\(theme) \(state) disabled")
+        }
+    }
+
+    private func assertSendGlyphContrast(_ app: XCUIApplication, state: String) throws {
+        let frame = app.buttons["companion-send"].frame
+        let screenshot = app.screenshot()
+        let attachment = XCTAttachment(screenshot: screenshot)
+        attachment.name = "Send glyph \(state)"; attachment.lifetime = .keepAlways; add(attachment)
+        let image = try XCTUnwrap(screenshot.image.cgImage)
+        let scale = CGFloat(image.width) / app.frame.width
+        // Stay inside the glass rim: neither the circle's edge nor neighbouring controls can pass as the arrow.
+        let center = CGRect(x: frame.midX - 12, y: frame.midY - 12, width: 24, height: 24)
+        let crop = try XCTUnwrap(image.cropping(to: center.applying(.init(scaleX: scale, y: scale)).integral))
+        let croppedAttachment = XCTAttachment(image: UIImage(cgImage: crop, scale: screenshot.image.scale, orientation: .up))
+        croppedAttachment.name = "Send glyph 24pt crop \(state)"; croppedAttachment.lifetime = .keepAlways; add(croppedAttachment)
+        let palette = try XCTUnwrap(element(app, "header-fixture-send-palette").value as? String).split(separator: "/")
+        XCTAssertEqual(palette.count, 2)
+        let expectedHex = try XCTUnwrap(palette.indices.contains(1) ? palette[app.buttons["companion-send"].isEnabled ? 0 : 1] : nil)
+        let expectedValue = try XCTUnwrap(UInt32(expectedHex.dropFirst(), radix: 16))
+        let expected = [16, 8, 0].map { Double((expectedValue >> $0) & 255) / 255 }
+        var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
+        try bytes.withUnsafeMutableBytes { buffer in
+            let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
+                bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: try XCTUnwrap(CGColorSpace(name: CGColorSpace.sRGB)),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+            context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+        }
+        func linear(_ value: UInt8) -> Double {
+            let channel = Double(value) / 255
+            return channel <= 0.04045 ? channel / 12.92 : pow((channel + 0.055) / 1.055, 2.4)
+        }
+        let luminances = stride(from: 0, to: bytes.count, by: 4).map {
+            0.2126 * linear(bytes[$0]) + 0.7152 * linear(bytes[$0 + 1]) + 0.0722 * linear(bytes[$0 + 2])
+        }
+        let fill = luminances.sorted()[luminances.count / 2]
+        let contrasts = luminances.map { (max($0, fill) + 0.05) / (min($0, fill) + 0.05) }
+        let coreContrast = contrasts.sorted()[Int(Double(contrasts.count - 1) * 0.95)]
+        let core = contrasts.indices.filter { contrasts[$0] >= 4.5 }
+        let fraction = Double(core.count) / Double(contrasts.count)
+        let fillRGB = (0..<3).map { channel in
+            stride(from: channel, to: bytes.count, by: 4).map { Double(bytes[$0]) / 255 }.sorted()[contrasts.count / 2]
+        }
+        var metrics = "SEND_GLYPH \(state) frame=\(frame) fill=\(fill) fillRGB=\(fillRGB) coreContrast=\(coreContrast) highContrastFraction=\(fraction) expected=\(expectedHex)"
+        if !core.isEmpty {
+            let mean = (0..<3).map { channel in
+                core.reduce(0.0) { $0 + Double(bytes[$1 * 4 + channel]) / 255 } / Double(core.count)
+            }
+            func distance(_ first: [Double], _ second: [Double]) -> Double {
+                zip(first, second).reduce(0) { $0 + pow($1.0 - $1.1, 2) }
+            }
+            let expectedDistance = distance(mean, expected), fillDistance = distance(mean, fillRGB)
+            metrics += " coreMeanRGB=\(mean) expectedDistance=\(expectedDistance) fillDistance=\(fillDistance)"
+            XCTAssertLessThan(expectedDistance, fillDistance, "\(state): the contrasted pixels must resemble the actual palette foreground, not glass highlights")
+        } else {
+            metrics += " coreMeanRGB=none"
+        }
+        print(metrics)
+        let measurements = XCTAttachment(string: metrics)
+        measurements.name = "Send glyph measurements \(state)"; measurements.lifetime = .keepAlways; add(measurements)
+        XCTAssertGreaterThanOrEqual(coreContrast, 4.5,
+                                    "\(state): at least 5% of the central pixels must form a contrast-safe glyph, not a few isolated pixels")
+    }
+
     /// The header avatar keeps the canonical identity colour (the fixture's indigo, #6366f1) in either appearance:
     /// glass must not restyle it. The 44pt photo is centred at the top of the identity control; sampled inside it,
     /// left of the initial and clear of the status dot.
