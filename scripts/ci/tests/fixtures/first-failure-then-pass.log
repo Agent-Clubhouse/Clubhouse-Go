@@ -1,0 +1,5 @@
+2026-11-21T18:52:37.2598410Z Test Case '-[ClubhouseGoUITests.CompanionImageAttachmentUITests testPickRemoveAndSendImages]' started (Iteration 1 of 3).
+2026-11-21T18:55:18.0946080Z Annex/AnnexUITests/CompanionImageAttachmentUITests.swift:16: error: -[ClubhouseGoUITests.CompanionImageAttachmentUITests testPickRemoveAndSendImages] : XCTAssertTrue failed - The preview desktop advertises attachments, so the attach button shows
+2026-11-21T18:55:18.5237870Z Test Case '-[ClubhouseGoUITests.CompanionImageAttachmentUITests testPickRemoveAndSendImages]' failed (162.725 seconds).
+2026-11-21T18:55:18.5341000Z Test Case '-[ClubhouseGoUITests.CompanionImageAttachmentUITests testPickRemoveAndSendImages]' started (Iteration 2 of 3).
+2026-11-21T18:56:56.4602040Z Test Case '-[ClubhouseGoUITests.CompanionImageAttachmentUITests testPickRemoveAndSendImages]' passed (97.944 seconds).

@@ -74,6 +74,37 @@ class UIClassCoverageTests(unittest.TestCase):
         with self.assertRaises(AssertionError):
             self.assert_partition({"CurrentTests"}, [current, current])
 
+    def test_every_method_once_with_only_the_three_intentional_ipad_repeats(self):
+        scope_spec = importlib.util.spec_from_file_location('scope_inventory', ROOT / 'scripts/ci/ui_scope.py')
+        scope = importlib.util.module_from_spec(scope_spec)
+        scope_spec.loader.exec_module(scope)
+        inventory = scope.Inventory(ROOT).methods
+        counts = collections.Counter()
+        for entry in shards.matrix()['include']:
+            for cls in selected_classes(entry, inventory):
+                counts.update((cls, method) for method in inventory[cls])
+        expected = {(cls, method) for cls, methods in inventory.items() for method in methods}
+        self.assertTrue(expected)
+        self.assertEqual(dict(counts), dict.fromkeys(expected, 1))
+        workflow = (ROOT / '.github/workflows/ci.yml').read_text()
+        ipad = workflow.split('\n  ipad-tests:', 1)[1].split('\n  ci-result:', 1)[0]
+        repeats = re.findall(r'-only-testing:ClubhouseGoUITests/(\w+)/(\w+)', ipad)
+        self.assertEqual(set(repeats), {
+            ('FeedbackTriggersUITests', 'testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings'),
+            ('FeedbackTriggersUITests', 'testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled'),
+            ('CompanionAgentTreeUITests', 'testProjectUsesSameTreeAndCrossProjectCaption'),
+        })
+        self.assertEqual(len(repeats), 3)
+        for item in repeats:
+            self.assertIn(item, expected)
+            counts[item] += 1
+        self.assertEqual({item for item, n in counts.items() if n == 2}, set(repeats))
+        # Whole hosted bundle retained once on iPhone and once on iPad. This is
+        # selection proof, not a claim of actual SDK discovery/execution.
+        self.assertEqual(sum('-only-testing:ClubhouseGoTests' in e['selection']
+                             for e in shards.matrix()['include']), 1)
+        self.assertEqual(ipad.count('-only-testing:ClubhouseGoTests'), 1)
+
 
 if __name__ == "__main__":
     unittest.main()

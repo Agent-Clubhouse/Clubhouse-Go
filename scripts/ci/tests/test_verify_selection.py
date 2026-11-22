@@ -68,7 +68,25 @@ class ExecutionVerificationTests(unittest.TestCase):
         only_skips = {("ClubhouseGoUITests", "TerminalUITests", "testLive"): "Skipped",
                       ("ClubhouseGoTests", "StoreTests", "testStore"): "Passed"}
         self.assertEqual(self.check("-only-testing:ClubhouseGoUITests -skip-testing:ClubhouseGoUITests/X", only_skips),
-                         ["ClubhouseGoUITests was selected but executed no test case"])
+                         ["ClubhouseGoUITests was selected but executed no test case",
+                          "ClubhouseGoUITests/TerminalUITests/testOne was selected but produced no result"])
+
+    def test_catchall_success_cannot_hide_missing_method_and_respects_exact_exclusions(self):
+        write(self.root, "Annex/AnnexUITests/OtherUITests.swift", """
+            final class OtherUITests: ReliableUITestCase {
+                func testTwo() {}
+                func testThree() {}
+            }
+        """)
+        ran = {("ClubhouseGoUITests", "TerminalUITests", "testOne"): "Passed",
+               ("ClubhouseGoUITests", "TerminalUITests", "testLive"): "Skipped",
+               ("ClubhouseGoUITests", "OtherUITests", "testTwo"): "Passed"}
+        self.assertEqual(self.check("-only-testing:ClubhouseGoUITests", ran),
+                         ["ClubhouseGoUITests/OtherUITests/testThree was selected but produced no result"])
+        self.assertEqual(self.check("-only-testing:ClubhouseGoUITests "
+                                    "-skip-testing:ClubhouseGoUITests/OtherUITests/testThree", ran), [])
+        self.assertEqual(self.check("-only-testing:ClubhouseGoUITests "
+                                    "-skip-testing:ClubhouseGoUITests/OtherUITests", ran), [])
 
     def test_method_selectors_and_unknown_classes(self):
         ran = {("ClubhouseGoUITests", "TerminalUITests", "testOne"): "Passed"}

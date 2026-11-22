@@ -8,12 +8,18 @@ Usage: verify-xcresult.py RESULT.xcresult [TITLE] [--no-retries-in BUNDLE ...]
 
 --no-retries-in fails the run if a test in that bundle (e.g. ClubhouseGoTests) needed a
 retry, so unit tests that share an invocation with retried UI tests stay strict.
+--tests-json-output publishes the fresh details used for retry checks for a separate
+inventory audit. Missing/malformed details then fail the verifier, even without a
+strict bundle. Standalone callers without this flag retain advisory reporting.
 """
 import argparse
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
+import tempfile
+import time
 
 
 def xcresult(kind, path):
@@ -78,19 +84,69 @@ def report(title, tests):
         summary.write("\n".join(lines) + "\n")
 
 
-def main(path, title, strict_bundles=()):
-    summary = xcresult("summary", path)
+def export_details(tests, output):
+    """Publish one complete, usable SDK response; never leave a partial JSON file."""
+    try:
+        cases = list(all_cases(tests)) if isinstance(tests, dict) and isinstance(tests.get("testNodes"), list) else []
+        usable = cases and all(isinstance(case.get("name") or case.get("nodeIdentifier"), str)
+                               and (case.get("name") or case.get("nodeIdentifier"))
+                               and isinstance(case.get("result"), str) and case.get("result")
+                               for _, _, case in cases)
+    except (AttributeError, TypeError):
+        usable = False
+    if not usable:
+        raise ValueError("Test details have no usable test-case inventory")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    temporary = None
+    try:
+        with tempfile.NamedTemporaryFile(mode="w", dir=output.parent, prefix="." + output.name,
+                                         suffix=".tmp", delete=False) as stream:
+            temporary = Path(stream.name)
+            json.dump(tests, stream)
+            stream.write("\n")
+        os.replace(temporary, output)
+    finally:
+        if temporary is not None and temporary.exists():
+            temporary.unlink()
+
+
+def main(path, title, strict_bundles=(), tests_json_output=None):
+    output = Path(tests_json_output) if tests_json_output else None
+    if output is not None:
+        # A failed SDK read must not let inventory consume a previous invocation.
+        output.unlink(missing_ok=True)
+    summary_error = None
+    try:
+        summary = xcresult("summary", path)
+        if not isinstance(summary, dict):
+            raise ValueError("XCTest summary is not an object")
+    except (subprocess.CalledProcessError, ValueError) as error:
+        summary_error = error
+        summary = {}
     passed = summary.get("passedTests", 0)
     failed = summary.get("failedTests", 0)
     result = summary.get("result")
     print(f"XCTest result: {result}; passed={passed}, failed={failed}")
     tests = None
+    details_error = None
     try:
+        started = time.monotonic()
         tests = xcresult("tests", path)
+        print(f"XCTest details query: {time.monotonic() - started:.3f}s")
+        if output is not None:
+            started = time.monotonic()
+            export_details(tests, output)
+            print(f"XCTest details JSON export: {time.monotonic() - started:.3f}s")
         report(title, tests)
     except (subprocess.CalledProcessError, ValueError) as error:
-        # Reporting is advisory; the pass/fail verdict below is what gates the job.
+        details_error = error
+        # Standalone reporting is advisory; an explicitly requested inventory
+        # export is mandatory, as are details for a strict bundle's retry gate.
         print(f"::warning title=xcresult report::Could not read test details: {error}")
+    if summary_error is not None:
+        raise SystemExit(f"Could not read complete XCTest summary: {summary_error}")
+    if output is not None and details_error is not None:
+        raise SystemExit("Could not export fresh test details for inventory verification")
     if result != "Passed" or passed <= 0 or failed != 0:
         raise SystemExit("XCTest did not produce a nonempty passing result")
     if strict_bundles:
@@ -107,5 +163,6 @@ if __name__ == "__main__":
     parser.add_argument("path")
     parser.add_argument("title", nargs="?")
     parser.add_argument("--no-retries-in", action="append", default=[], metavar="BUNDLE")
+    parser.add_argument("--tests-json-output", help="Atomically export the same fresh details used for retry checks")
     args = parser.parse_args()
-    main(args.path, args.title or os.path.basename(args.path), args.no_retries_in)
+    main(args.path, args.title or os.path.basename(args.path), args.no_retries_in, args.tests_json_output)

@@ -149,7 +149,10 @@ jobs:
           key: swiftpm-build-cov-${{ runner.os }}-${{ steps.xcode.outputs.xcode }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
       - name: Test transport package
-        run: swift test --enable-code-coverage
+        shell: bash
+        run: |
+          swift test --enable-code-coverage 2>&1 \
+            | python3 scripts/ci/report_test_failures.py --label 'Swift packages' --events swift-first-failures.jsonl
 
       # Same run as above; fails only if a target drops below coverage-baseline.json.
       - name: Check coverage ratchet
@@ -166,7 +169,20 @@ jobs:
           python3 scripts/ci/check_icon_hold_execution.py icon-hold-tests.log
 
       - name: Test bundled Framebriar package
-        run: swift test --package-path Vendor/Framebriar
+        shell: bash
+        run: |
+          swift test --package-path Vendor/Framebriar 2>&1 \
+            | python3 scripts/ci/report_test_failures.py --label 'Bundled Framebriar' --events vendor-first-failures.jsonl
+
+      - name: Upload first failure observations
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-first-failures
+          path: |
+            swift-first-failures.jsonl
+            vendor-first-failures.jsonl
+          retention-days: 7
 
   build:
     name: Build for testing
@@ -297,7 +313,11 @@ jobs:
       # xcodebuild sometimes exits 65 even when all tests pass (known Xcode bug).
       # Verify the complete result bundle, not an individual passing suite in the log.
       - name: Run tests
+        shell: bash
+        env:
+          TEST_LANE: ${{ matrix.name }}
         run: |
+          set +e
           xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
             -destination "$DEST" \
@@ -308,13 +328,27 @@ jobs:
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
             -resultBundlePath TestResults/UITests.xcresult \
-            2>&1 | tee xcodebuild-ui.log || true
+            2>&1 | tee xcodebuild-ui.log \
+              | python3 scripts/ci/report_test_failures.py --label "$TEST_LANE" --events TestResults/first-failures.jsonl
+          pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          printf '{"xcodebuild":%s,"tee":%s,"reporter":%s}\n' "${pipeline_status[@]}" > TestResults/ui-pipeline-status.json
 
-          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}" \
-            ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }}
+          result_status=0
+          if (( pipeline_status[1] != 0 || pipeline_status[2] != 0 )); then result_status=1; fi
+          python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "$TEST_LANE" \
+            --tests-json-output TestResults/tests.json \
+            ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }} || result_status=$?
           # Every planned class must have run, so a narrowed shard can't pass on an empty or partial selection.
-          xcrun xcresulttool get test-results tests --path TestResults/UITests.xcresult > TestResults/tests.json
-          python3 scripts/ci/verify_selection.py "${{ matrix.selection }}" TestResults/tests.json
+          # Also audit inventory when the complete-result verdict failed.
+          # Reuse the verifier's fresh, atomic SDK details export; do not query the bundle twice.
+          if [ -s TestResults/tests.json ]; then
+            python3 scripts/ci/verify_selection.py "${{ matrix.selection }}" TestResults/tests.json || result_status=1
+          else
+            echo "::error::No fresh XCTest details export for the planned inventory"
+            result_status=1
+          fi
+          exit "$result_status"
 
       # Opt-in preview diagnostics contain closed reasons and numeric geometry only.
       # Preserve them even when a UI assertion fails; the app runs in a separate process.
@@ -400,25 +434,45 @@ jobs:
       # Reuse the iPhone build; qualify all hosted tests and the three iPad regressions
       # without paying for another full UI suite or accepting a passing retry.
       - name: Run iPad tests without retries
+        shell: bash
+        env:
+          TEST_SELECTION: >-
+            -only-testing:ClubhouseGoTests
+            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings
+            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled
+            -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption
         run: |
-          if ! xcodebuild test-without-building \
+          set +e
+          xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
             -configuration Debug \
             -destination "$DEST" \
             -jobs 2 \
-            -only-testing:ClubhouseGoTests \
-            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings \
-            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled \
-            -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption \
+            $TEST_SELECTION \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
             -resultBundlePath TestResults/iPad.xcresult \
-            2>&1 | tee xcodebuild-ipad.log; then
+            2>&1 | tee xcodebuild-ipad.log \
+              | python3 scripts/ci/report_test_failures.py --label 'iPad hosted tests + UI smoke' --events TestResults/ipad-first-failures.jsonl
+          pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          printf '{"xcodebuild":%s,"tee":%s,"reporter":%s}\n' "${pipeline_status[@]}" > TestResults/ipad-pipeline-status.json
+          if (( pipeline_status[0] != 0 )); then
             echo "::warning::xcodebuild exited unsuccessfully; checking the complete xcresult"
           fi
+          result_status=0
+          if (( pipeline_status[1] != 0 || pipeline_status[2] != 0 )); then result_status=1; fi
           python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad hosted tests + UI smoke" \
-            --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests
+            --tests-json-output TestResults/ipad-tests.json \
+            --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests || result_status=$?
+          if [ -s TestResults/ipad-tests.json ]; then
+            python3 scripts/ci/verify_selection.py "$TEST_SELECTION" TestResults/ipad-tests.json || result_status=1
+          else
+            echo "::error::No fresh XCTest details export for the planned iPad inventory"
+            result_status=1
+          fi
+          exit "$result_status"
 
       - name: Upload iPad test results
         if: always()

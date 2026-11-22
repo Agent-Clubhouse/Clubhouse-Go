@@ -1,0 +1,26 @@
+{
+  "normal_test_entry_point": "python3 -m unittest discover -s scripts/deinit/tests",
+  "tests_before": 20,
+  "tests_after": 20,
+  "success_before": true,
+  "success_after": true,
+  "before_process_counts": {
+    "find_compiler": 86,
+    "compiler_version": 86,
+    "sdk_path": 86,
+    "compile_scanner": 1,
+    "run_scanner": 86
+  },
+  "after_process_counts": {
+    "find_compiler": 86,
+    "compiler_version": 1,
+    "sdk_path": 1,
+    "compile_scanner": 1,
+    "run_scanner": 86
+  },
+  "all_86_ordered_fixture_inputs_and_canonical_scanner_outputs_equal": true,
+  "local_before_s": 7.987252625,
+  "local_after_s": 1.822323167,
+  "no_hosted_savings_or_app_native_simulator_proof": true,
+  "normalization": "Only temporary top-level source path keys replaced by argument indices; all JSON values retained in comparison hash."
+}

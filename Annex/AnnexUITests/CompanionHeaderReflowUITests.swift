@@ -9,9 +9,10 @@ import XCTest
 @MainActor final class CompanionHeaderReflowUITests: ReliableUITestCase {
     private struct Frames { let identity: CGRect; let actions: CGRect; let leading: CGRect? }
 
-    /// One accessibility snapshot per sample, so a sample is a single moment rather than several queries apart.
-    private func frames(_ app: XCUIApplication, leadingID: String?) -> Frames? {
-        guard let root = try? app.snapshot() else { return nil }
+    private struct SampleCosts { var queries = 0; var querySeconds = 0.0; var walkSeconds = 0.0 }
+
+    /// Walk one immutable snapshot; never combine frames from separate element queries.
+    private func frames(in root: XCUIElementSnapshot, leadingID: String?) -> Frames? {
         var found: [String: CGRect] = [:]
         var back: CGRect?
         func walk(_ node: XCUIElementSnapshot) {
@@ -24,6 +25,42 @@ import XCTest
         walk(root)
         guard let identity = found["companion-chat-header"], let actions = found["companion-chat-header-actions"] else { return nil }
         return Frames(identity: identity, actions: actions, leading: leadingID.flatMap { found[$0] } ?? back)
+    }
+
+    /// The real identity, actions and fixture/Back item are toolbar descendants.
+    /// `.element` requires a unique navigation bar; a failed/missing query is still
+    /// a missing sample, never cached geometry or a whole-app fallback.
+    private func frames(_ app: XCUIApplication, leadingID: String?, costs: inout SampleCosts) -> Frames? {
+        costs.queries += 1
+        let started = ProcessInfo.processInfo.systemUptime
+        let root = try? app.navigationBars.element.snapshot()
+        let captured = ProcessInfo.processInfo.systemUptime
+        costs.querySeconds += captured - started
+        guard let root, root.elementType == .navigationBar else { return nil }
+        let result = frames(in: root, leadingID: leadingID)
+        costs.walkSeconds += ProcessInfo.processInfo.systemUptime - captured
+        return result
+    }
+
+    /// Outside the observation window, check the scope against one full captured
+    /// hierarchy. Both walks use that SAME immutable tree and exact screen frames.
+    /// This also fails if another bar or a matching item outside the bar appears.
+    private func scopeMatches(in root: XCUIElementSnapshot, leadingID: String?) -> Bool {
+        var bars: [XCUIElementSnapshot] = []
+        var outside = false
+        func walk(_ node: XCUIElementSnapshot, insideBar: Bool) {
+            let inside = insideBar || node.elementType == .navigationBar
+            if node.elementType == .navigationBar { bars.append(node) }
+            let target = ["companion-chat-header", "companion-chat-header-actions"].contains(node.identifier)
+                || node.identifier == leadingID
+                || (leadingID == nil && node.elementType == .button && node.label == "Back")
+            if target && !inside { outside = true }
+            node.children.forEach { walk($0, insideBar: inside) }
+        }
+        walk(root, insideBar: false)
+        guard !outside, bars.count == 1, let whole = frames(in: root, leadingID: leadingID),
+              let scoped = frames(in: bars[0], leadingID: leadingID) else { return false }
+        return whole.identity == scoped.identity && whole.actions == scoped.actions && whole.leading == scoped.leading
     }
 
     enum Disturbance { case scroll, pushPop, background }
@@ -40,6 +77,7 @@ import XCTest
         let screen = app.frame
         let leadingID = pushed ? nil : "header-fixture-menu"
         var samples = 0
+        var costs = SampleCosts()
         var violations: [String] = []
         let started = Date()
         var scrolled = 0 // disturbances so far
@@ -72,7 +110,7 @@ import XCTest
                 scrolled += 1
                 graceUntil = Date().addingTimeInterval(1)
             }
-            guard let f = frames(app, leadingID: leadingID) else {
+            guard let f = frames(app, leadingID: leadingID, costs: &costs) else {
                 // A missing name or actions pill is the #554 symptom itself, once the header has been seen whole.
                 if seenFull, Date() > graceUntil {
                     missing += 1
@@ -97,6 +135,7 @@ import XCTest
                 }
             }
         }
+        print("HEADER_SAMPLER \(name) queries=\(costs.queries) querySeconds=\(costs.querySeconds) walkSeconds=\(costs.walkSeconds)")
         print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count)")
         violations.prefix(20).forEach { print("HEADER_REFLOW \(name) \($0)") }
         let report = XCTAttachment(string: violations.joined(separator: "\n"))
@@ -106,6 +145,15 @@ import XCTest
         XCTAssertGreaterThanOrEqual(samples, 100, "\(name): too few header samples to judge")
         XCTAssertEqual(missing, 0, "\(name): the name or actions pill was missing in \(missing) samples")
         XCTAssertTrue(violations.isEmpty, "\(name): header reflowed in \(violations.count) of \(samples) samples; first: \(violations.first ?? "")")
+        let auditStarted = ProcessInfo.processInfo.systemUptime
+        if let whole = try? app.snapshot() {
+            let matches = scopeMatches(in: whole, leadingID: leadingID)
+            print("HEADER_SCOPE \(name) sameTreeMatch=\(matches)")
+            XCTAssertTrue(matches, "Header sampler must cover the same items/frames as the whole app snapshot")
+        } else {
+            XCTFail("Could not audit header sampler scope")
+        }
+        print("HEADER_SCOPE \(name) auditSeconds=\(ProcessInfo.processInfo.systemUptime - auditStarted)")
     }
 
     func testOrchestratorNameWithBackDoesNotReflowWhileStreaming() {

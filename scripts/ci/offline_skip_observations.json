@@ -1,0 +1,112 @@
+{
+  "scope": "Measured ordinary offline guard path only; same 15 identities and identical super setup then early XCTSkipUnless. Whole live bodies and other helper paths differ, and live execution is NOT covered. Same Xcode26.5; logged guard refusal proves live fixture predicate false. Current ordinary CI also supplies neither fixture variable; nightly live contract remains unchanged.",
+  "samples": [
+    {
+      "job": 132398496998,
+      "merge_head": "69e399c6144b981ec273738dd56c96ffa0c9370f",
+      "bytes": 885720,
+      "sha256": "4ce1c90ab31056cd70e801c87dc4a72c777ee2c22d0f4ae2d917cd5b6d62eaae",
+      "method_seconds": {
+        "test0ProjectPinAndIdleSync": 0.289,
+        "test1PairingCatalogAndReconnect": 0.08,
+        "test2ChatStreamApprovalsAndQuestion": 0.078,
+        "test3ImageUploadReachesTheCLI": 0.076,
+        "test4ModelAndLevelSwitch": 0.079,
+        "test5CreateDurableAgentAndSettings": 0.076,
+        "test6ProjectAndAgentTerminals": 0.076,
+        "test7FinishedQuickAgent": 0.079,
+        "test8AgentThatSleptWhileAwayReadsSleepingAfterForeground": 0.078,
+        "test9aDispatcherPhoneSwitchDesktopChangesAndReplay": 0.079,
+        "test9bDispatcherChatSettingsSleepWakeAndResume": 0.076,
+        "test9cAgentDispatcherSwitchesAndRealMCPDelivery": 0.08,
+        "test9dDispatcherSettingsSaveAndLockedFieldsRefuse": 0.085,
+        "test9eDispatcherInspectsARealHelper": 0.077,
+        "test9fRealIconsAndDiskReuse": 0.078
+      },
+      "suite_wall_s": 1.391,
+      "skip_guard_equal_before_early_exit": true,
+      "base_setup_teardown_overrides": false,
+      "source_blobs": {
+        "Annex/AnnexUITests/CompanionLiveE2ETests.swift": "759965feefe1ed1cd111443b2efddcab6541437b37a495a5ee045bbdf2a82491",
+        "Annex/AnnexUITests/UITestSupport.swift": "f29c3a2db43e607af0895a4666fe07261267b6f10a35bfe947126c097753f23f"
+      }
+    },
+    {
+      "job": 132587983438,
+      "merge_head": "13e9719295595c700d6b2d8d987d43fb1f9cbcc2",
+      "bytes": 961297,
+      "sha256": "0fff3cc732042a0bd76c6cc76fa30a6f1b619732a3836a6b61cc77d543a52e8f",
+      "method_seconds": {
+        "test0ProjectPinAndIdleSync": 0.188,
+        "test1PairingCatalogAndReconnect": 0.106,
+        "test2ChatStreamApprovalsAndQuestion": 0.267,
+        "test3ImageUploadReachesTheCLI": 0.122,
+        "test4ModelAndLevelSwitch": 0.138,
+        "test5CreateDurableAgentAndSettings": 0.094,
+        "test6ProjectAndAgentTerminals": 0.086,
+        "test7FinishedQuickAgent": 0.096,
+        "test8AgentThatSleptWhileAwayReadsSleepingAfterForeground": 0.088,
+        "test9aDispatcherPhoneSwitchDesktopChangesAndReplay": 0.102,
+        "test9bDispatcherChatSettingsSleepWakeAndResume": 0.103,
+        "test9cAgentDispatcherSwitchesAndRealMCPDelivery": 0.083,
+        "test9dDispatcherSettingsSaveAndLockedFieldsRefuse": 0.082,
+        "test9eDispatcherInspectsARealHelper": 0.082,
+        "test9fRealIconsAndDiskReuse": 0.079
+      },
+      "suite_wall_s": 1.759,
+      "skip_guard_equal_before_early_exit": true,
+      "base_setup_teardown_overrides": false,
+      "source_blobs": {
+        "Annex/AnnexUITests/CompanionLiveE2ETests.swift": "759965feefe1ed1cd111443b2efddcab6541437b37a495a5ee045bbdf2a82491",
+        "Annex/AnnexUITests/UITestSupport.swift": "f29c3a2db43e607af0895a4666fe07261267b6f10a35bfe947126c097753f23f"
+      }
+    },
+    {
+      "job": 132681935037,
+      "merge_head": "074d0c4c4917dce218c506107804aca5a6b1a11c",
+      "bytes": 1065893,
+      "sha256": "7d1c9561329e40f0a3fb0c544d0e8c654976b49bbb2337677cab25f4c0507a98",
+      "method_seconds": {
+        "test0ProjectPinAndIdleSync": 0.106,
+        "test1PairingCatalogAndReconnect": 0.079,
+        "test2ChatStreamApprovalsAndQuestion": 0.087,
+        "test3ImageUploadReachesTheCLI": 0.082,
+        "test4ModelAndLevelSwitch": 0.08,
+        "test5CreateDurableAgentAndSettings": 0.081,
+        "test6ProjectAndAgentTerminals": 0.079,
+        "test7FinishedQuickAgent": 0.08,
+        "test8AgentThatSleptWhileAwayReadsSleepingAfterForeground": 0.08,
+        "test9aDispatcherPhoneSwitchDesktopChangesAndReplay": 0.079,
+        "test9bDispatcherChatSettingsSleepWakeAndResume": 0.078,
+        "test9cAgentDispatcherSwitchesAndRealMCPDelivery": 0.08,
+        "test9dDispatcherSettingsSaveAndLockedFieldsRefuse": 0.08,
+        "test9eDispatcherInspectsARealHelper": 0.08,
+        "test9fRealIconsAndDiskReuse": 0.086
+      },
+      "suite_wall_s": 1.243,
+      "skip_guard_equal_before_early_exit": true,
+      "base_setup_teardown_overrides": false,
+      "source_blobs": {
+        "Annex/AnnexUITests/CompanionLiveE2ETests.swift": "cbb2f6290c261b1f936587f9ef98c249ed5710141e9793c48aa15cd37f6b3e2d",
+        "Annex/AnnexUITests/UITestSupport.swift": "f29c3a2db43e607af0895a4666fe07261267b6f10a35bfe947126c097753f23f"
+      }
+    }
+  ],
+  "conservative_method_seconds_including_suite_overhead": {
+    "test0ProjectPinAndIdleSync": 0.291867,
+    "test1PairingCatalogAndReconnect": 0.108867,
+    "test2ChatStreamApprovalsAndQuestion": 0.269867,
+    "test3ImageUploadReachesTheCLI": 0.124867,
+    "test4ModelAndLevelSwitch": 0.140867,
+    "test5CreateDurableAgentAndSettings": 0.096867,
+    "test6ProjectAndAgentTerminals": 0.088867,
+    "test7FinishedQuickAgent": 0.098867,
+    "test8AgentThatSleptWhileAwayReadsSleepingAfterForeground": 0.090867,
+    "test9aDispatcherPhoneSwitchDesktopChangesAndReplay": 0.104867,
+    "test9bDispatcherChatSettingsSleepWakeAndResume": 0.105867,
+    "test9cAgentDispatcherSwitchesAndRealMCPDelivery": 0.085867,
+    "test9dDispatcherSettingsSaveAndLockedFieldsRefuse": 0.087867,
+    "test9eDispatcherInspectsARealHelper": 0.084867,
+    "test9fRealIconsAndDiskReuse": 0.088867
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "run": 44937056133,
+  "job": 136947263917,
+  "head": "4cd77e4d34fa17350f0c608248e02f12e4c336ef",
+  "original_bytes": 500089,
+  "original_sha256": "7ae091d247d31bdb53bb5071c0acabe81ddd8cfc45071f2cddc2fd7b11bdb1ee",
+  "transformation": "Only item start, assertion and terminal lines; removed checkout prefix. Timestamps, method, assertion and retry preserved."
+}
