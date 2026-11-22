@@ -30,11 +30,9 @@ import XCTest
     }
 
     func testSeveralRequestsAndDesktopsAppearanceMatrix() {
+        // Light and XXXL. The dark and Catppuccin screens repeated Light's checks and are no longer checked natively.
         let variants: [(String, [String])] = [
             ("light", ["--companion-preview-light"]),
-            ("dark", ["--companion-preview-dark"]),
-            ("Catppuccin Latte", ["--companion-preview-light", "--companion-preview-theme-latte"]),
-            ("Catppuccin Mocha", ["--companion-preview-dark", "--companion-preview-theme-mocha"]),
             ("accessibility XXXL", ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
         ]
         for (name, flags) in variants {

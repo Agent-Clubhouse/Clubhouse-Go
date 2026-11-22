@@ -279,8 +279,6 @@ struct CompanionAgentSettingsForm: View {
     @State private var dispatcherLoadError: String?
     @State private var confirmAccess = false
     @State private var pendingAccess: CompanionPermissionLevel?
-    @State private var pendingOrchestrator: String?
-    @State private var confirmOrchestratorChange = false
 
     private var agent: CompanionAgent? { store.agent(for: target) }
     /// The Dispatcher has only the settings the desktop lets you change: no identity or orchestration.
@@ -356,21 +354,6 @@ struct CompanionAgentSettingsForm: View {
                 }
             } message: {
                 Text(settings?.access?.choices.first { $0.id == pendingAccess }?.description ?? "")
-            }
-            .confirmationDialog("Change CLI?", isPresented: $confirmOrchestratorChange, titleVisibility: .visible) {
-                Button("Change CLI", role: .destructive) {
-                    if let pendingOrchestrator { save(.init(orchestrator: pendingOrchestrator), control: .confirm) }
-                    pendingOrchestrator = nil
-                }
-                Button("Cancel", role: .cancel) {
-                    AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .cancel)
-                    pendingOrchestrator = nil
-                }
-            } message: {
-                if let pendingOrchestrator, let settings,
-                   let warning = settings.orchestratorChangeWarning(to: pendingOrchestrator, agentName: settings.name.value) {
-                    Text(warning)
-                }
             }
         }
     }
@@ -506,28 +489,11 @@ struct CompanionAgentSettingsForm: View {
                 .disabled(saving)
                 .accessibilityIdentifier("agent-settings-provider-flow")
             } else {
-            Menu {
-                ForEach(orchestratorChoices(settings), id: \.id) { choice in
-                    Button {
-                        guard choice.available, choice.id != (settings.orchestrator.value ?? settings.resolvedOrchestrator) else { return }
-                        if settings.orchestratorChangeWarning(to: choice.id, agentName: settings.name.value) != nil {
-                            AnnexTelemetry.shared.recordAction(screen: .agentSettings, control: .selectProvider)
-                            pendingOrchestrator = choice.id
-                            confirmOrchestratorChange = true
-                        } else { save(.init(orchestrator: choice.id)) }
-                    } label: {
-                        if choice.id == (settings.orchestrator.value ?? settings.resolvedOrchestrator) { Label(choice.label, systemImage: "checkmark") }
-                        else { Text(choice.label) }
-                    }
-                    .disabled(!choice.available)
-                }
-            } label: {
-                LabeledContent { Text(settings.orchestratorName) } label: {
-                    settingTitle("Runs on", locked: settings.orchestrator.isLocked(sleeping: sleeping))
-                }
-            }
-            .disabled(!settings.orchestrator.canEdit(sleeping: sleeping) || saving)
-            .accessibilityIdentifier("agent-settings-orchestrator")
+                LabeledContent("Runs on (last reported)", value: settings.orchestratorName)
+                    .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("agent-settings-orchestrator")
+                Text("Provider changes are unavailable on this desktop. Update the desktop for checked Provider Apply; choosing a provider through generic settings cannot safely switch it.")
+                    .accessibilityIdentifier("agent-settings-provider-unsupported")
             }
             let models = settings.options.models(for: settings.orchestrator.value ?? settings.resolvedOrchestrator, keeping: settings.model.value)
             if !hides("model", settings) {
@@ -797,15 +763,6 @@ struct CompanionAgentSettingsForm: View {
 
     func accessNeedsConfirmation(_ level: CompanionPermissionLevel, saved: CompanionSavedAccess) -> Bool {
         level.needsConfirmation(from: agent?.access ?? saved.value)
-    }
-
-    private func orchestratorChoices(_ settings: CompanionAgentSettings) -> [(id: String, label: String, available: Bool)] {
-        var choices = settings.options.orchestrators.map {
-            (id: $0.id, label: $0.available ? $0.displayName : "\($0.displayName) (\($0.unavailableReason ?? "Unavailable on this desktop"))", available: $0.available)
-        }
-        let current = settings.orchestrator.value ?? settings.resolvedOrchestrator
-        if !choices.contains(where: { $0.id == current }) { choices.append((id: current, label: "\(current) (availability unknown)", available: false)) }
-        return choices
     }
 
     private func loadDispatcherSettings() async {

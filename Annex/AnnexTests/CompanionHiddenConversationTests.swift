@@ -39,7 +39,9 @@ import UIKit
         }
     }
 
-    /// A real tail event trims the rendered prefix between the first pin and delivery.
+    /// A same-session reload grows a measured preceding message, requiring a nonzero restore on the
+    /// open normal window; a real tail event then trims its prefix between the first pin and delivery.
+    /// Bookmark-first remounts deliberately no longer expose that trimming route (#582).
     /// Public geometry must still match the saved semantic entry after final arrival.
     @Test func prefixTrimDuringPinnedRestorePreservesTheReadingEntry() async throws {
         var observed: CompanionReadingPrefixTrimFixture.Sample?
@@ -79,6 +81,7 @@ import UIKit
         let shift = try #require(result.shift)
         let miss = try #require(result.miss)
         let pin = try #require(result.pinnedOffset)
+        let reloadShift = try #require(result.reloadShift)
         let beforeOffset = try #require(result.beforeOffset)
         let beforeLower = try #require(result.beforeLowerBound)
         let afterOffset = try #require(result.offset)
@@ -86,7 +89,9 @@ import UIKit
         #expect(result.attempts <= 10)
         #expect((result.gateElapsed ?? .infinity) < 1)
         #expect(abs(shift) > 8, "The fixture needs a trim large enough to exercise the unchanged six-point contract")
-        #expect(abs(pin - beforeOffset) <= 2)
+        #expect(abs(reloadShift) > 1, "The real reload must move the bookmarked entry before the first pin")
+        #expect(abs(pin - (beforeOffset + reloadShift)) <= 2,
+                "The first pin includes only the measured reload displacement, before the tail trim")
         #expect(abs(miss) <= 2, "The restored target must follow the saved entry across a prefix shift")
         print("READING569_REGRESSION \(result.description) beforeOffset=\(beforeOffset) beforeLower=\(beforeLower)")
         #expect(abs((afterLower - afterOffset) - (beforeLower - beforeOffset)) <= 6,
@@ -185,6 +190,8 @@ import UIKit
         let readingOffset = before.contentOffset.y + before.adjustedContentInset.top
         let bookmark = store.readingBookmark(for: target)
         let entryID = try #require(bookmark.position.entryID, "The shared reading bookmark captures an entry")
+        let beforeEntryFrame = try #require(bookmark.viewport.frames[entryID])
+        let readingEntryOffset = readingOffset - beforeEntryFrame.lowerBound
         #expect(!bookmark.position.followsLatest)
 
         switch hidden { case .tab: navigation.tab = 1; case .desktop: navigation.desktop = 1 }
@@ -295,7 +302,18 @@ import UIKit
             #expect(requests.count == 1, "No late retry may overwrite the user")
             #expect(bookmark.viewport.restoration?.outcome == .touch)
         } else {
-            #expect(abs(restoredOffset - readingOffset) <= 2, "The reading offset survives unmounting within two points")
+            // #582 deliberately starts the reopened window at the canonical bookmark, so the omitted
+            // prefix changes its content-coordinate origin. Compare the same measured entry, not raw offsets.
+            let restoredEntryFrame = try #require(bookmark.viewport.frames[entryID],
+                "The original bookmarked entry must remain realised after restoration")
+            let restoredEntryOffset = restoredOffset - restoredEntryFrame.lowerBound
+            let visibleHeight = restored.bounds.height - restored.adjustedContentInset.top - restored.adjustedContentInset.bottom
+            #expect(restoredEntryFrame.upperBound > restoredOffset + CompanionReadingPosition.minimumVisibleExtent
+                && restoredEntryFrame.lowerBound < restoredOffset + visibleHeight,
+                "The original bookmarked entry must still intersect the visible transcript")
+            print("HIDDEN_ENTRY_MEASUREMENT case=\(hidden.rawValue) dropFirst=\(dropFirstRestore) timeout=\(timeoutRestore) entry=\(entryID) beforeOffset=\(readingOffset) beforeLower=\(beforeEntryFrame.lowerBound) restoredOffset=\(restoredOffset) restoredLower=\(restoredEntryFrame.lowerBound) rawShift=\(restoredOffset - readingOffset) relativeDelta=\(restoredEntryOffset - readingEntryOffset)")
+            #expect(abs(restoredEntryOffset - readingEntryOffset) <= 2,
+                "The reading offset relative to the same entry survives unmounting within two points")
         }
         if dropFirstRestore && !touchDuringRestore && !timeoutRestore {
             #expect(requests.count >= 2, "Dropping the first command requires another delivery")

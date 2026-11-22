@@ -1,4 +1,5 @@
 import SwiftUI
+import Combine
 import ClubhouseTransport
 
 struct CompanionConversationView: View {
@@ -13,13 +14,9 @@ struct CompanionConversationView: View {
     #if DEBUG
     /// Initial value only for the recovery component's private State; normal callers leave it false.
     var initiallyShowsRecoveryDetails = false
-    @State private var followPauseCount = 0
-    @State private var followSawDeceleration = false
+    /// Hosted routing proof only; delivered into the same parent-owned request State as the real action.
+    var debugReadingJump: CompanionDecisionChatJump? = nil
     #endif
-    @State private var followLatest = true
-    @State private var atLatest = true
-    @State private var nextAssistantMessageID: String?
-    @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
     @State private var confirmCancel = false
     @State private var confirmSleep = false
     @State private var showArchive = false
@@ -31,24 +28,12 @@ struct CompanionConversationView: View {
     @State private var headerBarWidth: CGFloat = 0
     @State private var headerOverflowMonitor = CompanionHeaderOverflowMonitor()
     @State private var keyboardVisible = false
-    @State private var decisionChatJump: DecisionChatJump?
-    private struct DecisionChatJump: Equatable { let id = UUID(); let itemID: String }
-    @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
-    /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
-    @State private var shownEntries = Self.initialEntryLimit
-    private static var initialEntryLimit: Int {
-        #if DEBUG
-        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
-        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
-        #endif
-        return CompanionTimelineWindow.pageSize
-    }
+    @State private var decisionChatJump: CompanionDecisionChatJump?
     // A stable, lazily created bookmark survives retained-tab content unmounts. Input State lives below.
     @State private var composerMemory = CompanionStateLifetime { CompanionComposerMemory() }
     @State private var composerFocusRequests = 0
     @State private var composerDismissals = 0
     @Environment(\.scenePhase) private var scenePhase
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.companionPalette) private var palette
     @Environment(\.companionOpenAgent) private var openAgent
@@ -113,6 +98,11 @@ struct CompanionConversationView: View {
                 readingViewport.clearGeometry()
             }
         }
+        #if DEBUG
+        .onChange(of: debugReadingJump, initial: true) { _, request in
+            if let request { decisionChatJump = request }
+        }
+        #endif
     }
 
     private var content: some View {
@@ -472,21 +462,243 @@ struct CompanionConversationView: View {
         }
     }
 
-    private var showsLatestControl: Bool {
-        !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(
-            readingViewport.metrics ?? CompanionScrollMetrics(offset: 0, contentHeight: 0, containerHeight: 0)
-        ) && !conversation.items.isEmpty
+    private var timeline: some View {
+        CompanionReadingSeedScope(store: store, target: target) { opening in
+            CompanionConversationTranscript(store: store, target: target, opening: opening,
+                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump,
+                entryCapabilities: agent.capabilities, dismissComposer: dismissComposer,
+                header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) }).equatable()
+        }
+        .id(target)
     }
 
-    private var timeline: some View {
+    /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
+    @ViewBuilder private var timelineHeader: some View {
+        if conversation.hasEarlierMessages {
+            Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
+                .font(.caption).frame(maxWidth: .infinity)
+        }
+        if conversation.items.isEmpty && !recoveryStatus.isVisible {
+            ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
+                .accessibilityIdentifier("companion-empty-conversation")
+        }
+    }
+    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, items: [CompanionTimelineItem]) -> some View {
+        switch entry {
+        case .row(let row): timelineRow(row, items: items)
+        case .slice(let message, let slice):
+            messageView(message, slice: slice)
+            if slice.isLast && message.role == .assistant {
+                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
+            }
+        }
+    }
+
+    private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
+        let canRemoveQueued = store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target)
+        let hasRemoveQueuedAction = agent.capabilities.contains(.removeQueued)
+        #if DEBUG
+        CompanionTranscriptActionProbe.record?(target, message.id,
+            .queued(canRemove: canRemoveQueued, hasAction: hasRemoveQueuedAction))
+        #endif
+        return CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
+            Task { await store.retry(messageID: message.id, target: target) }
+        }, canRemoveQueued: canRemoveQueued,
+           removeQueued: hasRemoveQueuedAction ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
+           slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
+    }
+
+    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, items: [CompanionTimelineItem]) -> some View {
+        switch row {
+        case .item(let item): timelineItem(item, items: items)
+        case .desktopQuestions(let group):
+            CompanionDesktopQuestionsCard(group: group, hostName: store.host(for: target)?.name)
+        case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
+        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
+        case .routed(let message, let index):
+            CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target))
+        }
+    }
+
+    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, items: [CompanionTimelineItem]) -> some View {
+        switch item {
+        case .message(let message):
+            messageView(message)
+            if message.role == .assistant {
+                CompanionContentLinks(references: CompanionContentReference.references(in: item))
+            }
+        case .tool(let tool):
+            CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
+            CompanionContentLinks(references: CompanionContentReference.references(in: item))
+        case .approval(let approval):
+            let rowCanRespond = canRespond
+            #if DEBUG
+            let _ = CompanionTranscriptActionProbe.record?(target, approval.id, .approval(canRespond: rowCanRespond))
+            #endif
+            CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
+                                  canRespond: rowCanRespond, actionsArePinned: true,
+                                  persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
+                Task { await store.respond(approval, option: option, target: target) }
+            }
+        case .question(let question):
+            CompanionQuestionCard(question: question, canRespond: false, actionsArePinned: true) { answers in
+                Task { await store.answer(question, answers: answers, target: target) }
+            }
+        case .notice(_, let text):
+            Text(text).font(.caption).foregroundStyle(.secondary)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityIdentifier("companion-notice-\(item.id)")
+        }
+    }
+
+    private func focusComposer() { composerFocusRequests &+= 1 }
+
+    private func dismissComposer() {
+        composerDismissals &+= 1
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+    }
+
+    /// Messages only reach chat-runtime agents (the desktop answers `not_chat` otherwise).
+    private var terminalNotice: some View {
+        Label("\(agent.name) runs in a terminal on your desktop. Open it there to work with it.", systemImage: "terminal")
+            .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(16)
+            .glassEffect(.regular, in: .rect(cornerRadius: 24))
+            .padding(.horizontal, 16).padding(.vertical, 10)
+    }
+
+
+}
+
+
+struct CompanionDecisionChatJump: Equatable {
+    let id = UUID()
+    let itemID: String
+}
+
+/// StateObject's autoclosure computes the seed once per mounted target, not per discarded View initializer.
+/// This owner retains immutable values only; composer and all mutable reading State stay outside it.
+@MainActor private final class CompanionReadingSeed: ObservableObject {
+    nonisolated deinit {}
+    let value: CompanionReadingOpening
+
+    init(store: CompanionStore, target: CompanionTarget) {
+        let bookmark = store.readingBookmark(for: target)
+        value = CompanionReadingOpening(position: bookmark.position, hasMounted: bookmark.hasMounted,
+            initialLimit: Self.initialEntryLimit, rows: store.timelineRows(for: target))
+        #if DEBUG
+        CompanionReadingOpeningProbe.didComputeSeed?(target)
+        #endif
+    }
+    private static var initialEntryLimit: Int {
+        #if DEBUG
+        // A small deterministic window exercises prepend behavior without 150 UI gestures on hosted runners.
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-reading") { return 20 }
+        #endif
+        return CompanionTimelineWindow.pageSize
+    }
+
+}
+
+private struct CompanionReadingSeedScope<Content: View>: View {
+    @StateObject private var seed: CompanionReadingSeed
+    @ViewBuilder var content: (CompanionReadingOpening) -> Content
+
+    init(store: CompanionStore, target: CompanionTarget,
+         @ViewBuilder content: @escaping (CompanionReadingOpening) -> Content) {
+        _seed = StateObject(wrappedValue: CompanionReadingSeed(store: store, target: target))
+        self.content = content
+    }
+    var body: some View { content(seed.value) }
+}
+
+/// Only the transcript unmounts when a retained chat is hidden. Composer/header State stays above this boundary.
+private struct CompanionConversationTranscript<Header: View, Entry: View>: View, Equatable {
+    @Bindable var store: CompanionStore
+    let target: CompanionTarget
+    let opening: CompanionReadingOpening
+    // The entry builder captures the parent's Agent value; capability changes must replace that closure.
+    let entryCapabilities: CompanionCapabilities
+    let isVisibilityManaged: Bool
+    let decisionChatJump: CompanionDecisionChatJump?
+    let dismissComposer: () -> Void
+    @ViewBuilder var header: () -> Header
+    @ViewBuilder var entry: (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry
+    @State private var followLatest = true
+    @State private var atLatest = true
+    @State private var nextAssistantMessageID: String?
+    @State private var readingScrollPosition = ScrollPosition(edge: .bottom)
+    @State private var openingWindowStartID: String?
+    @ScaledMetric(relativeTo: .body) private var navigationClearance: CGFloat = 40
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    #if DEBUG
+    @State private var openingID = UUID()
+    @State private var followPauseCount = 0
+    @State private var followSawDeceleration = false
+    #endif
+    /// How many of the newest timeline entries are laid out; Show earlier messages adds a page.
+    @State private var shownEntries = CompanionTimelineWindow.pageSize
+
+    init(store: CompanionStore, target: CompanionTarget, opening: CompanionReadingOpening, isVisibilityManaged: Bool,
+         decisionChatJump: CompanionDecisionChatJump?, entryCapabilities: CompanionCapabilities,
+         dismissComposer: @escaping () -> Void,
+         @ViewBuilder header: @escaping () -> Header,
+         @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
+        self.store = store
+        self.target = target
+        self.opening = opening
+        self.entryCapabilities = entryCapabilities
+        self.isVisibilityManaged = isVisibilityManaged
+        self.decisionChatJump = decisionChatJump
+        self.dismissComposer = dismissComposer
+        self.header = header
+        self.entry = entry
+        // Repeated View initialization copies only this cached value. No Store lookup or text slicing runs here.
+        _followLatest = State(initialValue: opening.followsLatest)
+        _atLatest = State(initialValue: opening.followsLatest)
+        _shownEntries = State(initialValue: opening.shownEntries)
+        _openingWindowStartID = State(initialValue: opening.entryID)
+        _readingScrollPosition = State(initialValue: ScrollPosition(edge: opening.entryID == nil ? .bottom : .top))
+    }
+
+    // Ignore generated closures, not their display inputs. Builders resolve Store values when invoked,
+    // and their parent State wrappers keep the same storage. Own Observation/State/environment updates
+    // still invalidate this view; only identical parent-to-child values skip the duplicate projection.
+    static func == (lhs: Self, rhs: Self) -> Bool {
+        lhs.store === rhs.store && lhs.target == rhs.target && lhs.opening == rhs.opening
+            && lhs.isVisibilityManaged == rhs.isVisibilityManaged
+            && lhs.decisionChatJump?.id == rhs.decisionChatJump?.id
+            && lhs.entryCapabilities == rhs.entryCapabilities
+    }
+
+    private var readingBookmark: CompanionReadingBookmark { store.readingBookmark(for: target) }
+    private var readingViewport: CompanionReadingViewport { readingBookmark.viewport }
+    private var conversation: CompanionConversation { store.conversation(for: target) }
+    /// Only the archive link precedes actual entries.
+    private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
+
+    private var showsLatestControl: Bool {
+        guard !conversation.items.isEmpty else { return false }
+        // The paused semantic choice can present Latest before layout, without saving or cancelling restoration.
+        guard let metrics = readingViewport.metrics else { return !followLatest }
+        return !atLatest && CompanionReadingPosition(followsLatest: followLatest).showsLatestButton(metrics)
+    }
+
+    var body: some View {
         #if DEBUG
         let _ = CompanionConversationBuildProbe.record?(.timeline, target)
         #endif
         let rows = store.timelineRows(for: target)
         let viewport = readingViewport
-        let window = CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
+        let window = openingWindowStartID.flatMap { CompanionTimelineWindow(rows: rows, startingAt: $0) }
+            ?? CompanionTimelineWindow(rows: rows, limit: shownEntries, retaining: followLatest ? nil : readingBookmark.position.entryID)
         let entries = window.entries
         let stops = CompanionAssistantNavigation.targets(in: entries)
+        #if DEBUG
+        let _ = traceOpening(.body, firstEntryID: entries.first?.id)
+        #endif
         let horizontalPadding: CGFloat = dynamicTypeSize.isAccessibilitySize ? 14 : 22
         return ScrollViewReader { proxy in
             ScrollView {
@@ -496,13 +708,10 @@ struct CompanionConversationView: View {
                 // Each entry sets its own spacing, never negative.
                 VStack(alignment: .leading, spacing: 0) {
                     VStack(alignment: .leading, spacing: 22) {
-                        timelineHeader
+                        header()
                         if window.hiddenCount > 0 {
                             Button("Show earlier messages", systemImage: "arrow.up.circle") {
-                                setFollowing(false, reason: .earlier)
-                                readingViewport.isRestoring = true
-                                readingViewport.restoreOffset = nil
-                                shownEntries += CompanionTimelineWindow.pageSize
+                                showEarlier(in: rows)
                             }
                                 .font(.caption).frame(maxWidth: .infinity)
                                 .accessibilityIdentifier("companion-show-earlier")
@@ -512,7 +721,7 @@ struct CompanionConversationView: View {
                     let hintRowID = CompanionContentReference.hintRowID(in: rows, richContentAvailable: store.richContentAvailable(for: target))
                     ForEach(entries) { entry in
                         VStack(alignment: .leading, spacing: 22) {
-                            timelineEntry(entry, items: items)
+                            self.entry(entry, items)
                             if entry.endsRow && entry.rowID == hintRowID { CompanionContentHint() }
                         }
                         .padding(.top, entry.id == entries.first?.id && !hasTimelineHeader && window.hiddenCount == 0 ? 0 : entry.spacingBefore)
@@ -530,6 +739,7 @@ struct CompanionConversationView: View {
                     }
                     .id("latest")
                 }
+                .scrollTargetLayout()
                 .padding(.horizontal, horizontalPadding)
                 .padding(.top, 24)
                 .coordinateSpace(name: "companion-transcript-content")
@@ -548,8 +758,8 @@ struct CompanionConversationView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollPosition($readingScrollPosition)
-            .defaultScrollAnchor(followLatest ? .bottom : .top, for: .initialOffset)
-            .defaultScrollAnchor(.bottom, for: .alignment)
+            .defaultScrollAnchor(readingScrollPosition.edge == .bottom ? .bottom : .top, for: .initialOffset)
+            .defaultScrollAnchor(openingWindowStartID == nil ? .bottom : .top, for: .alignment)
             // Away from the latest, keep what you're reading still as rows resize. Anchored to the bottom there, a reply
             // taller than the screen moved the offset with each of the lazy stack's height estimates, which never settled.
             .defaultScrollAnchor(followLatest ? .bottom : .top, for: .sizeChanges)
@@ -569,6 +779,9 @@ struct CompanionConversationView: View {
                     traceUpwardGeometry(from: Self.metrics(old), to: metrics, recognized: scrolledUp)
                     readingViewport.previousMetrics = Self.metrics(old)
                     readingViewport.metrics = metrics
+                    #if DEBUG
+                    traceOpening(.geometry, firstEntryID: entries.first?.id)
+                    #endif
                     updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: readingViewport.frames,
                         offset: metrics.normalizedOffset, height: max(0, metrics.containerHeight - metrics.topInset - metrics.bottomInset))
@@ -608,6 +821,9 @@ struct CompanionConversationView: View {
                     let frames = rects.filter { $0.key != "__content" }.mapValues { Double($0.minY)...Double($0.maxY) }
                     readingViewport.frames = frames
                     readingViewport.frameContentHeight = rects["__content"].map { Double($0.height) }
+                    #if DEBUG
+                    traceOpening(.frames, firstEntryID: entries.first?.id)
+                    #endif
                     updateNextAssistantMessage(in: stops)
                     CompanionChatPerformance.viewport(target: target, messageCount: conversation.items.count, frames: frames,
                         offset: readingViewport.metrics?.normalizedOffset ?? 0, height: readingViewport.metrics.map { max(0, $0.containerHeight - $0.topInset - $0.bottomInset) } ?? 0)
@@ -664,12 +880,24 @@ struct CompanionConversationView: View {
             // Full history can also reset the offset with unchanged estimated dimensions. Reject that preceding
             // generation's geometry/bookmark writes until this task restores the saved choice and issues its anchor.
             .task(id: conversation.historyRevision) {
+                #if DEBUG
+                traceOpening(.historyTask, firstEntryID: entries.first?.id)
+                #endif
                 let revision = conversation.historyRevision
                 readingViewport.finishRestoration(.generation)
                 readingViewport.preserveBookmarkUntilUserAction = false
                 readingViewport.hasInitialized = false
                 readingViewport.historyRevision = nil
                 readingViewport.gesture.end()
+                if let start = openingWindowStartID {
+                    let row = rows.first { $0.contains(entryID: start) }
+                    let exists = row.map { CompanionTimelineEntry.entries(for: [$0]).contains { $0.id == start } } ?? false
+                    if !exists {
+                        // A replacement generation removed this boundary. Never resurrect its old cursor later.
+                        // Keep the mounted reader's position. A handles a missing entry using its saved offset.
+                        openingWindowStartID = nil
+                    }
+                }
                 if readingBookmark.hasMounted { shownEntries = max(shownEntries, readingBookmark.position.shownEntries) }
                 else {
                     readingBookmark.hasMounted = true
@@ -709,40 +937,51 @@ struct CompanionConversationView: View {
                 let allEntries = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: .max).entries
                 guard let entry = CompanionTimelineEntry.jumpTarget(for: request.itemID, in: allEntries),
                       let index = allEntries.firstIndex(where: { $0.id == entry.id }) else { return }
+                #if DEBUG
+                traceOpening(.jump, firstEntryID: entries.first?.id)
+                #endif
                 setFollowing(false, reason: .messageJump)
-                shownEntries = max(shownEntries, allEntries.count - index)
+                let requestedShownEntries = max(shownEntries, allEntries.count - index)
                 let saved = CompanionReadingPosition(followsLatest: false, entryID: entry.id,
-                    offset: readingBookmark.position.offset, shownEntries: shownEntries)
+                    offset: readingBookmark.position.offset, shownEntries: requestedShownEntries)
                 readingBookmark.position = saved
                 readingViewport.isRestoring = true
                 readingViewport.restoreOffset = nil
+                if let start = openingWindowStartID,
+                   let current = allEntries.firstIndex(where: { $0.id == start }), index < current {
+                    openingWindowStartID = entry.id
+                }
+                shownEntries = requestedShownEntries
                 let restoration = CompanionReadingRestoration(revision: conversation.historyRevision,
                     startedAt: ProcessInfo.processInfo.systemUptime)
                 readingViewport.restoration = restoration
                 await restoreReadingPosition(saved, id: restoration.id)
             }
             .onDisappear {
+                #if DEBUG
+                traceOpening(.unmounted, firstEntryID: entries.first?.id)
+                #endif
                 // TabView can deliver an old disappear after the new transcript's frame preferences. A managed tab
                 // clears on the parent's visibility change instead, so that late callback cannot erase fresh geometry.
-                if isVisible == nil { viewport.clearGeometry() }
+                if !isVisibilityManaged { viewport.clearGeometry() }
             }
 
         }
     }
 
-    /// Recovery owns loading/errors above the transcript; archive and settled empty-state content stay here.
-    @ViewBuilder private var timelineHeader: some View {
-        if conversation.hasEarlierMessages {
-            Button("Read earlier messages in archive", systemImage: "clock.arrow.circlepath") { showArchive = true }
-                .font(.caption).frame(maxWidth: .infinity)
+    /// Only an explicit earlier-page action can move the mounted opening boundary toward older history.
+    private func showEarlier(in rows: [CompanionTimelineRow]) {
+        setFollowing(false, reason: .earlier)
+        if let metrics = readingViewport.metrics { saveReadingPosition(metrics) }
+        // Guard geometry saves BEFORE either State value can prepend content.
+        readingViewport.isRestoring = true
+        readingViewport.restoreOffset = nil
+        if let start = openingWindowStartID {
+            // A stale/oldest boundary has no predecessor: fall back to the normal widened window.
+            openingWindowStartID = CompanionTimelineWindow.precedingStart(in: rows, before: start)
         }
-        if conversation.items.isEmpty && !recoveryStatus.isVisible {
-            ContentUnavailableView("No messages yet. Send one to start.", systemImage: "bubble.left.and.text.bubble.right")
-                .accessibilityIdentifier("companion-empty-conversation")
-        }
+        shownEntries += CompanionTimelineWindow.pageSize
     }
-    /// The settled empty state has no entries below it; only the archive link precedes actual entries.
-    private var hasTimelineHeader: Bool { conversation.hasEarlierMessages }
 
     private static func metrics(_ geometry: ScrollGeometry) -> CompanionScrollMetrics {
         .init(offset: geometry.contentOffset.y, contentHeight: geometry.contentSize.height,
@@ -753,6 +992,9 @@ struct CompanionConversationView: View {
         readingViewport.acceptsGeometry(historyRevision: conversation.historyRevision, isLoaded: conversation.isLoaded)
     }
     private func readingScrollPhaseChanged(from old: ScrollPhase, to phase: ScrollPhase, metrics: CompanionScrollMetrics) {
+        #if DEBUG
+        traceOpening(.phaseChanged, firstEntryID: nil, detail: String(describing: phase))
+        #endif
         let userPhase = phase == .tracking || phase == .interacting || phase == .decelerating
         if userPhase {
             cancelNativeScrollToTop()
@@ -784,8 +1026,14 @@ struct CompanionConversationView: View {
               readingViewport.restoration == nil || readingViewport.restoration?.outcome != nil else { return }
         readingBookmark.position.followsLatest = followLatest
         readingBookmark.position.capture(offset: metrics.normalizedOffset, frames: readingViewport.frames)
+        #if DEBUG
+        traceOpening(.saved, firstEntryID: nil)
+        #endif
     }
     private func cancelReadingRestoration(_ outcome: CompanionReadingRestoration.Outcome) {
+        #if DEBUG
+        traceOpening(.cancelled, firstEntryID: nil)
+        #endif
         guard readingViewport.preserveBookmarkUntilUserAction || readingViewport.isRestoring
                 || (readingViewport.restoration != nil && readingViewport.restoration?.outcome == nil) else { return }
         readingViewport.finishRestoration(outcome)
@@ -811,6 +1059,9 @@ struct CompanionConversationView: View {
             case .finish(let outcome):
                 readingViewport.finishRestoration(outcome)
                 if outcome == .arrived, let metrics = readingViewport.metrics {
+                    #if DEBUG
+                    traceOpening(.arrived, firstEntryID: nil)
+                    #endif
                     if metrics.isAtTrueBottom { setFollowing(true, reason: .bottom) }
                     saveReadingPosition(metrics)
                 }
@@ -824,7 +1075,10 @@ struct CompanionConversationView: View {
                     if let metrics = readingViewport.metrics { readingScrollPhaseChanged(from: priorPhase, to: phase, metrics: metrics) }
                     priorPhase = phase
                 }) ?? true
-                if deliver { readingScrollPosition.scrollTo(y: offset) }
+                if deliver {
+                    readingScrollPosition.scrollTo(y: offset)
+                    traceOpening(.scroll, firstEntryID: nil)
+                }
                 #else
                 readingScrollPosition.scrollTo(y: offset)
                 #endif
@@ -854,9 +1108,10 @@ struct CompanionConversationView: View {
 
     private func jump(to id: String?, forward: Bool, proxy: ScrollViewProxy) {
         guard let id else {
-            if !forward { setFollowing(false, reason: .messageJump); shownEntries += CompanionTimelineWindow.pageSize }
+            if !forward { showEarlier(in: store.timelineRows(for: target)) }
             else {
                 setFollowing(true, reason: .latest)
+                openingWindowStartID = nil
                 readingBookmark.position.followsLatest = true
                 withAnimation(reduceMotion ? nil : .easeOut(duration: 0.2)) { proxy.scrollTo("latest", anchor: .bottom) }
             }
@@ -893,6 +1148,20 @@ struct CompanionConversationView: View {
         followLatest = follows
         if previous != follows { traceFollow(reason: reason, previous: previous, next: follows) }
     }
+
+    #if DEBUG
+    private func traceOpening(_ phase: CompanionReadingOpeningProbe.Phase, firstEntryID: String?, detail: String? = nil) {
+        guard let record = CompanionReadingOpeningProbe.record else { return }
+        record(.init(phase: phase, mountID: openingID, target: target, requestID: decisionChatJump?.id, detail: detail, followsLatest: followLatest,
+            shownEntries: shownEntries, requestedEntryID: readingScrollPosition.viewID(type: String.self),
+            requestedBottom: readingScrollPosition.edge == .bottom, requestedTop: readingScrollPosition.edge == .top,
+            windowStartID: openingWindowStartID, savedDistanceFromEntry: readingBookmark.position.distanceFromEntry,
+            pointY: readingScrollPosition.y.map(Double.init), positionedByUser: readingScrollPosition.isPositionedByUser, windowFirstID: firstEntryID,
+            historyRevision: conversation.historyRevision, offset: readingViewport.metrics?.normalizedOffset,
+            entryLowerBound: readingBookmark.position.entryID.flatMap { readingViewport.frames[$0]?.lowerBound },
+            latestVisible: showsLatestControl))
+    }
+    #endif
 
     /// Opt-in preview diagnostics for CI. Closed reasons and numbers only; never draft or transcript text.
     #if DEBUG
@@ -947,82 +1216,6 @@ struct CompanionConversationView: View {
         old.containerSize == new.containerSize
             && metrics(new).didScrollUp(from: metrics(old), beforeLast: beforeLast, currentViewport: currentViewport)
     }
-
-    @ViewBuilder private func timelineEntry(_ entry: CompanionTimelineEntry, items: [CompanionTimelineItem]) -> some View {
-        switch entry {
-        case .row(let row): timelineRow(row, items: items)
-        case .slice(let message, let slice):
-            messageView(message, slice: slice)
-            if slice.isLast && message.role == .assistant {
-                CompanionContentLinks(references: CompanionContentReference.references(in: .message(message)))
-            }
-        }
-    }
-
-    private func messageView(_ message: CompanionMessage, slice: CompanionMessageSlice? = nil) -> some View {
-        CompanionMessageView(message: message, canRetry: store.canSend(target), retry: {
-            Task { await store.retry(messageID: message.id, target: target) }
-        }, canRemoveQueued: store.canOperate(target) && agent.capabilities.contains(.removeQueued) && !store.pendingCommands.contains(target),
-           removeQueued: agent.capabilities.contains(.removeQueued) ? { Task { await store.removeQueuedMessage(message.id, target: target) } } : nil,
-           slice: slice, expansion: store.transcriptExpansion(for: target)).equatable()
-    }
-
-    @ViewBuilder private func timelineRow(_ row: CompanionTimelineRow, items: [CompanionTimelineItem]) -> some View {
-        switch row {
-        case .item(let item): timelineItem(item, items: items)
-        case .desktopQuestions(let group):
-            CompanionDesktopQuestionsCard(group: group, hostName: store.host(for: target)?.name)
-        case .tools(let tools): CompanionToolGroupCard(tools: tools, store: store, target: target)
-        case .activity(let parts): CompanionActivityCard(parts: parts, expansion: store.transcriptExpansion(for: target)).equatable()
-        case .routed(let message, let index):
-            CompanionRoutedFragmentView(message: message, index: index, expansion: store.transcriptExpansion(for: target))
-        }
-    }
-
-    @ViewBuilder private func timelineItem(_ item: CompanionTimelineItem, items: [CompanionTimelineItem]) -> some View {
-        switch item {
-        case .message(let message):
-            messageView(message)
-            if message.role == .assistant {
-                CompanionContentLinks(references: CompanionContentReference.references(in: item))
-            }
-        case .tool(let tool):
-            CompanionToolCard(tool: tool, expansion: store.transcriptExpansion(for: target).state(key: "tool:\(tool.id)"))
-            CompanionContentLinks(references: CompanionContentReference.references(in: item))
-        case .approval(let approval):
-            CompanionApprovalCard(approval: approval, queuePosition: CompanionChatActivity.queuePosition(of: approval, in: items),
-                                  canRespond: canRespond, actionsArePinned: true,
-                                  persistentApprovals: store.canAnswerPersistentApprovals(target)) { option in
-                Task { await store.respond(approval, option: option, target: target) }
-            }
-        case .question(let question):
-            CompanionQuestionCard(question: question, canRespond: false, actionsArePinned: true) { answers in
-                Task { await store.answer(question, answers: answers, target: target) }
-            }
-        case .notice(_, let text):
-            Text(text).font(.caption).foregroundStyle(.secondary)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityIdentifier("companion-notice-\(item.id)")
-        }
-    }
-
-    private func focusComposer() { composerFocusRequests &+= 1 }
-
-    private func dismissComposer() {
-        composerDismissals &+= 1
-        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
-    }
-
-    /// Messages only reach chat-runtime agents (the desktop answers `not_chat` otherwise).
-    private var terminalNotice: some View {
-        Label("\(agent.name) runs in a terminal on your desktop. Open it there to work with it.", systemImage: "terminal")
-            .font(.subheadline).foregroundStyle(Color(palette.secondaryLabel))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(16)
-            .glassEffect(.regular, in: .rect(cornerRadius: 24))
-            .padding(.horizontal, 16).padding(.vertical, 10)
-    }
-
 
 }
 
@@ -1115,6 +1308,6 @@ private struct CompanionReadingFrames: PreferenceKey {
 #if DEBUG
 @MainActor enum CompanionReadingRestoreProbe {
     /// Synthetic command loss/phase injection in bounded hosted tests and the opt-in UI fixture.
-    static var deliver: ((UUID, Int, Double, (ScrollPhase) -> Void) -> Bool)?
+    static var deliver: ((UUID, Int, Double, @escaping (ScrollPhase) -> Void) -> Bool)?
 }
 #endif
