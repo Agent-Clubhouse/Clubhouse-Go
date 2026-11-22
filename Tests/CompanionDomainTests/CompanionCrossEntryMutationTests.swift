@@ -23,7 +23,7 @@ import Testing
     private var agentSettings: AnnexJSON {
         .object(["state": .string("sleeping"), "sleeping": .bool(true), "settings": .object([
             "name": .object(["value": .string("Navi"), "editable": .string("sleeping")]),
-            "orchestrator": .object(["value": .string("claude-code"), "resolved": .string("claude-code"), "editable": .string("sleeping")])])
+            "orchestrator": .object(["value": .string("claude-code"), "resolved": .string("claude-code"), "editable": .string("sleeping")])])])
     }
     private func dispatcherSettings() throws -> AnnexJSON {
         try replacing(ContractFixtures.body("dispatcher-settings.json", "on"), "agentId", .string(target.agentID))
@@ -120,12 +120,13 @@ import Testing
         else { #expect(!h.store.providerV2Flow(for: target, requestedRuntime: "terminal").canChoose) }
         #expect(await h.transport.executed.map(\.commandID) == before, "Blocked paths create no additional command IDs")
         _ = try await h.store.settings(for: target)
-        _ = try await h.store.loadDispatcherSettings(hostID: target.hostID)
+        #expect(await serviceErrorKind { _ = try await h.store.loadDispatcherSettings(hostID: target.hostID) } == .none)
         #expect(h.store.dispatcherResetNotices[target.hostID] == notice && h.store.dispatcherResetPrompt == held)
         // The same host's unrelated agent is not locked by this Dispatcher's action.
         _ = try await h.store.updateSettings(.init(model: "default"), target: h.target)
         #expect(await h.transport.executed.last?.type == "agent.update")
         #expect(await h.transport.executed.count == before.count + 1)
+        try await retain("recovery/\(provider)/\(recovery)/other-target-control", h)
         if recovery == .preparing { await h.transport.resumeRead("dispatcherSettings") }
         if recovery == .inFlight { await h.transport.releaseCommand() }
         await task?.value
@@ -178,7 +179,7 @@ import Testing
         try await retain("provider/\(scenario)/after", h)
         #expect(await h.transport.executed.map(\.commandID) == before)
         _ = try await h.store.settings(for: target)
-        _ = try await h.store.loadDispatcherSettings(hostID: target.hostID)
+        #expect(await serviceErrorKind { _ = try await h.store.loadDispatcherSettings(hostID: target.hostID) } == .none)
         #expect(flow.lastApply == heldApply && flow.lastStart == heldStart && flow.conflict == heldConflict)
         #expect(h.store.hasPendingProviderAction(target))
         if provider == .v2 && task == nil {
@@ -209,8 +210,11 @@ import Testing
         for reset in [CompanionDispatcherReset.clearChat, .forgetEverything] {
             await h.store.askDispatcherReset(reset, hostID: target.hostID)
             let prompt = try #require(h.store.dispatcherResetPrompt)
-            await h.transport.enqueue(.completed(.object([reset == .clearChat ? "cleared" : "forgotten": .string("now")])))
+            let outcome: AnnexJSON = reset == .clearChat ? .object(["cleared": .string("now")])
+                : .object(["removed": .integer(2), "heldNews": .integer(0)])
+            await h.transport.enqueue(.completed(outcome))
             await h.store.confirmDispatcherReset(prompt)
+            #expect(h.store.dispatcherResetNotices[target.hostID] == (reset == .clearChat ? "Its conversation started over." : "Its memory was cleared."))
         }
         #expect(await h.transport.executed.map(\.type) == ["agent.update", "dispatcher.update", "dispatcher.setModels", "dispatcher.clearChat", "dispatcher.forgetEverything"])
         try await select(provider, h)
