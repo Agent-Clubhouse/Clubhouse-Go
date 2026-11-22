@@ -129,6 +129,19 @@ import ClubhouseTransport
     #endif
 
     func events() -> AsyncStream<CompanionEvent> {
+        #if DEBUG
+        events(homeRowHitAreaArguments: ProcessInfo.processInfo.arguments)
+        #else
+        previewEvents(blankHomeRowDetails: false)
+        #endif
+    }
+    #if DEBUG
+    /// Deterministic arguments for the synthetic row-hit fixture; no process-global mutation.
+    func events(homeRowHitAreaArguments: [String]) -> AsyncStream<CompanionEvent> {
+        previewEvents(blankHomeRowDetails: homeRowHitAreaArguments.contains("--companion-preview-home-row-hit-area"))
+    }
+    #endif
+    private func previewEvents(blankHomeRowDetails: Bool) -> AsyncStream<CompanionEvent> {
         AsyncStream { continuation in
             self.continuation = continuation
             var hosts = Self.hosts(now: Date(), helperRequests: self.showsHelperRequests ? Self.helperRequests : [],
@@ -143,6 +156,12 @@ import ClubhouseTransport
                 if ProcessInfo.processInfo.arguments.contains("--companion-preview-named-dispatchers") {
                     hosts[0].dispatcher?.agent?.name = "Navi"
                     hosts[1].dispatcher?.agent?.name = "Echo"
+                }
+                // Short, synthetic status lines leave genuine blank space beside the
+                // heading, matching the Home hit-area regression without private data.
+                if blankHomeRowDetails {
+                    hosts[0].dispatcher?.agent?.detail = nil
+                    hosts[1].dispatcher?.agent?.detail = nil
                 }
                 #endif
             }
