@@ -52,6 +52,11 @@ import ClubhouseTransport
     /// and the desktop ties its receipt to the command as sent, agent reference included.
     private var savedCommands: [CompanionCommandKey: AnnexCommand] = [:]
     private var expiredCommandIDs: Set<CompanionCommandKey> = []
+    /// Value-only v2 receipts and mutation tombstones survive reconnect; never a retry queue.
+    private var providerV2CapabilityRevisions: [String: UUID] = [:]
+    private var providerV2Attempted: Set<CompanionCommandKey> = []
+    private var providerV2Unresolved: Set<CompanionTarget> = []
+    private var providerV2Applied: [CompanionTarget: CompanionProviderV2Applied] = [:]
     private var requestedUpdateVersions: [String: String] = [:]
     private var updateEpochChanged: Set<String> = []
     private var snapshotEpochs: [String: String] = [:]
@@ -1152,7 +1157,8 @@ import ClubhouseTransport
         case .question(let id, _, _, _): agentID = id; allowed = off.allows("chat.question")
         case .removeQueued(let id, _, _): agentID = id; allowed = off.allows("chat.queue.remove")
         case .start(let id, _, _, _, _), .setModel(let id, _, _, _), .setLevel(let id, _, _),
-             .providerPreview(let id, _), .providerChange(let id, _, _): agentID = id; allowed = false
+             .providerPreview(let id, _), .providerChange(let id, _, _),
+             .providerPreviewV2(let id, _, _), .providerChangeV2(let id, _, _, _), .providerStartV2(let id, _, _): agentID = id; allowed = false
         case .update(let update): agentID = update.agentID; allowed = false
         case .setDispatcherEnabled(let enabled):
             guard !enabled && off.commands.contains("dispatcher.setEnabled") else { throw CompanionServiceError.rejected(off.note) }
@@ -1383,6 +1389,13 @@ import ClubhouseTransport
                         }
                     }
                 }
+                if capabilities[hostID]?.providerControlV2 != newCapabilities?.providerControlV2
+                    || capabilities[hostID]?.providerStartV2 != newCapabilities?.providerStartV2
+                    || capabilities[hostID]?.providerControlV2Advertised != newCapabilities?.providerControlV2Advertised {
+                    // Separate from connection generation: even withdraw→restore on the same
+                    // epoch cannot revive an old witness without a new host read.
+                    providerV2CapabilityRevisions[hostID] = UUID()
+                }
                 capabilities[hostID] = newCapabilities
                 if let epoch = newCapabilities?.epoch { hosts[hostID]?.controlEpoch = epoch }
                 hosts[hostID]?.canUpdateApp = newCapabilities?.supportsAppUpdate == true
@@ -1400,6 +1413,9 @@ import ClubhouseTransport
                 hosts[hostID]?.canEditSettings = newCapabilities?.supportsAgentSettings == true
                 hosts[hostID]?.canStopAgents = newCapabilities?.commands.contains("agent.stop") == true
                 hosts[hostID]?.canControlProvider = newCapabilities?.supportsProviderControl == true
+                hosts[hostID]?.providerV2Advertised = newCapabilities?.providerControlV2Advertised == true
+                hosts[hostID]?.providerApplyV2 = newCapabilities?.supportsProviderApplyV2 == true ? newCapabilities?.providerControlV2 : nil
+                hosts[hostID]?.providerStartV2 = newCapabilities?.supportsProviderStartV2 == true ? newCapabilities?.providerStartV2 : nil
                 hosts[hostID]?.canAnswerHelperRequests = newCapabilities?.supportsHelperRequests == true
                 hosts[hostID]?.canAnswerGrantRequests = newCapabilities?.supportsGrantRequests == true
                 hosts[hostID]?.canSyncProjectState = newCapabilities?.supportsProjectState == true
@@ -1896,6 +1912,148 @@ import ClubhouseTransport
         }
     }
 
+    // MARK: Provider v2 (explicit opt-in, no uncertain-command redispatch)
+
+    private func providerV2Context(_ target: CompanionTarget, starting: Bool = false) throws -> (AnnexCapabilities, UUID) {
+        guard !isSuspended, hosts[target.hostID]?.connection.canOperate == true,
+              let caps = capabilities[target.hostID], caps.version == 1, caps.controlAuth == "mtls-pinned-client",
+              caps.controlAvailable == true, caps.supportsProviderApplyV2,
+              !starting || caps.supportsProviderStartV2,
+              mcpOff(for: target) == nil, let agent = hosts[target.hostID]?.agent(for: target),
+              !agent.isQuick, agent.isSleepingOnDesktop == true, let generation = reviewGenerations[target.hostID] else {
+            throw CompanionServiceError.unavailable("Reconnect to a desktop that offers this checked provider action, and confirm the agent is asleep. Unsupported v2 never falls back to a generic update or v1 command.")
+        }
+        return (caps, generation)
+    }
+    /// Never called to reconcile an old command. The target lock survives disconnect/epoch changes.
+    private func providerV2Receipt(_ kind: AnnexCommand.Kind, target: CompanionTarget, epoch: String,
+                                   clientCommandID: String) async throws -> AnnexCommandReceipt {
+        try validateDispatcherCommand(kind, hostID: target.hostID)
+        let key = CompanionCommandKey(hostID: target.hostID, commandID: clientCommandID)
+        guard providerV2Unresolved.contains(target) == false, !providerV2Attempted.contains(key) else {
+            throw CompanionServiceError.uncertain("The previous provider action is unresolved. It will not be sent again. Review the desktop before another Apply or Start.")
+        }
+        providerV2Attempted.insert(key); providerV2Unresolved.insert(target)
+        let command = AnnexCommand(commandID: clientCommandID, epoch: epoch, kind: kind)
+        do {
+            let receipt = try await transport(for: target.hostID).execute(command)
+            guard receipt.version == 1, receipt.commandId == clientCommandID, receipt.epoch == epoch,
+                  wrongMachineError(receipt, command: command, hostID: target.hostID) == nil else {
+                throw CompanionServiceError.uncertain("The desktop's provider receipt did not match this command and target. Its outcome stays unknown.")
+            }
+            return receipt
+        } catch {
+            // No retry API, transport recreation or TTL can authorize a second mutation.
+            throw CompanionServiceError.uncertain("The provider action's reply could not be verified. Its outcome stays unknown. This app will not send it again; check the desktop.")
+        }
+    }
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview, starting: Bool) -> Bool {
+        guard let (caps, generation) = try? providerV2Context(witness.target, starting: starting) else { return false }
+        return witness.epoch == caps.epoch && witness.generation == generation
+            && caps.providerControlV2 == witness.capability
+            && providerV2CapabilityRevisions[witness.target.hostID] == witness.capabilityRevision
+    }
+    func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview {
+        let (caps, generation) = try providerV2Context(target)
+        guard let capabilityRevision = providerV2CapabilityRevisions[target.hostID] else {
+            throw CompanionServiceError.unavailable("Refresh this desktop's provider capabilities before previewing.")
+        }
+        let command = AnnexCommand(epoch: caps.epoch, kind: .providerPreviewV2(agentID: target.agentID, provider: provider, selection: .init()))
+        try validateDispatcherCommand(command.kind, hostID: target.hostID)
+        let receipt = try await transport(for: target.hostID).execute(command)
+        let (current, currentGeneration) = try providerV2Context(target)
+        guard current.epoch == caps.epoch, currentGeneration == generation,
+              providerV2CapabilityRevisions[target.hostID] == capabilityRevision,
+              receipt.version == 1, receipt.commandId == command.commandID, receipt.epoch == command.epoch,
+              wrongMachineError(receipt, command: command, hostID: target.hostID) == nil else {
+            throw CompanionServiceError.unavailable("The connection or target changed during this preview. Refresh before applying.")
+        }
+        guard receipt.status == .completed, let result = receipt.result else {
+            throw CompanionServiceError.rejected(CompanionProviderReason.message(receipt.error?.code))
+        }
+        let value = try decodeProvider(AnnexProviderPreviewV2.self, result: result)
+        guard value.matches(agent: target.agentID, provider: provider, selection: .init()), let capability = current.providerControlV2 else {
+            throw CompanionServiceError.unavailable("The desktop returned a different provider intent. Nothing can be applied from this preview.")
+        }
+        return .init(value: value, target: target, epoch: caps.epoch, generation: generation, capabilityRevision: capabilityRevision, capability: capability)
+    }
+    func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview,
+                         clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome {
+        let (caps, generation) = try providerV2Context(target)
+        guard preview.target == target, preview.epoch == caps.epoch, preview.generation == generation,
+              providerV2CapabilityRevisions[target.hostID] == preview.capabilityRevision,
+              preview.value.matches(agent: target.agentID, provider: preview.value.contract.proposed.provider, selection: .init()),
+              let capability = caps.providerControlV2, preview.value.permitsApply(capability: capability) else {
+            throw CompanionServiceError.unavailable("Refresh and review this provider proposal before Apply. Nothing was sent.")
+        }
+        let kind = AnnexCommand.Kind.providerChangeV2(agentID: target.agentID, provider: preview.value.contract.proposed.provider,
+                                                    selection: .init(), expectedState: preview.value.preview.expectedState)
+        let receipt = try await providerV2Receipt(kind, target: target, epoch: caps.epoch, clientCommandID: clientCommandID)
+        if receipt.status == .rejected, receipt.result == nil, receipt.transition == nil, receipt.contract == nil {
+            providerV2Unresolved.remove(target)
+            return .refused(CompanionProviderReason.message(receipt.error?.code))
+        }
+        if receipt.status == .failed, let transition = try receipt.providerTransitionV2,
+           transition.isAcknowledgedConflict, transition.target?.agentId == target.agentID,
+           transition.proposed == preview.value.contract.proposed {
+            // Acknowledged differing write, not a successful Apply or proof of no effects.
+            return .conflict(transition)
+        }
+        guard receipt.status == .completed, let result = receipt.result else {
+            throw CompanionServiceError.uncertain("The desktop did not confirm this Apply. It may have written settings. Check the desktop before another action.")
+        }
+        let value = try decodeProvider(AnnexProviderApplyReceiptV2.self, result: result)
+        guard value.matches(preview.value), value.outcome.historyRetained, !value.outcome.contextTransferred,
+              value.outcome.settingsReset == preview.value.preview.outcome.settingsReset,
+              value.outcome.instructions == preview.value.preview.outcome.instructions else {
+            throw CompanionServiceError.uncertain("The Apply receipt did not match the reviewed saved intent. No Start is authorized; check the desktop.")
+        }
+        let applied = CompanionProviderV2Applied(value: value, target: target, epoch: caps.epoch, commandID: clientCommandID)
+        providerV2Applied[target] = applied; providerV2Unresolved.remove(target)
+        return .saved(applied)
+    }
+    func startProviderV2(_ target: CompanionTarget, applied: CompanionProviderV2Applied, witness: CompanionProviderV2Preview,
+                         clientCommandID: String) async throws -> CompanionProviderV2StartOutcome {
+        let (caps, generation) = try providerV2Context(target, starting: true)
+        guard providerV2Applied[target] == applied, applied.target == target, applied.epoch == caps.epoch,
+              witness.target == target, witness.epoch == caps.epoch, witness.generation == generation,
+              providerV2CapabilityRevisions[target.hostID] == witness.capabilityRevision, let token = applied.value.nextWake?.readyToken,
+              witness.value.matches(agent: target.agentID, provider: applied.value.contract.saved.provider, selection: .init()),
+              witness.value.preview.expectedState == token, witness.value.contract.saved == applied.value.contract.saved,
+              witness.value.contract.proposed == applied.value.contract.saved,
+              let capability = caps.providerControlV2, witness.value.permitsApply(capability: capability) else {
+            throw CompanionServiceError.unavailable("Start requires the original Apply receipt and a fresh matching state witness on this connection. Nothing was sent.")
+        }
+        let expected = applied.value.contract.saved
+        let receipt = try await providerV2Receipt(.providerStartV2(agentID: target.agentID, expected: expected, expectedState: token),
+                                                 target: target, epoch: caps.epoch, clientCommandID: clientCommandID)
+        let raw = receipt.status == .completed ? receipt.result?["contract"] : receipt.contract
+        if receipt.status == .rejected, raw == nil, receipt.result == nil, receipt.transition == nil {
+            providerV2Unresolved.remove(target); providerV2Applied[target] = nil
+            return .refused(CompanionProviderReason.message(receipt.error?.code))
+        }
+        guard let raw else { throw CompanionServiceError.uncertain("Start outcome unknown. No creation evidence could be verified; check the desktop before another Start.") }
+        let value = try decodeProvider(AnnexProviderStartReceiptV2.self, result: raw)
+        guard value.version == 2, value.target.agentId == target.agentID, value.target.commandId == clientCommandID,
+              value.target.hostEpoch == caps.epoch, value.result.configPersistedByStart == false else {
+            throw CompanionServiceError.uncertain("Start evidence names a different command or target. Its outcome stays unknown.")
+        }
+        if receipt.status == .rejected, value.result.status == "refused_before_creation", value.start.state == .notObserved {
+            providerV2Unresolved.remove(target); providerV2Applied[target] = nil
+            return .refused(CompanionProviderReason.message(receipt.error?.code))
+        }
+        guard value.matches(agent: target.agentID, command: clientCommandID, epoch: caps.epoch, expected: expected),
+              value.start.state == .observed,
+              (receipt.status == .completed && value.result.status == "start_acknowledged") ||
+                (receipt.status == .failed && value.result.status == "failed_after_creation") else {
+            throw CompanionServiceError.uncertain("The Start command's creation is unknown. The app will not issue another Start; check the desktop.")
+        }
+        // A failed command with historical creation is not permission to start again.
+        if receipt.status == .completed { providerV2Unresolved.remove(target) }
+        providerV2Applied[target] = nil
+        return .evidence(value, completed: receipt.status == .completed)
+    }
+
     private func requireProviderControl(_ target: CompanionTarget) throws {
         guard capabilities[target.hostID]?.supportsProviderControl == true, mcpOff(for: target) == nil,
               hosts[target.hostID]?.agent(for: target)?.isQuick == false else {
@@ -1939,6 +2097,7 @@ import ClubhouseTransport
         catch { throw CompanionServiceError.uncertain("The desktop's provider result could not be verified. Check the previous result before another action.") }
     }
     func providerPreview(_ target: CompanionTarget, provider: String) async throws -> AnnexProviderPreview {
+        guard capabilities[target.hostID]?.providerControlV2Advertised != true else { throw CompanionServiceError.unavailable("Use the desktop’s explicitly negotiated provider v2 flow. No v1 fallback was sent.") }
         let result = try await providerResult(.providerPreview(agentID: target.agentID, provider: provider), target: target, id: UUID().uuidString)
         let preview = try decodeProvider(AnnexProviderPreview.self, result: result)
         guard preview.outcome.agentId == target.agentID, preview.outcome.provider == provider else {
@@ -1947,6 +2106,7 @@ import ClubhouseTransport
         return preview
     }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
+        guard capabilities[target.hostID]?.providerControlV2Advertised != true else { throw CompanionServiceError.unavailable("Use the desktop’s explicitly negotiated provider v2 flow. No v1 fallback was sent.") }
         guard preview.outcome.agentId == target.agentID, preview.outcome.permitsSave else {
             throw CompanionServiceError.unavailable("Refresh the provider preview before saving.")
         }
@@ -1962,6 +2122,7 @@ import ClubhouseTransport
         return saved
     }
     func startNewProvider(_ target: CompanionTarget, provider: String, clientCommandID: String) async throws {
+        guard capabilities[target.hostID]?.providerControlV2Advertised != true else { throw CompanionServiceError.unavailable("Use the desktop’s explicitly negotiated provider v2 flow. No v1 fallback was sent.") }
         _ = try await providerResult(.start(agentID: target.agentID, resume: false, expectedProvider: provider), target: target, id: clientCommandID)
         await refresh(hostID: target.hostID)
     }

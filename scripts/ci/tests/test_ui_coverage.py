@@ -53,6 +53,35 @@ class UIClassCoverageTests(unittest.TestCase):
         self.assertTrue(inventory, "An empty discovery must never satisfy the coverage check")
         self.assert_partition(inventory)
 
+    def test_provider_and_archive_controls_share_one_existing_home_lane(self):
+        entries = shards.matrix()["include"]
+        self.assertEqual(len(entries), 8)
+        inventory = ui_classes()
+        for cls in ("CompanionProviderV2UITests", "CompanionReadingArchiveHeaderUITests"):
+            owners = [entry["name"] for entry in entries if cls in selected_classes(entry, inventory)]
+            self.assertEqual(owners, ["UI tests (unicode, home)"])
+        expected = {
+            "CompanionProviderV2UITests": {
+                "testProviderV2CaptureAccessibilityLargeReviewRows",
+                "testProviderV2CaptureUnsupportedStartReason",
+                "testProviderV2ApplyAndStartStaySeparate",
+                "testProviderV2ApplyAtAccessibilityLargeKeepsReviewReachable",
+                "testProviderV2LostApplyStaysUnknownAfterReopeningAndEqualRead",
+                "testProviderV2LostStartNeverRequestsAnotherStart",
+                "testProviderV2ApplyDoesNotImplyStartCapability",
+            },
+            "CompanionReadingArchiveHeaderUITests": {
+                "testPausedTranscriptArchiveHeaderStillOpensAndClosesAfterStreaming",
+            },
+        }
+        all_methods = collections.Counter()
+        for source in (ROOT / "Annex/AnnexUITests").glob("*.swift"):
+            all_methods.update(re.findall(r"\bfunc\s+(test\w+)\s*\(\s*\)", source.read_text()))
+        for cls, methods in expected.items():
+            source = (ROOT / "Annex/AnnexUITests" / (cls + ".swift")).read_text()
+            self.assertEqual(set(re.findall(r"\bfunc\s+(test\w+)\s*\(\s*\)", source)), methods)
+            self.assertEqual({method: all_methods[method] for method in methods}, dict.fromkeys(methods, 1))
+
     def test_future_classes_are_covered_once_by_the_catchall(self):
         self.assert_partition(ui_classes() | {"FutureUIRegressionTests"})
 

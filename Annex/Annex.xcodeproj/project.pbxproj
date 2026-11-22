@@ -25,6 +25,7 @@
                 Transport/AnnexHelperRouting.swift,
                 Transport/AnnexDispatcherSettings.swift,
                 Transport/AnnexProviderControl.swift,
+                Transport/AnnexProviderControlV2.swift,
 				Transport/AnnexCredentials.swift,
 				Transport/AnnexDiscovery.swift,
 				Transport/AnnexEndpoint.swift,
