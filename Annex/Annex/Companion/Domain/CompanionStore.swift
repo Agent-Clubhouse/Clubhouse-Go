@@ -247,7 +247,7 @@ import Observation
 
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
-        !dispatcherRecoveryUnknown.contains(target) && !sleepRequests.contains(target) && !hasPendingProviderAction(target) && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
+        !dispatcherRecoveryUnknown.contains(target) && settingsMutationOwners[target] == nil && !sleepRequests.contains(target) && !hasPendingProviderAction(target) && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
@@ -1145,8 +1145,8 @@ import Observation
     }
     /// Cross-entry mutation admission, independent of whether chat has loaded.
     /// Reading settings and reviewing held provider evidence keep their own authority.
-    private func hasDispatcherRecoveryMutation(_ target: CompanionTarget) -> Bool {
-        dispatcherRecoveryUnknown.contains(target) || dispatcherRecoveryPreparing.contains(target)
+    private func hasRecoveryOrSettingsMutation(_ target: CompanionTarget) -> Bool {
+        settingsMutationOwners[target] != nil || dispatcherRecoveryUnknown.contains(target) || dispatcherRecoveryPreparing.contains(target)
             || (isDispatcher(target) && (pendingCommands.contains(target) || dispatcherResetting.contains(target.hostID)))
     }
     private static let mutationPending = "The previous action is still pending or its outcome is unknown. Review it on the desktop before making another change."
@@ -1155,7 +1155,7 @@ import Observation
         let flow = CompanionProviderFlow(target: target, service: service) { [weak self] in
             guard let self else { return false }
             return self.canEditSettings(target) && self.host(for: target)?.canControlProvider == true
-                && !self.hasDispatcherRecoveryMutation(target)
+                && !self.hasRecoveryOrSettingsMutation(target)
                 && self.host(for: target)?.providerV2Advertised != true && self.providerV2Flows[target]?.blocksMutations != true
                 && self.host(for: target)?.connection.canOperate == true && !self.sleepRequests.contains(target)
                 && !self.pendingCommands.contains(target) && self.agent(for: target)?.isSleepingOnDesktop == true
@@ -1168,7 +1168,7 @@ import Observation
         let flow = CompanionProviderV2Flow(target: target, service: service, requestedRuntime: requestedRuntime, canRequest: { [weak self] in
             guard let self else { return false }
             return self.canEditSettings(target) && self.host(for: target)?.providerApplyV2?.isSupported == true
-                && !self.hasDispatcherRecoveryMutation(target)
+                && !self.hasRecoveryOrSettingsMutation(target)
                 && self.host(for: target)?.connection.canOperate == true && !self.sleepRequests.contains(target)
                 && !self.pendingCommands.contains(target) && self.agent(for: target)?.isSleepingOnDesktop == true
                 && self.providerFlows[target]?.blocksMutations != true
@@ -1201,7 +1201,7 @@ import Observation
         return settings
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
-        guard !hasDispatcherRecoveryMutation(target), !pendingCommands.contains(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        guard !hasRecoveryOrSettingsMutation(target), !pendingCommands.contains(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
         guard !sleepRequests.contains(target), !hasPendingProviderAction(target) else {
             throw CompanionServiceError.rejected("Wait for the desktop to confirm that the agent is asleep.")
         }
@@ -1461,7 +1461,7 @@ import Observation
         guard canEditDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
         guard !dispatcherResetting.contains(hostID) else { throw CompanionServiceError.rejected(Self.mutationPending) }
         if let target = hosts.first(where: { $0.id == hostID })?.dispatcher?.agent?.id {
-            guard !hasDispatcherRecoveryMutation(target), !hasPendingProviderAction(target), !sleepRequests.contains(target) else {
+            guard !hasRecoveryOrSettingsMutation(target), !hasPendingProviderAction(target), !sleepRequests.contains(target) else {
                 throw CompanionServiceError.rejected(Self.mutationPending)
             }
         }
