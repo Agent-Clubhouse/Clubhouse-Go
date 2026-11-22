@@ -12,7 +12,9 @@ resolved `app.navigationBars.buttons.firstMatch` to
 predicate at line 381 (100.456/86.405/89.372 seconds). Restoration was unreached.
 
 The first original recording shows River with the pasted draft and no keyboard at
-requested PTS 83.5s, a Table sheet at 86.5s, and River again at 88.5s after Done.
+actual PTS 83.4817s (requested 83.5s), a Table sheet at actual PTS 84.6733s
+(requested 86.5s), and River again at actual PTS 88.445s (requested 88.5s)
+after Done.
 These are sampled movie frames, not exact synchronization with SDK event times.
 The session log identifies Done at 87.08s. The saved failure hierarchies and
 binary snapshots show River's own `BackButton`, label Clubhouse, and the entire
@@ -44,9 +46,10 @@ first (143.723s); its entire launch test file is unchanged. No matching baseline
 failure or causal attribution to this Copy correction is established.
 
 Sender folds failed first at line 693 while bringing the first Cedar caption
-clear before its first fold (339.997s). Its retry reached collapse, native Back,
-reopen, refresh and later actions before interruption, with no terminal result.
+clear before its first fold (340.432s). Its retry reached collapse, native Back,
+reopen, refresh and completed PASS in 196.184s before the job was cancelled.
 The previous `1b46` original passed first (129.885s). The complete sender method
 and all helpers are byte-identical; only earlier Copy test execution differs.
-These observations do not establish a sender fix, independent shared cause or
-retry success. Neither failure is changed by this successor.
+These observations do not establish a sender fix or independent shared cause.
+The retry pass does not erase the first failure. Neither failure is changed by
+this successor.
