@@ -21,6 +21,24 @@ The native header balances measured side origins with at least 44pt leading and 
 The header matrix checks centering immediately, waits at most five seconds if needed within the existing 1pt tolerance, logs the measured wait,
 and samples each avatar screenshot once, retaining that exact image and its sample geometry.
 
+The three Send-glyph contrast methods in `CompanionChatHeaderVisualUITests` use the real composer,
+keyboard open, with Terminal, a light-accent dark Mocha theme and light Latte. Each checks enabled
+and empty-draft disabled Send, Queue and Steer states without sending. These
+checks wait at most five seconds for native typing to reach the exact draft, and for native deletion
+to reach an empty field (distinguishing its AX placeholder) with Send disabled. The empty-draft,
+native focus and disabled assertions remain explicit; observed values, placeholder, focus and button
+state are retained, plus a screenshot and hierarchy if deletion does not settle. The screenshot's central
+24pt square excludes the glass rim; at least 5% of those pixels must contrast at 4.5:1 against
+the median rendered fill. Exact synthetic screenshots, central crops, high-contrast pixel fractions,
+and core mean RGB comparisons to the actual palette foreground are retained. The core mean must
+be nearer the enabled on-tint or disabled primary label than the fill, excluding glass-highlight passes.
+The Terminal and queue-only flags are DEBUG fixture inputs, not production theme or send-policy changes.
+Send alone uses an opaque circular button style: the selected theme's on-tint/tint roles when enabled,
+and primary-label/card roles with a separator outline when disabled. The primary label's higher contrast
+leaves margin for rendered sRGB rounding rather than landing exactly on the threshold. This avoids native glass dimming
+without changing the palette, the 44pt target, native disabled/keyboard semantics or other controls.
+Pressed feedback changes scale, not foreground opacity. Both states retain the same 4.5:1 rendered requirement.
+
 `CompanionContextLimitsUITests` exercises the production “Context and limits” sheet with synthetic
 `--companion-context-sheet-fixture` inputs inside the existing header preview. It checks the
 “84k of 200k tokens” format, the usage event's reported time (or explicit unknown), only the
