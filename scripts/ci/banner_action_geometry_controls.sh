@@ -137,6 +137,27 @@ for broken in [CGRect.null, CGRect(x: 16, y: 20, width: CGFloat.infinity, height
 check(BannerActionGeometry.painted(shown: renders(card: card, control: nil).0, hidden: renders(card: card, control: nil).1, scale: scale,
                                    within: CGRect(x: CGFloat.nan, y: 0, width: 10, height: 10)) == nil, "K a non-finite target measures nothing")
 
+// L. A fixed shown/hidden/restored sequence must reject ANY same-state whole-window drift.
+let stable = renders(card: card, control: capsule(pill, pink, label: label))
+check(BannerActionGeometry.differingPixelCount(stable.0, stable.0) == 0, "L identical same-state image passes stability")
+let drifting = renders(card: card, control: capsule(pill, pink, label: label),
+                       extra: patch([CGRect(x: 40, y: 200, width: 64, height: 10)], blue))
+check((BannerActionGeometry.differingPixelCount(stable.0, drifting.0) ?? 0) > 0,
+      "L changed pixels far OUTSIDE the target fail the whole-window stability audit")
+check(BannerActionGeometry.differingPixelCount(stable.0, stable.0.cropping(to: CGRect(x: 0, y: 0, width: 20, height: 20))!) == nil,
+      "L mismatched dimensions are unusable, not a stable pair")
+
+// M. Stable genuine paint beyond the target MUST still fail the unchanged full-image oracle.
+let spill = CGRect(x: hit.minX - 6, y: pill.minY, width: hit.width + 12, height: pill.height)
+let spilled = renders(card: card, control: capsule(spill, pink, label: label))
+check(BannerActionGeometry.differingPixelCount(spilled.0, spilled.0) == 0, "M actual stable spill passes only same-state stability")
+let spillResult = measure(spilled, hit: hit, card: card, label: label)
+check(spillResult.metrics.map { $0.visible.minX < hit.minX && $0.visible.maxX > hit.maxX } == true,
+      "M connected paint is measured beyond BOTH target edges, never clipped")
+check(spillResult.failures.contains { $0.contains("extends past its hit target") },
+      "M genuine out-of-target paint remains RED after a successful stability audit")
+check(!oversized.failures.isEmpty && !flush.failures.isEmpty, "M original bordered/default and AX fail-before controls retained")
+
 print(failures == 0 ? "BANNER_ACTION_GEOMETRY_CONTROLS PASS" : "BANNER_ACTION_GEOMETRY_CONTROLS FAIL \(failures)")
 exit(failures == 0 ? 0 : 1)
 SWIFT

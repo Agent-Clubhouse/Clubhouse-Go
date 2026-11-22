@@ -119,3 +119,57 @@ implementations were stand-ins. This is compiler-slice evidence, not a full app
 build, rendering result or native execution; the hosted runner uses Xcode 26.5.
 No extra CI submission or simulator execution was made. The existing paired,
 state and pressed-contrast acceptance boundaries above remain unchanged.
+
+## iPad Latte counterfactual capture correction
+
+On d29f24ff5, run 45059541267 job 137326524838 records the three latch methods
+first-pass and the complete XXXL geometry method first-pass (15.260 seconds).
+The standard method failed once at line 104 (59.382 seconds): light, dark and
+Mocha sub-pairs satisfied their geometry checks, while Latte's initial
+shown/hidden component measured `(16,55,801,46)` against Retry's
+`(745.5,48,60.5,44)` target and the `(16,48,802,44)` card. All five variant
+held/disabled records and old-style failures were emitted. Sub-pairs inside
+that failed method are not successful terminal method results.
+
+The original Latte shown, hidden and disabled images are retained. The small
+visible Retry pill and label do not visibly span the card. At the original
+8-channel-difference threshold, shown/hidden has 25,254 changed RGB pixels
+outside Retry, of which 24,805 are below the card. Initial shown versus later
+disabled has 30,280 outside changes; hidden versus disabled has zero outside
+changes above that threshold. The changed outer region follows the card shadow;
+representative card-body/title pixels are unchanged. This supports a
+counterfactual capture contaminated by first-render/material settling. It does
+not prove the implementation-level cause of that settling or establish enabled
+geometry from a disabled render.
+
+Replaying the actual unchanged CoreGraphics oracle on the original enabled/
+hidden images reproduces exactly the logged 801×46 region and failures. The
+later disabled/hidden diagnostic measures 60.5×30, but is explicitly not an
+enabled-state pass. The original bordered Latte baseline still measures 68×58
+and fails its original size/aspect/clearance checks. Replays supply the original
+recorded UIKit/Vision label bounds, not a newly recognized Mac OCR result.
+
+Each style now uses one fixed sequence: lay out the actual window/controller,
+retain a preparation render, retain shown, hide and retain hidden, then restore
+and retain shown again. The existing three 150ms sleeps remain three; no
+capture is retried or selected from a pool. An independent full-window audit
+compares the measured and restored shown images at the same threshold of 8.
+Any differing pixel or unusable dimensions makes the test fail. Frame/card
+checks apply when hiding and restoring. The original full-image shown/hidden
+connected-component calculation, OCR/enclosure, all thresholds and complete
+candidate/baseline oracles remain unchanged. No target crop, pixel subtraction,
+mask repair, morphology or background filtering is added to that oracle.
+
+The new synthetic controls require unrelated far-outside-target same-state
+drift to fail the stability audit. A stable real painted capsule extending past
+both target edges must pass only the same-state audit and still fail the original
+geometry oracle with its complete out-of-target bounds. The earlier bordered,
+flush accessibility and all other negative controls remain intact. This proves
+the source oracle retains spill detection; it is not a current native capture.
+
+All five hosted method identities, variants/devices, production style and
+Release expression, paired old-style fail-before checks, actual enabled/disabled
+latch routing and teardown are unchanged. The fixed sequence and stability audit
+must now execute on the candidate. If it remains unstable, the result stays red;
+there is no matching-pair fallback or enabled acceptance from disabled pixels.
+Pressed contrast remains unobserved. Parent owns publication and hosted proof.

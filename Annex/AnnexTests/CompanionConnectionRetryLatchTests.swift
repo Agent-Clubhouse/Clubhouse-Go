@@ -150,6 +150,11 @@ import Vision
     private func measureRetry(_ window: UIWindow, toggle: RetryVisibility, appearance: RetryAppearance, style: String,
                               retryFrame: () -> CGRect?, cardFrame: () -> CGRect?) async throws -> (metrics: BannerActionGeometry.Metrics, image: UIImage) {
         toggle.hidden = false
+        // Prepare the actual native hierarchy before the measured pair. Glass can finish drawing
+        // its card shadow on the first drawHierarchy readback even when layout frames are ready.
+        window.layoutIfNeeded()
+        window.rootViewController?.view.layoutIfNeeded()
+        capture(window, "Retry \(style) preparation, \(appearance.rawValue)")
         try await Task.sleep(for: .milliseconds(150))
         let shown = capture(window, "Retry \(style) shown, \(appearance.rawValue)")
         let hit = try XCTUnwrap(retryFrame()), card = try XCTUnwrap(cardFrame())
@@ -158,7 +163,17 @@ import Vision
         let hidden = capture(window, "Retry \(style) hidden at the same layout, \(appearance.rawValue)")
         XCTAssertEqual(retryFrame(), hit, "Hiding Retry must not move it")
         XCTAssertEqual(cardFrame(), card, "Hiding Retry must not resize the card")
+        toggle.hidden = false
+        try await Task.sleep(for: .milliseconds(150))
+        let restored = capture(window, "Retry \(style) restored shown stability, \(appearance.rawValue)")
+        XCTAssertEqual(retryFrame(), hit, "Restoring Retry must not move it")
+        XCTAssertEqual(cardFrame(), card, "Restoring Retry must not resize the card")
         let shownImage = try XCTUnwrap(shown.cgImage)
+        let unstablePixels = try XCTUnwrap(BannerActionGeometry.differingPixelCount(shownImage, try XCTUnwrap(restored.cgImage)),
+                                           "Same-state renders must have usable identical image dimensions")
+        print("RETRY_STABILITY \(appearance.rawValue) \(style) differingPixels=\(unstablePixels) threshold=8 wholeWindow=true fixedSequence=true")
+        XCTAssertEqual(unstablePixels, 0,
+                       "Same-state whole-window renders changed: measurement is unstable; no pair may be selected or filtered")
         let scale = CGFloat(shownImage.width) / shown.size.width
         let painted = try XCTUnwrap(BannerActionGeometry.painted(shown: shownImage, hidden: try XCTUnwrap(hidden.cgImage), scale: scale, within: hit),
                                     "Both candidate and baseline must actually render")
@@ -172,8 +187,6 @@ import Vision
         let metrics = BannerActionGeometry.Metrics(visible: painted.bounds, hit: hit, card: card, label: label,
                                                    labelEnclosure: enclosure, defaultSize: !appearance.size.isAccessibilitySize)
         print("RETRY_GEOMETRY \(appearance.rawValue) \(style) visible=\(painted.bounds) label=\(label) enclosure=\(enclosure) hit=\(hit) card=\(card)")
-        toggle.hidden = false
-        try await Task.sleep(for: .milliseconds(150))
         return (metrics, shown)
     }
 
@@ -492,6 +505,18 @@ enum BannerActionGeometry {
         let bounds = CGRect(x: CGFloat(minX) / scale, y: CGFloat(minY) / scale,
                             width: CGFloat(maxX - minX + 1) / scale, height: CGFloat(maxY - minY + 1) / scale)
         return Painted(bounds: bounds, member: visited, width: width, height: height, scale: scale)
+    }
+
+    /// An independent, full-image same-state audit at the geometry comparison's existing threshold.
+    /// Never masks/crops the target, repairs pixels, or changes the shown/hidden connected component.
+    static func differingPixelCount(_ first: CGImage, _ second: CGImage, threshold: Int = 8) -> Int? {
+        guard first.width == second.width, first.height == second.height,
+              let a = rgba(first), let b = rgba(second) else { return nil }
+        var count = 0
+        for offset in stride(from: 0, to: a.count, by: 4) {
+            if (0..<4).contains(where: { abs(Int(a[offset + $0]) - Int(b[offset + $0])) > threshold }) { count += 1 }
+        }
+        return count
     }
 
     /// Top row first, in sRGB, matching UIKit point coordinates.
