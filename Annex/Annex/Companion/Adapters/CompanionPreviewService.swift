@@ -144,6 +144,12 @@ import ClubhouseTransport
                     hosts[0].dispatcher?.agent?.name = "Navi"
                     hosts[1].dispatcher?.agent?.name = "Echo"
                 }
+                // Short, synthetic status lines leave genuine blank space beside the
+                // heading, matching the Home hit-area regression without private data.
+                if ProcessInfo.processInfo.arguments.contains("--companion-preview-home-row-hit-area") {
+                    hosts[0].dispatcher?.agent?.detail = nil
+                    hosts[1].dispatcher?.agent?.detail = nil
+                }
                 #endif
             }
             #if DEBUG

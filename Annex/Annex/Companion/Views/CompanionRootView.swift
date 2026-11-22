@@ -1466,6 +1466,8 @@ private struct CompanionDispatcherRowContent: View, Equatable {
         if let agent = host.dispatcherAgent {
             Button { openAgent(agent.id) } label: {
                 CompanionAgentListRow(agent: agent, hostTag: hostTag, detail: detail)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .accessibilityIdentifier("dispatcher-row-\(host.id)")
