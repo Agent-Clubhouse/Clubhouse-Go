@@ -85,7 +85,7 @@ SHARDS = [
         ],
     },
     {
-        # Route prototype: about 52.3 minutes on one run; see docs/provider-v2-hosted-route.md.
+        # The combined AppUpdate and link workload has no measured full-lane duration yet.
         "name": "UI tests (composer, sheets)",
         "tests": [
             "CompanionCompactComposerUITests",
@@ -96,6 +96,7 @@ SHARDS = [
             "CompanionHardwareKeyboardUITests",
             "CompanionReviewUITests",
             "CompanionAppUpdateUITests",
+            "CompanionTextLinkUITests",
         ],
     },
     {

@@ -378,8 +378,9 @@ private actor UpdateDesktop: AnnexTransporting {
         defer { service.remove(hostID: Self.id) }
         #expect(store.hosts.first?.canUpdateApp == true && store.hosts.first?.canCheckAppUpdate == false)
         await store.checkAppUpdate(hostID: Self.id)
-        #expect(await desktop.sent.isEmpty)
+        // Observe the synchronous refusal before another actor hop admits host publications.
         #expect(store.appUpdateCheckErrors[Self.id]?.contains("cannot check") == true)
+        #expect(await desktop.sent.isEmpty)
         store.shutdown()
         #expect(store.hosts.first?.canCheckAppUpdate == false)
         #expect(store.appUpdateCheckErrors.isEmpty && store.appUpdateChecksInFlight.isEmpty)
