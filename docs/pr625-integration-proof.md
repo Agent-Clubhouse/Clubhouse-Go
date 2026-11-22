@@ -96,3 +96,26 @@ workflow or dispatch changes are introduced. The integration publisher owns that
 single submission, actual manifest verification, first outcomes, remaining state
 and contrast disposition, and landing. Local syntax/source/CoreGraphics controls
 are not hosted, native, rendering or integrated runtime acceptance.
+
+## Debug compiler correction
+
+The first composed head bcc31ae40 failed hosted Debug Build for testing in job
+137315864152: the compiler could not type-check the observation modifier chain
+at RecoveryStatusView line 205. The correction places that complete Debug chain
+in an opaque-result helper. Its order is unchanged: styled button, enabled probe,
+hide opacity, Retry geometry observation, disabled predicate, accessibility label
+and identifier. The enabled probe remains inside the outer disabled modifier.
+The original Release expression and the entire paired/latch test file are kept.
+Expanding the helper recovers the complete prior Debug source modulo comments
+and whitespace; removing Debug recovers the prior Release source.
+
+A resource-admitted, ordinary-FIFO targeted type-check used the installed real
+SwiftUI/Observation simulator SDK (Xcode 26.0.1, Swift 6.2, iOS 26.0 target). The
+exact CompactBanner/DesktopBanner/probe/style slice from bcc reproduced the same
+compiler diagnostic, located on the banner body in that slice. The corrected
+Debug slice and corrected Release slice both type-checked successfully under the
+same conditions. Only app-specific Store/host/notice/palette/glass/probe
+implementations were stand-ins. This is compiler-slice evidence, not a full app
+build, rendering result or native execution; the hosted runner uses Xcode 26.5.
+No extra CI submission or simulator execution was made. The existing paired,
+state and pressed-contrast acceptance boundaries above remain unchanged.

@@ -196,19 +196,14 @@ struct CompanionDesktopConnectionBanner: View {
                                                  titleIdentifier: "\(identifierPrefix)-connection-title") {
                     if !notice.retryHostIDs.isEmpty {
                         #if DEBUG
-                        geometryRetryButton(notice.retryHostIDs)
+                        observedRetryButton(notice)
                         #else
                         Button("Retry") { retry(notice.retryHostIDs) }
                             .buttonStyle(CompanionBannerActionButtonStyle())
-                        #endif
-                            #if DEBUG
-                            .modifier(CompanionRetryEnabledProbe(report: geometrySeam?.retryEnabled))
-                            .opacity(geometrySeam?.hidesRetry == true ? 0 : 1)
-                            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.retryFrame?($0) }
-                            #endif
                             .disabled(retryDisabled(notice.retryHostIDs))
                             .accessibilityLabel(notice.retryLabel)
                             .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
+                        #endif
                     }
                 }
                 #if DEBUG
@@ -227,6 +222,18 @@ struct CompanionDesktopConnectionBanner: View {
     }
 
     #if DEBUG
+    /// A separate opaque result keeps the DEBUG observation chain out of the banner's result builder.
+    /// Disabled remains outside the probe so it observes the same inherited environment as the button.
+    private func observedRetryButton(_ notice: CompanionConnectionNotice) -> some View {
+        geometryRetryButton(notice.retryHostIDs)
+            .modifier(CompanionRetryEnabledProbe(report: geometrySeam?.retryEnabled))
+            .opacity(geometrySeam?.hidesRetry == true ? 0 : 1)
+            .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.retryFrame?($0) }
+            .disabled(retryDisabled(notice.retryHostIDs))
+            .accessibilityLabel(notice.retryLabel)
+            .accessibilityIdentifier(notice.retryHostIDs.count == 1 ? "\(identifierPrefix)-retry-\(notice.retryHostIDs[0])" : "\(identifierPrefix)-retry-all")
+    }
+
     @ViewBuilder private func geometryRetryButton(_ hostIDs: [String]) -> some View {
         if geometrySeam?.usesBorderedBaseline == true {
             // Exact original fee5cd21 label/style; shared routing, disabled, AX and frame modifiers stay above.
