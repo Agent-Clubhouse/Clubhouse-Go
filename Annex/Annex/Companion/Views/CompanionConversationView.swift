@@ -450,24 +450,42 @@ struct CompanionConversationView: View {
         // Compare by agent, not list entry: a desktop can list one agent under more than one project.
         if let other = store.allAgents.first(where: { $0.status.needsYou && ($0.id.agentID != target.agentID || $0.id.hostID != target.hostID) }) {
             if compactAccessibilityHeader {
-                // Keep the other chat actionable without letting its banner consume this chat's viewport.
-                Button { openAgent(other.id) } label: {
-                    Label("\(other.name) \(other.status == .failed ? "hit an error" : "needs you")", systemImage: other.status.symbol)
-                        .font(.caption).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16).frame(minHeight: 44)
+                compactOtherAgentBanner(other)
+            } else if dynamicTypeSize.isAccessibilitySize {
+                // Keep the full banner when its natural-width name/status/action fit.
+                // At a constrained width, one full-width action preserves the transcript's room.
+                ViewThatFits(in: .horizontal) {
+                    fullOtherAgentBanner(other).fixedSize(horizontal: true, vertical: false)
+                    compactOtherAgentBanner(other)
                 }
-                .buttonStyle(.glass).buttonBorderShape(.capsule)
-                .accessibilityLabel("View \(other.name), \(other.status == .failed ? "hit an error" : "needs you")")
-                .padding(.horizontal, 16).padding(.bottom, 6)
             } else {
-                CompanionGlassBanner(systemImage: other.status.symbol,
-                                     text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
-                    Button("View") { openAgent(other.id) }.buttonStyle(.glass)
-                        .accessibilityLabel("View \(other.name)")
-                }
-                .padding(.bottom, 6)
+                fullOtherAgentBanner(other)
             }
         }
+    }
+
+    private func compactOtherAgentBanner(_ other: CompanionAgent) -> some View {
+        let status = other.status == .failed ? "hit an error" : "needs you"
+        return Button { openAgent(other.id) } label: {
+            Label("\(other.name) \(status)", systemImage: other.status.symbol)
+                .font(.caption).lineLimit(keyboardVisible ? 2 : nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).frame(minHeight: 44)
+        }
+        .buttonStyle(.glass).buttonBorderShape(.capsule)
+        // Keep the existing keyboard label and the nonkeyboard View action label.
+        .accessibilityLabel(keyboardVisible ? "View \(other.name), \(status)" : "View \(other.name)")
+        .accessibilityValue(status, isEnabled: !keyboardVisible)
+        .padding(.horizontal, 16).padding(.bottom, 6)
+    }
+
+    private func fullOtherAgentBanner(_ other: CompanionAgent) -> some View {
+        CompanionGlassBanner(systemImage: other.status.symbol,
+                             text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
+            Button("View") { openAgent(other.id) }.buttonStyle(.glass)
+                .accessibilityLabel("View \(other.name)")
+        }
+        .padding(.bottom, 6)
     }
 
     private var timeline: some View {

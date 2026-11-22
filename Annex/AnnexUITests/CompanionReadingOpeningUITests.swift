@@ -48,9 +48,10 @@ import UIKit
         XCTFail("The bookmark's public frame must settle independently of its expected position")
         return anchor.frame.minY
     }
-    private func assertEarlierIsClearOfThePinnedBanner(in app: XCUIApplication) {
+    private func assertEarlierIsClearOfThePinnedBanner(in app: XCUIApplication, clearOfLatest: Bool = false) {
         let earlier = app.buttons["companion-show-earlier"]
         let banner = app.buttons["View River"]
+        let latest = app.pausedChatNavigation
         let track = app.scrollViews["companion-transcript"].otherElements
             .matching(NSPredicate(format: "label BEGINSWITH %@", "Vertical scroll bar")).firstMatch
         XCTAssertTrue(banner.waitForExistence(timeout: 5), "This proof requires the real pinned other-agent banner")
@@ -60,7 +61,10 @@ import UIKit
             return earlier.exists && earlier.isHittable && !frame.isEmpty && !native.isEmpty
                 && frame.minY >= native.minY && frame.maxY <= native.maxY
                 && native.minY >= banner.frame.maxY
-        }, timeout: 5), "Show earlier must be completely below the pinned banner, not merely AX-hittable")
+                && (!clearOfLatest || !latest.exists || !frame.intersects(latest.frame))
+                && (!clearOfLatest || (banner.isHittable && banner.frame.width >= 44 && banner.frame.height >= 44))
+        }, timeout: 5), "Show earlier must be completely below the pinned banner, not merely AX-hittable"
+            + (clearOfLatest ? "; Latest must not overlap it" : ""))
         XCTAssertEqual(earlier.label, "Show earlier messages", "The spoken action label is unchanged")
         XCTAssertEqual(earlier.identifier, "companion-show-earlier", "The existing public identifier is unchanged")
         let note = XCTAttachment(string: "earlier=\(earlier.frame) nativeTrack=\(track.frame) bannerAction=\(banner.frame) label=\(earlier.label) identifier=\(earlier.identifier)")
@@ -355,7 +359,7 @@ import UIKit
                     anchor: app.staticTexts["Reading marker 90."])
         tapChatStatusBar(in: app)
         addTeardownBlock { @MainActor [self] in recordClearanceSnapshot(in: app) }
-        assertEarlierIsClearOfThePinnedBanner(in: app)
+        assertEarlierIsClearOfThePinnedBanner(in: app, clearOfLatest: true)
     }
 
     /// Diagnostic recording ONLY: #483 excludes landscape tight-room visibility from this acceptance contract.

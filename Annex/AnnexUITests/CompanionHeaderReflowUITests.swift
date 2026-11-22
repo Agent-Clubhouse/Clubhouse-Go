@@ -44,6 +44,16 @@ import XCTest
         return Frames(identity: identity, actions: actions, leading: leading)
     }
 
+    /// Check an already-present route control without paying the waiter's first polling tick.
+    /// A slow first query consumes the same original five-second budget; it cannot add time.
+    private func existsWithinFiveSeconds(_ element: XCUIElement) -> Bool {
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        let present = element.exists
+        let remaining = deadline - ProcessInfo.processInfo.systemUptime
+        guard remaining > 0 else { return false }
+        return present || element.waitForExistence(timeout: remaining)
+    }
+
     enum Disturbance { case scroll, pushPop, background }
 
     private func sampleReflow(_ flags: [String], name: String, disturbance: Disturbance = .scroll) {
@@ -89,18 +99,18 @@ import XCTest
                         }
                     } else {
                         let back = app.navigationBars.buttons["Back"].firstMatch
-                        guard back.waitForExistence(timeout: 5), app.buttons["companion-chat-header"].exists else {
+                        guard existsWithinFiveSeconds(back), app.buttons["companion-chat-header"].exists else {
                             XCTFail("The chat header and Back control must remain present before the second disturbance")
                             return
                         }
                         back.tap()
                         let open = app.buttons["header-fixture-open-chat"]
-                        guard open.waitForExistence(timeout: 5), !app.buttons["companion-chat-header"].exists else {
+                        guard existsWithinFiveSeconds(open), !app.buttons["companion-chat-header"].exists else {
                             XCTFail("Back must actually return to the fixture's root route before reopening")
                             return
                         }
                         open.tap()
-                        guard app.buttons["companion-chat-header"].waitForExistence(timeout: 5),
+                        guard existsWithinFiveSeconds(app.buttons["companion-chat-header"]),
                               app.navigationBars.buttons["Back"].firstMatch.exists else {
                             XCTFail("Reopening must actually restore the pushed chat route")
                             return
