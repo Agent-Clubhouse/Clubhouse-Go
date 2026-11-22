@@ -216,4 +216,41 @@ import Testing
         let sent = await h.transport.executed
         #expect(sent.count == 1 && sent.first?.kind == .interrupt(agentID: target.agentID, sessionID: "visible-session"))
     }
+
+    @Test(arguments: ["interrupt", "stop"])
+    func confirmationNamesTheVisibleSessionAndCancellingDoesNotAuthorizeIt(action: String) async throws {
+        let h = try await start(); defer { h.stop() }
+        let interrupt = action == "interrupt"
+        if interrupt {
+            await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot(session: "visible-session", fields: [
+                "state": .string("running"), "capabilities": .object(["chat": .bool(true), "interrupt": .bool(true)])
+            ]))
+            await h.store.load(target, force: true)
+            try await h.waitUntil { h.store.dispatcherRecovery(for: target)?.canInterrupt == true }
+        }
+        let choice: CompanionDispatcherChatPrompt.Action = interrupt ? .interrupt : .stop
+        h.store.askDispatcherChatAction(choice, target: target)
+        let cancelled = try #require(h.store.dispatcherChatPrompt)
+        #expect(cancelled.target == target && cancelled.sessionID == "visible-session")
+        #expect(cancelled.epoch == h.host?.controlEpoch)
+        #expect(cancelled.title == (interrupt ? "Interrupt this chat turn?" : "Stop this chat session?"))
+        #expect(cancelled.button == (interrupt ? "Interrupt chat turn" : "Stop chat session"))
+        #expect(cancelled.message.contains("Navi") && cancelled.message.contains("Fixture"))
+        #expect(cancelled.message.contains("does not restart") && cancelled.message.contains("work controller"))
+        #expect(cancelled.message.contains(interrupt ? "Its conversation stays" : "Wait for the desktop to report Sleeping"))
+        h.store.dispatcherChatPrompt = nil // The person cancelled before claiming.
+        #expect(h.store.claimDispatcherChatAction(cancelled) == nil)
+        #expect(await h.transport.executed.isEmpty)
+        h.store.askDispatcherChatAction(choice, target: target)
+        let fresh = try #require(h.store.dispatcherChatPrompt)
+        #expect(fresh.id != cancelled.id, "A later human confirmation is a new prompt")
+        let claim = try #require(h.store.claimDispatcherChatAction(fresh))
+        #expect(await h.transport.executed.isEmpty, "Claiming is not dispatching")
+        await h.transport.enqueue(.completed(interrupt ? .object([:]) : .object(["stopRequested": .bool(true)])))
+        await h.store.confirmDispatcherChatAction(claim)
+        await h.store.confirmDispatcherChatAction(claim)
+        let sent = await h.transport.executed
+        #expect(sent.count == 1)
+        #expect(sent.first?.kind == (interrupt ? .interrupt(agentID: target.agentID, sessionID: "visible-session") : .stop(agentID: target.agentID)))
+    }
 }

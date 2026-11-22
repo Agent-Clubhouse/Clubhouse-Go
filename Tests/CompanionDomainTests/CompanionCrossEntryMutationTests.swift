@@ -418,4 +418,129 @@ import Testing
         #expect(!h.store.pendingCommands.contains(target))
         try await retain("provider-no-op/\(kind)", h)
     }
+
+    @Test(arguments: [false, true])
+    func changingRuntimeRequiresNewIntentAndCannotUnlockHeldProviderEvidence(lostStart: Bool) async throws {
+        let h = try await start(.v2); defer { h.stop() }
+        try await select(.v2, h)
+        await h.transport.enqueue(.completed(try result(.v2, "applied")))
+        await h.transport.enqueue(.completed(try result(.v2, "savedDefaultsPreview")))
+        await save(.v2, h)
+        let flow = h.store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(flow.canStart)
+        if lostStart {
+            await h.transport.enqueue(.completed(try result(.v2, "savedDefaultsPreview")))
+            await h.transport.enqueue(.thrown(.commandOutcomeUnknown(commandID: "held-runtime-change")))
+            await flow.startNew()
+        }
+        let held = try #require(flow.lastApply)
+        let mutations = await h.transport.executed.filter { $0.type != "agent.providerPreview" }.map(\.commandID)
+        #expect(h.store.hasPendingProviderV2Action(target) == lostStart)
+        #expect(!h.store.hasPendingLegacyProviderAction(target))
+        #expect(h.store.providerV2Flow(for: target, requestedRuntime: "chat") === flow)
+        #expect(flow.preview == nil && !flow.canApply && !flow.canStart && flow.lastApply == held)
+        _ = h.store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(!flow.canStart, "Returning to an old runtime does not restore its old Start intent")
+        await h.transport.enqueue(.completed(try result(.v2, "savedDefaultsPreview")))
+        await flow.refresh()
+        #expect(flow.lastApply == held && !flow.canStart)
+        #expect(flow.canApply == !lostStart && flow.blocksMutations == lostStart)
+        #expect(await h.transport.executed.filter { $0.type != "agent.providerPreview" }.map(\.commandID) == mutations)
+        try await retain("coverage/runtime-intent/\(lostStart)", h)
+    }
+
+    @Test(arguments: ["different-agent", "missing-token"])
+    func changedRecoveryReadCannotCreateAConfirmationOrMutation(change: String) async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        await h.transport.pauseNextRead("dispatcherSettings")
+        let asking = Task { await h.store.askDispatcherRecoveryNewChat(target) }
+        try await h.waitUntil { await h.transport.isReadPaused("dispatcherSettings") }
+        let changed = try change == "different-agent"
+            ? replacing(dispatcherSettings(), "agentId", .string("replacement-dispatcher"))
+            : replacing(dispatcherSettings(), "clearChat", .object(["applies": .string("now")]))
+        await h.transport.setRead("dispatcherSettings", changed)
+        await h.transport.resumeRead("dispatcherSettings")
+        await asking.value
+        #expect(h.store.dispatcherResetPrompt == nil)
+        #expect(h.store.dispatcherResetNotices[target.hostID] == "This Dispatcher changed. Reopen its recovery controls and review it again.")
+        #expect(!h.store.dispatcherRecoveryPreparing.contains(target) && !h.store.pendingCommands.contains(target))
+        #expect(await h.transport.executed.isEmpty)
+        await h.transport.setRead("dispatcherSettings", try dispatcherSettings())
+        await h.store.askDispatcherRecoveryNewChat(target)
+        let fresh = try #require(h.store.dispatcherResetPrompt)
+        let claim = try #require(h.store.claimDispatcherRecoveryNewChat(fresh, target: target))
+        #expect(await h.transport.executed.isEmpty)
+        await h.transport.enqueue(.completed(.object(["cleared": .string("now")])))
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        await h.store.confirmDispatcherRecoveryNewChat(claim)
+        #expect(await h.transport.executed.count == 1)
+        try await retain("coverage/changed-recovery-read/\(change)", h)
+    }
+
+    @Test(arguments: [CompanionDispatcherReset.clearChat, .forgetEverything])
+    func aMissingDesktopConfirmationTokenNeverAuthorizesALegacyReset(reset: CompanionDispatcherReset) async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        let missing = try replacing(dispatcherSettings(), reset.rawValue, .object([:]))
+        await h.transport.setRead("dispatcherSettings", missing)
+        await h.store.askDispatcherReset(reset, hostID: target.hostID)
+        #expect(h.store.dispatcherResetPrompt == nil)
+        #expect(h.store.dispatcherResetNotices[target.hostID] == "This desktop didn't offer a confirmation for \(reset.action). Try again.")
+        #expect(await h.transport.executed.isEmpty)
+        await h.transport.setRead("dispatcherSettings", try dispatcherSettings())
+        await h.store.askDispatcherReset(reset, hostID: target.hostID)
+        let cancelled = try #require(h.store.dispatcherResetPrompt)
+        #expect(cancelled.reset == reset)
+        h.store.cancelDispatcherReset()
+        #expect(await h.transport.executed.isEmpty)
+        await h.store.askDispatcherReset(reset, hostID: target.hostID)
+        let confirmed = try #require(h.store.dispatcherResetPrompt)
+        let outcome: AnnexJSON = reset == .clearChat ? .object(["cleared": .string("now")]) : .object(["removed": .integer(1)])
+        await h.transport.enqueue(.completed(outcome))
+        await h.store.confirmDispatcherReset(confirmed)
+        #expect(await h.transport.executed.count == 1)
+        #expect(await h.transport.executed.first?.type == (reset == .clearChat ? "dispatcher.clearChat" : "dispatcher.forgetEverything"))
+        try await retain("coverage/missing-reset-token/\(reset)", h)
+    }
+
+    @Test func disconnectRefusesPreviouslyCapableDispatcherWritesWithoutClaimingThem() async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        await h.transport.enqueue(.completed(try dispatcherSettings()))
+        _ = try await h.store.updateDispatcher(.init(behavior: "light"), hostID: target.hostID)
+        let sent = await h.transport.executed.map(\.commandID)
+        #expect(sent.count == 1)
+        await h.transport.emit(.connection(.disconnected))
+        try await h.waitUntil { h.host?.connection.canOperate == false }
+        #expect(await serviceErrorText { _ = try await h.store.updateDispatcher(.init(behavior: "thorough"), hostID: target.hostID) }
+                == "Reconnect to your desktop to change the Dispatcher.")
+        #expect(await serviceErrorText { _ = try await h.store.setDispatcherModels(.byHand(true), hostID: target.hostID) }
+                == "Reconnect to your desktop to change the Dispatcher.")
+        #expect(!h.store.pendingCommands.contains(target))
+        #expect(await h.transport.executed.map(\.commandID) == sent)
+        try await retain("coverage/disconnected-dispatcher", h)
+    }
+
+    @Test func revokedSettingsCapabilityCannotReuseAPreviouslyValidReset() async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        await h.store.askDispatcherReset(.clearChat, hostID: target.hostID)
+        let held = try #require(h.store.dispatcherResetPrompt)
+        await h.transport.enqueue(.completed(try dispatcherSettings()))
+        _ = try await h.service.updateDispatcher(.init(behavior: "light"), hostID: target.hostID, clientCommandID: "capable-before-revocation")
+        let sent = await h.transport.executed.map(\.commandID)
+        #expect(sent.count == 1)
+        guard case .object(var feature)? = try ContractFixtures.body("capabilities.json")["dispatcher"] else { throw CancellationError() }
+        feature["enabled"] = .bool(true); feature["flagOn"] = .bool(true)
+        feature.removeValue(forKey: "settings")
+        await h.transport.setFeature("dispatcher", .object(feature))
+        try await h.refreshCatalog()
+        #expect(h.host?.canEditDispatcherSettings == false)
+        #expect(await serviceErrorText { _ = try await h.service.dispatcherSettings(hostID: target.hostID) } == CompanionDispatcherSettings.updateDesktop)
+        #expect(await serviceErrorText { _ = try await h.service.updateDispatcher(.init(behavior: "thorough"), hostID: target.hostID, clientCommandID: "blocked-update") } == CompanionDispatcherSettings.updateDesktop)
+        #expect(await serviceErrorText { _ = try await h.service.setDispatcherModels(.byHand(true), hostID: target.hostID, clientCommandID: "blocked-models") } == CompanionDispatcherSettings.updateDesktop)
+        #expect(await serviceErrorText { _ = try await h.service.resetDispatcher(held, clientCommandID: "blocked-reset") } == CompanionDispatcherSettings.updateDesktop)
+        await h.store.confirmDispatcherReset(held)
+        #expect(h.store.dispatcherResetNotices[target.hostID] == CompanionDispatcherSettings.updateDesktop)
+        #expect(!h.store.dispatcherResetting.contains(target.hostID) && !h.store.pendingCommands.contains(target))
+        #expect(await h.transport.executed.map(\.commandID) == sent)
+        try await retain("coverage/revoked-settings-capability", h)
+    }
 }
