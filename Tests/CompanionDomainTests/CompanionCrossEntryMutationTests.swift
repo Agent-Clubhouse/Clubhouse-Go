@@ -55,11 +55,7 @@ import Testing
             await transport.setRead("dispatcherSettings", settings)
             await transport.setRead("chat", LiveServiceHarness.chatSnapshot(fields: ["state": .string("sleeping")]))
         }
-        await h.transport.emit(h.snapshotEvent(["dispatcher": .object([
-            "enabled": .bool(true), "flagOn": .bool(true), "projectId": .string(target.projectID),
-            "agent": .object(["id": .string(target.agentID), "name": .string("Navi"), "kind": .string("durable"),
-                              "status": .string("sleeping"), "orchestrator": .string("claude-code"),
-                              "projectId": .string(target.projectID), "isDispatcher": .bool(true)])])]))
+        await dispatcherSnapshot(h, enabled: true)
         try await h.waitUntil { h.store.agent(for: target)?.isSleepingOnDesktop == true }
         await h.store.load(target)
         #expect(h.store.canEditSettings(target) && h.store.canEditDispatcherSettings(hostID: target.hostID))
@@ -67,6 +63,13 @@ import Testing
         #expect(offered.model.canEdit(sleeping: true))
         #expect(try await !h.store.loadDispatcherSettings(hostID: target.hostID).notHonored.contains("model"))
         return h
+    }
+    private func dispatcherSnapshot(_ h: LiveServiceHarness, enabled: Bool) async {
+        await h.transport.emit(h.snapshotEvent(["dispatcher": .object([
+            "enabled": .bool(enabled), "flagOn": .bool(true), "projectId": .string(target.projectID),
+            "agent": enabled ? .object(["id": .string(target.agentID), "name": .string("Navi"), "kind": .string("durable"),
+                              "status": .string("sleeping"), "orchestrator": .string("claude-code"),
+                              "projectId": .string(target.projectID), "isDispatcher": .bool(true)]) : .null])]))
     }
     private func select(_ provider: Provider, _ h: LiveServiceHarness) async throws {
         await h.transport.enqueue(.completed(try result(provider)))
@@ -321,5 +324,76 @@ import Testing
         #expect(await saving.value == .none)
         #expect(!h.store.pendingCommands.contains(target))
         try await retain("dispatcher-settings-reservation/\(models)", h)
+    }
+
+    private func settingsWrite(_ kind: String, _ h: LiveServiceHarness) async -> ServiceErrorKind {
+        await serviceErrorKind {
+            switch kind {
+            case "dispatcher": _ = try await h.store.updateDispatcher(.init(behavior: "light"), hostID: target.hostID)
+            case "models": _ = try await h.store.setDispatcherModels(.byHand(true), hostID: target.hostID)
+            default: _ = try await h.store.updateSettings(.init(model: "default"), target: target)
+            }
+        }
+    }
+    private func disableAndReenable(_ h: LiveServiceHarness) async throws {
+        await dispatcherSnapshot(h, enabled: false)
+        try await h.waitUntil { h.host?.dispatcher?.enabled == false && h.store.agent(for: target) == nil }
+        #expect(!h.store.pendingCommands.contains(target), "Existing target cleanup remains effective")
+        await dispatcherSnapshot(h, enabled: true)
+        try await h.waitUntil { h.store.agent(for: target)?.isSleepingOnDesktop == true }
+    }
+
+    @Test(arguments: ["generic", "dispatcher", "models"])
+    func oldWriterCannotReleaseANewerReservationAfterDispatcherReplacement(kind: String) async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        let receipt = kind == "generic" ? agentSettings : try dispatcherSettings()
+        await h.transport.enqueue(.heldCompleted(receipt))
+        let a = Task { await settingsWrite(kind, h) }
+        try await h.waitUntil { await h.transport.executed.count == 1 }
+        let aID = try #require(await h.transport.executed.first?.commandID)
+        try await disableAndReenable(h)
+        await h.transport.enqueue(.heldCompleted(receipt))
+        let b = Task { await settingsWrite(kind, h) }
+        try await h.waitUntil { await h.transport.executed.count == 2 }
+        let bID = try #require(await h.transport.executed.last?.commandID)
+        #expect(aID != bID && h.store.pendingCommands.contains(target))
+        await h.transport.releaseCommand(commandID: aID)
+        _ = await a.value
+        #expect(h.store.pendingCommands.contains(target), "A cannot release B's reservation")
+        #expect(await settingsWrite("generic", h) != .none)
+        #expect(await h.transport.executed.count == 2)
+        try await retain("replacement/\(kind)/B-still-held", h)
+        await h.transport.releaseCommand(commandID: bID)
+        #expect(await b.value == .none)
+        #expect(!h.store.pendingCommands.contains(target))
+        #expect(await settingsWrite("generic", h) == .none)
+        #expect(await h.transport.executed.count == 3)
+        try await retain("replacement/\(kind)/after-B-and-unlocked", h)
+    }
+
+    @Test func invalidatedSameProviderReadCannotForwardAWriteIntoANewerReservation() async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        await h.transport.pauseNextRead("agentSettings")
+        let a = Task { await serviceErrorKind {
+            _ = try await h.store.updateSettings(.init(orchestrator: "claude-code", model: "default"), target: target)
+        } }
+        try await h.waitUntil { await h.transport.isReadPaused("agentSettings") }
+        try await disableAndReenable(h)
+        await h.transport.enqueue(.heldCompleted(agentSettings))
+        let b = Task { await settingsWrite("generic", h) }
+        try await h.waitUntil { await h.transport.executed.count == 1 }
+        let bID = try #require(await h.transport.executed.first?.commandID)
+        await h.transport.resumeRead("agentSettings")
+        #expect(await a.value != .none)
+        #expect(await h.transport.executed.map(\.commandID) == [bID], "A's invalidated read must forward zero writes")
+        #expect(h.store.pendingCommands.contains(target))
+        #expect(await settingsWrite("generic", h) != .none)
+        #expect(await h.transport.executed.map(\.commandID) == [bID])
+        try await retain("invalidated-read/B-still-held", h)
+        await h.transport.releaseCommand(commandID: bID)
+        #expect(await b.value == .none)
+        #expect(await settingsWrite("generic", h) == .none)
+        #expect(await h.transport.executed.count == 2)
+        try await retain("invalidated-read/after-B-and-unlocked", h)
     }
 }
