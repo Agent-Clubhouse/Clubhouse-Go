@@ -263,13 +263,10 @@ import XCTest
         XCTAssertEqual(composer.value as? String, "Permission menu draft")
     }
 
+    /// Native menu rows aren't themed: their frames matched across Light, Dark, Latte and Mocha in every sampled CI
+    /// run, so one theme measures the geometry. The Dark, Latte and Mocha screens are no longer checked natively here.
     func testPortraitEveryLevelFitsWithoutScrollingAcrossThemes() {
-        for (name, flags) in [
-            ("Light", ["--companion-header-light"]),
-            ("Dark", []),
-            ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
-            ("Catppuccin Mocha", ["--companion-header-mocha"]),
-        ] {
+        for (name, flags) in [("Light", ["--companion-header-light"])] {
             let app = openMenu(flags)
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))
@@ -289,13 +286,9 @@ import XCTest
         }
     }
 
+    /// As above at XLarge, in Catppuccin Mocha only, so a dark theme is still exercised natively.
     func testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes() {
-        for (name, theme) in [
-            ("Light", ["--companion-header-light"]),
-            ("Dark", []),
-            ("Catppuccin Latte", ["--companion-header-latte", "--companion-header-light"]),
-            ("Catppuccin Mocha", ["--companion-header-mocha"]),
-        ] {
+        for (name, theme) in [("Catppuccin Mocha", ["--companion-header-mocha"])] {
             let app = openMenu(theme + ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryXL"])
             let full = app.buttons["companion-level-full_access"]
             XCTAssertTrue(waitFor(full, NSPredicate(format: "hittable == true"), timeout: 5))

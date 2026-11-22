@@ -70,15 +70,29 @@ import ClubhouseTransport
         self.feedbackPresenter = CompanionFeedbackPresenter(model: self.feedback)
         self.registry = registry
         // Integration runs keep their sort, order and theme choices out of the real app's defaults.
+        #if DEBUG
+        let testState = CompanionSceneTestSupport.makeStoreAndPreferences?()
+        self.preferences = testState?.preferences ?? (persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard))
+        #else
         self.preferences = persistsDrafts ? CompanionPreferences() : CompanionPreferences(defaults: UserDefaults(suiteName: "companion-integration") ?? .standard)
+        #endif
         let service = CompanionLiveService()
         self.service = service
         self.lifecycle = CompanionLifecycle { active in
             if active { await service.resume() }
             else { await service.suspend() }
         }
+        #if DEBUG
+        if let testState {
+            self.store = testState.store
+        } else {
+            self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
+                                        finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)
+        }
+        #else
         self.store = CompanionStore(service: service, draftPersistence: persistsDrafts ? CompanionLocalDrafts() : nil,
                                     finishedPersistence: persistsDrafts ? CompanionLocalFinished() : nil)
+        #endif
         #if DEBUG
         CompanionSceneTestSupport.didCreateRuntime?(self)
         #endif
@@ -285,10 +299,6 @@ struct CompanionAppRoot: View {
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
 
-    private func openSettings() {
-        $settingsCapture.releasingFeedbackScreenshot.wrappedValue = CompanionFeedbackSettingsCapture(window: CompanionFeedbackPresenter.keyWindow())
-    }
-
     init(runtimeLifetime: CompanionStateLifetime<CompanionRuntime>) {
         self.runtimeLifetime = runtimeLifetime
         #if DEBUG
@@ -386,18 +396,6 @@ struct CompanionAppRoot: View {
                     await feedback.tick()
                     runtime.appTelemetry?.tick()
                     do { try await Task.sleep(for: .seconds(15)) } catch { return }
-                }
-            }
-            .safeAreaInset(edge: .bottom) {
-                // Only when the person must act. Offline is temporary: reports stay queued and
-                // retry on their own, and Settings shows the state.
-                if let feedback = runtime.feedback, let status = feedback.status,
-                   status.canSubmit && [.expired, .accessRequired].contains(status.access) {
-                    Button("Feedback needs a new invitation. Reports stay on this device. Open Settings.") {
-                        CompanionUIActions.record(.openSettings, on: .feedbackPrompt)
-                        openSettings()
-                    }
-                        .font(.caption).padding(8).frame(maxWidth: .infinity).background(.regularMaterial)
                 }
             }
             // A recreated root must apply its current phase to the surviving runtime,
