@@ -15,8 +15,8 @@ SOURCE = ROOT / 'Annex/AnnexUITests/CompanionHeaderReflowUITests.swift'
 class HeaderSamplerControls(unittest.TestCase):
     def test_same_tree_scope_and_transient_geometry(self):
         source = SOURCE.read_text()
-        frames = source[source.index('    private func frames(in root:'):source.index('    /// The real identity,')]
-        scope = source[source.index('    private func scopeMatches(in root:'):source.index('    enum Disturbance')]
+        frames = source[source.index('    private func frames(in root:'):source.index('    /// Outside the observation')]
+        scope = source[source.index('    private func scopeMatches(in root:'):source.index('    private struct ProbeControl')]
         geometry = source[source.index('            var problems: [String] = []'):source.index('            if !problems.isEmpty')]
         code = '''import Foundation
 import CoreGraphics
@@ -96,3 +96,76 @@ print("same-tree menu/back scope, missing/ambiguous/outside guards, transient an
 
 if __name__ == '__main__':
     unittest.main()
+
+@unittest.skipUnless(sys.platform == 'darwin' and shutil.which('swiftc'),
+                     'Extracted CoreGraphics recorder controls require a Mac')
+class HeaderDisplayRecordControls(unittest.TestCase):
+    def test_distinct_window_phase_grace_and_transient_negative_control(self):
+        source = SOURCE.read_text()
+        types = source[source.index('    private struct ProbeControl'):source.index('    private func nativeFrames')]
+        frames = source[source.index('    private func nativeFrames'):source.index('    private func crossCheck')]
+        inspect = source[source.index('    private func inspect'):source.index('    enum Disturbance')]
+        code = 'import Foundation\nimport CoreGraphics\nstruct Frames { let identity: CGRect; let actions: CGRect; let leading: CGRect? }\n'
+        code += (types + frames + inspect).replace('private struct', 'struct').replace('private func', 'func')
+        code += '''
+let screen = CGRect(x: 0, y: 0, width: 400, height: 800)
+let phases = [Phase(start: 4, end: 5), Phase(start: 8, end: 9)]
+func row(_ n: Int, _ status: String = "ok", _ x: Double = 140, _ time: Double? = nil, _ streaming: Bool = true) -> ProbeRecord {
+    let t = Double(n)/100
+    let controls = [
+        "companion-chat-header": ProbeControl(identifier: "companion-chat-header", label: "identity", rect: [x, 60, 120, 44]),
+        "companion-chat-header-actions": ProbeControl(identifier: "companion-chat-header-actions", label: "actions", rect: [304, 60, 88, 44]),
+        "header-fixture-menu": ProbeControl(identifier: "header-fixture-menu", label: "fixture", rect: [8, 60, 44, 44])]
+    return ProbeRecord(sequence: n+1, timestamp: time ?? t, captureStarted: t+0.001, captureEnded: t+0.002,
+                       status: status, streaming: streaming, controls: controls,
+                       matchCounts: controls.mapValues { _ in 1 }, duplicateNodes: 0, scanLimited: false)
+}
+func inspectRows(_ rows: [ProbeRecord]) -> Inspection {
+    inspect(rows, start: 0, end: 14, phases: phases, screen: screen, leadingID: "header-fixture-menu")
+}
+let good = (0..<1400).map { row($0) }
+let baseline = inspectRows(good)
+precondition(baseline.samples == 1200 && baseline.during == 200 && baseline.missing == 0 && baseline.violations.isEmpty)
+var displaced = good
+// A genuine one-tick2pt displacement outside a disturbance must fail the
+// original off-centre oracle; no averaging or stable-frame filtering allowed.
+displaced[250] = row(250, "ok", 142)
+precondition(inspectRows(displaced).violations.count == 1)
+displaced[250] = row(250)
+displaced[450] = row(450, "ok", 142)
+precondition(inspectRows(displaced).violations.isEmpty && inspectRows(displaced).during == 200)
+var missing = good
+missing[520] = row(520, "missing") // inside the original1s post-disturbance grace
+precondition(inspectRows(missing).missing == 0)
+missing[620] = row(620, "missing")
+precondition(inspectRows(missing).missing == 1)
+var duplicate = good
+duplicate[650] = row(650, "ok", 140, 6.49)
+precondition(inspectRows(duplicate).duplicate == 1 && inspectRows(duplicate).samples == 1199)
+var ambiguous = good
+ambiguous[650] = row(650, "ambiguous")
+precondition(inspectRows(ambiguous).ambiguous == 1 && inspectRows(ambiguous).samples == 1199)
+var stoppedStream = good
+stoppedStream[650] = row(650, "ok", 140, nil, false)
+precondition(inspectRows(stoppedStream).invalid == 1)
+precondition(inspectRows(Array(good.prefix(99))).samples == 99)
+// Cross-channel equality is four finite edge ULPs, never pixel tolerance.
+let a = CGRect(x: 140, y: 60, width: 120, height: 44)
+precondition(sameFrame(a,a))
+var four = CGFloat(140)
+for _ in 0..<4 { four = four.nextUp }
+precondition(sameFrame(a, CGRect(x: four, y: 60, width: 120, height: 44)))
+precondition(!sameFrame(a, CGRect(x: four.nextUp, y: 60, width: 120, height: 44)))
+precondition(!sameFrame(a, CGRect(x: 142, y: 60, width: 120, height: 44)))
+precondition(!sameFrame(a, CGRect(x: CGFloat.nan, y: 60, width: 120, height: 44)))
+print("actual record inspector: window, distinct ticks, phase, grace, transient, ambiguity, stream and edge controls passed")
+'''
+        with tempfile.TemporaryDirectory() as directory:
+            swift = Path(directory)/'controls.swift'
+            swift.write_text(code)
+            binary = Path(directory)/'controls'
+            result = subprocess.run(['swiftc', str(swift), '-o', str(binary)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            run = subprocess.run([str(binary)], capture_output=True, text=True)
+            self.assertEqual(run.returncode, 0, run.stderr)
+            self.assertIn('edge controls passed', run.stdout)

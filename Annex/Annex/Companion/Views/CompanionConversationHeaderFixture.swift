@@ -14,6 +14,8 @@ struct CompanionConversationHeaderFixture: View {
     @State private var ready = false
     @State private var imageVersion = 0
     @State private var activityStep = 0
+    @State private var displayProbeStream = 0
+    @State private var headerStreamActive = false
     /// The feedback screenshot path's own render of the window, shown over it for comparison.
     @State private var feedbackCapture: UIImage?
     private let target = CompanionPreviewService.target
@@ -70,7 +72,18 @@ struct CompanionConversationHeaderFixture: View {
     private var isLight: Bool { arguments.contains("--companion-header-light") }
 
 
-    var body: some View {
+    @ViewBuilder var body: some View {
+        if arguments.contains("--companion-header-display-probe") {
+            fixtureContent.overlay(alignment: .bottomTrailing) {
+                CompanionHeaderDisplayProbe(beginStream: { displayProbeStream += 1 }, streaming: headerStreamActive)
+                    .frame(width: 44, height: 44).padding(12)
+            }
+        } else {
+            fixtureContent
+        }
+    }
+
+    private var fixtureContent: some View {
         NavigationStack {
             Group {
                 if pushed {
@@ -189,15 +202,27 @@ struct CompanionConversationHeaderFixture: View {
             if arguments.contains("--companion-header-synchronizing") { host.connection = .synchronizing }
             store.apply(.hosts([host]))
             ready = true
-            // `--companion-header-stream` (#554): a reply grows and the context ring moves, four ticks a second for 20s.
-            guard arguments.contains("--companion-header-stream") else { return }
-            for tick in 1...80 {
-                try? await Task.sleep(for: .milliseconds(250))
-                store.apply(.upsert(target, .message(.init(id: "header-fixture-stream", role: .assistant,
-                    text: String(repeating: "Streaming reply chunk. ", count: tick))), sequence: nil))
-                host.projects[0].agents[0].contextUsage = .init(used: 40_000 + 1_000 * tick, size: 200_000, reportedAt: .now)
-                store.apply(.hosts([host]))
-            }
+            if !arguments.contains("--companion-header-display-probe") { await streamHeader() }
+        }
+        .task(id: displayProbeStream) {
+            // Only the explicit opt-in fixture control aligns this same20s stream
+            // after slow hosted launch/readiness. Ordinary launches keep the old start.
+            guard ready, displayProbeStream > 0, arguments.contains("--companion-header-display-probe") else { return }
+            await streamHeader()
+        }
+    }
+
+    private func streamHeader() async {
+        // `--companion-header-stream` (#554): the same80 events, four ticks/sec for20s.
+        guard arguments.contains("--companion-header-stream"), var host = store.host(for: target.hostID) else { return }
+        headerStreamActive = true
+        defer { headerStreamActive = false }
+        for tick in 1...80 {
+            try? await Task.sleep(for: .milliseconds(250))
+            store.apply(.upsert(target, .message(.init(id: "header-fixture-stream", role: .assistant,
+                text: String(repeating: "Streaming reply chunk. ", count: tick))), sequence: nil))
+            host.projects[0].agents[0].contextUsage = .init(used: 40_000 + 1_000 * tick, size: 200_000, reportedAt: .now)
+            store.apply(.hosts([host]))
         }
     }
 
