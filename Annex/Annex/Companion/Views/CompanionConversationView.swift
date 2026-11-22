@@ -490,8 +490,8 @@ struct CompanionConversationView: View {
 
     private struct CompanionCompactOtherAgentBannerStyle: ButtonStyle {
         func makeBody(configuration: Configuration) -> some View {
+            // The label already owns the 44pt minimum; extra vertical chrome obscured Earlier with Latest.
             configuration.label
-                .padding(.vertical, 4)
                 .companionCardGlass(Capsule(), interactive: true)
                 .opacity(configuration.isPressed ? 0.7 : 1)
         }

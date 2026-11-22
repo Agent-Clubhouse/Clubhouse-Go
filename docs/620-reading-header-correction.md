@@ -175,3 +175,58 @@ lost owners and leading/header fallback. The same tests do not prove native AX
 identity or cadence. Parent owns the next reviewed hosted candidate, actual
 strict Reading result, all four menu invocations and five Header sample counts.
 No retry, deadline, gate, workflow or optional #629 optimization is changed.
+
+## Remaining overlap on 2146 and unchanged runtime blockers
+
+On run 45063908824, Scope4 job 137349224622, XXXL Reading still failed all
+three attempts at the unchanged line 59 (23.996, 44.978, 34.304 seconds); SE
+first passed in 23.088 seconds. The three late single-snapshot diagnostics again
+agree on the relevant rectangles: banner `(16,124,370,110.6666565)`, Earlier
+`(54.6667,264.6846517,292.6667,102.3333333)`, Latest
+`(90.3333,362.6666565,221.3333130,58.6666870)`, and two identical track records
+`(369,240.6486816,30,188.6846517)`. Each record independently satisfies Earlier
+containment, track below banner, and the banner's 44-point size requirement.
+Only Latest nonoverlap fails: the vertical intersection is 4.3513285 points.
+Live hittability was queried separately; these teardown snapshots support the
+failure and do not claim to capture its exact assertion instant.
+
+The compact nonkeyboard accessibility style removes only its explicit four
+points of top and bottom padding. The label already owns a minimum 44-point
+target; its full caption-scaled name/status, unbounded nonkeyboard text, symbol,
+actual destination, accessibility values, palette-backed glass and pressed
+feedback are unchanged. Keyboard native glass and regular/full banners are
+unchanged. The complete Reading predicate and every native test remain exact.
+If all other layout remains fixed, removing eight points predicts a 3.6486715
+point gap. That is an estimate, not measured candidate clearance or a native
+pass. The original full-containment/nonoverlap/target assertions must pass.
+
+Header remains an open cadence blocker, with no further source change. All 15
+attempts failed the minimum count: first counts 45/34/30/50/27, all attempts
+4–55. Every record has zero whole-app fallback, snapshot-request count equal to
+sample count and the expected native bar identifier. Leading's third activity
+tree has four real bar requests; query-to-next-action intervals total 7.022s,
+two drag intervals total 9.024s and two in-window rebindings total 1.627s. Those
+intervals account for its observed 17.673s window, including a blocking call
+overshoot of the requested 14 seconds. They are not isolated CPU durations or a
+proof of universal impossibility. No missed owner or stale-frame cause is
+established. Counts are not interpolated, requests are not credited as extra
+samples, and no further timing adjustment, recorder, threshold or #629 change
+is proposed without supporting evidence.
+
+Scope5 job 137349224676 preserves three menu first passes: XXXL light 219.006s,
+standard dark 177.147s and standard light 205.898s. XXXL dark failed in 306.551s
+at line 50, refusing the Cedar lookup after the budget expired. The activity
+trace records app Open at 4.941s and foreground at 97.356s (92.415s interval),
+including Launch-to-automation-setup at approximately 4.94→89.56s (84.62s).
+This startup/setup cost counts toward the existing 240-second allowance. The
+run reached Juniper's actual menu and Details/Done/Home; Cedar is unreached,
+not a failed Cedar destination. The retry was interrupted by runner restart.
+Its complete source and both-target requirement are unchanged. No product
+cause or supported local correction for that startup latency is established;
+resetting the clock, removing Cedar, extending the allowance or blindly rerunning
+would not close this blocker.
+
+Parent retains the precise Header/menu blockers and the three historical menu
+passes separately from the narrow Reading correction. No new CI, native app or
+simulator run is submitted here. Publication and candidate device proof remain
+parent-owned.
