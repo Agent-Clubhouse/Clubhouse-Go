@@ -73,10 +73,42 @@ import UIKit
         XCTAssertFalse(hiddenKeyboard.isClose(to: reference))
     }
 
+    /// The same public facts as `anchor.exists/frame`, `transcriptViewport` and the first keyboard,
+    /// read from ONE hierarchy snapshot. The anchor key resolves like `app.staticTexts[key]`
+    /// (identifier or label); more than one match fails exactly as an ambiguous live query would.
+    private func observeRestoration(anchorKey: String, in app: XCUIApplication,
+                                    file: StaticString, line: UInt) -> (anchor: CGRect?, viewport: CGRect, keyboard: CGRect?)? {
+        let root: XCUIElementSnapshot
+        do { root = try app.snapshot() } catch { return nil }
+        var anchors: [XCUIElementSnapshot] = []
+        var navigation: XCUIElementSnapshot?, composer: XCUIElementSnapshot?, keyboard: XCUIElementSnapshot?
+        func visit(_ node: XCUIElementSnapshot) {
+            if node.elementType == .staticText && (node.identifier == anchorKey || node.label == anchorKey) { anchors.append(node) }
+            if navigation == nil && node.elementType == .navigationBar { navigation = node }
+            if composer == nil && node.identifier == "companion-composer-region" { composer = node }
+            if keyboard == nil && node.elementType == .keyboard { keyboard = node }
+            node.children.forEach(visit)
+        }
+        visit(root)
+        if anchors.count > 1 {
+            XCTFail("The reading anchor \"\(anchorKey)\" must identify one element, found \(anchors.count)", file: file, line: line)
+        }
+        // A missing bar fails like the live frame query it replaces, and never forms a viewport.
+        guard let navigation, let composer else {
+            XCTFail("The transcript viewport needs the navigation bar and composer region", file: file, line: line)
+            return (anchors.count == 1 ? anchors[0].frame : nil, .zero, keyboard?.frame)
+        }
+        let top = navigation.frame.maxY
+        let bottom = composer.frame.minY
+        let window = root.frame
+        let viewport = CGRect(x: window.minX, y: top, width: window.width, height: max(0, bottom - top))
+        return (anchors.count == 1 ? anchors[0].frame : nil, viewport, keyboard?.frame)
+    }
+
     /// Existence precedes the asynchronous bookmark restore. Observe public frames for
     /// longer than its two-second budget; never wait for the expected bookmark itself.
-    /// A settled wrong position must still fail the unchanged six-point assertion.
-    private func waitForReadingRestoration(_ anchor: XCUIElement, in app: XCUIApplication, context: String,
+    /// A settled wrong position must still fail the unchanged pixel-offset assertion.
+    private func waitForReadingRestoration(_ anchor: XCUIElement, key: String, in app: XCUIApplication, context: String,
                                            file: StaticString = #filePath, line: UInt = #line) -> Bool {
         let start = ProcessInfo.processInfo.systemUptime
         let timeout: TimeInterval = 8
@@ -91,13 +123,20 @@ import UIKit
             add(trace)
             screenshot(app, "\(context) restoration readiness")
         }
+        // One native hierarchy snapshot per poll. Separate exists/frame queries each rebuilt the
+        // whole hierarchy, so a hosted 8-second window held only about four polls (#620 L10).
         while ProcessInfo.processInfo.systemUptime - start < timeout {
             checkTimeLeft("waiting for \(context) reading restoration", file: file, line: line)
-            let exists = anchor.exists
-            let frame = exists ? anchor.frame : .zero
-            let viewport = transcriptViewport(app)
-            let keyboard = app.keyboards.firstMatch
-            let keyboardFrame = keyboard.exists ? keyboard.frame : nil
+            guard let observed = observeRestoration(anchorKey: key, in: app, file: file, line: line) else {
+                samples.append("t=\(ProcessInfo.processInfo.systemUptime - start) snapshot unavailable")
+                stableSince = nil; stableFrames = nil
+                RunLoop.current.run(until: Date().addingTimeInterval(0.1))
+                continue
+            }
+            let exists = observed.anchor != nil
+            let frame = observed.anchor ?? .zero
+            let viewport = observed.viewport
+            let keyboardFrame = observed.keyboard
             let now = ProcessInfo.processInfo.systemUptime
             let current = ReadingRestoreFrames(anchor: frame, viewport: viewport, keyboard: keyboardFrame)
             let ready = exists && !frame.isEmpty && !viewport.isEmpty
@@ -378,12 +417,20 @@ import UIKit
             XCTFail("A reading entry must intersect the viewport"); return
         }
         // A bound-by-index query changes identity when history is prepended. Re-query the same marker by label.
-        let anchor = app.staticTexts[candidate.label]
+        let markerLabel = candidate.label
+        let anchor = app.staticTexts[markerLabel]
         let before = anchor.frame.minY
+        let prependStarted = ProcessInfo.processInfo.systemUptime
         earlier.tap()
         XCTAssertTrue(waitFor(anchor, NSPredicate(format: "exists == true"), timeout: 5))
-        RunLoop.current.run(until: Date().addingTimeInterval(2))
-        XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, "Prepending history preserves the visible entry's pixel offset")
+        guard waitForReadingRestoration(anchor, key: markerLabel, in: app, context: "History prepend") else { return }
+        let after = anchor.frame.minY
+        let elapsed = ProcessInfo.processInfo.systemUptime - prependStarted
+        let measurements = XCTAttachment(string: "marker=\(markerLabel) before=\(before) after=\(after) elapsed=\(elapsed) displacement=\(after - before) limit=4")
+        measurements.name = "History prepend stabilized four-point measurements"
+        measurements.lifetime = .keepAlways
+        add(measurements)
+        XCTAssertEqual(after, before, accuracy: 4, "Prepending history preserves the visible entry's pixel offset")
         RunLoop.current.run(until: Date().addingTimeInterval(3))
         XCTAssertEqual(anchor.frame.minY, before, accuracy: 4, "Streaming later content must not pull the reader down")
 
@@ -396,12 +443,12 @@ import UIKit
         app.buttons.matching(NSPredicate(format: "label == %@", "Search")).firstMatch.tap()
         app.buttons.matching(NSPredicate(format: "label == %@", "Home")).firstMatch.tap()
         openRiver(app)
-        guard waitForReadingRestoration(anchor, in: app, context: "Tab return") else { return }
+        guard waitForReadingRestoration(anchor, key: markerLabel, in: app, context: "Tab return") else { return }
         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Tab return preserves the reader's place")
 
         app.navigationBars.buttons.element(boundBy: 0).tap()
         openRiver(app)
-        guard waitForReadingRestoration(anchor, in: app, context: "Chat reopen") else { return }
+        guard waitForReadingRestoration(anchor, key: markerLabel, in: app, context: "Chat reopen") else { return }
         XCTAssertEqual(anchor.frame.minY, returned, accuracy: 6, "Leaving and reopening restores the entry bookmark")
         navigateToChatEnd(app)
         XCTAssertFalse(latest.exists, "Returning to the true bottom resumes following")

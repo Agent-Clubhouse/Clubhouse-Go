@@ -148,8 +148,29 @@ jobs:
             !.build/*/*/codecov
           key: swiftpm-build-cov-${{ runner.os }}-${{ steps.xcode.outputs.xcode }}-${{ hashFiles('Package.swift', 'Package.resolved') }}
 
+      - name: Report Swift test toolchain
+        shell: bash {0}
+        run: |
+          set -euo pipefail
+          {
+            swift --version
+            xcodebuild -version
+            sw_vers
+          } 2>&1 | tee swift-test-toolchain.log
+
       - name: Test transport package
-        run: swift test --enable-code-coverage
+        shell: bash {0}
+        run: |
+          set -euo pipefail
+          set +e
+          swift test --enable-code-coverage --xunit-output swift-package-results.xml 2>&1 | tee swift-package-tests.log
+          statuses=("${PIPESTATUS[@]}")
+          set -e
+          # Preserve the test's own failure if the receipt writer also fails.
+          if [ "${statuses[0]}" -ne 0 ]; then
+            exit "${statuses[0]}"
+          fi
+          exit "${statuses[1]}"
 
       # Same run as above; fails only if a target drops below coverage-baseline.json.
       - name: Check coverage ratchet
@@ -167,6 +188,17 @@ jobs:
 
       - name: Test bundled Framebriar package
         run: swift test --package-path Vendor/Framebriar
+
+      - name: Upload original package test receipts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: swift-package-test-receipts
+          path: |
+            swift-test-toolchain.log
+            swift-package-tests.log
+            swift-package-results*.xml
+          retention-days: 7
 
   build:
     name: Build for testing

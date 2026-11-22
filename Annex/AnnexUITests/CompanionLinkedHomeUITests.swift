@@ -110,13 +110,28 @@ import XCTest
         XCTAssertFalse(cached.isEnabled)
         XCTAssertFalse(app.buttons.matching(identifier: "agent-preview-laptop-river").firstMatch.exists)
         capture(app, "Linked Home cached Laptop rows are dimmed and non-actionable")
+        XCTAssertEqual(offline.value as? String, "Expanded")
         app.tabBars.buttons["Search"].tap()
+        XCTAssertTrue(app.navigationBars["Search"].waitForExistence(timeout: 5)
+                      && app.searchFields["Agents, tasks and projects"].exists,
+                      "The active Search destination must expose its native title and search field")
         app.tabBars.buttons["Home"].tap()
+        XCTAssertTrue(waitFor(app.tabBars.buttons["Home"], NSPredicate(format: "selected == true"), timeout: 5))
+        XCTAssertTrue(app.navigationBars["Clubhouse"].waitForExistence(timeout: 5))
+        // Home's foreground List is recreated on tab return. Reveal its existing fold without
+        // tapping it, so viewport virtualization cannot masquerade as a collapsed disclosure.
+        reveal(offline, in: app)
+        XCTAssertEqual(offline.value as? String, "Expanded", "The existing disclosure must survive tab changes; do not expand it again")
+        XCTAssertTrue(scrollUntilExists(cached, in: app), "Materialize the disabled cached row without requiring a hit target")
         XCTAssertTrue(cached.exists, "Expansion survives tab changes for this session")
+        XCTAssertFalse(cached.isEnabled)
+        XCTAssertFalse(app.buttons.matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch.exists)
+        capture(app, "Linked Home returned session retains the expanded read-only cached row")
         app.terminate()
         let relaunched = launchApp(base, attempts: 1)
         let collapsed = relaunched.buttons["project-machine-preview-laptop-notes"]
         reveal(collapsed, in: relaunched)
+        XCTAssertEqual(collapsed.value as? String, "Collapsed", "A new app session must reset the native disclosure state")
         XCTAssertFalse(relaunched.descendants(matching: .any).matching(identifier: "cached-agent-preview-laptop-notes-river").firstMatch.exists,
                        "Expansion is never persisted across launches")
         capture(relaunched, "Linked Home offline machine starts collapsed after relaunch")

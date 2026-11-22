@@ -9,9 +9,41 @@ import XCTest
 @MainActor final class CompanionHeaderReflowUITests: ReliableUITestCase {
     private struct Frames { let identity: CGRect; let actions: CGRect; let leading: CGRect? }
 
+    /// Whole-app snapshots that a sample needed because the navigation bar alone lacked one of its elements.
+    private var wholeAppSamples = 0
+    private var barSnapshotRequests = 0
+    private var sampledBarIdentities: Set<String> = []
+
+    /// Bind a real AX element once per route phase, not a repeated first-match search per sample.
+    /// Missing/ambiguous owners use the existing whole-app fallback; no frame or snapshot is cached.
+    private func bindCurrentHeaderBar(_ app: XCUIApplication) -> XCUIElement? {
+        let owners = app.navigationBars.containing(.button, identifier: "companion-chat-header")
+            .allElementsBoundByAccessibilityElement
+        return owners.count == 1 ? owners[0] : nil
+    }
+
     /// One accessibility snapshot per sample, so a sample is a single moment rather than several queries apart.
-    private func frames(_ app: XCUIApplication, leadingID: String?) -> Frames? {
+    ///
+    /// The snapshot is the navigation bar's subtree. Every header element lives there, but a whole-app snapshot also
+    /// serialises the streaming transcript; on hosted runners that took 0.3–1s a sample and left 9–35 samples in
+    /// the 14s window. When the bar's subtree lacks the name, the actions pill or the leading item (no bar during a
+    /// transition, a second bar, a header moved elsewhere), the same sample is retaken from a whole-app snapshot,
+    /// so absence still means absent from the whole app, exactly as before.
+    private func frames(_ app: XCUIApplication, bar: XCUIElement?, leadingID: String?) -> Frames? {
+        if let bar {
+            barSnapshotRequests += 1
+            // Always ask the SDK for a fresh tree, even when its owner has not changed.
+            if let snapshot = try? bar.snapshot(), let f = frames(in: snapshot, leadingID: leadingID) {
+                sampledBarIdentities.insert(snapshot.identifier)
+                return f
+            }
+        }
+        wholeAppSamples += 1
         guard let root = try? app.snapshot() else { return nil }
+        return frames(in: root, leadingID: leadingID, requireLeading: false)
+    }
+
+    private func frames(in root: XCUIElementSnapshot, leadingID: String?, requireLeading: Bool = true) -> Frames? {
         var found: [String: CGRect] = [:]
         var back: CGRect?
         func walk(_ node: XCUIElementSnapshot) {
@@ -23,7 +55,20 @@ import XCTest
         }
         walk(root)
         guard let identity = found["companion-chat-header"], let actions = found["companion-chat-header-actions"] else { return nil }
-        return Frames(identity: identity, actions: actions, leading: leadingID.flatMap { found[$0] } ?? back)
+        let leading = leadingID.flatMap { found[$0] } ?? back
+        // A bar without the leading item would skip the overlap check, so only the whole app may decide it's absent.
+        if requireLeading && leading == nil { return nil }
+        return Frames(identity: identity, actions: actions, leading: leading)
+    }
+
+    /// Check an already-present route control without paying the waiter's first polling tick.
+    /// A slow first query consumes the same original five-second budget; it cannot add time.
+    private func existsWithinFiveSeconds(_ element: XCUIElement) -> Bool {
+        let deadline = ProcessInfo.processInfo.systemUptime + 5
+        let present = element.exists
+        let remaining = deadline - ProcessInfo.processInfo.systemUptime
+        guard remaining > 0 else { return false }
+        return present || element.waitForExistence(timeout: remaining)
     }
 
     enum Disturbance { case scroll, pushPop, background }
@@ -41,10 +86,14 @@ import XCTest
         let leadingID = pushed ? nil : "header-fixture-menu"
         var samples = 0
         var violations: [String] = []
+        var currentBar = bindCurrentHeaderBar(app)
         let started = Date()
         var scrolled = 0 // disturbances so far
         var missing = 0, seenFull = false
         var graceUntil = Date.distantPast
+        wholeAppSamples = 0
+        barSnapshotRequests = 0
+        sampledBarIdentities = []
         while Date().timeIntervalSince(started) < 14 {
             // Disturb the header twice mid-stream, as on the phone.
             if scrolled < 2, Date().timeIntervalSince(started) > Double(4 + 4 * scrolled) {
@@ -55,14 +104,37 @@ import XCTest
                         CGVector(dx: 0.5, dy: scrolled == 0 ? 0.65 : 0.35)))
                 case .pushPop:
                     if scrolled == 0 {
-                        // A back-swipe that's released early, so the chat stays.
+                        // Request an early, slow back-swipe; the native route below, not velocity projection,
+                        // determines whether the chat actually remained presented.
                         let edge = app.coordinate(withNormalizedOffset: CGVector(dx: 0.01, dy: 0.5))
-                        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)))
+                        edge.press(forDuration: 0.05, thenDragTo: app.coordinate(withNormalizedOffset: CGVector(dx: 0.2, dy: 0.5)),
+                                   withVelocity: XCUIGestureVelocity(rawValue: 100), thenHoldForDuration: 0.3)
+                        let chat = app.navigationBars.containing(.button, identifier: "companion-chat-header")
+                        guard chat.count == 1, chat.element.buttons["Back"].exists,
+                              app.buttons["companion-chat-header"].exists else {
+                            let hierarchy = XCTAttachment(string: app.debugDescription)
+                            hierarchy.name = "Actual route after early back-swipe"; hierarchy.lifetime = .keepAlways; add(hierarchy)
+                            XCTFail("The early back-swipe must leave the actual chat route with its header and Back control")
+                            return
+                        }
                     } else {
-                        app.navigationBars.buttons["Back"].firstMatch.tap()
+                        let back = app.navigationBars.buttons["Back"].firstMatch
+                        guard existsWithinFiveSeconds(back), app.buttons["companion-chat-header"].exists else {
+                            XCTFail("The chat header and Back control must remain present before the second disturbance")
+                            return
+                        }
+                        back.tap()
                         let open = app.buttons["header-fixture-open-chat"]
-                        if open.waitForExistence(timeout: 5) { open.tap() }
-                        _ = app.buttons["companion-chat-header"].waitForExistence(timeout: 5)
+                        guard existsWithinFiveSeconds(open), !app.buttons["companion-chat-header"].exists else {
+                            XCTFail("Back must actually return to the fixture's root route before reopening")
+                            return
+                        }
+                        open.tap()
+                        guard existsWithinFiveSeconds(app.buttons["companion-chat-header"]),
+                              app.navigationBars.buttons["Back"].firstMatch.exists else {
+                            XCTFail("Reopening must actually restore the pushed chat route")
+                            return
+                        }
                     }
                 case .background:
                     XCUIDevice.shared.press(.home)
@@ -71,8 +143,11 @@ import XCTest
                 }
                 scrolled += 1
                 graceUntil = Date().addingTimeInterval(1)
+                // A push/pop or activation can replace the bar. Resolve its current real header owner
+                // after the actual route guards, within the unchanged observation window/grace.
+                currentBar = bindCurrentHeaderBar(app)
             }
-            guard let f = frames(app, leadingID: leadingID) else {
+            guard let f = frames(app, bar: currentBar, leadingID: leadingID) else {
                 // A missing name or actions pill is the #554 symptom itself, once the header has been seen whole.
                 if seenFull, Date() > graceUntil {
                     missing += 1
@@ -97,7 +172,8 @@ import XCTest
                 }
             }
         }
-        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count)")
+        let sampled = Date().timeIntervalSince(started)
+        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count) wholeApp=\(wholeAppSamples) barSnapshotRequests=\(barSnapshotRequests) barIdentities=\(sampledBarIdentities.sorted()) elapsed=\(String(format: "%.1f", sampled))s")
         violations.prefix(20).forEach { print("HEADER_REFLOW \(name) \($0)") }
         let report = XCTAttachment(string: violations.joined(separator: "\n"))
         report.name = "554 reflow samples \(name)"; report.lifetime = .keepAlways; add(report)

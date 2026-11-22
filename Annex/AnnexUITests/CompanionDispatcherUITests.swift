@@ -682,12 +682,98 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
 
     /// SwiftUI can report a caption below the scroll viewport as hittable. Keep taps inside the transcript,
     /// above the approval/composer dock, and drag within the transcript rather than across that dock.
-    private func bringCaptionIntoView(_ caption: XCUIElement, in app: XCUIApplication,
+    private func bringCaptionIntoView(_ caption: XCUIElement, identifier: String, in app: XCUIApplication,
                                       file: StaticString = #filePath, line: UInt = #line) {
-        let placed = scrollIntoClearArea(caption, in: app, maxDrags: 20, file: file, line: line)
-        let clear = clearTranscriptArea(in: app)
-        XCTAssertTrue(placed && clear.contains(caption.frame),
-                      "Sender caption must be inside the transcript: \(caption.frame), clear \(clear)", file: file, line: line)
+        // Resolve the caption and every floating boundary from one actual native hierarchy revision.
+        // Separate exists/frame queries previously rebuilt that hierarchy dozens of times per pan.
+        // Hosted-view conversion can shift an origin by one ULP while preserving its far edge.
+        // Compare the actual rectangle edges; subtracting them can amplify a height's ULP count.
+        // Both raw rectangles still have to fit strictly inside the current protected bounds.
+        func sameNativeFrame(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+            let components = [lhs.origin.x, lhs.origin.y, lhs.width, lhs.height,
+                              rhs.origin.x, rhs.origin.y, rhs.width, rhs.height]
+            guard components.allSatisfy({ $0.isFinite }),
+                  lhs.width > 0, lhs.height > 0, rhs.width > 0, rhs.height > 0 else { return false }
+            let pairs: [(CGFloat, CGFloat)] = [(lhs.minX, rhs.minX), (lhs.minY, rhs.minY),
+                                               (lhs.maxX, rhs.maxX), (lhs.maxY, rhs.maxY)]
+            return pairs.allSatisfy { pair in
+                pair.0.isFinite && pair.1.isFinite
+                    && abs(pair.0 - pair.1) <= max(pair.0.ulp, pair.1.ulp) * 4
+            }
+        }
+        func observe() -> (window: CGRect, clear: CGRect, row: XCUIElementSnapshot?)? {
+            do {
+                let root = try app.snapshot()
+                var nodes: [XCUIElementSnapshot] = []
+                func visit(_ node: XCUIElementSnapshot) {
+                    nodes.append(node); node.children.forEach(visit)
+                }
+                visit(root)
+                let bars = nodes.filter { $0.elementType == .navigationBar }
+                let rows = nodes.filter { $0.identifier == identifier }
+                guard bars.count == 1, rows.count <= 1, root.frame.width > 0, root.frame.height > 0 else {
+                    XCTFail("The native transcript navigation and caption identity must be unambiguous", file: file, line: line)
+                    return nil
+                }
+                var top = bars[0].frame.maxY
+                for node in nodes where node.identifier == "companion-chat-header" || node.label.hasPrefix("UI preview") {
+                    top = max(top, node.frame.maxY)
+                }
+                var bottom = root.frame.maxY
+                for node in nodes where node.identifier == "companion-composer-region"
+                    || (node.elementType == .staticText && node.identifier == "companion-chat-activity")
+                    || node.elementType == .keyboard || node.elementType == .tabBar {
+                    bottom = min(bottom, node.frame.minY)
+                }
+                for node in nodes where ["companion-pinned-decision", "companion-latest"].contains(node.identifier) {
+                    let visible = node.frame.intersection(root.frame)
+                    if !visible.isNull && !visible.isEmpty { bottom = min(bottom, visible.minY) }
+                }
+                let clear = CGRect(x: root.frame.minX, y: top + 8, width: root.frame.width,
+                                   height: max(0, bottom - top - 16))
+                return (root.frame, clear, rows.first)
+            } catch {
+                XCTFail("Cannot observe the native sender caption: \(error)", file: file, line: line)
+                return nil
+            }
+        }
+        // Keep the original twenty held drags, clearances, direction and native gesture parameters.
+        for attempt in 0...20 {
+            checkTimeLeft("moving \(identifier) clear of the floating chrome", file: file, line: line)
+            guard let current = observe() else { return }
+            let area = current.clear, frame = current.row?.frame
+            print("SENDER_CAPTION_GEOMETRY id=\(identifier) attempt=\(attempt) row=\(String(describing: frame)) clear=\(area)")
+            if let frame, frame.width > 0, frame.height > 0, area.contains(frame),
+               caption.exists, caption.identifier == identifier {
+                let liveFrame = caption.frame
+                print("SENDER_CAPTION_CURRENT id=\(identifier) snapshot=\(frame) live=\(liveFrame)")
+                if liveFrame.width > 0, liveFrame.height > 0, area.contains(liveFrame),
+                   sameNativeFrame(liveFrame, frame), caption.isHittable {
+                    // Both unmodified native frames must fit a final complete hierarchy's bounds.
+                    guard let final = observe(), let row = final.row,
+                          sameNativeFrame(row.frame, frame), final.clear.contains(row.frame),
+                          final.clear.contains(liveFrame) else {
+                        XCTFail("The full sender caption must remain in the current clear transcript", file: file, line: line)
+                        return
+                    }
+                    XCTAssertTrue(final.clear.contains(row.frame),
+                                  "Sender caption must be inside the transcript: \(row.frame), clear \(final.clear)", file: file, line: line)
+                    return
+                }
+            }
+            guard attempt < 20, area.height > 40 else {
+                XCTFail("Sender caption must be inside the transcript: \(String(describing: frame)), clear \(area)", file: file, line: line)
+                return
+            }
+            let above = frame.map { $0.minY < area.minY } ?? true
+            let origin = app.coordinate(withNormalizedOffset: .zero)
+            func point(_ fraction: CGFloat) -> XCUICoordinate {
+                origin.withOffset(CGVector(dx: area.midX - current.window.minX,
+                                           dy: area.minY + area.height * fraction - current.window.minY))
+            }
+            point(above ? 0.3 : 0.7).press(forDuration: 0.05, thenDragTo: point(above ? 0.7 : 0.3),
+                                          withVelocity: .slow, thenHoldForDuration: 0.2)
+        }
     }
 
     private func expandSender(_ caption: XCUIElement) {
@@ -713,14 +799,15 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(scrollUntilExists(river, in: app) && scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
         let short = element(app, "companion-routed-sender-preview-2")
-        bringCaptionIntoView(short, in: app)
+        bringCaptionIntoView(short, identifier: "companion-routed-sender-preview-2", in: app)
         XCTAssertEqual(short.label, "Maple: Short helper update.")
         let shortValue = short.value as? String ?? ""
         XCTAssertTrue(shortValue.contains("Mission") && shortValue.contains("Steered into the running turn"))
         XCTAssertTrue(shortValue.contains(":"), "The source and steer value also keeps the timestamp")
         let first = app.buttons["companion-routed-sender-preview-0"]
+        let second = app.buttons["companion-routed-sender-preview-1"]
         let body = element(app, "companion-routed-body-sender-preview-0")
-        bringCaptionIntoView(first, in: app)
+        bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
         XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "Long helper replies start readable with the live name")
         let openValue = first.value as? String ?? ""
         XCTAssertTrue(openValue.hasPrefix("Expanded") && openValue.contains("Mission") && openValue.contains("Steered into the running turn"))
@@ -728,12 +815,20 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
         first.tap()
         XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
+        XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
+        // Preserve the independent-part check while retaining main's collapsed round trip.
+        bringCaptionIntoView(second, identifier: "companion-routed-sender-preview-1", in: app)
+        XCTAssertTrue((second.value as? String)?.hasPrefix("Expanded") == true)
+        second.tap()
+        XCTAssertTrue(waitFor(second, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
+        bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
+        XCTAssertEqual(first.value as? String, "Collapsed", "Each part folds independently")
 
         // Leave the conversation and reopen it from Home.
         app.navigationBars.buttons.element(boundBy: 0).tap()
         XCTAssertTrue(scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"))
-        bringCaptionIntoView(first, in: app)
+        bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
         XCTAssertEqual(first.value as? String, "Collapsed", "Leaving the conversation keeps its fold")
 
         // After tapping Refresh (its load is asynchronous and not observed here), the same row is still collapsed.
@@ -741,7 +836,7 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let refresh = app.buttons["Refresh conversation"]
         waitAndTap(actions, until: refresh)
         refresh.tap()
-        bringCaptionIntoView(first, in: app)
+        bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
         XCTAssertEqual(first.value as? String, "Collapsed", "The fold stays after a Refresh tap")
         XCTAssertFalse(body.exists, "A collapsed part shows no body")
 
@@ -749,7 +844,11 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         expandSender(first)
         XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
         XCTAssertTrue(body.exists, "The expanded part shows its body")
+        XCTAssertEqual(second.value as? String, "Collapsed", "Expanding Cedar leaves the other part folded")
         screenshot(app, "Helper avatar and re-expanded long message after refresh")
+        first.tap()
+        XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
+        XCTAssertFalse(body.exists, "Collapsed parts do not build their markdown")
         longPressUntilMenu(first, shows: app.buttons["Copy message"])
     }
 

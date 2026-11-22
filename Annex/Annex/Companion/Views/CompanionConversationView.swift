@@ -147,7 +147,6 @@ struct CompanionConversationView: View {
                     .environment(\.companionSenderResolver, CompanionSenderResolver(host: store.host(for: target), hosts: store.hosts))
             }
         }
-        .companionBackground()
         // The bottom bar reserves its real size before this boundary observes the safe region.
         // This boundary stays mounted while disclosure/focus/status changes.
         return GeometryReader { available in
@@ -288,6 +287,9 @@ struct CompanionConversationView: View {
                         .environment(\.companionPermissionMenuKeyboardVisible, keyboardVisible)
             }
         }
+        // Paint the transcript and its bars in the same coordinate space. A capped transcript can
+        // be shorter than an overflowing footer; its background must not end inside that footer.
+        .companionBackground()
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
         .task(id: target) { await store.load(target, force: conversation.requiresResync) }
@@ -448,24 +450,60 @@ struct CompanionConversationView: View {
         // Compare by agent, not list entry: a desktop can list one agent under more than one project.
         if let other = store.allAgents.first(where: { $0.status.needsYou && ($0.id.agentID != target.agentID || $0.id.hostID != target.hostID) }) {
             if compactAccessibilityHeader {
-                // Keep the other chat actionable without letting its banner consume this chat's viewport.
-                Button { openAgent(other.id) } label: {
-                    Label("\(other.name) \(other.status == .failed ? "hit an error" : "needs you")", systemImage: other.status.symbol)
-                        .font(.caption).lineLimit(2).frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 16).frame(minHeight: 44)
+                compactOtherAgentBanner(other)
+            } else if dynamicTypeSize.isAccessibilitySize {
+                // Keep the full banner when its natural-width name/status/action fit.
+                // At a constrained width, one full-width action preserves the transcript's room.
+                ViewThatFits(in: .horizontal) {
+                    fullOtherAgentBanner(other).fixedSize(horizontal: true, vertical: false)
+                    compactOtherAgentBanner(other)
                 }
-                .buttonStyle(.glass).buttonBorderShape(.capsule)
-                .accessibilityLabel("View \(other.name), \(other.status == .failed ? "hit an error" : "needs you")")
-                .padding(.horizontal, 16).padding(.bottom, 6)
             } else {
-                CompanionGlassBanner(systemImage: other.status.symbol,
-                                     text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
-                    Button("View") { openAgent(other.id) }.buttonStyle(.glass)
-                        .accessibilityLabel("View \(other.name)")
-                }
-                .padding(.bottom, 6)
+                fullOtherAgentBanner(other)
             }
         }
+    }
+
+    private func compactOtherAgentBanner(_ other: CompanionAgent) -> some View {
+        let status = other.status == .failed ? "hit an error" : "needs you"
+        let action = Button { openAgent(other.id) } label: {
+            Label("\(other.name) \(status)", systemImage: other.status.symbol)
+                .font(.caption).lineLimit(keyboardVisible ? 2 : nil)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(.horizontal, 16).frame(minHeight: 44)
+        }
+
+        return Group {
+            if keyboardVisible {
+                action.buttonStyle(.glass).buttonBorderShape(.capsule)
+            } else {
+                // Keep AX text at its requested size, but bound chrome padding explicitly.
+                // The observed short transcript overlapped Earlier/Latest; keep chrome insets explicit.
+                action.buttonStyle(CompanionCompactOtherAgentBannerStyle())
+            }
+        }
+        // Keep the existing keyboard label and the nonkeyboard View action label.
+        .accessibilityLabel(keyboardVisible ? "View \(other.name), \(status)" : "View \(other.name)")
+        .accessibilityValue(status, isEnabled: !keyboardVisible)
+        .padding(.horizontal, 16).padding(.bottom, 6)
+    }
+
+    private struct CompanionCompactOtherAgentBannerStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            // The label already owns the 44pt minimum; extra vertical chrome obscured Earlier with Latest.
+            configuration.label
+                .companionCardGlass(Capsule(), interactive: true)
+                .opacity(configuration.isPressed ? 0.7 : 1)
+        }
+    }
+
+    private func fullOtherAgentBanner(_ other: CompanionAgent) -> some View {
+        CompanionGlassBanner(systemImage: other.status.symbol,
+                             text: Text("**\(other.name)** \(other.status == .failed ? "hit an error" : "needs you")")) {
+            Button("View") { openAgent(other.id) }.buttonStyle(.glass)
+                .accessibilityLabel("View \(other.name)")
+        }
+        .padding(.bottom, 6)
     }
 
     private var timeline: some View {

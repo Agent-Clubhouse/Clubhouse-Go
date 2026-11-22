@@ -795,7 +795,7 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
     /// A preview opened from a tool card must close while the agent keeps streaming, even as the card is
     /// re-projected and lookups around it fold into "Explored…" (#134).
     func testContentPreviewDismissesWhileToolUpdatesStream() {
-        let app = launchApp(["--companion-preview", "--companion-preview-stream"])
+        let app = launchApp(["--companion-preview", "--companion-preview-stream", "--companion-preview-follow-trace"])
         openRiver(app)
         let link = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt")).firstMatch
         let done = app.buttons["companion-preview-done"]
@@ -803,14 +803,15 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
 
         let links = app.buttons.matching(identifier: "companion-content-link").matching(NSPredicate(format: "label == %@", "build/test-log.txt"))
         func openVisibleLog(until expected: XCUIElement) {
-            let transcript = app.scrollViews.containing(.button, identifier: "companion-content-link").firstMatch
+            let transcript = app.scrollViews.matching(identifier: "companion-transcript").firstMatch
             XCTAssertTrue(transcript.waitForExistence(timeout: 5))
-            let approval = app.descendants(matching: .any).matching(NSPredicate(format: "label BEGINSWITH %@", "Approval needed: ")).firstMatch
-            let composer = app.descendants(matching: .any).matching(identifier: "companion-composer").firstMatch
+            let header = app.descendants(matching: .any).matching(identifier: "companion-chat-header").firstMatch
+            let footer = app.descendants(matching: .any).matching(identifier: "companion-grant-footer-scroll").firstMatch
+            XCTAssertTrue(header.exists && footer.exists)
             func usableViewport() -> CGRect {
                 let bounds = transcript.frame.intersection(app.frame)
-                let top = bounds.minY + 12
-                var bottom = min(bounds.maxY, composer.frame.minY, approval.exists ? approval.frame.minY : composer.frame.minY) - 12
+                let top = max(bounds.minY, header.frame.maxY) + 12
+                var bottom = min(bounds.maxY, footer.frame.minY) - 12
                 let latest = app.pausedChatNavigation
                 if latest.exists { bottom = min(bottom, latest.frame.minY - 12) }
                 return CGRect(x: bounds.minX, y: top, width: bounds.width, height: max(0, bottom - top))
@@ -819,8 +820,13 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
             XCTAssertGreaterThan(viewport.height, 100)
             // Stop following the live bottom with a real reading gesture; updates keep streaming.
             // Waiting for the total link count to settle can prevent every tap as new runs arrive.
-            let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.midX, dy: viewport.minY + viewport.height * 0.3))
-            from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: viewport.height * 0.4)))
+            // The center ran through a tool-card button on the first hosted failure. Use the
+            // transcript's leading gutter, clear of the cards, and finish inside its actual clip.
+            let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: viewport.minX + 12, dy: viewport.minY + viewport.height * 0.3))
+            print("PREVIEW_READING viewport=\(viewport) before=\(String(describing: transcript.value))")
+            from.press(forDuration: 0.05, thenDragTo: from.withOffset(CGVector(dx: 0, dy: viewport.height * 0.4)),
+                       withVelocity: .slow, thenHoldForDuration: 0.2)
+            print("PREVIEW_READING after=\(String(describing: transcript.value))")
             XCTAssertTrue(app.pausedChatNavigation.waitForExistence(timeout: 5), "Read above the live bottom before resolving the log")
             // Existing links precede appended runs. Reveal one instead of chasing the newest index.
             let candidate = links.firstMatch
@@ -833,9 +839,10 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
                 if candidate.exists && viewport.contains(candidate.frame) && candidate.isHittable { break }
                 let above = candidate.exists && candidate.frame.minY < viewport.minY
                 let start = app.coordinate(withNormalizedOffset: .zero)
-                    .withOffset(CGVector(dx: viewport.midX, dy: viewport.midY))
+                    .withOffset(CGVector(dx: viewport.minX + 12, dy: viewport.midY))
                 let distance = viewport.height * 0.3 * (above ? 1 : -1)
-                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)))
+                start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: distance)),
+                            withVelocity: .slow, thenHoldForDuration: 0.2)
             }
             viewport = usableViewport()
             XCTAssertTrue(candidate.exists, "A real log link must be visible in the transcript")
