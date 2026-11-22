@@ -4,55 +4,63 @@ import XCTest
 /// pushed route. Hosted OCR proves its actual content; the unchanged callback tests
 /// prove live guards. Hosted native button activation and telemetry are not claimed.
 @MainActor final class CompanionAgentRowMenuUITests: ReliableUITestCase {
-    func testNativeHomeAgentMenuAtDefaultTypeAcrossThemes() throws {
-        try checkNativeMenu(accessibility: false)
+    // Each theme already launched/terminated its own app. Give those independent invocations
+    // distinct test owners while retaining the complete Juniper -> Cedar route in each one.
+    func testNativeHomeAgentMenuAtDefaultTypeLight() throws {
+        try checkNativeMenu(accessibility: false, scheme: "light")
     }
 
-    func testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes() throws {
-        try checkNativeMenu(accessibility: true)
+    func testNativeHomeAgentMenuAtDefaultTypeDark() throws {
+        try checkNativeMenu(accessibility: false, scheme: "dark")
     }
 
-    private func checkNativeMenu(accessibility: Bool) throws {
-        for scheme in ["light", "dark"] {
-            let flags = ["--companion-preview", "--companion-preview-" + scheme]
-                + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
-            let app = launchApp(flags, attempts: 1)
-            let home = app.navigationBars["Clubhouse"]
-            XCTAssertTrue(home.waitForExistence(timeout: 15))
-            let quiet = element(app, "fold-quiet-preview-studio-clubhouse")
-            let sleeping = element(app, "agent-preview-studio-juniper")
-            XCTAssertTrue(scrollUntilExists(quiet, in: app) && scrollTo(quiet, in: app))
-            expandFold(quiet, revealing: sleeping, in: app)
-            XCTAssertTrue(scrollTo(sleeping, in: app) && sleeping.isHittable)
-            let details = app.buttons["Agent details"]
-            let sleepingLabel = sleeping.label
-            openMenuWithOneVisibleRowPress(sleeping, in: app, shows: details)
-            let sleepingMenu = try nativeMenu(in: app, targetLabel: sleepingLabel, labels: ["Wake & Resume", "Start New Session", "Agent details", "Agent settings", "Terminal"])
-            try assertItems(in: sleepingMenu, app: app, allowScroll: accessibility)
-            capture(app, "Sleeping native Home menu \(scheme) \(accessibility ? "AX5" : "standard")")
-            try reveal("Agent details", in: sleepingMenu, app: app, allowScroll: accessibility).tap()
-            let sheet = element(app, "agent-details-sheet")
-            XCTAssertTrue(sheet.waitForExistence(timeout: 10), "The native item invokes Root's inherited Details action")
-            XCTAssertTrue(app.navigationBars["Juniper"].exists, "Details belongs to the long-pressed sleeping agent")
-            app.buttons["Done"].tap()
-            XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
-            XCTAssertTrue(home.exists)
-            let running = element(app, "agent-preview-studio-cedar")
-            XCTAssertTrue(scrollUntilExists(running, in: app, up: false) && scrollTo(running, in: app, up: false))
-            let runningLabel = running.label
-            openMenuWithOneVisibleRowPress(running, in: app, shows: details)
-            let runningMenu = try nativeMenu(in: app, targetLabel: runningLabel, labels: ["Agent details", "Agent settings", "Terminal"])
-            try assertItems(in: runningMenu, app: app, allowScroll: accessibility)
-            XCTAssertFalse(app.buttons["Wake & Resume"].exists, "A running agent must not offer a stale Wake")
-            XCTAssertFalse(app.buttons["Start New Session"].exists)
-            capture(app, "Running native Home menu \(scheme) \(accessibility ? "AX5" : "standard")")
-            try reveal("Agent details", in: runningMenu, app: app, allowScroll: accessibility).tap()
-            XCTAssertTrue(sheet.waitForExistence(timeout: 10))
-            XCTAssertTrue(app.navigationBars["Cedar"].exists, "The action keeps the real running agent target")
-            app.buttons["Done"].tap()
-            XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
-            app.terminate()
-        }
+    func testNativeHomeAgentMenuAtAccessibilityXXXLLight() throws {
+        try checkNativeMenu(accessibility: true, scheme: "light")
+    }
+
+    func testNativeHomeAgentMenuAtAccessibilityXXXLDark() throws {
+        try checkNativeMenu(accessibility: true, scheme: "dark")
+    }
+
+    private func checkNativeMenu(accessibility: Bool, scheme: String) throws {
+        let flags = ["--companion-preview", "--companion-preview-" + scheme]
+            + (accessibility ? ["-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"] : [])
+        let app = launchApp(flags, attempts: 1)
+        let home = app.navigationBars["Clubhouse"]
+        XCTAssertTrue(home.waitForExistence(timeout: 15))
+        let quiet = app.buttons["fold-quiet-preview-studio-clubhouse"]
+        let sleeping = app.buttons["agent-preview-studio-juniper"]
+        XCTAssertTrue(scrollUntilExists(quiet, in: app) && scrollTo(quiet, in: app))
+        expandFold(quiet, revealing: sleeping, in: app)
+        XCTAssertTrue(scrollTo(sleeping, in: app) && sleeping.isHittable)
+        let details = app.buttons["Agent details"]
+        let sleepingLabel = sleeping.label
+        openMenuWithOneVisibleRowPress(sleeping, in: app, shows: details)
+        let sleepingMenu = try nativeMenu(in: app, targetLabel: sleepingLabel, labels: ["Wake & Resume", "Start New Session", "Agent details", "Agent settings", "Terminal"])
+        try assertItems(in: sleepingMenu, app: app, allowScroll: accessibility)
+        capture(app, "Sleeping native Home menu \(scheme) \(accessibility ? "AX5" : "standard")")
+        try reveal("Agent details", in: sleepingMenu, app: app, allowScroll: accessibility).tap()
+        let sheet = element(app, "agent-details-sheet")
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10), "The native item invokes Root's inherited Details action")
+        XCTAssertTrue(app.navigationBars["Juniper"].exists, "Details belongs to the long-pressed sleeping agent")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        XCTAssertTrue(home.exists)
+        let running = app.buttons["agent-preview-studio-cedar"]
+        XCTAssertTrue(scrollUntilExists(running, in: app, up: false) && scrollTo(running, in: app, up: false))
+        let runningLabel = running.label
+        openMenuWithOneVisibleRowPress(running, in: app, shows: details)
+        let runningMenu = try nativeMenu(in: app, targetLabel: runningLabel, labels: ["Agent details", "Agent settings", "Terminal"])
+        try assertItems(in: runningMenu, app: app, allowScroll: accessibility)
+        XCTAssertFalse(app.buttons["Wake & Resume"].exists, "A running agent must not offer a stale Wake")
+        XCTAssertFalse(app.buttons["Start New Session"].exists)
+        capture(app, "Running native Home menu \(scheme) \(accessibility ? "AX5" : "standard")")
+        try reveal("Agent details", in: runningMenu, app: app, allowScroll: accessibility).tap()
+        XCTAssertTrue(sheet.waitForExistence(timeout: 10))
+        XCTAssertTrue(app.navigationBars["Cedar"].exists, "The action keeps the real running agent target")
+        app.buttons["Done"].tap()
+        XCTAssertTrue(sheet.waitForNonExistence(timeout: 5))
+        app.terminate()
     }
 
     /// Hittability alone can describe a row clipped behind the navigation bar.

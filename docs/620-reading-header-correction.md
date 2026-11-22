@@ -82,3 +82,96 @@ keyboard/nonkeyboard accessibility, correct destination, Earlier containment
 and nonoverlap, all Header first outcomes and final required checks. No new
 native/simulator run, hosted submission, deadline/threshold expansion or shared
 publication is part of this isolated correction.
+
+## Follow-up on exact 7a4f hosted originals
+
+Run 45053284647, job 137307511037, preserves three XXXL Reading failures at
+line 59 (25.086, 27.920 and 25.375 seconds) and the SE first pass (22.120).
+Three post-test single-snapshot diagnostics agree: banner bottom 240.3333,
+native track 246.3333–429.3333, Earlier 270.3333–372.6667, Latest
+362.6667–421.3333. Earlier is wholly within the track and below the banner;
+the banner's 370×116.3333 target exceeds 44×44. Earlier and Latest overlap
+vertically by approximately 10 points. Both track records are retained as
+identical records, not forced into a unique owner. These are late supporting
+observations, not the exact assertion instant. The first recording's decoded
+frame at actual PTS 22.628333 seconds visibly supports that overlap (requested
+23 seconds is not relabelled as the actual timestamp).
+
+The nonkeyboard accessibility compact banner now uses explicit four-point
+vertical chrome insets around the unchanged caption label and minimum target,
+with the existing palette-backed interactive glass helper. It retains the full
+name/status, Dynamic Type, actual other-agent destination, accessibility
+label/value and horizontal/bottom spacing. Keyboard presentation keeps the
+native glass style and its two-line contract. Regular/full banners and all
+other conversation code are unchanged. The entire native Reading test,
+including full Earlier containment, Latest nonoverlap and banner hittability/
+44-point requirements, is unchanged. A smaller resulting banner and clearance
+on the candidate require actual native proof; source geometry is not that proof.
+
+### Agent menu: lookup and allowance are separate
+
+In job 137307511032, the first XXXL invocation reached its one Juniper press,
+opened its real menu, activated Details, dismissed it and returned Home. It
+then stopped at line 41 before looking for Cedar because the time budget had
+already expired; this does not demonstrate a wrong Cedar route. Its terminal
+was failure at 341.445 seconds, after the four-minute annotation. Default
+light reached the Cedar menu and Details/Done sequence, but also exceeded four
+minutes. The raw restart/timeout dispositions remain red.
+
+The first XXXL record spent an observed 89.879 seconds in a nominal two-second
+generic Any lookup for Quiet, with internal SDK existence retries. Later native
+records identify the fold, Juniper and Cedar as Buttons. Those three queries
+now use their actual Button type; the Details sheet remains the existing
+generic query. No time saved is inferred yet.
+
+The previously independent light/dark app launch/terminate iterations have four
+explicit method owners: standard light/dark and XXXL light/dark. Every method
+retains the complete Juniper → Details → Home → Cedar → Details sequence,
+ordered sleeping/running action sets, absent stale Wake/Start actions, full
+agent/desktop preview identity, original panel/current collection binding,
+one 1.2-second press per target, clipping/hittability and eight-drag bounds.
+The helper body is identical after the three typed-query substitutions; all
+menu validation/reveal helpers are byte-identical. The inherited 240-second
+allowance, waits and attempts are unchanged; splitting does not establish that
+any individual invocation fits. All four methods have one full-matrix owner
+under the unchanged whole-class routing. No theme, target or action is omitted.
+
+### Header: fresh samples with current owner binding
+
+The five first counts were 71/86/81/69/44 with zero recorded missing frames or
+geometry violations. Only push/pop and back eventually passed; a low count is
+not reflow acceptance. Leading's three attempts had 44/59/93 bar queries.
+Adjacent top-level activity timestamps assign 6.277/6.318/7.774 seconds to those
+query-to-next-action intervals and 7.784/7.707/6.241 seconds to the two drag
+intervals. These are observed intervals, not isolated query CPU or savings.
+
+Header now binds exactly one current native navigation bar that owns the real
+header button before the window and after each disturbance. Each sample still
+calls the SDK's `snapshot()` afresh on that bound element. No frame or snapshot
+is reused. A missing/ambiguous/lost owner or incomplete bar snapshot takes the
+same fresh whole-app fallback. After real Back/root/reopen or activation guards,
+the bar is rebound inside the unchanged observation window; the existing
+grace deadline is set before this lookup. The complete frame walker, five
+native test methods, disturbances, 14-second window, one-second grace, at least
+100 samples, missing/reflow assertions and geometry thresholds are unchanged.
+Logs add actual snapshot-request counts and sampled bar identifiers. Native
+current-owner behavior and whether 100 samples fit remain hosted obligations.
+
+### Bounded checks and retained limits
+
+Real local iOS 26.0 SDK checks type-check the exact affected Header/menu sources
+against actual XCTest/XCUI APIs with only a ReliableUITestCase base stand-in,
+and the production banner slice against actual SwiftUI with explicit app/glass
+dependency stand-ins. They do not build or execute the app. The first UI harness
+omitted XCTest's Swift overlay search path and failed to find its Swift assertion
+functions; that harness failure is preserved. Adding the SDK's actual developer
+Swift-module path makes both unchanged inputs type-check. A source-control
+comparison initially included an extra blank line and was corrected without a
+source change. No compiler result substitutes for native layout or timing.
+
+Ten extracted provider/walker controls with explicit stand-in SDK objects verify
+fresh snapshots, changed frames, replacement owner rebinding, ambiguous/missing/
+lost owners and leading/header fallback. The same tests do not prove native AX
+identity or cadence. Parent owns the next reviewed hosted candidate, actual
+strict Reading result, all four menu invocations and five Header sample counts.
+No retry, deadline, gate, workflow or optional #629 optimization is changed.

@@ -11,6 +11,16 @@ import XCTest
 
     /// Whole-app snapshots that a sample needed because the navigation bar alone lacked one of its elements.
     private var wholeAppSamples = 0
+    private var barSnapshotRequests = 0
+    private var sampledBarIdentities: Set<String> = []
+
+    /// Bind a real AX element once per route phase, not a repeated first-match search per sample.
+    /// Missing/ambiguous owners use the existing whole-app fallback; no frame or snapshot is cached.
+    private func bindCurrentHeaderBar(_ app: XCUIApplication) -> XCUIElement? {
+        let owners = app.navigationBars.containing(.button, identifier: "companion-chat-header")
+            .allElementsBoundByAccessibilityElement
+        return owners.count == 1 ? owners[0] : nil
+    }
 
     /// One accessibility snapshot per sample, so a sample is a single moment rather than several queries apart.
     ///
@@ -19,8 +29,15 @@ import XCTest
     /// the 14s window. When the bar's subtree lacks the name, the actions pill or the leading item (no bar during a
     /// transition, a second bar, a header moved elsewhere), the same sample is retaken from a whole-app snapshot,
     /// so absence still means absent from the whole app, exactly as before.
-    private func frames(_ app: XCUIApplication, leadingID: String?) -> Frames? {
-        if let bar = try? app.navigationBars.firstMatch.snapshot(), let f = frames(in: bar, leadingID: leadingID) { return f }
+    private func frames(_ app: XCUIApplication, bar: XCUIElement?, leadingID: String?) -> Frames? {
+        if let bar {
+            barSnapshotRequests += 1
+            // Always ask the SDK for a fresh tree, even when its owner has not changed.
+            if let snapshot = try? bar.snapshot(), let f = frames(in: snapshot, leadingID: leadingID) {
+                sampledBarIdentities.insert(snapshot.identifier)
+                return f
+            }
+        }
         wholeAppSamples += 1
         guard let root = try? app.snapshot() else { return nil }
         return frames(in: root, leadingID: leadingID, requireLeading: false)
@@ -69,11 +86,14 @@ import XCTest
         let leadingID = pushed ? nil : "header-fixture-menu"
         var samples = 0
         var violations: [String] = []
+        var currentBar = bindCurrentHeaderBar(app)
         let started = Date()
         var scrolled = 0 // disturbances so far
         var missing = 0, seenFull = false
         var graceUntil = Date.distantPast
         wholeAppSamples = 0
+        barSnapshotRequests = 0
+        sampledBarIdentities = []
         while Date().timeIntervalSince(started) < 14 {
             // Disturb the header twice mid-stream, as on the phone.
             if scrolled < 2, Date().timeIntervalSince(started) > Double(4 + 4 * scrolled) {
@@ -123,8 +143,11 @@ import XCTest
                 }
                 scrolled += 1
                 graceUntil = Date().addingTimeInterval(1)
+                // A push/pop or activation can replace the bar. Resolve its current real header owner
+                // after the actual route guards, within the unchanged observation window/grace.
+                currentBar = bindCurrentHeaderBar(app)
             }
-            guard let f = frames(app, leadingID: leadingID) else {
+            guard let f = frames(app, bar: currentBar, leadingID: leadingID) else {
                 // A missing name or actions pill is the #554 symptom itself, once the header has been seen whole.
                 if seenFull, Date() > graceUntil {
                     missing += 1
@@ -150,7 +173,7 @@ import XCTest
             }
         }
         let sampled = Date().timeIntervalSince(started)
-        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count) wholeApp=\(wholeAppSamples) elapsed=\(String(format: "%.1f", sampled))s")
+        print("HEADER_REFLOW \(name) samples=\(samples) missing=\(missing) violations=\(violations.count) wholeApp=\(wholeAppSamples) barSnapshotRequests=\(barSnapshotRequests) barIdentities=\(sampledBarIdentities.sorted()) elapsed=\(String(format: "%.1f", sampled))s")
         violations.prefix(20).forEach { print("HEADER_REFLOW \(name) \($0)") }
         let report = XCTAttachment(string: violations.joined(separator: "\n"))
         report.name = "554 reflow samples \(name)"; report.lifetime = .keepAlways; add(report)

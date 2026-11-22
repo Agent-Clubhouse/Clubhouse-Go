@@ -466,17 +466,35 @@ struct CompanionConversationView: View {
 
     private func compactOtherAgentBanner(_ other: CompanionAgent) -> some View {
         let status = other.status == .failed ? "hit an error" : "needs you"
-        return Button { openAgent(other.id) } label: {
+        let action = Button { openAgent(other.id) } label: {
             Label("\(other.name) \(status)", systemImage: other.status.symbol)
                 .font(.caption).lineLimit(keyboardVisible ? 2 : nil)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 16).frame(minHeight: 44)
         }
-        .buttonStyle(.glass).buttonBorderShape(.capsule)
+
+        return Group {
+            if keyboardVisible {
+                action.buttonStyle(.glass).buttonBorderShape(.capsule)
+            } else {
+                // Keep AX text at its requested size, but bound chrome padding explicitly.
+                // The observed short transcript overlapped Earlier/Latest; keep chrome insets explicit.
+                action.buttonStyle(CompanionCompactOtherAgentBannerStyle())
+            }
+        }
         // Keep the existing keyboard label and the nonkeyboard View action label.
         .accessibilityLabel(keyboardVisible ? "View \(other.name), \(status)" : "View \(other.name)")
         .accessibilityValue(status, isEnabled: !keyboardVisible)
         .padding(.horizontal, 16).padding(.bottom, 6)
+    }
+
+    private struct CompanionCompactOtherAgentBannerStyle: ButtonStyle {
+        func makeBody(configuration: Configuration) -> some View {
+            configuration.label
+                .padding(.vertical, 4)
+                .companionCardGlass(Capsule(), interactive: true)
+                .opacity(configuration.isPressed ? 0.7 : 1)
+        }
     }
 
     private func fullOtherAgentBanner(_ other: CompanionAgent) -> some View {
