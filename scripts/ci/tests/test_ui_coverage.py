@@ -53,6 +53,18 @@ class UIClassCoverageTests(unittest.TestCase):
         self.assertTrue(inventory, "An empty discovery must never satisfy the coverage check")
         self.assert_partition(inventory)
 
+    def test_dispatcher_recovery_uses_existing_home_lane(self):
+        inventory = ui_classes()
+        entries = shards.matrix()["include"]
+        self.assertEqual(len(entries), 8, "Do not add another hosted runner for recovery")
+        home = next(entry for entry in entries
+                    if entry["name"] == "UI tests (unicode, home)")
+        self.assertIn("CompanionDispatcherRecoveryUITests", selected_classes(home, inventory),
+                      "Recovery must not wait behind the catchall's unrelated UI classes")
+        catchall = next(entry for entry in entries
+                        if entry["selection"].startswith(f"-only-testing:{shards.UI_TARGET} "))
+        self.assertNotIn("CompanionDispatcherRecoveryUITests", selected_classes(catchall, inventory))
+
     def test_provider_and_archive_controls_share_one_existing_home_lane(self):
         entries = shards.matrix()["include"]
         self.assertEqual(len(entries), 8)

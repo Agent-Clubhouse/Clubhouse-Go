@@ -18,6 +18,18 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
+Dispatcher visible-chat recovery adds five Store fields: two `Set<CompanionTarget>` values, an optional `CompanionDispatcherChatPrompt`, a UUID→chat-prompt map and a UUID→(reset-prompt, target) map. Targets contain String identifiers; chat prompts contain UUID, String and action-enum values; reset prompts contain Strings, optional Strings and the reset enum. These own no callbacks, tasks, UI objects, services or actor-bound teardown. Claims are explicitly consumed before commands; shutdown admission and the existing epoch/session checks refuse late dispatch. No deinit cleanup or constructor capture changes are required. The Store retains its empty ARC-only deinit and all other class ownership records remain unchanged.
+
+Cross-entry mutation admission (#622) adds `settingsMutationOwners: [CompanionTarget: UUID]`.
+Its local `SettingsMutationReservation` contains only a `CompanionTarget` (String identifiers)
+and a UUID value. Neither owns a callback, task, service, UI object or teardown work. Existing
+catalogue cleanup invalidates a removed target's token; only a matching current token releases
+its pending membership. This prevents an old completion from releasing a replacement writer.
+A generic same-provider settings read must still own its token before forwarding a mixed edit.
+These values leave Store's empty ARC-only deinit, constructor captures and runtime shutdown
+sequence unchanged. The surface records classify these exact values; they waive no binary,
+actor-affinity, lifecycle or hosted gate.
+
 Feedback renewal proof (#609) reviews exactly three changed constructor capture records, not new
 teardown exemptions. AppRoot's DEBUG fallback and Release branch contain two identical Store
 constructors with the already-reviewed LiveService, Bool and optional local persistence owners.

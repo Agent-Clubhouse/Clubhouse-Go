@@ -62,11 +62,12 @@ SHARDS = [
         ],
     },
     {
-        # Route prototype: about 52.1 minutes on one run; see docs/provider-v2-hosted-route.md.
+        # Combined recovery, Provider and archive lane duration is unmeasured.
         "name": "UI tests (unicode, home)",
         "tests": [
             "CompanionUnicodeFocusUITests",
             "CompanionMarkdownFileUITests",
+            "CompanionDispatcherRecoveryUITests",
             "CompanionProviderV2UITests",
             "CompanionReadingArchiveHeaderUITests",
         ],
