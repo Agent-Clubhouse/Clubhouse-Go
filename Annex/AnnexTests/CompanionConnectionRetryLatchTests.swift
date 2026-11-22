@@ -61,30 +61,32 @@ import Vision
         }
     }
 
-    /// #624: a bordered style padded its 44pt label into a ~68×56pt near-circle that filled the card.
-    /// Binds the actual Retry: its hit frame and the card frame come from the mounted banner, and its painted
-    /// pixels come from rendering one layout with Retry shown and hidden, so neither style nor color is assumed.
-    /// The recognized "Retry" label must lie inside that painted region. Native 44pt checks stay in the UI tests.
+    /// Both styles must render and expose a recognized Retry label on the same real banner.
+    /// Only the original bordered style must fail the unchanged geometry oracle.
     func testRetryVisibleControlIsTextSizedInsideItsTargetAndCard() async throws {
-        try await assertRetryGeometry(size: .large, name: "default")
+        for appearance in [RetryAppearance.light, .dark, .latte, .mocha] {
+            try await assertRetryGeometry(appearance: appearance)
+        }
     }
 
     func testRetryVisibleControlKeepsCardClearanceAtAccessibilitySize() async throws {
-        try await assertRetryGeometry(size: .accessibility5, name: "accessibility XXXL")
+        try await assertRetryGeometry(appearance: .accessibility)
     }
 
-    private func assertRetryGeometry(size: DynamicTypeSize, name: String) async throws {
+    private func assertRetryGeometry(appearance: RetryAppearance) async throws {
         let service = HeldReconnectService()
         let store = CompanionStore(service: service)
         store.apply(.hosts(hosts("one")))
         let toggle = RetryVisibility()
-        var retryFrame: CGRect?, cardFrame: CGRect?
+        var retryFrame: CGRect?, cardFrame: CGRect?, enabled: Bool?
+        var observed: CompanionDesktopConnectionBanner.HostedTestSeam?
         let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive })
         let original = scene.windows.first(where: \.isKeyWindow)
         let window = UIWindow(windowScene: scene)
         window.frame = scene.screen.bounds
-        window.rootViewController = UIHostingController(rootView: RetryGeometryHost(store: store, toggle: toggle, size: size,
-            retryFrame: { retryFrame = $0 }, cardFrame: { cardFrame = $0 }))
+        window.rootViewController = UIHostingController(rootView: RetryGeometryHost(store: store, toggle: toggle, appearance: appearance,
+            retryFrame: { retryFrame = $0 }, cardFrame: { cardFrame = $0 }, retryEnabled: { enabled = $0 },
+            observed: { observed = $0 }))
         window.makeKeyAndVisible()
         defer {
             service.beginTeardown()
@@ -93,27 +95,109 @@ import Vision
             store.stop()
             original?.makeKey()
         }
-        try await waitUntil { retryFrame != nil && cardFrame != nil }
+        try await waitUntil { retryFrame != nil && cardFrame != nil && enabled == true && observed?.retryDisabled == false }
+
+        // Capture the current enabled style, and isolate its painted pixels without moving its target.
+        let candidate = try await measureRetry(window, toggle: toggle, appearance: appearance, style: "candidate",
+                                               retryFrame: { retryFrame }, cardFrame: { cardFrame })
+        let failures = BannerActionGeometry.failures(candidate.metrics)
+        XCTAssertTrue(failures.isEmpty, "\(appearance.rawValue) candidate: " + failures.joined(separator: "; "))
+        XCTAssertEqual(service.calls, [:], "Measuring must not reconnect")
+
+        // The mounted production callback acquires the real latch. This is not a physical tap or pressed capture.
+        try XCTUnwrap(observed).retry()
+        try await waitUntil { service.calls == ["one": 1] && service.pendingCount == 1 && observed?.retryDisabled == true && enabled == false }
         try await Task.sleep(for: .milliseconds(150))
-        let shown = capture(window, "Retry shown, \(name)")
-        let hit = try XCTUnwrap(retryFrame), card = try XCTUnwrap(cardFrame)
+        let disabled = capture(window, "Retry candidate actually disabled, \(appearance.rawValue)")
+        XCTAssertEqual(retryFrame, candidate.metrics.hit)
+        XCTAssertEqual(cardFrame, candidate.metrics.card)
+        let disabledImage = try XCTUnwrap(disabled.cgImage)
+        let scale = CGFloat(disabledImage.width) / disabled.size.width
+        XCTAssertNotNil(try recognizedText("Retry", in: disabledImage, scale: scale, within: candidate.metrics.hit),
+                        "Disabled Retry must still render a recognized label")
+        let changedPixels = try changedPixelCount(candidate.image, disabled, within: candidate.metrics.hit)
+        XCTAssertGreaterThan(changedPixels, 0, "Actual disabled appearance must differ inside the unchanged Retry target")
+        try XCTUnwrap(observed).retry() // A stale/accessibility invocation must not bypass the held latch.
+        await Task.yield()
+        XCTAssertEqual(service.calls, ["one": 1])
+        XCTAssertEqual(service.pendingCount, 1)
+        print("RETRY_STATE \(appearance.rawValue) enabled=true disabled=false->true actualIsEnabled=\(enabled.map(String.init) ?? "nil") calls=\(service.calls) pending=\(service.pendingCount) changedPixels=\(changedPixels) pressed=UNOBSERVED")
+        service.finishFirst("one")
+        try await waitUntil { service.pendingCount == 0 && observed?.retryDisabled == false && enabled == true }
+
+        // Switch only styling. The fixture, window, text size, measurement and complete oracle stay the same.
+        toggle.baseline = true
+        retryFrame = nil; cardFrame = nil
+        // The new style changes geometry; onGeometryChange must supply fresh frames for this layout.
+        try await waitUntil { retryFrame != nil && cardFrame != nil }
+        let baseline = try await measureRetry(window, toggle: toggle, appearance: appearance, style: "fee5cd21 baseline",
+                                              retryFrame: { retryFrame }, cardFrame: { cardFrame })
+        let old = baseline.metrics
+        let label = try XCTUnwrap(old.label)
+        let specificGeometryFailure = old.visible.height >= old.hit.height
+            || (old.defaultSize && old.visible.height > BannerActionGeometry.maximumDefaultHeight)
+            || old.visible.height > label.height * BannerActionGeometry.maximumHeightPerLabelHeight
+            || old.visible.width < old.visible.height * BannerActionGeometry.minimumAspect
+            || old.visible.minY - old.card.minY < BannerActionGeometry.minimumClearance
+            || old.card.maxY - old.visible.maxY < BannerActionGeometry.minimumClearance
+        XCTAssertTrue(specificGeometryFailure, "A missing render/label is not baseline fail-before evidence")
+        XCTAssertFalse(BannerActionGeometry.failures(old).isEmpty, "The same oracle must reject the original bordered geometry")
+        XCTAssertEqual(service.calls, ["one": 1], "Neither paired render nor release may dispatch another reconnect")
+        XCTAssertEqual(service.pendingCount, 0)
+        print("RETRY_PAIR \(appearance.rawValue) candidateFailures=\(failures) baselineFailures=\(BannerActionGeometry.failures(old))")
+    }
+
+    private func measureRetry(_ window: UIWindow, toggle: RetryVisibility, appearance: RetryAppearance, style: String,
+                              retryFrame: () -> CGRect?, cardFrame: () -> CGRect?) async throws -> (metrics: BannerActionGeometry.Metrics, image: UIImage) {
+        toggle.hidden = false
+        try await Task.sleep(for: .milliseconds(150))
+        let shown = capture(window, "Retry \(style) shown, \(appearance.rawValue)")
+        let hit = try XCTUnwrap(retryFrame()), card = try XCTUnwrap(cardFrame())
         toggle.hidden = true
         try await Task.sleep(for: .milliseconds(150))
-        let hidden = capture(window, "Retry hidden at the same layout, \(name)")
-        XCTAssertEqual(retryFrame, hit, "Hiding Retry must not move it")
-        XCTAssertEqual(cardFrame, card, "Hiding Retry must not resize the card")
+        let hidden = capture(window, "Retry \(style) hidden at the same layout, \(appearance.rawValue)")
+        XCTAssertEqual(retryFrame(), hit, "Hiding Retry must not move it")
+        XCTAssertEqual(cardFrame(), card, "Hiding Retry must not resize the card")
         let shownImage = try XCTUnwrap(shown.cgImage)
         let scale = CGFloat(shownImage.width) / shown.size.width
-        let painted = BannerActionGeometry.painted(shown: shownImage, hidden: try XCTUnwrap(hidden.cgImage), scale: scale, within: hit)
-        let label = try painted.flatMap { try recognizedText("Retry", in: shownImage, scale: scale, within: $0.bounds) }
-        let enclosure = label.flatMap { label in painted.map { $0.enclosure(of: label) } }
-        let metrics = painted.map { BannerActionGeometry.Metrics(visible: $0.bounds, hit: hit, card: card, label: label,
-                                                                 labelEnclosure: enclosure, defaultSize: !size.isAccessibilitySize) }
-        print("RETRY_GEOMETRY \(name) visible=\(painted.map { "\($0.bounds)" } ?? "none") label=\(label.map { "\($0)" } ?? "none") "
-              + "enclosure=\(enclosure.map { String(format: "%.2f", $0) } ?? "none") hit=\(hit) card=\(card)")
-        let failures = BannerActionGeometry.failures(metrics)
-        XCTAssertTrue(failures.isEmpty, "\(name): " + failures.joined(separator: "; "))
-        XCTAssertEqual(service.calls, [:], "Measuring must not reconnect")
+        let painted = try XCTUnwrap(BannerActionGeometry.painted(shown: shownImage, hidden: try XCTUnwrap(hidden.cgImage), scale: scale, within: hit),
+                                    "Both candidate and baseline must actually render")
+        let label = try XCTUnwrap(recognizedText("Retry", in: shownImage, scale: scale, within: painted.bounds),
+                                  "Both candidate and baseline require recognized Retry inside their painted region")
+        let enclosure = painted.enclosure(of: label)
+        for rect in [hit, card, painted.bounds, label] { XCTAssertTrue(BannerActionGeometry.isMeasurable(rect)) }
+        XCTAssertTrue(painted.bounds.insetBy(dx: -0.5, dy: -0.5).contains(label))
+        XCTAssertGreaterThanOrEqual(enclosure, BannerActionGeometry.minimumLabelEnclosure,
+                                    "Missing paint around the label must not count as the baseline geometry regression")
+        let metrics = BannerActionGeometry.Metrics(visible: painted.bounds, hit: hit, card: card, label: label,
+                                                   labelEnclosure: enclosure, defaultSize: !appearance.size.isAccessibilitySize)
+        print("RETRY_GEOMETRY \(appearance.rawValue) \(style) visible=\(painted.bounds) label=\(label) enclosure=\(enclosure) hit=\(hit) card=\(card)")
+        toggle.hidden = false
+        try await Task.sleep(for: .milliseconds(150))
+        return (metrics, shown)
+    }
+
+    /// Compare actual enabled/disabled renders only within Retry's unchanged target; not a contrast-ratio oracle.
+    private func changedPixelCount(_ enabled: UIImage, _ disabled: UIImage, within hit: CGRect) throws -> Int {
+        let a = try XCTUnwrap(enabled.cgImage), b = try XCTUnwrap(disabled.cgImage)
+        XCTAssertEqual(a.width, b.width); XCTAssertEqual(a.height, b.height)
+        let scale = CGFloat(a.width) / enabled.size.width
+        let rect = CGRect(x: hit.minX * scale, y: hit.minY * scale, width: hit.width * scale, height: hit.height * scale).integral
+        func pixels(_ image: CGImage) throws -> [UInt8] {
+            let crop = try XCTUnwrap(image.cropping(to: rect))
+            var bytes = [UInt8](repeating: 0, count: crop.width * crop.height * 4)
+            try bytes.withUnsafeMutableBytes { buffer in
+                let context = try XCTUnwrap(CGContext(data: buffer.baseAddress, width: crop.width, height: crop.height,
+                    bitsPerComponent: 8, bytesPerRow: crop.width * 4, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                    bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue | CGBitmapInfo.byteOrder32Big.rawValue))
+                context.draw(crop, in: CGRect(x: 0, y: 0, width: crop.width, height: crop.height))
+            }
+            return bytes
+        }
+        let first = try pixels(a), second = try pixels(b)
+        return stride(from: 0, to: first.count, by: 4).filter { offset in
+            (0..<3).contains { abs(Int(first[offset + $0]) - Int(second[offset + $0])) > 8 }
+        }.count
     }
 
     /// The window-point bounds of `text` recognized inside `region` of the rendered window.
@@ -214,21 +298,49 @@ import Vision
     }
 }
 
-@Observable @MainActor private final class RetryVisibility { var hidden = false }
+@Observable @MainActor private final class RetryVisibility {
+    var hidden = false
+    var baseline = false
+}
+
+private enum RetryAppearance: String {
+    case light, dark, latte, mocha, accessibility = "accessibility XXXL light"
+    var size: DynamicTypeSize { self == .accessibility ? .accessibility5 : .large }
+    var scheme: ColorScheme { self == .dark || self == .mocha ? .dark : .light }
+    var theme: CompanionDesktopTheme {
+        switch self {
+        case .latte:
+            .init(id: "catppuccin-latte", name: "Catppuccin Latte", source: "Preview", mode: .light,
+                colors: ["base": "#eff1f5", "mantle": "#e6e9ef", "crust": "#dce0e8", "text": "#4c4f69",
+                         "subtext0": "#6c6f85", "surface0": "#ccd0da", "surface1": "#bcc0cc", "accent": "#1e66f5",
+                         "accent2": "#209fb5", "warning": "#7e5700", "error": "#c4122f", "success": "#347d22"], gradient: [])
+        case .mocha:
+            .init(id: "catppuccin-mocha", name: "Catppuccin Mocha", source: "Preview", mode: .dark,
+                colors: ["base": "#1e1e2e", "mantle": "#181825", "crust": "#11111b", "text": "#cdd6f4",
+                         "subtext0": "#a6adc8", "surface0": "#313244", "surface1": "#45475a", "accent": "#89b4fa",
+                         "accent2": "#74c7ec", "warning": "#f9e2af", "error": "#f38ba8", "success": "#a6e3a1"], gradient: [])
+        default: .clubhouse
+        }
+    }
+}
 
 private struct RetryGeometryHost: View {
     let store: CompanionStore
     let toggle: RetryVisibility
-    let size: DynamicTypeSize
+    let appearance: RetryAppearance
     let retryFrame: (CGRect) -> Void
     let cardFrame: (CGRect) -> Void
+    let retryEnabled: (Bool) -> Void
+    let observed: (CompanionDesktopConnectionBanner.HostedTestSeam) -> Void
     var body: some View {
         VStack {
-            CompanionDesktopConnectionBanner(store: store, identifierPrefix: "test",
-                geometrySeam: .init(hidesRetry: toggle.hidden, retryFrame: retryFrame, cardFrame: cardFrame))
+            CompanionDesktopConnectionBanner(store: store, identifierPrefix: "test", hostedTestSeam: observed,
+                geometrySeam: .init(hidesRetry: toggle.hidden, usesBorderedBaseline: toggle.baseline,
+                                    retryEnabled: retryEnabled, retryFrame: retryFrame, cardFrame: cardFrame))
             Spacer()
         }
-        .padding(16).dynamicTypeSize(size).companionTheme(.clubhouse).environment(\.colorScheme, .light)
+        .padding(16).dynamicTypeSize(appearance.size).companionBackground()
+        .companionTheme(appearance.theme).environment(\.colorScheme, appearance.scheme)
     }
 }
 

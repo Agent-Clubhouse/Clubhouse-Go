@@ -171,6 +171,9 @@ struct CompanionDesktopConnectionBanner: View {
     /// so the pixels it alone draws can be isolated without assuming its style or color.
     struct GeometrySeam {
         var hidesRetry = false
+        /// Opt-in exact fee5cd21 styling for a paired render; never selected by app launch or Release.
+        var usesBorderedBaseline = false
+        var retryEnabled: ((Bool) -> Void)? = nil
         var retryFrame: ((CGRect) -> Void)? = nil
         var cardFrame: ((CGRect) -> Void)? = nil
     }
@@ -192,9 +195,14 @@ struct CompanionDesktopConnectionBanner: View {
                 CompanionCompactConnectionBanner(title: notice.title, isInProgress: notice.isInProgress,
                                                  titleIdentifier: "\(identifierPrefix)-connection-title") {
                     if !notice.retryHostIDs.isEmpty {
+                        #if DEBUG
+                        geometryRetryButton(notice.retryHostIDs)
+                        #else
                         Button("Retry") { retry(notice.retryHostIDs) }
                             .buttonStyle(CompanionBannerActionButtonStyle())
+                        #endif
                             #if DEBUG
+                            .modifier(CompanionRetryEnabledProbe(report: geometrySeam?.retryEnabled))
                             .opacity(geometrySeam?.hidesRetry == true ? 0 : 1)
                             .onGeometryChange(for: CGRect.self) { $0.frame(in: .global) } action: { geometrySeam?.retryFrame?($0) }
                             #endif
@@ -218,6 +226,20 @@ struct CompanionDesktopConnectionBanner: View {
         }
     }
 
+    #if DEBUG
+    @ViewBuilder private func geometryRetryButton(_ hostIDs: [String]) -> some View {
+        if geometrySeam?.usesBorderedBaseline == true {
+            // Exact original fee5cd21 label/style; shared routing, disabled, AX and frame modifiers stay above.
+            Button { retry(hostIDs) } label: {
+                Text("Retry").frame(minWidth: 44, minHeight: 44).contentShape(Rectangle())
+            }
+            .buttonStyle(.bordered).buttonBorderShape(.capsule)
+        } else {
+            Button("Retry") { retry(hostIDs) }.buttonStyle(CompanionBannerActionButtonStyle())
+        }
+    }
+    #endif
+
     private func retryDisabled(_ hostIDs: [String]) -> Bool {
         hostIDs.allSatisfy { retryAttempts[$0] != nil }
     }
@@ -234,6 +256,17 @@ struct CompanionDesktopConnectionBanner: View {
         }
     }
 }
+
+#if DEBUG
+/// Observes the same enabled environment that the real ButtonStyle consumes; never overrides it.
+private struct CompanionRetryEnabledProbe: ViewModifier {
+    let report: ((Bool) -> Void)?
+    @Environment(\.isEnabled) private var isEnabled
+    func body(content: Content) -> some View {
+        content.onChange(of: isEnabled, initial: true) { _, value in report?(value) }
+    }
+}
+#endif
 
 /// A compact capsule whose visible pill stays text-sized inside its own 44pt target (#624). A bordered
 /// style pads around its whole label, so a 44pt label grew a near-circle that filled the banner card.
