@@ -396,4 +396,26 @@ import Testing
         #expect(await h.transport.executed.count == 2)
         try await retain("invalidated-read/after-B-and-unlocked", h)
     }
+
+    @Test(arguments: ["same-only", "mixed", "different"])
+    func storeRetainsSameProviderNoOpAndExplicitSwitchRefusal(kind: String) async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        if kind == "same-only" {
+            let saved = try await h.store.updateSettings(.init(orchestrator: "claude-code"), target: target)
+            #expect(saved.name.value == "Navi" && saved.model.value == "fixture-before")
+            #expect(await h.transport.executed.isEmpty)
+        } else if kind == "mixed" {
+            _ = try await h.store.updateSettings(.init(orchestrator: "claude-code", model: "default"), target: target)
+            let command = try #require(await h.transport.executed.first)
+            let payload = try JSONDecoder().decode(AnnexJSON.self, from: command.encoded())
+            #expect(await h.transport.executed.count == 1)
+            #expect(payload["type"] == .string("agent.update") && payload["model"] == .string("default") && payload["orchestrator"] == nil)
+        } else {
+            #expect(await serviceErrorText { _ = try await h.store.updateSettings(.init(orchestrator: "codex-cli"), target: target) }
+                    == CompanionProviderReason.message("provider_change_requires_preview"))
+            #expect(await h.transport.executed.isEmpty)
+        }
+        #expect(!h.store.pendingCommands.contains(target))
+        try await retain("provider-no-op/\(kind)", h)
+    }
 }

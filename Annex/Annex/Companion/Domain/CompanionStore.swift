@@ -40,6 +40,13 @@ import Observation
     /// projection at decision replacement/upsert/removal boundaries, never for stream chunks.
     private(set) var homeDecisionItems: [CompanionTarget: [CompanionTimelineItem]] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
+    /// Catalogue cleanup can invalidate A and admit B for the same value target.
+    /// Only the current reservation may release that target's pending membership.
+    private struct SettingsMutationReservation {
+        let target: CompanionTarget
+        let id: UUID
+    }
+    private var settingsMutationOwners: [CompanionTarget: UUID] = [:]
     /// A stop receipt only acknowledges the request. Keep mutations blocked until the desktop confirms sleep.
     private(set) var sleepRequests: Set<CompanionTarget> = []
     private(set) var sleepRefreshes: Set<CompanionTarget> = []
@@ -1203,10 +1210,28 @@ import Observation
         }
         // The service may read current settings before sending a same-provider edit.
         // Reserve this target across that suspension; a rejected writer never owns/removes it.
-        pendingCommands.insert(target)
-        defer { pendingCommands.remove(target) }
+        let reservation = try reserveSettingsMutation(target)
+        defer { releaseSettingsMutation(reservation) }
         let generation = accessDefaultReadGeneration(hostID: target.hostID)
-        let saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        let saved: CompanionAgentSettings
+        if let provider = change.orchestrator {
+            // Resolve the same-provider no-op here so ownership can be checked AFTER
+            // the read and BEFORE any mixed edit is forwarded. The service retains its
+            // independent provider enforcement for every other caller.
+            let current = try await service.settings(for: target)
+            guard settingsMutationOwners[target] == reservation.id else { throw CompanionServiceError.rejected(Self.mutationPending) }
+            guard provider == (current.orchestrator.value ?? current.resolvedOrchestrator) else {
+                throw CompanionServiceError.rejected(CompanionProviderReason.message("provider_change_requires_preview"))
+            }
+            var permitted = change
+            permitted.orchestrator = nil
+            if permitted.isEmpty { saved = current }
+            else { saved = try await service.updateSettings(permitted, target: target, clientCommandID: UUID().uuidString) }
+        } else {
+            saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        }
+        // An old receipt remains evidence, but must not update the replacement's local state.
+        guard settingsMutationOwners[target] == reservation.id else { return saved }
         if let host = accessDefaultHost(hostID: target.hostID, generation: generation), host.agent(for: target) != nil {
             agentAccessDefaults[target] = saved.access?.defaultLevel
         }
@@ -1414,17 +1439,17 @@ import Observation
         return try await service.dispatcherSettings(hostID: hostID)
     }
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String) async throws -> CompanionDispatcherSettings {
-        let target = try reserveDispatcherSettingsMutation(hostID)
-        defer { if let target { pendingCommands.remove(target) } }
+        let reservation = try reserveDispatcherSettingsMutation(hostID)
+        defer { if let reservation { releaseSettingsMutation(reservation) } }
         let saved = try await service.updateDispatcher(update, hostID: hostID, clientCommandID: UUID().uuidString)
-        invalidateDispatcherSettings(hostID: hostID)
+        if reservation.map({ settingsMutationOwners[$0.target] == $0.id }) ?? true { invalidateDispatcherSettings(hostID: hostID) }
         return saved
     }
     func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String) async throws -> CompanionDispatcherSettings {
-        let target = try reserveDispatcherSettingsMutation(hostID)
-        defer { if let target { pendingCommands.remove(target) } }
+        let reservation = try reserveDispatcherSettingsMutation(hostID)
+        defer { if let reservation { releaseSettingsMutation(reservation) } }
         let saved = try await service.setDispatcherModels(models, hostID: hostID, clientCommandID: UUID().uuidString)
-        invalidateDispatcherSettings(hostID: hostID)
+        if reservation.map({ settingsMutationOwners[$0.target] == $0.id }) ?? true { invalidateDispatcherSettings(hostID: hostID) }
         return saved
     }
     private func invalidateDispatcherSettings(hostID: String) {
@@ -1444,12 +1469,22 @@ import Observation
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change the Dispatcher.")
         }
     }
-    private func reserveDispatcherSettingsMutation(_ hostID: String) throws -> CompanionTarget? {
+    private func reserveDispatcherSettingsMutation(_ hostID: String) throws -> SettingsMutationReservation? {
         try requireDispatcherConnection(hostID)
         guard let target = hosts.first(where: { $0.id == hostID })?.dispatcher?.agent?.id else { return nil }
-        guard !pendingCommands.contains(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        return try reserveSettingsMutation(target)
+    }
+    private func reserveSettingsMutation(_ target: CompanionTarget) throws -> SettingsMutationReservation {
+        guard !pendingCommands.contains(target), settingsMutationOwners[target] == nil else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        let reservation = SettingsMutationReservation(target: target, id: UUID())
+        settingsMutationOwners[target] = reservation.id
         pendingCommands.insert(target)
-        return target
+        return reservation
+    }
+    private func releaseSettingsMutation(_ reservation: SettingsMutationReservation) {
+        guard settingsMutationOwners[reservation.target] == reservation.id else { return }
+        settingsMutationOwners[reservation.target] = nil
+        pendingCommands.remove(reservation.target)
     }
     /// Reads the settings right before asking, so the confirmation is as fresh as it can be, then asks.
     func askDispatcherReset(_ reset: CompanionDispatcherReset, hostID: String) async {
@@ -1987,6 +2022,7 @@ import Observation
         }
         for target in gone {
             conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
+            settingsMutationOwners[target] = nil
             if homeDecisionItems[target] != nil { homeDecisionItems[target] = nil }
             sleepRequests.remove(target); sleepRefreshes.remove(target)
             confirmedSleepCommands[target] = nil
