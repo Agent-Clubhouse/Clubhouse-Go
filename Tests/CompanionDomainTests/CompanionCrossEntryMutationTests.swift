@@ -23,10 +23,13 @@ import Testing
     private var agentSettings: AnnexJSON {
         .object(["state": .string("sleeping"), "sleeping": .bool(true), "settings": .object([
             "name": .object(["value": .string("Navi"), "editable": .string("sleeping")]),
+            "model": .object(["value": .string("fixture-before"), "editable": .string("sleeping")]),
             "orchestrator": .object(["value": .string("claude-code"), "resolved": .string("claude-code"), "editable": .string("sleeping")])])])
     }
     private func dispatcherSettings() throws -> AnnexJSON {
-        try replacing(ContractFixtures.body("dispatcher-settings.json", "on"), "agentId", .string(target.agentID))
+        let original = try replacing(ContractFixtures.body("dispatcher-settings.json", "on"), "agentId", .string(target.agentID))
+        // This capable synthetic desktop honors the generic model field under test.
+        return try replacing(original, "notHonored", .array(original["notHonored"].arrayValue.filter { $0["setting"] != .string("model") }))
     }
     private func result(_ provider: Provider, _ key: String = "preview") throws -> AnnexJSON {
         if provider == .v2 { return try #require(fixture("provider-control-v2.json")[key]?["body"]?["result"]) }
@@ -60,6 +63,9 @@ import Testing
         try await h.waitUntil { h.store.agent(for: target)?.isSleepingOnDesktop == true }
         await h.store.load(target)
         #expect(h.store.canEditSettings(target) && h.store.canEditDispatcherSettings(hostID: target.hostID))
+        let offered = try await h.store.settings(for: target)
+        #expect(offered.model.canEdit(sleeping: true))
+        #expect(try await !h.store.loadDispatcherSettings(hostID: target.hostID).notHonored.contains("model"))
         return h
     }
     private func select(_ provider: Provider, _ h: LiveServiceHarness) async throws {
@@ -223,5 +229,97 @@ import Testing
         #expect(await h.transport.executed.last?.type == "agent.providerChange")
         #expect(h.store.hasPendingProviderAction(target))
         try await retain("unlocked/\(provider)", h)
+    }
+
+    @Test(arguments: [false, true])
+    func startRechecksRecoveryAdmissionAfterItsFreshPreview(preparing: Bool) async throws {
+        let h = try await start(.v2); defer { h.stop() }
+        try await select(.v2, h)
+        await h.transport.enqueue(.completed(try result(.v2, "applied")))
+        await h.transport.enqueue(.completed(try result(.v2, "savedDefaultsPreview")))
+        await save(.v2, h)
+        let flow = h.store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(flow.canStart)
+        let heldApply = try #require(flow.lastApply)
+        await h.transport.enqueue(.heldCompleted(try result(.v2, "savedDefaultsPreview")))
+        let count = await h.transport.executed.count
+        let starting = Task { await flow.startNew() }
+        try await h.waitUntil { await h.transport.executed.count == count + 1 }
+        #expect(await h.transport.executed.last?.type == "agent.providerPreview")
+        var recoveryRead: Task<Void, Never>?
+        if preparing {
+            await h.transport.pauseNextRead("dispatcherSettings")
+            recoveryRead = Task { await h.store.askDispatcherRecoveryNewChat(target) }
+            try await h.waitUntil { await h.transport.isReadPaused("dispatcherSettings") }
+            #expect(h.store.dispatcherRecoveryPreparing.contains(target))
+        } else {
+            await h.store.askDispatcherRecoveryNewChat(target)
+            let prompt = try #require(h.store.dispatcherResetPrompt)
+            #expect(h.store.claimDispatcherRecoveryNewChat(prompt, target: target) != nil)
+            #expect(h.store.pendingCommands.contains(target))
+        }
+        let before = await h.transport.executed.map(\.commandID)
+        try await retain("start-recheck/\(preparing)/before", h)
+        await h.transport.releaseCommand()
+        await starting.value
+        try await retain("start-recheck/\(preparing)/after", h)
+        #expect(await h.transport.executed.map(\.commandID) == before)
+        #expect(await h.transport.executed.allSatisfy { $0.type != "agent.start" })
+        #expect(flow.lastApply == heldApply && flow.lastStart == nil && !flow.canStart)
+        if preparing { await h.transport.resumeRead("dispatcherSettings") }
+        await recoveryRead?.value
+    }
+
+    @Test(arguments: [false, true])
+    func settingsReadRetainsItsOwnReservationAndRejectsASecondWriter(dispatcher: Bool) async throws {
+        let h = try await start(.v1); defer { h.stop() }
+        let writingTarget = dispatcher ? target : h.target
+        await h.transport.pauseNextRead("agentSettings")
+        let saving = Task { await serviceErrorKind {
+            _ = try await h.store.updateSettings(.init(orchestrator: "claude-code", model: "default"), target: writingTarget)
+        } }
+        try await h.waitUntil { await h.transport.isReadPaused("agentSettings") }
+        #expect(h.store.pendingCommands.contains(writingTarget))
+        #expect(await serviceErrorKind { _ = try await h.store.updateSettings(.init(model: "default"), target: writingTarget) } != .none)
+        #expect(h.store.pendingCommands.contains(writingTarget), "A refused second writer cannot remove the first writer's reservation")
+        #expect(await h.transport.executed.isEmpty)
+        if dispatcher {
+            await h.store.askDispatcherRecoveryNewChat(target)
+            #expect(h.store.dispatcherResetPrompt == nil)
+            #expect(h.store.dispatcherRecovery(for: target)?.canStartNewChat == false)
+            _ = try await h.store.updateSettings(.init(model: "default"), target: h.target)
+            #expect(await h.transport.executed.count == 1, "The other target retains its mutation authority")
+        }
+        try await retain("settings-reservation/\(dispatcher)/before-resume", h)
+        await h.transport.resumeRead("agentSettings")
+        #expect(await saving.value == .none)
+        #expect(!h.store.pendingCommands.contains(writingTarget))
+        #expect(await h.transport.executed.count == (dispatcher ? 2 : 1))
+        #expect(await h.transport.executed.last?.type == "agent.update")
+        try await retain("settings-reservation/\(dispatcher)/after-resume", h)
+    }
+
+    @Test(arguments: [false, true])
+    func dispatcherSettingsWritesReserveOnlyTheirDispatcherTarget(models: Bool) async throws {
+        let h = try await start(.v2); defer { h.stop() }
+        try await select(.v2, h)
+        await h.transport.enqueue(.heldCompleted(try dispatcherSettings()))
+        let saving = Task { await serviceErrorKind {
+            if models { _ = try await h.store.setDispatcherModels(.byHand(true), hostID: target.hostID) }
+            else { _ = try await h.store.updateDispatcher(.init(behavior: "light"), hostID: target.hostID) }
+        } }
+        try await h.waitUntil { await h.transport.executed.count == 2 }
+        #expect(h.store.pendingCommands.contains(target))
+        await h.store.askDispatcherRecoveryNewChat(target)
+        #expect(h.store.dispatcherResetPrompt == nil)
+        let before = await h.transport.executed.map(\.commandID)
+        await save(.v2, h)
+        #expect(await h.transport.executed.map(\.commandID) == before)
+        _ = try await h.store.updateSettings(.init(model: "default"), target: h.target)
+        #expect(h.store.pendingCommands.contains(target) && !h.store.pendingCommands.contains(h.target))
+        await h.transport.releaseCommand()
+        #expect(await saving.value == .none)
+        #expect(!h.store.pendingCommands.contains(target))
+        try await retain("dispatcher-settings-reservation/\(models)", h)
     }
 }
