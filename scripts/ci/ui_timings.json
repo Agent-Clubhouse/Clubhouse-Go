@@ -1,0 +1,1243 @@
+{
+ "source": "median all-attempt seconds per method and sampled job count, from 45 UI/iPad CI job logs of runs 44630350002..44884032003 (2026-11-19..21); unsampled methods are planned at 60 s",
+ "methods": {
+  "CompanionAdditionalProviderTests": {
+   "testClaudeStructuredQuestionAndApprovalDenial": [
+    1.7,
+    3
+   ],
+   "testProviderActiveGenerationControl": [
+    0.1,
+    3
+   ],
+   "testProviderApprovalDenial": [
+    0.1,
+    3
+   ],
+   "testProviderWakeResponseFollowUpReconnectAndFilePreview": [
+    0.1,
+    3
+   ]
+  },
+  "CompanionAgentSettingsVisualUITests": {
+   "testAccessibility": [
+    107.2,
+    6
+   ],
+   "testCatppuccinLatte": [
+    51.6,
+    6
+   ],
+   "testDark": [
+    47.5,
+    6
+   ],
+   "testLight": [
+    51.2,
+    6
+   ],
+   "testSolarizedDark": [
+    37.8,
+    6
+   ]
+  },
+  "CompanionAgentTreeUITests": {
+   "testNestedRowsCollapseRollupRelaunchAndNeedsYouNavigation": [
+    91.2,
+    4
+   ],
+   "testProjectUsesSameTreeAndCrossProjectCaption": [
+    39.4,
+    10
+   ]
+  },
+  "CompanionAppLifetimeUITests": {
+   "testLaunchCanOpenCancelAndReopenPairingWithoutConnecting": [
+    40.6,
+    5
+   ],
+   "testPreviewSettingsShowsBuildVersion": [
+    26.6,
+    5
+   ],
+   "testRootSettingsActionCanOpenCloseAndReopen": [
+    17.9,
+    5
+   ]
+  },
+  "CompanionAppUpdateUITests": {
+   "testCheckFlowsThroughLiveDownloadToRestartAndOwnReview": [
+    54.4,
+    7
+   ],
+   "testDispatcherOffOffersExplicitEnableBeforeRequestingRestart": [
+    17.1,
+    7
+   ],
+   "testDownloadingAvailableNoneAndUnsupportedHaveClearStatusWithoutDeadActions": [
+    75.1,
+    7
+   ],
+   "testOlderDesktopHidesCheckAndAlreadyCheckingIsDisabled": [
+    52.7,
+    7
+   ],
+   "testReadyRequestPresentsOwnInterruptionReviewAndRestartWhenIdleWithoutLeavingTheScreen": [
+    44.4,
+    7
+   ],
+   "testRestartNowAndCancelAreExplicitChoices": [
+    46.0,
+    7
+   ],
+   "testSettingsWithoutUpdateShowsPlainVersionAndDestructiveForgetKeepsItsConfirmation": [
+    26.4,
+    7
+   ]
+  },
+  "CompanionAutoQuotaUITests": {
+   "testAutoAppScopeAndQuotaKeepDesktopWordsAndRefusedEdit": [
+    31.6,
+    4
+   ],
+   "testCopilotIsALastResortAndRefusedOptOutKeepsServerValue": [
+    23.3,
+    4
+   ],
+   "testDispatcherAutoScopesAreReadOnly": [
+    29.1,
+    4
+   ],
+   "testHeldAndSavedWarningsAreHistoricalInformation": [
+    43.6,
+    4
+   ],
+   "testPlanLimitsFromSettingsGroupsMachinesAndKeepsUnknownHonest": [
+    36.5,
+    4
+   ],
+   "testPlanLimitsWithAccessibilityTextSize": [
+    19.4,
+    4
+   ],
+   "testProjectOffAndNotOrchestratingPreserveSavedAgentOn": [
+    51.1,
+    4
+   ],
+   "testReportOnlyBlocksOrchestrationAndAllowsAutoOffAndClear": [
+    69.6,
+    4
+   ]
+  },
+  "CompanionChatHeaderUITests": {
+   "testAccessibilityKeyboardKeepsIdentityAndUsageActionReachable": [
+    41.0,
+    4
+   ],
+   "testIdentityDisclosesDetailsAndUsageOpensContextAndDesktopPlanLimits": [
+    54.2,
+    4
+   ],
+   "testReviewHasOneIdentityPrincipalWithPositionDisclosureAndUsage": [
+    52.1,
+    4
+   ],
+   "testUnknownContextStillOffersDesktopPlanLimits": [
+    15.1,
+    4
+   ],
+   "testWorkingActivityStillShowsItsLabelInTheFooter": [
+    9.7,
+    4
+   ]
+  },
+  "CompanionCompactComposerUITests": {
+   "testCircleMenuAccessibilityXXXL": [
+    27.7,
+    6
+   ],
+   "testCircleMenuDark": [
+    24.3,
+    6
+   ],
+   "testCircleMenuLight": [
+    21.9,
+    6
+   ],
+   "testDarkModeDraftTextAndKeyboardStayDark": [
+    53.9,
+    6
+   ],
+   "testFitInvariantCatchesWronglyCollapsedAndWronglyFullTrays": [
+    1.3,
+    6
+   ],
+   "testForcedTrayStatesAreCaughtAndFitMetricsMatchRenderedGeometry": [
+    107.9,
+    6
+   ],
+   "testGrantFooterKeepsReviewFirstAndScrollsBelowItsMinimumFloor": [
+    52.2,
+    6
+   ],
+   "testIdleControlsStayCollapsedBeforeAndAfterTyping": [
+    36.9,
+    6
+   ],
+   "testLargestTextWorkingAttachmentRowFits": [
+    130.1,
+    6
+   ],
+   "testLightModeDraftPromptAndTextStayReadable": [
+    57.6,
+    6
+   ],
+   "testOrdinaryWorkingOneThroughEightLinesKeepFullWidthAndFit": [
+    126.0,
+    6
+   ],
+   "testOrdinaryWorkingSoftWrappedDraftKeepsFullWidthAndFit": [
+    111.3,
+    6
+   ],
+   "testPendingGrantEightLineDraftKeepsReviewAndComposerAboveKeyboard": [
+    64.3,
+    6
+   ],
+   "testWorkingInterruptIsBesideSendAndOnlyRequestsConfirmation": [
+    62.3,
+    6
+   ]
+  },
+  "CompanionComposerPasteUITests": {
+   "testPastingAnImageWhereTheAgentCantTakeImagesExplains": [
+    69.0,
+    5
+   ],
+   "testPastingImagesAddsAttachmentsAndTextStillPastes": [
+    85.7,
+    5
+   ]
+  },
+  "CompanionContextWindowUITests": {
+   "testDispatcherPendingChoiceCanChangeWithoutSleeping": [
+    89.8,
+    5
+   ],
+   "testReportedContextIsReadOnlyAndAwakePendingChoiceIsLocked": [
+    42.3,
+    5
+   ],
+   "testSleepingAgentShowsPendingChoiceAndResetRefusal": [
+    127.5,
+    5
+   ]
+  },
+  "CompanionDispatcherRecoveryUITests": {
+   "testInterruptAndNewChatHaveSeparateConfirmedEffects": [
+    48.8,
+    1
+   ],
+   "testStopChatIsConfirmedAndRequiresDesktopStateEvidence": [
+    29.7,
+    1
+   ]
+  },
+  "CompanionDispatcherUITests": {
+   "testARelayedTaskIsCaptionedWithItsSender": [
+    45.5,
+    3
+   ],
+   "testARoutedBurstShowsEachSenderAndMessageSeparately": [
+    136.5,
+    3
+   ],
+   "testAnExplicitControllerChatNameIsNotTreatedAsALegacyRoleLabel": [
+    90.6,
+    3
+   ],
+   "testBehaviorClearChatAndForgetEverything": [
+    92.0,
+    3
+   ],
+   "testDesktopSwitcherKeepsSeparateDraftsAndScrollPositions": [
+    51.7,
+    3
+   ],
+   "testDesktopSwitcherUsesDispatcherNamesWithoutMachineChrome": [
+    13.7,
+    3
+   ],
+   "testDraftSurvivesTabSwitchAndDisconnectAndOffMovesHomeOnce": [
+    35.6,
+    3
+   ],
+   "testEmojiDraftSurvivesRotationAndSaves": [
+    35.5,
+    3
+   ],
+   "testEveryLastTabRestoresAfterRelaunch": [
+    68.9,
+    3
+   ],
+   "testLegacyControllerPresenceCannotReplacePairedChatNames": [
+    11.3,
+    3
+   ],
+   "testNameDraftSurvivesLazySectionsAndUnrelatedSaves": [
+    128.0,
+    3
+   ],
+   "testNewSettingsPresentationStartsWithSavedNameNotDiscardedDraft": [
+    41.6,
+    3
+   ],
+   "testPairedPresenceDoesNotDuplicateOrDisableAChip": [
+    13.7,
+    3
+   ],
+   "testPersonalityDraftSurvivesRotationAndSaves": [
+    67.5,
+    3
+   ],
+   "testPinnedRowOpensTheDispatchersChatAndSettings": [
+    33.9,
+    3
+   ],
+   "testPresenceOmitsUnpairedRemotesWithOnePairedDispatcher": [
+    10.8,
+    3
+   ],
+   "testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation": [
+    308.6,
+    3
+   ],
+   "testSettingsChatNameOverridesTheSnapshotChatName": [
+    33.5,
+    3
+   ],
+   "testSnapshotChatNameIsPreservedBeforeSettingsLoad": [
+    12.7,
+    3
+   ],
+   "testTabBarAppearanceMatrix": [
+    59.9,
+    3
+   ],
+   "testUnavailableRestoredDispatchFallsBackToHomeWithoutStealingSelection": [
+    24.2,
+    3
+   ]
+  },
+  "CompanionGrantRequestUITests": {
+   "testAllowOnceAndDeclineAnswerGrantRequests": [
+    22.2,
+    3
+   ],
+   "testAnswerInChatRemovesNeedsYouCardAndKeepsCLIApprovalSeparate": [
+    41.6,
+    3
+   ],
+   "testDesktopUpdateInChatRequiresExplicitRestartMode": [
+    30.1,
+    3
+   ],
+   "testDispatcherGrantOpenChatSwitchesTabsAndShowsTheRequest": [
+    116.7,
+    3
+   ],
+   "testNeedsYouAnswerRemovesRequestFromPreviouslyOpenedChat": [
+    40.6,
+    3
+   ]
+  },
+  "CompanionHardwareKeyboardUITests": {
+   "testHardwareReturnInvokesTheGuardedSendPath": [
+    35.0,
+    6
+   ],
+   "testHardwareShiftReturnInsertsANewlineWithoutSending": [
+    38.2,
+    6
+   ],
+   "testOnScreenReturnStillInsertsANewline": [
+    28.7,
+    6
+   ],
+   "testSendButtonExposesTheSendRefusalSentinel": [
+    22.6,
+    6
+   ]
+  },
+  "CompanionHelperPresetsUITests": {
+   "testCopilotIsPresetOnlyAndNoEffortModelHasNoPicker": [
+    54.7,
+    7
+   ],
+   "testEffectiveCustomStaleAndUnverifiedPresetsAndResetRefusal": [
+    43.3,
+    7
+   ],
+   "testFiveLevelsAndResetRestoresInheritance": [
+    62.0,
+    7
+   ],
+   "testHelperSettingsAndHeldStartShowTheirOwnRouting": [
+    58.3,
+    7
+   ],
+   "testOnlyOfferedModelAndEffortChoicesAndRefusedSave": [
+    40.2,
+    7
+   ]
+  },
+  "CompanionHomeSubtitleUITests": {
+   "testHomeSubtitleAppearanceMatrixAndReadableXXXL": [
+    67.3,
+    7
+   ],
+   "testSubtitleDoesNotLeakAcrossTabsAndRestoresAfterRelaunch": [
+    23.7,
+    7
+   ],
+   "testSubtitleUpdatesAfterAgentAndConnectionReports": [
+    22.1,
+    7
+   ]
+  },
+  "CompanionImageAttachmentUITests": {
+   "testPickRemoveAndSendImages": [
+    121.9,
+    7
+   ]
+  },
+  "CompanionLinkedProjectUITests": {
+   "testDisconnectedMemberKeepsItsPlaceWithoutShowingCachedAgents": [
+    29.9,
+    7
+   ],
+   "testHomeAndProjectPageMergeMachinesAndUnlinkSplitsThem": [
+    52.6,
+    7
+   ],
+   "testNeedsYouUsesOneProjectHeadingWithMachineLabels": [
+    13.9,
+    7
+   ],
+   "testProjectOptionsDisambiguateTwoProjectsOnTheSameMachine": [
+    20.6,
+    7
+   ],
+   "testSpawningRequiresChoosingTheMachine": [
+    37.5,
+    7
+   ]
+  },
+  "CompanionLongReplyUITests": {
+   "testLongReplyScrollsToTheTopAndBackWithoutStalling": [
+    226.6,
+    7
+   ]
+  },
+  "CompanionManagedSpawnUITests": {
+   "testAbsentCapabilityHidesManagedRowsEvenWhenOptionsContainTemplates": [
+    21.2,
+    6
+   ],
+   "testAccessibilityAppearance": [
+    51.4,
+    6
+   ],
+   "testCatppuccinLatteAppearance": [
+    24.0,
+    6
+   ],
+   "testDarkAppearance": [
+    21.6,
+    6
+   ],
+   "testLightAppearance": [
+    21.7,
+    6
+   ],
+   "testManagedCreationRequiresAnExplicitChoiceAndBlankIsLocal": [
+    24.3,
+    6
+   ],
+   "testSolarizedDarkAppearance": [
+    23.1,
+    6
+   ],
+   "testTemplateOrderingFillsRuntimeAndPlainFieldsStayAvailableWhenManagedIsOff": [
+    24.1,
+    6
+   ]
+  },
+  "CompanionMarkdownBlockUITests": {
+   "testTableAndCodeOpenFullScreenToTheirLastRowAndLine": [
+    107.0,
+    7
+   ],
+   "testTableAndCodeOpenFullScreenWithCopyAndShare": [
+    60.4,
+    7
+   ]
+  },
+  "CompanionMarkdownFileUITests": {
+   "testDefaultPreviewLoaderAfterSourceSwitchAndSheetReopen": [
+    46.6,
+    7
+   ],
+   "testLineTargetStartsInSource": [
+    26.5,
+    7
+   ],
+   "testPreviewSourceAndCopyRawMarkdown": [
+    45.1,
+    7
+   ]
+  },
+  "CompanionNeedsYouActionCardUITests": {
+   "testActionHeadlineAlignedMetadataAndVisibleReview": [
+    16.5,
+    5
+   ],
+   "testSeveralRequestsAndDesktopsAppearanceMatrix": [
+    124.2,
+    5
+   ]
+  },
+  "CompanionNeedsYouUITests": {
+   "testBothOnlineCanShowKnownEmptyState": [
+    13.6,
+    5
+   ],
+   "testConnectionInProgressShowsUnknownWithoutDuplicateRetry": [
+    11.9,
+    5
+   ],
+   "testNoReachableDesktopsQualifiesEmptyStateAndCombinesRetryTargets": [
+    15.9,
+    5
+   ],
+   "testOfflineNoticeKeepsReachableRequestAndScopedRetry": [
+    15.5,
+    5
+   ]
+  },
+  "CompanionOfflineBannerUITests": {
+   "testCombinedBannerAppearanceMatrixAndReadableXXXL": [
+    107.6,
+    7
+   ],
+   "testReconnectingUsesTheSameBannerWithoutAnotherRetry": [
+    12.7,
+    7
+   ],
+   "testSingleOfflineDesktopKeepsOneLineAndAnExplicitRetry": [
+    11.3,
+    7
+   ]
+  },
+  "CompanionPermissionMenuUITests": {
+   "testAutoConfirmationExplainsApprovalChoice": [
+    39.9,
+    7
+   ],
+   "testFullAccessConfirmationExplainsUnpromptedEditsAndCommands": [
+    40.4,
+    7
+   ],
+   "testLandscapeEveryLevelIsReachableAndFullAccessStillConfirms": [
+    80.9,
+    7
+   ],
+   "testLargestTextPortraitEveryLevelKeepsFullVoiceOverTextAndRemainsReachable": [
+    65.9,
+    7
+   ],
+   "testNativePermissionContextRejectsUnloadedClippedAndCrossedLayouts": [
+    0.3,
+    1
+   ],
+   "testPermissionDescriptionsUseEditingRoomAndRemainVisibleWithKeyboardDown": [
+    43.8,
+    7
+   ],
+   "testPortraitEveryLevelFitsWithoutScrollingAcrossThemes": [
+    164.4,
+    7
+   ],
+   "testXLargePortraitEveryLevelFitsWithoutScrollingAcrossThemes": [
+    158.7,
+    7
+   ]
+  },
+  "CompanionPhoneWorkflowTests": {
+   "testWakeImageFilePreviewAndFeedbackSettings": [
+    0.1,
+    3
+   ]
+  },
+  "CompanionPinnedDecisionUITests": {
+   "testAccessibilityDecisionBar": [
+    40.7,
+    5
+   ],
+   "testApprovalArrivesWhileStreamingAndStaysPinnedWithoutPausingFollow": [
+    54.8,
+    5
+   ],
+   "testBroaderAndCustomOptionsStayInReviewAndKeepConfirmation": [
+    44.5,
+    5
+   ],
+   "testDarkDecisionBar": [
+    33.9,
+    5
+   ],
+   "testIncompleteRequestDisablesAllowButKeepsDenyAvailable": [
+    29.8,
+    5
+   ],
+   "testKeyboardKeepsPendingTrayAndDraftUsableOnSmallPhones": [
+    85.9,
+    5
+   ],
+   "testLandscapeAndAX5KeepReviewContextAndDecisionsReachable": [
+    71.8,
+    5
+   ],
+   "testLatteDecisionBar": [
+    43.0,
+    5
+   ],
+   "testLightDecisionBar": [
+    40.1,
+    5
+   ],
+   "testMochaDecisionBar": [
+    34.1,
+    5
+   ],
+   "testNativeReviewMenuStaysStableAcrossTwoFormerTicksBeforeOneTouch": [
+    61.2,
+    5
+   ],
+   "testPinnedAnswersSwipesQuestionsAndCloseShareOneDecisionState": [
+    58.5,
+    5
+   ],
+   "testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard": [
+    106.6,
+    5
+   ],
+   "testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard": [
+    107.7,
+    5
+   ],
+   "testRequestArrivingWhileTypingAtStandardTextNeverCollapsesTheTray": [
+    98.4,
+    5
+   ],
+   "testShowInChatRevealsOriginalRequestOutsideTheTimelineWindow": [
+    57.6,
+    5
+   ],
+   "testSwipesAndTitleTapsNeverSendADecision": [
+    95.4,
+    5
+   ]
+  },
+  "CompanionPreviewSmokeTests": {
+   "testAgentDetailsSheetForAnAgentWithoutSession": [
+    71.3,
+    5
+   ],
+   "testAgentDetailsSheetLinksToAgentSettings": [
+    71.7,
+    5
+   ],
+   "testAgentDetailsSheetMatchesTheDesktopHoverCard": [
+    74.3,
+    5
+   ],
+   "testAgentReplyRendersBlockMarkdown": [
+    24.2,
+    5
+   ],
+   "testAgentSettingsShowsDispatcherWithOrchestrationOff": [
+    27.1,
+    5
+   ],
+   "testChatControlsMenusAndPersistentApproval": [
+    92.4,
+    5
+   ],
+   "testComposerCentresOneLineAtLargeText": [
+    43.7,
+    5
+   ],
+   "testComposerSingleLineHeightMatchesWrappedLineHeight": [
+    39.8,
+    5
+   ],
+   "testContentPreviewDismissesWhileToolUpdatesStream": [
+    127.1,
+    5
+   ],
+   "testExploredFoldAndApprovalCardMatchDesktop": [
+    71.0,
+    5
+   ],
+   "testGuidedProviderFlowAtLargeText": [
+    96.9,
+    5
+   ],
+   "testGuidedProviderSelectionRequiresSaveAndDoesNotOfferResume": [
+    78.8,
+    5
+   ],
+   "testHelperSettingsHidesOnlyTheDispatcherConnection": [
+    59.0,
+    5
+   ],
+   "testHomeFoldsIdleProjectsAndPinsToTop": [
+    67.0,
+    5
+   ],
+   "testHomePDFSheetDismissesReopensAndStaysForegroundAfterExportedURLTap": [
+    46.7,
+    5
+   ],
+   "testKnownGoneAndQuickSendersHaveAccessibleAvatars": [
+    96.9,
+    5
+   ],
+   "testLocalLinksAndPathsResolveToFileFolderTruncatedMissingAndNotShared": [
+    96.4,
+    5
+   ],
+   "testNeedsYouAnswersHelperRequestsWithTheDesktopRules": [
+    26.7,
+    5
+   ],
+   "testNeedsYouUsesTheDesktopWords": [
+    13.7,
+    5
+   ],
+   "testPreviewOpensScopedConversationAndKeepsCommandsNonLive": [
+    28.2,
+    5
+   ],
+   "testProjectPageFinishedFoldAndWake": [
+    58.2,
+    5
+   ],
+   "testProviderApplyAtAccessibilitySizeKeepsSavedProposalAndStartSeparate": [
+    103.9,
+    5
+   ],
+   "testProviderApplyCannotSilentlyReplaceAnExplicitRuntime": [
+    44.2,
+    5
+   ],
+   "testProviderApplyKeepsSavedProposalAndStartSeparate": [
+    88.9,
+    5
+   ],
+   "testProviderApplyLostReceiptStaysLockedUntilItsResultIsChecked": [
+    125.9,
+    5
+   ],
+   "testScratchAndHomeTextOpenInApp": [
+    39.5,
+    5
+   ],
+   "testSleepIsSeparateFromInterruptAndSettingsKeepProviderLockedOnRefusal": [
+    64.6,
+    5
+   ],
+   "testSleepingAgentOffersWakeAndResumeAndStartNewSession": [
+    44.2,
+    5
+   ],
+   "testUnsupportedProviderChangesDoNotOfferAnUnsafeGenericMenu": [
+    35.7,
+    5
+   ],
+   "testWakeSheetAcceptsTextWithoutTapping": [
+    31.1,
+    5
+   ]
+  },
+  "CompanionProjectPageUITests": {
+   "testAllRequiresAnExplicitWakeMachineAndASelectedDesktopActsDirectly": [
+    48.3,
+    5
+   ],
+   "testAllTerminalChoosesOneMachineAndOpensOnlyItsShell": [
+    28.4,
+    5
+   ],
+   "testLinkedToolbarMixedVersionDisablesSharedChangesAndShowsConnectionHint": [
+    24.1,
+    5
+   ],
+   "testLinkedToolbarOldHostsRetainPerCopyStateFallback": [
+    40.0,
+    5
+   ],
+   "testLinkedToolbarUsesSharedPinAndInactiveEvenInASelectedDesktopScope": [
+    35.2,
+    5
+   ],
+   "testSingleProjectMenuKeepsPinInactiveAndReadOnlyInfo": [
+    27.9,
+    5
+   ]
+  },
+  "CompanionQuestionUITests": {
+   "testIncompleteQuestionsRequireDesktopAndCompleteQuestionCanBeAnswered": [
+    34.2,
+    4
+   ],
+   "testLastQuestionCanScrollClearOfComposerAndNavigationWhileEditing": [
+    47.7,
+    4
+   ]
+  },
+  "CompanionQueuedBurstUITests": {
+   "testQueuedJoinsKeepOneDeliveredRowAndStablePartIdentifiers": [
+    23.6,
+    3
+   ]
+  },
+  "CompanionReadingUITests": {
+   "testFailedOutputFoldsButErrorStatusStaysVisible": [
+    25.4,
+    4
+   ],
+   "testHelperRepliesAreInlineWhileToolsStayFoldedAndStatusesStayCompact": [
+    18.9,
+    4
+   ],
+   "testHistoryPrependStreamingKeyboardAndReturnKeepTheReadingEntry": [
+    111.9,
+    4
+   ],
+   "testLastReplyLabelMatchesTheActualStationaryAction": [
+    50.8,
+    4
+   ],
+   "testLatestArrivesGeometricallyWithoutAnIncomingUpdate": [
+    23.4,
+    4
+   ],
+   "testLatestClearsAfterTinyUpScrollBounceAndKeyboardLayout": [
+    32.6,
+    4
+   ],
+   "testLatestIsAbsentAtActualBottomWithoutPausingFollowing": [
+    15.6,
+    4
+   ],
+   "testLatestIsOneCenteredActionAndReachesStreamingTail": [
+    33.9,
+    4
+   ],
+   "testMomentumAfterAShortUpwardPanKeepsFollowingPaused": [
+    23.2,
+    4
+   ],
+   "testNativeScrollToTopSticksWithAndWithoutStreaming": [
+    51.7,
+    4
+   ],
+   "testPointerWheelScrollPausesFollowingWhileStreaming": [
+    0.2,
+    4
+   ],
+   "testReadingRestorationFramesIgnoreNoiseButDetectMovement": [
+    0.1,
+    4
+   ],
+   "testRotationKeepsNewestLineInsideViewportWhileFollowing": [
+    52.6,
+    4
+   ],
+   "testRotationPreservesAScrolledUpReader": [
+    39.2,
+    4
+   ],
+   "testStreamingKeepsFollowingWhenNobodyScrolls": [
+    28.9,
+    4
+   ],
+   "testUserPositionedReplyStaysWhileStreaming": [
+    47.1,
+    4
+   ]
+  },
+  "CompanionRecoveryIntegrationUITests": {
+   "testConnectionBannerAppearanceMatrixAndReadableXXXL": [
+    72.2,
+    6
+   ],
+   "testFirstLoadProgressFailureDetailsRetryAndRecovery": [
+    32.7,
+    6
+   ],
+   "testLargeTextKeepsFullErrorsSeparateWarningAndTargetDetailsReachable": [
+    54.0,
+    6
+   ]
+  },
+  "CompanionReviewUITests": {
+   "testHomeOpensReviewOnEveryAwakeAgent": [
+    31.5,
+    6
+   ],
+   "testReviewSwipesBetweenChatsAndApprovesInPlace": [
+    50.0,
+    6
+   ]
+  },
+  "CompanionSearchUITests": {
+   "testOpenedAgentsAppearInRecentAndSurviveProcessRelaunch": [
+    46.4,
+    7
+   ],
+   "testRestingFiltersUseTheExistingAgentStatuses": [
+    19.4,
+    7
+   ],
+   "testSearchAppearanceMatrix": [
+    54.3,
+    7
+   ],
+   "testTypingStillFindsAgentNamesTasksAndProjects": [
+    17.1,
+    7
+   ]
+  },
+  "CompanionSessionModelUITests": {
+   "testPermissionsAndEffortOrderingDoNotChangeWhenModelsDiffer": [
+    95.9,
+    3
+   ],
+   "testSessionAndSavedAppearOnlyForProvenDifference": [
+    142.3,
+    3
+   ]
+  },
+  "CompanionSpawnVisualUITests": {
+   "testAccessibility": [
+    20.0,
+    5
+   ],
+   "testCatppuccinLatte": [
+    12.7,
+    5
+   ],
+   "testDark": [
+    14.6,
+    5
+   ],
+   "testLight": [
+    13.6,
+    5
+   ],
+   "testSolarizedDark": [
+    13.4,
+    5
+   ]
+  },
+  "CompanionTerminalUITests": {
+   "testAgentMenusOpenItsShellAndATerminalAgentShowsItsOwnTerminal": [
+    35.0,
+    3
+   ],
+   "testDoneHasAccessibleContrastOnDarkTerminal": [
+    23.6,
+    3
+   ],
+   "testDraggingOutputDismissesKeyboardAndKeepsInputAndSelection": [
+    39.5,
+    3
+   ],
+   "testLongPressOffersPasteAndSendsBytes": [
+    26.3,
+    3
+   ],
+   "testPasteButtonSendsBytesWithKeyboardShownAndHidden": [
+    26.4,
+    3
+   ],
+   "testProjectTerminalEchoesTypingAndOffersTheKeyBar": [
+    43.7,
+    3
+   ],
+   "testRefusedPasteExplainsAndLeavesTerminalUsable": [
+    22.4,
+    3
+   ],
+   "testTerminalFollowsRotation": [
+    30.0,
+    3
+   ]
+  },
+  "CompanionUnicodeFocusUITests": {
+   "testCancellingWakeSheetDoesNotChangeExistingComposerDraft": [
+    60.8,
+    7
+   ],
+   "testComposerReviewDismissalReactivationAndRotationPreserveUnicodeBytes": [
+    77.3,
+    7
+   ],
+   "testCreatedNoticeFocusAndSendPreserveUnicodeBytes": [
+    210.1,
+    7
+   ],
+   "testDispatcherNameTapReactivationRotationAndSubmitPreserveUnicodeBytes": [
+    51.5,
+    7
+   ],
+   "testQuickAgentAutofocusReactivationRotationAndSubmitPreserveUnicodeBytes": [
+    42.3,
+    7
+   ],
+   "testReviewAnswerTapReactivationRotationAndSubmitPreserveUnicodeBytes": [
+    42.1,
+    7
+   ],
+   "testSearchTapReactivationAndRotationPreserveUnicodeBytes": [
+    28.6,
+    7
+   ],
+   "testSettingsNameTapReactivationRotationAndSubmitPreserveUnicodeBytes": [
+    59.8,
+    7
+   ],
+   "testSlashPickRefocusAndSendPreserveUnicodeBytes": [
+    33.9,
+    7
+   ],
+   "testTerminalAutofocusAndKeyboardTogglePreserveUnicodeInputBytes": [
+    43.7,
+    7
+   ],
+   "testUserTapAndSendPreserveUnicodeBytes": [
+    46.5,
+    7
+   ],
+   "testWakeSheetAutofocusReactivationRotationAndSendPreserveUnicodeBytes": [
+    53.9,
+    7
+   ]
+  },
+  "CompanionWakeFocusUITests": {
+   "testAnimatedPresentationAfterForegroundAndRotationAcceptsNoTapTyping": [
+    93.5,
+    6
+   ],
+   "testAnimatedPresentationAndRepeatedPresentationAcceptNoTapTyping": [
+    76.2,
+    6
+   ],
+   "testAnimatedPresentationRecordsNativeFocusDiagnostics": [
+    40.0,
+    6
+   ]
+  },
+  "DiagnosticSettingsTests": {
+   "testCaptureDefaultsOffAndExportRequiresReview": [
+    22.7,
+    3
+   ],
+   "testExplicitDiagnosticsActionsAreCountedOnceWithoutAppearanceEvents": [
+    27.8,
+    3
+   ],
+   "testRootTabIntentsAndSettingsReturnDoNotRefireOpening": [
+    49.4,
+    3
+   ]
+  },
+  "FeedbackDiagnosticsWireUITests": {
+   "testEarlyHighlightEndOpensTextOnlyWithoutReusingPixels": [
+    21.3,
+    5
+   ],
+   "testEditorClearRestoresOriginalPixelsBeforeFirstSend": [
+    52.8,
+    5
+   ],
+   "testEditorControlsReachableAtAccessibilitySize": [
+    32.0,
+    5
+   ],
+   "testEditorPinchZoomOnHostCapturedScreen": [
+    32.0,
+    5
+   ],
+   "testEditorUploadsFourInksAndDestructiveOpaqueRedaction": [
+    56.3,
+    5
+   ],
+   "testEnrollmentChangeKeepsNotesAndImageButNewSendUsesOffAndFreshIncidentBytes": [
+    55.8,
+    5
+   ],
+   "testExcludeEditedScreenshotSendsNoMediaAndReincludeKeepsImage": [
+    57.7,
+    5
+   ],
+   "testFailedSaveRetryKeepsFlattenedPixelsAndDraftID": [
+    46.2,
+    5
+   ],
+   "testLargestTypeAttachmentIsReachableAndOpensEditor": [
+    34.4,
+    5
+   ],
+   "testMenuCancelReleasesFrozenPixelsWithoutEncoding": [
+    37.2,
+    5
+   ],
+   "testMenuPreAttachesUnderlyingScreenAndRemovePreventsImageUpload": [
+    50.4,
+    5
+   ],
+   "testMenuSecureFieldAndCaptureFailureStayTextOnlyWithPhotos": [
+    39.6,
+    5
+   ],
+   "testNativeMenuEventAndLongPressPreAttachWithoutSaving": [
+    24.2,
+    5
+   ],
+   "testOneLabeledDraftCancelDoesNotCarryAndFrozenFailuresDoNotDuplicateExcerpt": [
+    57.4,
+    5
+   ],
+   "testScreenshotCaptureFailureExplainsTextOnlyAndNeverUploadsMedia": [
+    19.2,
+    5
+   ],
+   "testSettingsAndMenuExplainDeferredEncodingFailure": [
+    29.6,
+    5
+   ],
+   "testSettingsCaptureSurvivesTemporaryCoverAndCancelReleasesIt": [
+    31.6,
+    5
+   ],
+   "testSettingsComposerKeepsNoteAndEditsUntilExplicitCancel": [
+    51.1,
+    5
+   ],
+   "testSettingsDoesNotEncodeUntilFeedbackIsChosen": [
+    29.3,
+    5
+   ],
+   "testSettingsSecureAndRenderFailureSayWhyWithoutUploading": [
+    60.4,
+    5
+   ],
+   "testSettingsUsesScreenBeforeSheetAndDoesNotUseShakeAttachmentPreference": [
+    42.5,
+    5
+   ],
+   "testTelemetryEnabledOrdinaryButtonShakeAndScreenshotNeverCaptureOrAttachDiagnostics": [
+    90.9,
+    5
+   ]
+  },
+  "FeedbackTriggersUITests": {
+   "testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings": [
+    38.3,
+    13
+   ],
+   "testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled": [
+    46.0,
+    13
+   ],
+   "testScreenshotPromptOpensComposerWithTheScreenAttached": [
+    36.1,
+    7
+   ],
+   "testScreenshotPromptSettingTurnsItOff": [
+    16.8,
+    7
+   ],
+   "testSendFeedbackInSettingsAndChatMenu": [
+    33.6,
+    7
+   ],
+   "testSettingsFromHomeToolbarAttachesCaptureOrOffersPhotos": [
+    51.5,
+    7
+   ],
+   "testShakeOpensOverSettingsAndClosesBackToSettings": [
+    12.5,
+    7
+   ],
+   "testUnenrolledScreenshotExplainsEnrollmentOnce": [
+    12.7,
+    7
+   ]
+  },
+  "FramebriarShakeDiagnosticsUITests": {
+   "testCompanionLayoutShakeAcrossNavigationAndComposerFocus": [
+    43.7,
+    5
+   ],
+   "testUnenrolledShakeExplainsEnrollmentInsteadOfDoingNothing": [
+    38.7,
+    5
+   ]
+  },
+  "FramebriarShakeUITests": {
+   "testScreenshotToggleOffOpensWithoutAttachment": [
+    24.0,
+    3
+   ],
+   "testShakeOpensComposerWithoutSendingAndWorksOverSheets": [
+    50.7,
+    3
+   ],
+   "testShakeScreenshotIsQueuedOnlyOnSend": [
+    28.5,
+    3
+   ]
+  },
+  "QA368GrantLayoutUITests": {
+   "testGoneNoticeFromNeedsYouChat": [
+    59.4,
+    4
+   ],
+   "testLandscapeAX5Keyboard": [
+    50.3,
+    4
+   ],
+   "testLandscapeDefaultKeyboard": [
+    35.3,
+    4
+   ],
+   "testPortraitAX5": [
+    77.1,
+    4
+   ],
+   "testPortraitDefault": [
+    55.9,
+    4
+   ],
+   "testRefusalInChatKeepsRequestAndError": [
+    58.5,
+    4
+   ]
+  }
+ }
+}

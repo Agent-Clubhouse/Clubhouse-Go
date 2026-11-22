@@ -130,7 +130,8 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let fixture = try WSFixture.start()
     defer { fixture.stop() }
     let client = try socketIdentity.get()
-    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
+    // Exercise fast-ping accounting without changing the live IO clock or ping deadline.
+    let telemetry = AnnexTelemetry(clock: { 0 }); telemetry.setEnabled(true)
     let io = PinnedAnnexIO(host: fixture.host, clientIdentity: client, telemetry: telemetry)
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     let greeting = try JSONDecoder().decode(AnnexJSON.self, from: await socket.receive())
@@ -150,7 +151,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     try await socket.ping()
     try await socket.send(Data("after-ping".utf8))
     #expect(text(try await reader.value) == "after-ping")
-    // Answered pings are counted, not recorded one span each (they would crowd out the ring).
+    // Fast answered pings are counted, not recorded one span each (they would crowd out the ring).
     #expect(!telemetry.snapshot().records.contains { $0.operation == .ping })
     #expect(telemetry.drainSummaries().first { $0.operation == .ping }.map { [$0.count, $0.failed] } == [2, 0])
     #expect(telemetry.snapshot().records.contains { $0.operation == .websocket })

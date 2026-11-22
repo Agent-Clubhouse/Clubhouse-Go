@@ -523,7 +523,7 @@ nonisolated extension AnnexCommand {
     var diagnosticOperation: AnnexDiagnosticOperation {
         switch kind {
         case .send(_, _, _, let delivery, _): delivery == .steer ? .steer : delivery == .queued ? .queued : .send
-        case .start: .start
+        case .start, .providerStartV2: .start
         case .stop, .interrupt: .interrupt
         case .removeQueued: .removeQueued
         case .permission: .permission
@@ -531,7 +531,7 @@ nonisolated extension AnnexCommand {
         case .spawn: .spawn
         case .create: .createAgent
         case .update: .updateAgent
-        case .setModel, .setLevel, .setDispatcherEnabled, .updateHelperRouting, .providerPreview, .providerChange,
+        case .setModel, .setLevel, .setDispatcherEnabled, .updateHelperRouting, .providerPreview, .providerChange, .providerPreviewV2, .providerChangeV2,
              .updateDispatcher, .setDispatcherModels, .clearDispatcherChat, .forgetDispatcherEverything: .command
         case .helperApprove, .helperDecline: .helperRequest
         case .answerGrant: .grantRequest

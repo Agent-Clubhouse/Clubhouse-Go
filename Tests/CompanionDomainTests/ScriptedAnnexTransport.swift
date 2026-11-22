@@ -50,11 +50,16 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     // Commands.
     private var outcomes: [Outcome] = []
-    private var heldCommand: CheckedContinuation<AnnexCommandReceipt, Never>?
-    private var heldReceipt: AnnexCommandReceipt?
+    private var heldCommands: [String: (AnnexCommandReceipt, CheckedContinuation<AnnexCommandReceipt, Never>)] = [:]
     func releaseCommand() {
-        if let heldReceipt { heldCommand?.resume(returning: heldReceipt) }
-        heldCommand = nil; heldReceipt = nil
+        let held = heldCommands
+        heldCommands.removeAll()
+        for (receipt, continuation) in held.values { continuation.resume(returning: receipt) }
+    }
+    /// Independently release overlapping writers; the other command stays genuinely suspended.
+    func releaseCommand(commandID: String) {
+        guard let (receipt, continuation) = heldCommands.removeValue(forKey: commandID) else { return }
+        continuation.resume(returning: receipt)
     }
     private(set) var executed: [AnnexCommand] = []
 
@@ -163,8 +168,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
         switch outcome {
         case .receipt(let receipt): return receipt
         case .heldReceipt(let receipt):
-            heldReceipt = receipt
-            return await withCheckedContinuation { heldCommand = $0 }
+            return await withCheckedContinuation { heldCommands[command.commandID] = (receipt, $0) }
         case .completed(let value): status = "completed"; error = .null; result = value ?? .null
         case .heldCompleted(let value): status = "completed"; error = .null; result = value
         case .rejected(let code, let message):
@@ -177,8 +181,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
         let receipt = try AnnexJSON.object(["version": .integer(1), "epoch": .string(epoch), "commandId": .string(command.commandID),
                                      "status": .string(status), "error": error, "result": result]).decode(AnnexCommandReceipt.self)
         if case .heldCompleted = outcome {
-            heldReceipt = receipt
-            return await withCheckedContinuation { heldCommand = $0 }
+            return await withCheckedContinuation { heldCommands[command.commandID] = (receipt, $0) }
         }
         return receipt
     }

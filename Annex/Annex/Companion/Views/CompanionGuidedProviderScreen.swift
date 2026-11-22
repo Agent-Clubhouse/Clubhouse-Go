@@ -9,7 +9,10 @@ struct CompanionGuidedProviderScreen: View {
 
     var body: some View {
         Group {
-            if let flow, flow.target == target {
+            if (store.host(for: target)?.providerV2Advertised == true || store.hasPendingProviderV2Action(target)) && !store.hasPendingLegacyProviderAction(target) {
+                CompanionProviderV2Screen(store: store, target: target, settings: settings).id(target)
+            }
+            else if let flow, flow.target == target {
                 CompanionGuidedProviderForm(store: store, target: target, settings: settings, flow: flow).id(target)
             }
             else { ProgressView() }

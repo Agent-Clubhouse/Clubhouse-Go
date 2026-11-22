@@ -9,6 +9,12 @@ import ClubhouseTransport
 @MainActor final class CompanionPreviewService: CompanionService {
     #if DEBUG
     #if canImport(UIKit)
+    private var providerV2FixtureSaved = false
+    private var providerV2FixtureUnknown = false
+    private var providerV2FixtureApplied: CompanionProviderV2Applied?
+    private var providerV2FixtureAttempts: Set<String> = []
+    private var providerV2FixtureStarts: Set<String> = []
+    private var providerV2Fixture: Bool { ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2") }
     private var providerApplySaved = "claude-code"
     private var providerApplyReceipts: [String: AnnexProviderChangeResult] = [:]
     private var providerApplyStarts: Set<String> = []
@@ -68,11 +74,19 @@ import ClubhouseTransport
     private var editedHelperPresets: CompanionHelperRouting?
     /// The hosts last sent, so a Dispatcher settings change can send them again.
     private var sentHosts: [CompanionHost] = []
+    private var dispatcherRecoveryFixture: Bool {
+        #if DEBUG
+        ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-recovery")
+        #else
+        false
+        #endif
+    }
     var appUpdateInitialState: AnnexAppUpdate.State? = ProcessInfo.processInfo.environment["COMPANION_PREVIEW_APP_UPDATE_STATE"].flatMap(AnnexAppUpdate.State.init(rawValue:))
     /// Settings > Dispatcher on its preview Dispatcher (`--companion-preview-dispatcher-settings`). Set before `events()`.
     var showsDispatcherSettings: Bool = {
         #if DEBUG
         ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-settings")
+            || ProcessInfo.processInfo.arguments.contains("--companion-preview-dispatcher-recovery")
         #else
         false
         #endif
@@ -214,6 +228,15 @@ import ClubhouseTransport
                 }
             }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-control") { hosts[0].canControlProvider = true }
+            #if canImport(UIKit)
+            if providerV2Fixture {
+                hosts[0].providerV2Advertised = true
+                hosts[0].providerApplyV2 = try? CompanionProviderV2Fixture.value("applyCapability", target: Self.sleepingTarget).decode(AnnexProviderApplyV2Capability.self)
+                if !ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-no-start") {
+                    hosts[0].providerStartV2 = try? CompanionProviderV2Fixture.value("startCapability", target: Self.sleepingTarget).decode(AnnexProviderStartV2Capability.self)
+                }
+            }
+            #endif
             // Clubhouse grant requests in Needs you (`--companion-preview-grant-requests`); their answers succeed.
             if Self.showsGrantRequests {
                 hosts[0].canAnswerGrantRequests = true
@@ -335,6 +358,14 @@ import ClubhouseTransport
             }
             if ProcessInfo.processInfo.arguments.contains("--companion-preview-combined-linked-home") {
                 hosts = CompanionHomeLinkedFixture.hosts()
+            }
+            #endif
+            #if DEBUG
+            if self.dispatcherRecoveryFixture {
+                hosts[0].controlEpoch = "synthetic-recovery-epoch"
+                hosts[0].dispatcher?.agent?.status = .working
+                hosts[0].dispatcher?.agent?.isSleepingOnDesktop = false
+                print("DISPATCHER_RECOVERY_FIXTURE ready host=\(Self.dispatcherTarget.hostID) chat=\(Self.dispatcherTarget.agentID)")
             }
             #endif
             self.sentHosts = hosts
@@ -682,6 +713,11 @@ import ClubhouseTransport
             ])
         }
         if target.projectID == CompanionDispatcher.defaultProjectID {
+            #if DEBUG
+            if dispatcherRecoveryFixture {
+                return .init(items: Self.dispatcherHistory, sessionID: "synthetic-visible-chat-session")
+            }
+            #endif
             return .init(items: Self.dispatcherHistory + (showsLongReply ? [
                 .message(.init(id: "dispatcher-long-reply", role: .assistant, text: Self.longReply))
             ] : []))
@@ -829,12 +865,24 @@ import ClubhouseTransport
         try await Task.sleep(for: .milliseconds(200))
         return "preview-\(image.id)"
     }
+    private func recordPreviewRead(_ route: String) {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("--mobile-links-ui-testing") {
+            let scenario = ProcessInfo.processInfo.environment["MOBILE_LINK_SCENARIO"] ?? "sent"
+            print("MOBILE_LINK_PREVIEW_READ scenario=\(scenario) route=\(route)")
+        }
+        #endif
+    }
+
     func content(_ reference: CompanionContentReference, target: CompanionTarget) async throws -> CompanionContent {
+        recordPreviewRead("content")
         guard case .file(let path) = reference else { throw previewError }
         #if DEBUG && canImport(UIKit)
         if CompanionContentAcceptanceFixture.enabled {
             guard target == Self.target else { throw previewError }
-            return try CompanionContentAcceptanceFixture.content(path: path)
+            let content = try CompanionContentAcceptanceFixture.content(path: path)
+            CompanionContentAcceptanceFixture.recordExportContent(content, path: path)
+            return content
         }
         #endif
         try await Task.sleep(for: .milliseconds(300))
@@ -842,6 +890,7 @@ import ClubhouseTransport
         return .init(kind: "text", name: name, mimeType: "text/plain", text: "// \(name) · sample preview\nstruct Conversation {\n    var target: ConversationTarget\n    var draft = \"\"\n}")
     }
     func resolveLink(_ href: String, target: CompanionTarget) async throws -> CompanionLinkTarget {
+        recordPreviewRead("link")
         #if DEBUG && canImport(UIKit)
         if CompanionContentAcceptanceFixture.enabled {
             guard target == Self.target else { throw previewError }
@@ -852,8 +901,39 @@ import ClubhouseTransport
         let name = ((href.components(separatedBy: "#").first ?? href).removingPercentEncoding ?? href) as NSString
         return .file(path: "/Users/river/clubhouse/" + (name as String), name: name.lastPathComponent, kind: "text", size: nil)
     }
-    func cancel(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
-    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
+    func cancel(_ target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            print("DISPATCHER_RECOVERY_FIXTURE interrupt host=\(target.hostID) chat=\(target.agentID) id=\(clientCommandID)")
+            sentHosts[0].dispatcher?.agent?.status = .idle
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw previewError
+    }
+    func sleepAgent(_ target: CompanionTarget, clientCommandID: String) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            print("DISPATCHER_RECOVERY_FIXTURE stop host=\(target.hostID) chat=\(target.agentID) id=\(clientCommandID)")
+            sentHosts[0].dispatcher?.agent?.status = .sleeping
+            sentHosts[0].dispatcher?.agent?.isSleepingOnDesktop = true
+            sentHosts[0].dispatcher?.agent?.hasSession = true
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw previewError
+    }
+    func refreshSleepState(_ target: CompanionTarget) async throws {
+        #if DEBUG
+        if dispatcherRecoveryFixture, target == Self.dispatcherTarget {
+            continuation?.yield(.hosts(sentHosts))
+            return
+        }
+        #endif
+        throw CompanionServiceError.unavailable("Reconnect to the desktop to check whether the agent is asleep.")
+    }
     func sleepAndWait(_ target: CompanionTarget, clientCommandID: String) async throws { throw previewError }
     func changeProvider(_ target: CompanionTarget, preview: AnnexProviderPreview, clientCommandID: String) async throws -> AnnexProviderChangeResult {
         #if DEBUG && canImport(UIKit)
@@ -888,6 +968,64 @@ import ClubhouseTransport
             print("PROVIDER_APPLY_FIXTURE start id=\(clientCommandID) expected=\(provider) starts=\(providerApplyStarts.count)")
             // A synthetic command receipt, deliberately no running-session claim.
             return
+        }
+        #endif
+        throw previewError
+    }
+    func providerV2WitnessIsCurrent(_ witness: CompanionProviderV2Preview, starting: Bool) -> Bool {
+        #if DEBUG && canImport(UIKit)
+        return providerV2Fixture && witness.target == Self.sleepingTarget && witness.epoch == "synthetic-v2"
+            && (!starting || !ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-no-start"))
+        #else
+        return false
+        #endif
+    }
+    func providerPreviewV2(_ target: CompanionTarget, provider: String) async throws -> CompanionProviderV2Preview {
+        #if DEBUG && canImport(UIKit)
+        if providerV2Fixture, target == Self.sleepingTarget {
+            guard ["codex-cli", "claude-code"].contains(provider), !providerV2FixtureSaved || provider == "codex-cli" else { throw previewError }
+            let key = provider == "claude-code" ? "inheritedPreview" : providerV2FixtureSaved ? "savedDefaultsPreview" : "preview"
+            let value = try CompanionProviderV2Fixture.value(key, target: target).decode(AnnexProviderPreviewV2.self)
+            let capability = try CompanionProviderV2Fixture.value("applyCapability", target: target).decode(AnnexProviderApplyV2Capability.self)
+            print("PROVIDER_V2_FIXTURE preview provider=\(provider) saved=\(value.contract.saved.provider) unknown=\(providerV2FixtureUnknown) starts=\(providerV2FixtureStarts.count)")
+            return .init(value: value, target: target, epoch: "synthetic-v2", generation: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!, capabilityRevision: UUID(uuidString: "00000000-0000-4000-8000-000000000001")!, capability: capability)
+        }
+        #endif
+        throw previewError
+    }
+    func applyProviderV2(_ target: CompanionTarget, preview: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2ApplyOutcome {
+        #if DEBUG && canImport(UIKit)
+        if providerV2Fixture, target == Self.sleepingTarget {
+            guard !providerV2FixtureUnknown, !providerV2FixtureAttempts.contains(clientCommandID), preview.target == target,
+                  preview.value.permitsApply(capability: preview.capability), preview.value.contract.proposed.provider == "codex-cli",
+                  preview.value.preview.expectedState == "000000000000000000000000000000000000000000000000000000000000000b" else { throw previewError }
+            providerV2FixtureAttempts.insert(clientCommandID); providerV2FixtureSaved = true
+            let value = try CompanionProviderV2Fixture.value("applied", target: target).decode(AnnexProviderApplyReceiptV2.self)
+            guard value.matches(preview.value) else { throw previewError }
+            print("PROVIDER_V2_FIXTURE apply id=\(clientCommandID) starts=\(providerV2FixtureStarts.count)")
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-lost-apply") {
+                providerV2FixtureUnknown = true; throw CompanionServiceError.uncertain("Synthetic Apply reply lost. No result query or resend is performed.")
+            }
+            let applied = CompanionProviderV2Applied(value: value, target: target, epoch: preview.epoch, commandID: clientCommandID)
+            providerV2FixtureApplied = applied
+            return .saved(applied)
+        }
+        #endif
+        throw previewError
+    }
+    func startProviderV2(_ target: CompanionTarget, applied: CompanionProviderV2Applied, witness: CompanionProviderV2Preview, clientCommandID: String) async throws -> CompanionProviderV2StartOutcome {
+        #if DEBUG && canImport(UIKit)
+        if providerV2Fixture, target == Self.sleepingTarget {
+            guard !providerV2FixtureUnknown, !providerV2FixtureAttempts.contains(clientCommandID), providerV2FixtureApplied == applied,
+                  !ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-no-start"), witness.target == target,
+                  witness.value.contract.saved == applied.value.contract.saved,
+                  witness.value.preview.expectedState == applied.value.nextWake?.readyToken else { throw previewError }
+            providerV2FixtureAttempts.insert(clientCommandID); providerV2FixtureStarts.insert(clientCommandID)
+            print("PROVIDER_V2_FIXTURE start id=\(clientCommandID) apply=\(applied.commandID) starts=\(providerV2FixtureStarts.count)")
+            if ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-v2-lost-start") {
+                providerV2FixtureUnknown = true; throw CompanionServiceError.uncertain("Synthetic Start reply lost. Its creation is unknown and no additional Start is sent.")
+            }
+            return .evidence(try CompanionProviderV2Fixture.start(target: target, applied: applied, id: clientCommandID), completed: true)
         }
         #endif
         throw previewError
@@ -1209,6 +1347,9 @@ import ClubhouseTransport
                      orchestration: policy, parentAgentID: (showsHelperIdentity || showsHelperPresets) && sleeping ? Self.target.agentID : nil,
                      routing: showsHelperPresets && sleeping ? .init(mode: "preset", selection: .init(provider: "codex-cli", model: "gpt-6.1-sol", effort: "high", difficulty: "hard"), reason: "preset_on_cli", summary: "gpt-6.1-sol, high effort. From the helper settings for this difficulty.", displayReason: "From the helper settings for this difficulty") : nil)
         #if DEBUG && canImport(UIKit)
+        if sleeping, providerV2Fixture {
+            result.runtime.value = "terminal"; result.resolvedRuntime = "terminal"
+        }
         if sleeping, providerApplyFixture, ProcessInfo.processInfo.arguments.contains("--companion-preview-provider-apply-runtime-mismatch") {
             result.runtime.value = "chat"
         }
@@ -1405,6 +1546,11 @@ extension CompanionPreviewService {
         case .forgetEverything: settings.forgetEverything.expectedState = prompt.expectedState + "+"
         }
         previewDispatcher = settings
+        #if DEBUG
+        if dispatcherRecoveryFixture {
+            print("DISPATCHER_RECOVERY_FIXTURE newChat host=\(prompt.hostID) chat=\(settings.agentID) id=\(clientCommandID)")
+        }
+        #endif
         return prompt.reset == .clearChat ? .chatCleared(now: settings.clearChat.applies == "now") : .forgot(removed: 3, heldNews: 0)
     }
 }

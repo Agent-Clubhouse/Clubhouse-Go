@@ -102,7 +102,7 @@ private struct CompanionArchivedSessionView: View {
                     ForEach(window?.entries ?? []) { entry in
                         VStack(alignment: .leading, spacing: 22) {
                             archiveEntry(entry)
-                            if entry.endsRow && entry.rowID == hintItemID { CompanionContentHint() }
+                            if entry.endsRow && entry.rowID == hintItemID { CompanionContentHint(message: store.richContentUnavailableMessage(for: target)) }
                         }
                         .padding(.top, entry.spacingBefore)
                         .id(entry.id)

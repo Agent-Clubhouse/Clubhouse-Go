@@ -17,6 +17,86 @@ import Vision
         try await assertCapabilityLossBlocksCreate(selection: .template("helper"), choice: "Project switch", switchingProjects: true)
     }
 
+    func testCancelledSameProjectReadCannotReplaceOrFinishANewerRead() async throws {
+        try await assertCancelledReadOwnership(retrying: false)
+    }
+
+    func testRetryCannotOutliveProjectSwitchesOrResetTheNewerForm() async throws {
+        try await assertCancelledReadOwnership(retrying: true)
+    }
+
+    private func assertCancelledReadOwnership(retrying: Bool) async throws {
+        let service = ManagedCapabilityService()
+        let store = CompanionStore(service: service)
+        var host = try XCTUnwrap(CompanionPreviewService.hosts(now: .now).first)
+        host.canCreateManaged = true
+        host.projectLinks = nil
+        host.projects = [.init(id: "first", name: "First", agents: []), .init(id: "second", name: "Second", agents: [])]
+        store.apply(.hosts([host]))
+        let first = CompanionProjectTarget(hostID: host.id, projectID: "first")
+        let second = CompanionProjectTarget(hostID: host.id, projectID: "second")
+        let scene = try XCTUnwrap(UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+            .first { $0.activationState == .foregroundActive })
+        let original = scene.windows.first(where: \.isKeyWindow)
+        let window = UIWindow(windowScene: scene)
+        window.frame = scene.screen.bounds
+        let presenter = UIViewController()
+        window.rootViewController = presenter
+        window.makeKeyAndVisible()
+        var observed: CompanionSpawnSheet.HostedTestSeam?
+        let controller = UIHostingController(rootView: CompanionSpawnSheet(store: store, initialProject: first,
+            hostedTestSeam: { observed = $0 }))
+        defer {
+            controller.dismiss(animated: false)
+            service.finishHeldReads()
+            window.isHidden = true
+            window.rootViewController = nil
+            original?.makeKey()
+            store.shutdown()
+        }
+        let presented = expectation(description: "The real sheet is presented")
+        presenter.present(controller, animated: false) { presented.fulfill() }
+        await fulfillment(of: [presented], timeout: 5)
+        try await waitUntil { observed?.optionsLoaded == true && observed?.loading == false }
+        if retrying {
+            service.failsReads = true
+            try XCTUnwrap(observed).selectProject(second)
+            try await waitUntil { observed?.optionsFailed == true && observed?.loading == false }
+            service.failsReads = false
+        }
+        let initialReads = service.reads
+        service.holdsReads = true
+
+        if retrying {
+            try XCTUnwrap(observed).retryOptions()
+            try await waitUntil { service.heldReads[initialReads + 1] != nil && observed?.loading == true }
+        }
+        let switches = retrying ? [first, second] : [second, first, second]
+        for (offset, project) in switches.enumerated() {
+            try XCTUnwrap(observed).selectProject(project)
+            try await waitUntil { service.heldReads[initialReads + offset + (retrying ? 2 : 1)] != nil && observed?.loading == true }
+        }
+        XCTAssertEqual(service.reads, initialReads + 3, "Each actual project switch starts one read")
+        service.finishHeldRead(initialReads + 1, name: "obsolete-second")
+        try await waitUntil { service.completedReads.contains(initialReads + 1) }
+        controller.view.layoutIfNeeded()
+        XCTAssertTrue(try XCTUnwrap(observed).loading, "A cancelled same-project completion cannot finish the current read")
+        XCTAssertFalse(try XCTUnwrap(observed).optionsLoaded, "Its older options must not replace the current in-flight form")
+
+        service.finishHeldRead(initialReads + 3, name: "latest-second")
+        try await waitUntil { observed?.name == "latest-second" && observed?.loading == false }
+        try XCTUnwrap(observed).setName("edited-second")
+        try XCTUnwrap(observed).selectTemplate(.template("helper"))
+        try await waitUntil { observed?.selection == .template("helper") && observed?.name == "edited-second" }
+        service.finishHeldRead(initialReads + 2, name: "obsolete-first")
+        try await waitUntil { service.completedReads.contains(initialReads + 2) }
+        controller.view.layoutIfNeeded()
+        XCTAssertEqual(try XCTUnwrap(observed).name, "edited-second")
+        XCTAssertEqual(try XCTUnwrap(observed).selection, .template("helper"))
+        XCTAssertFalse(try XCTUnwrap(observed).loading)
+        XCTAssertTrue(service.requests.isEmpty)
+    }
+
     private func assertCapabilityLossBlocksCreate(selection: CompanionManagedSelection, choice: String, switchingProjects: Bool = false) async throws {
         let service = ManagedCapabilityService()
         let store = CompanionStore(service: service)
@@ -69,13 +149,11 @@ import Vision
         await fulfillment(of: [presented], timeout: 5)
         controller.view.layoutIfNeeded()
         try await waitUntil { observed?.optionsLoaded == true && observed?.loading == false }
-        XCTAssertGreaterThan(service.reads, 0)
+        XCTAssertEqual(service.reads, 1, "Opening the actual sheet must issue exactly one create-options read")
         try XCTUnwrap(observed).selectTemplate(selection)
         try await waitUntil { observed?.selection == selection && observed?.createDisabled == false }
         XCTAssertEqual(try XCTUnwrap(observed).selection, selection)
         XCTAssertTrue(service.requests.isEmpty)
-        // #480: the initial cancelled task also reads options on merged #453.
-        // Measure the settled form, then require exact transition-specific deltas.
         let initialReads = service.reads
 
         if switchingProjects {
@@ -145,6 +223,10 @@ import Vision
     var reads = 0
     var requests: [CompanionCreateRequest] = []
     var plainRead: CheckedContinuation<Void, Never>?
+    var holdsReads = false
+    var failsReads = false
+    var heldReads: [Int: CheckedContinuation<CompanionCreateOptions, Never>] = [:]
+    var completedReads: Set<Int> = []
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory { throw CompanionServiceError.unavailable("Test only") }
     func send(_ request: CompanionSendRequest) async throws -> CompanionCommandReceipt { throw CompanionServiceError.unavailable("No sends") }
@@ -154,6 +236,13 @@ import Vision
     func reconnect(hostID: String) async {}
     func createOptions(for project: CompanionProjectTarget) async throws -> CompanionCreateOptions {
         reads += 1
+        if failsReads { throw CompanionServiceError.unavailable("Synthetic options failure") }
+        if holdsReads {
+            let read = reads
+            let options = await withCheckedContinuation { heldReads[read] = $0 }
+            completedReads.insert(read)
+            return options
+        }
         if project.hostID == "plain-host" {
             await withCheckedContinuation { plainRead = $0 }
             return .init(options: .init(), isGitRepo: true, suggestedName: "plain-agent", defaultOrchestrator: "codex-cli")
@@ -167,6 +256,17 @@ import Vision
         let pending = plainRead
         plainRead = nil
         pending?.resume()
+    }
+    func finishHeldRead(_ read: Int, name: String) {
+        guard let pending = heldReads.removeValue(forKey: read) else {
+            return XCTFail("No pending options read \(read)")
+        }
+        pending.resume(returning: .init(options: .init(), managed: .init(defaultOn: true, templates: [
+            .init(id: "helper", name: "Helper", description: "A focused helper", builtin: true)
+        ]), isGitRepo: true, suggestedName: name, defaultOrchestrator: "codex-cli"))
+    }
+    func finishHeldReads() {
+        for read in Array(heldReads.keys) { finishHeldRead(read, name: "cleanup-agent") }
     }
     func create(_ request: CompanionCreateRequest) async throws -> CompanionCreateReceipt {
         requests.append(request)

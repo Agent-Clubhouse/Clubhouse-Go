@@ -40,11 +40,19 @@ import Observation
     /// projection at decision replacement/upsert/removal boundaries, never for stream chunks.
     private(set) var homeDecisionItems: [CompanionTarget: [CompanionTimelineItem]] = [:]
     private(set) var pendingCommands: Set<CompanionTarget> = []
+    /// Catalogue cleanup can invalidate A and admit B for the same value target.
+    /// Only the current reservation may release that target's pending membership.
+    private struct SettingsMutationReservation {
+        let target: CompanionTarget
+        let id: UUID
+    }
+    private var settingsMutationOwners: [CompanionTarget: UUID] = [:]
     /// A stop receipt only acknowledges the request. Keep mutations blocked until the desktop confirms sleep.
     private(set) var sleepRequests: Set<CompanionTarget> = []
     private(set) var sleepRefreshes: Set<CompanionTarget> = []
     private var confirmedSleepCommands: [CompanionTarget: String] = [:]
     private var providerFlows: [CompanionTarget: CompanionProviderFlow] = [:]
+    private var providerV2Flows: [CompanionTarget: CompanionProviderV2Flow] = [:]
     private(set) var settingsRevisions: [CompanionTarget: UUID] = [:]
     /// Learned only from reads the user already requested; listing agents never fetches settings.
     private(set) var projectAccessDefaults: [CompanionProjectTarget: CompanionPermissionLevel] = [:]
@@ -163,6 +171,7 @@ import Observation
         pendingLinkedProjectStates.removeAll()
         linkedProjectStateSources.removeAll()
         providerFlows.removeAll()
+        providerV2Flows.removeAll()
         appUpdateAttempts.removeAll()
         appUpdateInFlight.removeAll()
         appUpdateErrors.removeAll()
@@ -238,7 +247,7 @@ import Observation
 
     func conversation(for target: CompanionTarget) -> CompanionConversation { conversations[target] ?? .init() }
     func canOperate(_ target: CompanionTarget) -> Bool {
-        !sleepRequests.contains(target) && providerFlows[target]?.blocksMutations != true && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
+        !dispatcherRecoveryUnknown.contains(target) && settingsMutationOwners[target] == nil && !sleepRequests.contains(target) && !hasPendingProviderAction(target) && host(for: target)?.connection.canOperate == true && !conversation(for: target).requiresResync && !conversation(for: target).isLoading
     }
     func canWake(_ target: CompanionTarget) -> Bool {
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
@@ -250,7 +259,7 @@ import Observation
     }
     /// A sleeping durable agent on a connected desktop, which a long-press can offer to wake before its chat is read.
     func mayWake(_ target: CompanionTarget) -> Bool {
-        guard !sleepRequests.contains(target), providerFlows[target]?.blocksMutations != true else { return false }
+        guard !sleepRequests.contains(target), !hasPendingProviderAction(target) else { return false }
         if isDispatcher(target), host(for: target)?.dispatcher?.mcpOff != nil { return false }
         guard let agent = agent(for: target), !agent.isQuick, agent.status == .sleeping || agent.status == .stopped else { return false }
         return host(for: target)?.connection.canOperate == true && !pendingCommands.contains(target)
@@ -275,8 +284,8 @@ import Observation
             return .init(kind: "image", name: image.name ?? "Image", mimeType: image.mimeType, bytes: local.data)
         }
         guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
-        guard host.richContentAvailable else {
-            throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
+        guard host.richContentAvailable == true else {
+            throw CompanionServiceError.unavailable(richContentUnavailableMessage(for: target))
         }
         if !reference.isOffered(roots: archiveRoots ?? contentRoots(for: target)) {
             throw CompanionServiceError.unavailable("This conversation can't preview that file. Refresh the conversation or open it on \(host.name).")
@@ -294,14 +303,18 @@ import Observation
     /// Entries skip the conversation's path hints: the desktop listed them and still authorizes every read.
     func linkContent(_ href: String, target: CompanionTarget) async throws -> CompanionContent {
         guard let host = host(for: target), host.connection.canOperate else { throw CompanionServiceError.unavailable("Reconnect to your desktop to view this content.") }
-        guard host.richContentAvailable else {
-            throw CompanionServiceError.unavailable("Rich chat content is off on \(host.name). Turn it on in the desktop's Experimental settings to preview images and files.")
+        guard host.richContentAvailable == true else {
+            throw CompanionServiceError.unavailable(richContentUnavailableMessage(for: target))
         }
         guard host.canResolveLinks else { throw CompanionServiceError.unavailable(CompanionContentReference.linksNeedUpdate) }
         return try await CompanionContentReference.open(link: href, hostName: host.name, resolve: { try await service.resolveLink($0, target: target) },
                                                         load: { try await service.content($0, target: target) })
     }
     func richContentAvailable(for target: CompanionTarget) -> Bool { host(for: target)?.richContentAvailable == true }
+    func richContentUnavailableMessage(for target: CompanionTarget) -> String {
+        let host = host(for: target)
+        return CompanionContentReference.richContentUnavailableMessage(hostName: host?.name ?? "your desktop", enabled: host?.richContentAvailable)
+    }
     func contentRoots(for target: CompanionTarget) -> CompanionContentRoots {
         // A removed conversation cannot leave its old hints active when the host or agent returns.
         guard conversations[target]?.isLoaded == true else { return .init() }
@@ -1130,18 +1143,44 @@ import Observation
         host(for: target)?.canEditSettings == true && agent(for: target).map { !$0.isQuick } == true
             && !(isDispatcher(target) && host(for: target)?.dispatcher?.mcpOff != nil)
     }
+    /// Cross-entry mutation admission, independent of whether chat has loaded.
+    /// Reading settings and reviewing held provider evidence keep their own authority.
+    private func hasRecoveryOrSettingsMutation(_ target: CompanionTarget) -> Bool {
+        settingsMutationOwners[target] != nil || dispatcherRecoveryUnknown.contains(target) || dispatcherRecoveryPreparing.contains(target)
+            || (isDispatcher(target) && (pendingCommands.contains(target) || dispatcherResetting.contains(target.hostID)))
+    }
+    private static let mutationPending = "The previous action is still pending or its outcome is unknown. Review it on the desktop before making another change."
     func providerFlow(for target: CompanionTarget) -> CompanionProviderFlow {
         if let flow = providerFlows[target] { return flow }
         let flow = CompanionProviderFlow(target: target, service: service) { [weak self] in
             guard let self else { return false }
             return self.canEditSettings(target) && self.host(for: target)?.canControlProvider == true
+                && !self.hasRecoveryOrSettingsMutation(target)
+                && self.host(for: target)?.providerV2Advertised != true && self.providerV2Flows[target]?.blocksMutations != true
                 && self.host(for: target)?.connection.canOperate == true && !self.sleepRequests.contains(target)
                 && !self.pendingCommands.contains(target) && self.agent(for: target)?.isSleepingOnDesktop == true
         }
         providerFlows[target] = flow
         return flow
     }
-    func hasPendingProviderAction(_ target: CompanionTarget) -> Bool { providerFlows[target]?.blocksMutations == true }
+    func providerV2Flow(for target: CompanionTarget, requestedRuntime: String) -> CompanionProviderV2Flow {
+        if let flow = providerV2Flows[target] { flow.updateRequestedRuntime(requestedRuntime); return flow }
+        let flow = CompanionProviderV2Flow(target: target, service: service, requestedRuntime: requestedRuntime, canRequest: { [weak self] in
+            guard let self else { return false }
+            return self.canEditSettings(target) && self.host(for: target)?.providerApplyV2?.isSupported == true
+                && !self.hasRecoveryOrSettingsMutation(target)
+                && self.host(for: target)?.connection.canOperate == true && !self.sleepRequests.contains(target)
+                && !self.pendingCommands.contains(target) && self.agent(for: target)?.isSleepingOnDesktop == true
+                && self.providerFlows[target]?.blocksMutations != true
+        }, startAdvertised: { [weak self] in self?.host(for: target)?.providerStartV2?.isSupported == true })
+        providerV2Flows[target] = flow
+        return flow
+    }
+    func hasPendingProviderV2Action(_ target: CompanionTarget) -> Bool { providerV2Flows[target]?.blocksMutations == true }
+    func hasPendingLegacyProviderAction(_ target: CompanionTarget) -> Bool { providerFlows[target]?.blocksMutations == true }
+    func hasPendingProviderAction(_ target: CompanionTarget) -> Bool {
+        providerFlows[target]?.blocksMutations == true || providerV2Flows[target]?.blocksMutations == true
+    }
     func helperRouting(hostID: String, projectID: String? = nil, agentID: String? = nil) async throws -> CompanionHelperRouting {
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else { throw CompanionServiceError.unavailable("Connect to the desktop to read helper presets.") }
         return try await service.helperRouting(hostID: hostID, projectID: projectID, agentID: agentID)
@@ -1162,14 +1201,37 @@ import Observation
         return settings
     }
     func updateSettings(_ change: CompanionSettingsChange, target: CompanionTarget) async throws -> CompanionAgentSettings {
-        guard !sleepRequests.contains(target), providerFlows[target]?.blocksMutations != true else {
+        guard !hasRecoveryOrSettingsMutation(target), !pendingCommands.contains(target) else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        guard !sleepRequests.contains(target), !hasPendingProviderAction(target) else {
             throw CompanionServiceError.rejected("Wait for the desktop to confirm that the agent is asleep.")
         }
         guard canEditSettings(target), host(for: target)?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change this agent's settings.")
         }
+        // The service may read current settings before sending a same-provider edit.
+        // Reserve this target across that suspension; a rejected writer never owns/removes it.
+        let reservation = try reserveSettingsMutation(target)
+        defer { releaseSettingsMutation(reservation) }
         let generation = accessDefaultReadGeneration(hostID: target.hostID)
-        let saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        let saved: CompanionAgentSettings
+        if let provider = change.orchestrator {
+            // Resolve the same-provider no-op here so ownership can be checked AFTER
+            // the read and BEFORE any mixed edit is forwarded. The service retains its
+            // independent provider enforcement for every other caller.
+            let current = try await service.settings(for: target)
+            guard settingsMutationOwners[target] == reservation.id else { throw CompanionServiceError.rejected(Self.mutationPending) }
+            guard provider == (current.orchestrator.value ?? current.resolvedOrchestrator) else {
+                throw CompanionServiceError.rejected(CompanionProviderReason.message("provider_change_requires_preview"))
+            }
+            var permitted = change
+            permitted.orchestrator = nil
+            if permitted.isEmpty { saved = current }
+            else { saved = try await service.updateSettings(permitted, target: target, clientCommandID: UUID().uuidString) }
+        } else {
+            saved = try await service.updateSettings(change, target: target, clientCommandID: UUID().uuidString)
+        }
+        // An old receipt remains evidence, but must not update the replacement's local state.
+        guard settingsMutationOwners[target] == reservation.id else { return saved }
         if let host = accessDefaultHost(hostID: target.hostID, generation: generation), host.agent(for: target) != nil {
             agentAccessDefaults[target] = saved.access?.defaultLevel
         }
@@ -1246,9 +1308,125 @@ import Observation
     private(set) var dispatcherResetting: Set<String> = []
     /// What the last reset did, or why it didn't, per host.
     var dispatcherResetNotices: [String: String] = [:]
+    private(set) var dispatcherRecoveryPreparing: Set<CompanionTarget> = []
+    /// A read cannot establish whether a lost clear-chat command ran. Never retry it with a new ID.
+    private(set) var dispatcherRecoveryUnknown: Set<CompanionTarget> = []
+    var dispatcherChatPrompt: CompanionDispatcherChatPrompt?
+    private var claimedDispatcherChatActions: [UUID: CompanionDispatcherChatPrompt] = [:]
+    private var claimedDispatcherNewChats: [UUID: (CompanionDispatcherResetPrompt, CompanionTarget)] = [:]
+
+    func askDispatcherChatAction(_ action: CompanionDispatcherChatPrompt.Action, target: CompanionTarget) {
+        guard let recovery = dispatcherRecovery(for: target),
+              action == .interrupt ? recovery.canInterrupt : recovery.canStop,
+              let epoch = host(for: target)?.controlEpoch, !epoch.isEmpty,
+              let session = conversation(for: target).sessionID, !session.isEmpty else { return }
+        dispatcherChatPrompt = .init(action: action, target: target, epoch: epoch, sessionID: session,
+                                    name: recovery.name, hostName: recovery.hostName)
+    }
+
+    /// Claim synchronously in the human's Button action, before SwiftUI dismisses its presentation.
+    func claimDispatcherChatAction(_ prompt: CompanionDispatcherChatPrompt) -> UUID? {
+        guard dispatcherChatPrompt == prompt,
+              let recovery = dispatcherRecovery(for: prompt.target),
+              prompt.action == .interrupt ? recovery.canInterrupt : recovery.canStop else { return nil }
+        dispatcherChatPrompt = nil
+        let claim = UUID()
+        claimedDispatcherChatActions[claim] = prompt
+        pendingCommands.insert(prompt.target)
+        return claim
+    }
+
+    func confirmDispatcherChatAction(_ claim: UUID) async {
+        guard let prompt = claimedDispatcherChatActions.removeValue(forKey: claim) else { return }
+        pendingCommands.remove(prompt.target)
+        guard let recovery = dispatcherRecovery(for: prompt.target),
+              host(for: prompt.target)?.controlEpoch == prompt.epoch,
+              conversation(for: prompt.target).sessionID == prompt.sessionID,
+              prompt.action == .interrupt ? recovery.canInterrupt : recovery.canStop else {
+            operationErrors[prompt.target] = "This chat changed. Review its current state before another action."
+            return
+        }
+        switch prompt.action {
+        case .interrupt: await cancel(prompt.target)
+        case .stop: await sleepAgent(prompt.target)
+        }
+    }
+
+    func dispatcherRecovery(for target: CompanionTarget) -> CompanionDispatcherRecovery? {
+        guard !isShutDown, let host = host(for: target), host.isDispatcher(target), let agent = agent(for: target) else { return nil }
+        let ready = canOperate(target) && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
+            && !pendingCommands.contains(target) && !dispatcherResetting.contains(host.id)
+            && !dispatcherRecoveryPreparing.contains(target)
+        let reason: String?
+        if dispatcherRecoveryUnknown.contains(target) { reason = CompanionDispatcherRecovery.unknownReset }
+        else if !host.connection.canOperate { reason = "Reconnect to \(host.name) before controlling this chat." }
+        else if host.dispatcher?.enabled != true || host.dispatcher?.mcpOff != nil { reason = "This Dispatcher isn't available for chat recovery on \(host.name)." }
+        else if !ready { reason = "Wait for the current action and conversation refresh to finish." }
+        else { reason = nil }
+        let hasSession = conversation(for: target).sessionID?.isEmpty == false && host.controlEpoch?.isEmpty == false
+        return .init(target: target, name: agent.displayName, hostName: host.name,
+                     canInterrupt: ready && hasSession && agent.status == .working && agent.capabilities.contains(.cancel),
+                     canStop: ready && hasSession && canSleep(target),
+                     canStartNewChat: ready && canEditDispatcherSettings(hostID: host.id), unavailableReason: reason)
+    }
+
+    /// Read a fresh host/principal-bound confirmation for exactly the visible chat the person opened.
+    func askDispatcherRecoveryNewChat(_ target: CompanionTarget) async {
+        guard dispatcherRecovery(for: target)?.canStartNewChat == true else { return }
+        dispatcherRecoveryPreparing.insert(target)
+        dispatcherResetNotices[target.hostID] = nil
+        defer { dispatcherRecoveryPreparing.remove(target) }
+        do {
+            let settings = try await service.dispatcherSettings(hostID: target.hostID)
+            guard !isShutDown, isDispatcher(target), settings.agentID == target.agentID,
+                  canOperate(target), !pendingCommands.contains(target),
+                  !dispatcherResetting.contains(target.hostID),
+                  canEditDispatcherSettings(hostID: target.hostID), host(for: target)?.connection.canOperate == true,
+                  let prompt = CompanionDispatcherResetPrompt(.clearChat, settings: settings, hostID: target.hostID) else {
+                throw CompanionServiceError.unavailable("This Dispatcher changed. Reopen its recovery controls and review it again.")
+            }
+            dispatcherResetPrompt = prompt
+        } catch { dispatcherResetNotices[target.hostID] = error.localizedDescription }
+    }
+
+    func claimDispatcherRecoveryNewChat(_ prompt: CompanionDispatcherResetPrompt, target: CompanionTarget) -> UUID? {
+        guard dispatcherResetPrompt == prompt, prompt.reset == .clearChat, prompt.hostID == target.hostID,
+              dispatcherRecovery(for: target)?.canStartNewChat == true else { return nil }
+        dispatcherResetPrompt = nil
+        let claim = UUID()
+        claimedDispatcherNewChats[claim] = (prompt, target)
+        pendingCommands.insert(target)
+        return claim
+    }
+
+    func confirmDispatcherRecoveryNewChat(_ claim: UUID) async {
+        guard let (prompt, target) = claimedDispatcherNewChats.removeValue(forKey: claim) else { return }
+        pendingCommands.remove(target)
+        guard dispatcherRecovery(for: target)?.canStartNewChat == true else {
+            dispatcherResetNotices[target.hostID] = "This Dispatcher changed. Review its current state before starting a new chat."
+            return
+        }
+        pendingCommands.insert(target)
+        dispatcherResetting.insert(target.hostID)
+        defer { pendingCommands.remove(target); dispatcherResetting.remove(target.hostID) }
+        do {
+            let outcome = try await service.resetDispatcher(prompt, clientCommandID: UUID().uuidString)
+            dispatcherResetNotices[target.hostID] = outcome.message
+        } catch CompanionDispatcherSettingsError.stale(let fresh) {
+            guard isDispatcher(target), fresh.agentID == target.agentID else { return }
+            dispatcherResetPrompt = CompanionDispatcherResetPrompt(.clearChat, settings: fresh, hostID: target.hostID,
+                changed: CompanionDispatcherResetPrompt.changes(.clearChat, from: dispatcherSettings(hostID: target.hostID), to: fresh))
+        } catch {
+            if case CompanionServiceError.uncertain = error { dispatcherRecoveryUnknown.insert(target) }
+            dispatcherResetNotices[target.hostID] = error.localizedDescription
+        }
+    }
 
     /// The host offers Settings > Dispatcher and its Dispatcher is on.
     func canEditDispatcherSettings(hostID: String) -> Bool {
+        !dispatcherRecoveryUnknown.contains(where: { $0.hostID == hostID }) && canReadDispatcherSettings(hostID: hostID)
+    }
+    private func canReadDispatcherSettings(hostID: String) -> Bool {
         guard let host = hosts.first(where: { $0.id == hostID }) else { return false }
         return host.canEditDispatcherSettings && host.dispatcher?.enabled == true && host.dispatcher?.mcpOff == nil
     }
@@ -1257,19 +1435,21 @@ import Observation
         hosts.first { $0.id == hostID }?.dispatcherSettings
     }
     func loadDispatcherSettings(hostID: String) async throws -> CompanionDispatcherSettings {
-        guard canEditDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        guard canReadDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
         return try await service.dispatcherSettings(hostID: hostID)
     }
     func updateDispatcher(_ update: AnnexDispatcherUpdate, hostID: String) async throws -> CompanionDispatcherSettings {
-        try requireDispatcherConnection(hostID)
+        let reservation = try reserveDispatcherSettingsMutation(hostID)
+        defer { if let reservation { releaseSettingsMutation(reservation) } }
         let saved = try await service.updateDispatcher(update, hostID: hostID, clientCommandID: UUID().uuidString)
-        invalidateDispatcherSettings(hostID: hostID)
+        if reservation.map({ settingsMutationOwners[$0.target] == $0.id }) ?? true { invalidateDispatcherSettings(hostID: hostID) }
         return saved
     }
     func setDispatcherModels(_ models: AnnexDispatcherModels, hostID: String) async throws -> CompanionDispatcherSettings {
-        try requireDispatcherConnection(hostID)
+        let reservation = try reserveDispatcherSettingsMutation(hostID)
+        defer { if let reservation { releaseSettingsMutation(reservation) } }
         let saved = try await service.setDispatcherModels(models, hostID: hostID, clientCommandID: UUID().uuidString)
-        invalidateDispatcherSettings(hostID: hostID)
+        if reservation.map({ settingsMutationOwners[$0.target] == $0.id }) ?? true { invalidateDispatcherSettings(hostID: hostID) }
         return saved
     }
     private func invalidateDispatcherSettings(hostID: String) {
@@ -1279,9 +1459,32 @@ import Observation
     }
     private func requireDispatcherConnection(_ hostID: String) throws {
         guard canEditDispatcherSettings(hostID: hostID) else { throw CompanionServiceError.unavailable(CompanionDispatcherSettings.updateDesktop) }
+        guard !dispatcherResetting.contains(hostID) else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        if let target = hosts.first(where: { $0.id == hostID })?.dispatcher?.agent?.id {
+            guard !hasRecoveryOrSettingsMutation(target), !hasPendingProviderAction(target), !sleepRequests.contains(target) else {
+                throw CompanionServiceError.rejected(Self.mutationPending)
+            }
+        }
         guard hosts.first(where: { $0.id == hostID })?.connection.canOperate == true else {
             throw CompanionServiceError.unavailable("Reconnect to your desktop to change the Dispatcher.")
         }
+    }
+    private func reserveDispatcherSettingsMutation(_ hostID: String) throws -> SettingsMutationReservation? {
+        try requireDispatcherConnection(hostID)
+        guard let target = hosts.first(where: { $0.id == hostID })?.dispatcher?.agent?.id else { return nil }
+        return try reserveSettingsMutation(target)
+    }
+    private func reserveSettingsMutation(_ target: CompanionTarget) throws -> SettingsMutationReservation {
+        guard !pendingCommands.contains(target), settingsMutationOwners[target] == nil else { throw CompanionServiceError.rejected(Self.mutationPending) }
+        let reservation = SettingsMutationReservation(target: target, id: UUID())
+        settingsMutationOwners[target] = reservation.id
+        pendingCommands.insert(target)
+        return reservation
+    }
+    private func releaseSettingsMutation(_ reservation: SettingsMutationReservation) {
+        guard settingsMutationOwners[reservation.target] == reservation.id else { return }
+        settingsMutationOwners[reservation.target] = nil
+        pendingCommands.remove(reservation.target)
     }
     /// Reads the settings right before asking, so the confirmation is as fresh as it can be, then asks.
     func askDispatcherReset(_ reset: CompanionDispatcherReset, hostID: String) async {
@@ -1290,6 +1493,8 @@ import Observation
         do {
             try requireDispatcherConnection(hostID)
             let settings = try await service.dispatcherSettings(hostID: hostID)
+            // A provider/recovery action may have taken ownership during this read.
+            try requireDispatcherConnection(hostID)
             guard let prompt = CompanionDispatcherResetPrompt(reset, settings: settings, hostID: hostID) else {
                 dispatcherResetNotices[hostID] = "This desktop didn't offer a confirmation for \(reset.action). Try again."
                 return
@@ -1302,12 +1507,13 @@ import Observation
     func confirmDispatcherReset(_ prompt: CompanionDispatcherResetPrompt) async {
         let hostID = prompt.hostID
         guard !dispatcherResetting.contains(hostID) else { return }
-        if dispatcherResetPrompt?.id == prompt.id { dispatcherResetPrompt = nil }
         let asked = dispatcherSettings(hostID: hostID)
-        dispatcherResetting.insert(hostID)
-        defer { dispatcherResetting.remove(hostID) }
         do {
             try requireDispatcherConnection(hostID)
+            if dispatcherResetPrompt?.id == prompt.id { dispatcherResetPrompt = nil }
+            // Admit before reserving our own reset; no suspension separates these steps.
+            dispatcherResetting.insert(hostID)
+            defer { dispatcherResetting.remove(hostID) }
             let outcome = try await service.resetDispatcher(prompt, clientCommandID: UUID().uuidString)
             invalidateDispatcherSettings(hostID: hostID)
             dispatcherResetNotices[hostID] = outcome.message
@@ -1816,9 +2022,13 @@ import Observation
         }
         for target in gone {
             conversations[target] = nil; historyGenerations[target] = nil; pendingCommands.remove(target)
+            settingsMutationOwners[target] = nil
             if homeDecisionItems[target] != nil { homeDecisionItems[target] = nil }
             sleepRequests.remove(target); sleepRefreshes.remove(target)
-            confirmedSleepCommands[target] = nil; providerFlows[target] = nil
+            confirmedSleepCommands[target] = nil
+            providerFlows[target] = nil
+            // A reconnect/catalog omission cannot erase an unresolved v2 action.
+            if providerV2Flows[target]?.blocksMutations != true { providerV2Flows[target] = nil }
             settingsRevisions[target] = nil
         }
     }

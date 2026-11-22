@@ -113,6 +113,8 @@ import ClubhouseTransport
         XCTAssertTrue(store.appUpdateChecksInFlight.contains(host.id))
         XCTAssertNil(store.hosts.first?.appUpdateApproval)
         await checking.value
+        // The publisher has finished; Store applies its AsyncStream events on a separate task.
+        try await wait { store.hosts.first?.appUpdate?.state == .ready }
         XCTAssertEqual(store.hosts.first?.appUpdate?.state, .ready)
         XCTAssertEqual(store.hosts.first?.appUpdate?.downloadProgress, 100)
         XCTAssertTrue(store.appUpdateChecksInFlight.isEmpty)

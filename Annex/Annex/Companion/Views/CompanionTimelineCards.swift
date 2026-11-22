@@ -97,7 +97,7 @@ struct CompanionMessageView: View, Equatable {
             .accessibilityIdentifier("companion-message-source")
             if !message.images.isEmpty { CompanionMessageImages(images: message.images) }
             if !text.isEmpty || message.images.isEmpty {
-                Text(text).textSelection(.enabled)
+                Text(CompanionMarkdown.literal(text)).textSelection(.enabled)
                     .padding(.horizontal, 14).padding(.vertical, 10)
                     .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
             }
@@ -197,6 +197,7 @@ struct CompanionSentPartView: View {
     private var identifier: String { "companion-routed-\(message.id)-\(index)" }
     private var caption: String { part.caption(source: message.source, isSteered: message.isSteered, currentName: name) }
     private var longCaption: String { (["\(name) sent a long message"] + message.metaLabels).joined(separator: " · ") }
+    private var hasLinks: Bool { CompanionMarkdown.literal(part.text).runs.contains { $0.link != nil } }
 
     var body: some View {
         let collapsible = CompanionTimelineFolding.canCollapse(part) && CompanionMessageRouting.isLongMessage(part.text)
@@ -204,11 +205,11 @@ struct CompanionSentPartView: View {
         if part.fromClubhouse {
             VStack(alignment: .leading, spacing: 3) {
                 HStack(spacing: 6) { Text("Clubhouse"); timestamp }
-                Text(part.text).textSelection(.enabled)
+                Text(CompanionMarkdown.literal(part.text)).textSelection(.enabled)
             }
             .font(.caption).foregroundStyle(.secondary)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Clubhouse: \(part.text)")
+            .accessibilityElement(children: hasLinks ? .contain : .ignore)
+            .accessibilityLabel(hasLinks ? "Clubhouse" : "Clubhouse: \(part.text)")
             .accessibilityValue(accessibilityMetadata.joined(separator: ", "))
             .accessibilityIdentifier(identifier)
             .contextMenu { copyMessage }
@@ -249,8 +250,8 @@ struct CompanionSentPartView: View {
                             .font(.caption).foregroundStyle(.secondary)
                         if !part.text.isEmpty { bubble }
                     }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(name): \(part.text)")
+                    .accessibilityElement(children: hasLinks ? .contain : .ignore)
+                    .accessibilityLabel(hasLinks ? caption : "\(name): \(part.text)")
                     .accessibilityValue(accessibilityMetadata.joined(separator: ", "))
                     .accessibilityIdentifier(identifier)
                     .contextMenu { copyMessage }
@@ -267,7 +268,7 @@ struct CompanionSentPartView: View {
     private var bubble: some View {
         Group {
             if part.sender != nil { CompanionRichText(text: part.text) }
-            else { Text(part.text).textSelection(.enabled) }
+            else { Text(CompanionMarkdown.literal(part.text)).textSelection(.enabled) }
         }
         .padding(.horizontal, 14).padding(.vertical, 10)
         .background(Color(palette.tintSoft), in: RoundedRectangle(cornerRadius: 18, style: .continuous))
