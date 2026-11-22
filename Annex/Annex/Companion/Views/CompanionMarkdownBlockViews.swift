@@ -153,7 +153,7 @@ struct CompanionMarkdownTableGrid: View {
         let view = Text(text)
             .multilineTextAlignment(Self.text(alignment))
             .frame(maxWidth: .infinity, alignment: Alignment(horizontal: Self.horizontal(alignment), vertical: .top))
-            .accessibilityHidden(true)
+            .accessibilityHidden(!text.runs.contains { $0.link != nil })
         if selectable { view.textSelection(.enabled) } else { view }
     }
 
