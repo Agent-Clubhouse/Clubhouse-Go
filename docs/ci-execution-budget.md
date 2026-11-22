@@ -1,210 +1,169 @@
-# CI execution budget and early failure signal
+# CI execution budget and first failure reporting
 
-This change redistributes the same eight iPhone jobs and streams the first failed
-attempt of each item while the tests are running. It adds no runner capacity,
-removes no test, and changes no retry, timeout, fixture, settings, credentials,
-Release, package, live-contract or iPad requirement. The <60-minute all-checks
-execution critical path and <10-minute actionable failure feedback targets remain
-**unproven until the exact full hosted run completes**. Queue and pre-Plan latency
-are separate measurements. A failed item late in a suite cannot be reported before
-it executes; annotations do not promise every workflow failure within ten minutes.
+The current composed candidate retains eight iPhone jobs, the hosted bundle once
+on each device, three intentional iPad UI repeats, packages/coverage, Release and
+all inventory/result gates. The targets remain **under 60 minutes of all-checks
+execution critical path and under 10 minutes to actionable failure feedback**.
+Neither target is accepted by a forecast, a native pass before cancellation, or a
+passing retry. Queue, pre-Plan, wall and summed compute are separate quantities.
 
-## Evidence and placement
+## Closed original measurement
 
-Baseline main is `b1ff00b4ea3ca612b47925c47b4e402646b91b8e` (#627/#628 merged).
-The source under both Annex test directories is byte-identical to full run
-[44937056133](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44937056133),
-head `4cd77e4d34fa17350f0c608248e02f12e4c336ef`. Plan 7s, Build 264s,
-Release 477s, packages 299s, iPad 1223s and result 4s came from job timestamps.
-The catch-all had 33 classes and reached only five before cancellation; its 3411s
-job gives `7 + 264 + 3411 + 4 = 3686s` (61m26) **through cancellation**, not a
-complete full-suite result. The other job failures/retries are retained failures,
-not a speed success. The eight raw log lengths/digests and measured terminal
-attempt totals are in `scripts/ci/ui_execution_observations.json`.
+The sole initial full validation was PR #629 opened-event attempt 1,
+[run 44962660538](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44962660538),
+exact `f7a483f5c38c863711717f3e18280fcd4bc3820d` on main
+`b1ff00b4ea3ca612b47925c47b4e402646b91b8e`. Its downloaded Plan manifest selected
+full mode. Plan, Build, Release, packages and coverage passed; CompanionDomain
+coverage was 14843/15968 (92.95%). Eight iPhone jobs and iPad actually emitted.
+The overall run was cancelled and CI result failed.
 
-The ordinary offline Live E2E guard is sampled separately in jobs 132398496998,
-132587983438 and 132681935037 (logs in the accepted shared timing asset). All 15
-current identities skipped in each: attempt totals 1.386/1.716/1.237s; whole suite
-spans 1.391/1.759/1.243s. All used Xcode 26.5. The fetched actual merge sources
-have the identical `super.setUpWithError()` then `XCTSkipUnless` condition and
-reason, and neither old nor current ReliableUITestCase overrides setup/teardown.
-The emitted skip reason proves the live fixture predicate was false; ordinary CI
-supplies neither live fixture variable. Other bodies/helper paths differ and are
-unreached by this guard. The model uses the maximum sampled time for each method
-plus the maximum suite overhead apportioned per case: 1.870005s total, rather than
-assuming zero or converting another unknown to a skip. This supplies no live
-execution coverage and changes no live-contract workflow. Pins, source hashes and
-per-method samples are in `scripts/ci/offline_skip_observations.json`.
+The execution-weighted DAG critical path was **3803s (63m23)** through incomplete
+verification: Plan10 + Build362 + Other3428 + result3. Creation-to-final-check wall
+was6954s (115m54), summed job execution27975s (466m15), pre-Plan2s. Five physical
+macOS slots cause additional waves; their resource wait is not execution-DAG time.
 
-`python3 scripts/ci/ci_execution_budget.py --suggest` reproduces longest-first
-whole-class placement. Latest same-source full-run all-attempt totals take
-precedence over the accepted historical timing table; **all remaining 114
-unknown methods retain 60s each**, including other unmeasured guarded tests.
-Failed attempts are already included in observed totals. The default per-job
-setup/runner/verification/upload allowance is 430s: seven non-hosted baseline
-residuals range 346.502..651.657s, median 405.675s, so this is a model, not an
-upper bound. The hosted lane additionally budgets 713s: measured ~620s hosted
-span plus ~93s for the second runner startup. The iPad stays 1223s separately.
+Of426 planned iPhone UI identities,415 had terminal log rows:379 last passing,
+12 last failing and24 skipped. Skips are not native behavior coverage. Ten
+UnicodeFocus methods and one FeedbackMenuAttachment method lacked a terminal;
+two started but never finished and nine were unreached. Completed native UI
+attempts totaled21530.169s, including2331.701s of completed later attempts.
+All original first failures, retry outcomes and missing identities remain evidence.
+No speed, green suite or corrected-head runtime claim follows.
 
-| Retained job name | Classes | UI methods | Unknown methods | Modeled execution seconds |
-| --- | ---: | ---: | ---: | ---: |
-| UI tests (preview, project pages) | 8 | 47 | 10 | 3451.383 |
-| UI tests (feedback, needs you) | 9 | 53 | 0 | 3447.694 |
-| UI tests (dispatcher, terminal) | 10 | 54 | 21 | 3449.470 |
-| UI tests (unicode, home) | 11 | 49 | 18 | 3437.957 |
-| UI tests (search, permissions) | 10 | 55 | 32 | 3440.709 |
-| UI tests (composer, sheets) | 12 | 73 | 8 | 3432.633 |
-| UI tests (reading, grants) + unit tests | 9 | 47 | 20 | 3443.884 |
-| UI tests (other) | 10 | 48 | 5 | 3450.098 |
+| Original lane | Assigned execution | UI terminal / planned | Workflow result |
+| --- | ---: | ---: | --- |
+| Preview/project |3337s|47/47|cancelled|
+| Feedback/needs you |3331s|53/53|cancelled|
+| Dispatcher/terminal |3400s|53/54|cancelled|
+| Unicode/home |3290s|49/49|failed|
+| Search/permissions |2767s|55/55|passed|
+| Composer/sheets |2972s|73/73|failed|
+| Reading/grants + hosted |3232s|47/47|passed|
+| Other |3428s|38/48|cancelled|
+| iPad hosted + smoke |1268s|3/3 UI|passed|
 
-The longest modeled lane is preview/project pages: 3451.383s, including measured
-Preview Smoke 1866.312s, unknown CombinedLinkedHome 300s and measured SessionModel
-292.094s. Its total includes 10 unknown methods (600s); no observed skip is a
-passing native behavior. Names are retained check identities, not a promise that
-every assigned class still matches the historical name.
+Preview had47 native passes, no completed repeats and `TEST EXECUTE SUCCEEDED`
+at00:38:16.959Z, then cancellation at00:38:26.145Z. Its retained ZIP has neither
+pipeline-status nor tests-details JSON. **Final workflow verdict and interrupted
+stage are unknown**; do not relabel it a verified pass or attribute all time to
+one exporter. Search's native-success-to-test-step-end interval was about104s,
+including several operations; it is not the duplicate query's measured cost.
 
-The queue-excluded DAG critical path is **3726.383s (62m06.383)**:
-`Plan + max(packages, Release, Build + max(iPhone jobs, iPad)) + result`.
-The modeled longest lane is also above its unchanged 55m timeout. Redistribution
-cannot remove the aggregate uncertainty; missing durations justify one complete
-exact-head measurement after independent delta review, not a claim of completion.
-The average modeled iPhone workload is **3444.228s per lane**, an aggregate
-lower bound independent of placement, versus the unchanged 3300s job limit.
-Total modeled excess over eight 55m slots is **1153.828s**.
-The largest indivisible UI class is PreviewSmoke at 1866.312s (31m06), which fits
-within a lane; splitting it would not solve this aggregate lower bound. No method
-split is introduced without evidence that placement rather than unknown costs is
-the limiting factor.
+The first recovered warning was AgentRowMenu's
+`testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes`, assertion24, at
+23:49:42.762623Z. It was388.763s after lane assignment plus372s Plan/Build:
+**760.763s (12m40.763) execution-path**, versus767.763s run wall. The7s difference
+was pre-Plan2 + Build queue2 + device queue3. This misses10 minutes even with
+immediate visibility. The server log timestamp is not a precise dashboard
+visibility timestamp: the last empty annotations read was00:21:25.529Z and the
+closed nonempty response provides no annotation creation time.
 
-No shared setup conversion was introduced: build products are already reused and
-both hosted device invocations remain necessary native proof.
+## Measured-cost placement
 
-A plausible work-conserving **five-macOS-slot makespan** is a different quantity:
-119m36.481s for matrix order then iPad, or 119m52.103s for iPad then longest job.
-The simulator starts build/packages/Release together, then admits ready UI/iPad
-jobs when a slot is free. It is not GitHub scheduling evidence or a queue bound;
-external queue/pre-Plan delays can extend it further. No sixth slot is assumed.
+`scripts/ci/full_execution_observations.json` binds full raw-log lengths/digests,
+415 complete all-attempt totals, ten prior same-source missing-method costs and
+the single remaining unknown. It supersedes the initial297-method/114-unknown
+estimate for placement. The original cost assets remain unchanged for provenance.
+The fifteen ordinary offline LiveE2E skip identities are observed skips, with
+unchanged guard/fixture setup; no live coverage or other unknown is inferred.
 
-Sensitivity on this fixed placement (do not subtract costs from the old maximum):
+Ten missing UnicodeFocus IDs use prior4cd same-native-source observations. The
+last FeedbackMenuAttachment case keeps60s rather than pretending its unfinished
+20.883s is a completed cost. All observed failed/passing attempts remain charged,
+including312.293s across six Footer Dark/Light attempts and their199.161s retry
+portion. **No unmeasured Footer, exporter or metadata saving is deducted.**
 
-| Assumption | Modeled queue-excluded CP |
-| --- | ---: |
-| Remaining unknown methods 60s | 3726.383s |
-| Remaining unknown methods 90s | 4675.709s |
-| One additional 240s retry in each iPhone lane | 3966.383s |
-| No comparable offline skip sample; all 15 revert to 60s | 4605.763s |
+`python3 scripts/ci/ci_execution_budget.py --suggest` reproduces deterministic
+whole-class LPT plus bounded max-load-improving swaps. Four known first-failure
+classes occupy the earliest current lexical class in separate lanes: HeaderReflow,
+AgentRowMenu, AppUpdate and Footer. No passing work precedes those classes in the
+current lexical route. This uses the order observed in original XCTest logs,
+not an SDK ordering guarantee; realized method order and first warning timing
+must be checked on the composed hosted head. A future class still belongs to the
+catch-all once and may sort before its current first class. No test is split.
 
-Use `--unknown-seconds`, `--extra-retry-seconds`, `--overhead-seconds` and
-`--without-skip-sample` to reproduce these sensitivities. Rebalancing under a new
-assumption is explicit (`--suggest`); it does not mutate CI or waive inventory.
+The actual additional hosted span plus second UI startup was776.254348s. Completed
+UI attempts + explicit missing-method costs total22150.907s. Default per-lane
+planning charges315s for preparation/runner/upload/cleanup and a visible120s
+verification reserve (435s total). Original residual non-test envelopes, after
+subtracting hosted span and unfinished native intervals, were262.418..535.282s,
+mean419.598s. They already include any completed verification; **435s is the
+modeled total instead of adding120s to those residuals**. Cancelled jobs may omit
+verification/upload, and a535s envelope shows435s is not a future upper bound.
 
-## Inventory and first failure semantics
+| Retained job | UI methods | Body + hosted | Modeled assigned execution |
+| --- | ---: | ---: | ---: |
+|UI tests (preview, project pages)|42|2866.231s|3301.231s|
+|UI tests (feedback, needs you)|36|2866.854s|3301.854s|
+|UI tests (dispatcher, terminal)|48|2862.238s|3297.238s|
+|UI tests (unicode, home)|74|2866.292s|3301.292s|
+|UI tests (search, permissions)|48|2866.432s|3301.432s|
+|UI tests (composer, sheets)|69|2866.789s|3301.789s|
+|UI tests (reading, grants) + unit tests|46|2867.069s|3302.069s|
+|UI tests (other)|63|2865.256s|3300.256s|
 
-Source checks partition all 79 current UI classes / 426 zero-argument methods
-once over the eight iPhone jobs, retain the future-class catch-all, and verify
-exactly three intentional iPad UI repeats. The entire hosted bundle remains
-selected once on iPhone and once on iPad; its strict no-retry policy is unchanged.
-Actual SDK discovery/parameterized hosted cases and complete runtime coverage
-remain exact-run evidence, not a Python simulation claim.
+The maximum is3302.069s; modeled queue-excluded CP is3677.069s (**61m17.069**).
+Even ideal packing has average2865.895s body+hosted, giving3675.895s CP with these
+reserves. Eight55-minute lanes supply22920s of usable body budget versus22927.161s
+of charged work. To meet the stricter60-minute all-checks CP with the measured
+375s prefix/result, a lane must finish within3225s: the aggregate model still
+needs **607.161s less work/overhead**. Routing alone cannot establish either limit.
+Splitting only PreviewSmoke offered about6s improvement and was rejected.
 
-The catch-all now verifies every selected source UI method, respecting explicit
-exclusions and only existing documented skip guards. Both iPhone and iPad run
-inventory verification even if complete-result verification fails. No partial or
-missing xcresult is accepted. The iPad selection has one source for invocation
-and inventory. No method bodies or native source changed.
+A plausible five-slot work-conserving schedule is6978.300s (116m18.300) with matrix
+order then iPad, or6977.663s with iPad then longest. It is a resource model, not
+an observed queue bound. Unknown-case90s adds30s to its current owner; an extra240s
+retry per lane adds240s to CP. Increasing verification reserve120→180 adds60s to
+CP and removes480s of aggregate usable body budget. CLI switches expose these
+sensitivities; none changes actual timeouts, selection or verdicts.
 
-`report_test_failures.py` forwards stdout unchanged and emits an escaped GitHub
-warning at the first XCTest assertion or Swift Testing issue for an item, with a
-terminal-failure fallback when no assertion is available. The method and original
-assertion remain intact. Properties and messages escape `%`, CR/LF (and property
-colon/comma); untrusted diagnostics cannot inject another annotation. JSONL
-captures monotonic stream/item latency, known attempt and observation UTC; absent
-item starts have **null**, not invented timing. Passing retries never erase the
-first failure. This is advisory and never decides the final test result.
+Actual non-hosted assignment-to-first-method cost varied177.380..340.159s; the
+hosted lane first UI began1063.897s after assignment. With the372s Plan/Build
+prefix this leaves variable headroom for a failure signal. Earlier placement
+cannot guarantee10 minutes or repair an invalid/expensive native scenario.
 
-Explicit Bash `pipefail` retains package failures. Native pipelines record all
-three exit statuses. The existing xcodebuild-65 exception still requires a complete
-passing result and inventory; tee/reporter failure cannot turn green. Complete
-xcresult, strict hosted/iPad no-retry and required aggregate checks remain the
-verdict authorities. Raw tee logs, events and statuses remain in result artifacts.
+## Composed bounded corrections and proof
 
-Controls replay a sanitized actual first assertion/failure/retry-pass sequence
-(run/job/full-log SHA beside the fixture), a delayed item start, Swift Testing
-issues without a start, hostile diagnostic text, upstream nonzero status and both
-actual workflow verifier tails against fake tools. These are Python/shell controls,
-not native or SDK execution. Preserve first-annotation vs post-xcresult timestamps,
-actual inventory/skips/attempts, job execution, queue/pre-Plan, artifact closure
-and all retained checks in the single full hosted validation report.
+The reporter forwards original stdout and assertion text, emits escaped advisory
+warnings/JSONL before xcresult completion, and never decides the verdict. The
+isolated identity correction uses available normalized source-file plus exact
+Swift Testing display name, retaining both same-bare-name failures from different
+files. Swift Testing elapsed/attempt are deliberately null because bare start
+records cannot be attributed safely. Same-file same-display ambiguity remains;
+this is not a universal structured identifier. XCTest qualified timing is retained.
+Pipeline statuses, raw logs and final complete xcresult/inventory are mandatory;
+passing retries never erase the first failed attempt.
 
+`verify-xcresult.py --tests-json-output` removes stale output before SDK reads,
+queries details once, and atomically exports the same fresh usable object for
+both semantic verdict/retry checks and inventory. Requested malformed/empty/read
+failure stays red without stale or partial JSON. A semantic red or summary error
+still exports valid details for the independent inventory diagnostic. Standalone
+callers without export keep their previous advisory-details policy. Both devices
+retain strict hosted/iPad no-retry gates. This removes a duplicate export; measured
+savings await hosted query/serialization telemetry.
 
-## First full measurement and bounded verification correction
+The exact reviewed Footer carry changes only the two existing Dark/Light gesture
+paths to use the visible transcript above footer/keyboard. All downstream pixel,
+final-line, keyboard and inset assertions,140pan cap, fixture and allowances stay.
+The original six failed attempts are historical costs, not promised savings;
+passing paths reach additional assertions. Overflow oldline273 remains separate.
+Next necessary hosted validation must retain Dark/Light first attempts, durations,
+retries and reached/unreached downstream assertions.
 
-PR #629's sole opened-event full run is
-[44962660538](https://github.com/Agent-Clubhouse/Clubhouse-Go/actions/runs/44962660538)
-on `f7a483f5c38c863711717f3e18280fcd4bc3820d`. Plan's downloaded manifest
-actually selected full mode. Packages, coverage (CompanionDomain 14843/15968,
-92.95%), Release and Build passed. The assigned Plan+Build execution prefix is
-10+362=372s, excluding pre-Plan and dependency queue waits.
+Bounded parser metadata reuse and real20-fixture counts are documented in
+[ci-deinit-metadata-reuse.md](ci-deinit-metadata-reuse.md). All86 scanner executions
+and their canonical output hashes remain equal; only compiler-version/SDK metadata
+queries are reused. Local fixture elapsed dropped6.165s. Hosted stage savings are
+unmeasured, and even removing the entire old61s policy step leaves the observed
+incomplete63m23 path at62m22. No threshold, ownership policy or scanner-result cache
+is introduced.
 
-The first recovered warning is AgentRowMenu's
-`testNativeHomeAgentMenuAtAccessibilityXXXLAcrossThemes`, assertion line 24,
-at 23:49:42.762623Z. The server log signal is 388.763s after that lane's assignment:
-**760.763s execution-path time** (12m40.763), versus **767.763s wall time** since
-run creation. The 7s difference is pre-Plan 2s, Build queue 2s and device queue 3s.
-This misses ten minutes even if the log-line signal were immediately visible.
-Check API annotations were still empty at 00:21:25.529Z; their eventual closed
-response has no creation timestamp. No precise dashboard-visibility claim follows
-from the log's timestamp. Preserve interval bounds separately.
-
-At the recovery checkpoint, four device jobs had exceeded the unchanged 55m
-limit. Other ran 3428s (57m08 including finalization/cleanup), so **372+3428=3800s
-(63m20) is already a queue-excluded lower bound**, before aggregate completion.
-The three remaining iPhone jobs were still active; this is not a full-run pass.
-Closed raw originals: Preview 1167253 bytes / SHA256
-`b3346620db7071a8d6d157c5d1deefea33fef3a210cfc65b92aeeddb0fd4ba21`;
-Other 1011748 bytes /
-`474666905e8bc624d65c93595c787b8a642013afff81d661e371e38b2785ca25`;
-Dispatcher lane 1026426 bytes /
-`15967b39633c7dca2ce54fb20af5138d7e57ff836a41a549b4f27045f77cd49c`;
-Feedback 1008952 bytes /
-`571ca57d1fee50cc3c34885aff812edc09b77380f28fbece9ec828fe705801c3`;
-Search 736496 bytes /
-`8775dd9ffd9b9790a68cae817da9ba0efd67c38054b82c3d983ef55cd46a69c0`.
-
-Preview produced all 47 expected native terminal rows, no failed attempts and
-`TEST EXECUTE SUCCEEDED` at 00:38:16.959Z, then was cancelled at 00:38:26.145Z
-before successful workflow verification. Other had only 38/48 terminal identities
-(one further identity started), Dispatcher 53/54 (last started), Feedback all
-53 terminals but real failures; none of those cancelled jobs receives acceptance.
-Search completed all 55 planned methods and workflow verification in 46m07s.
-iPad passed its unchanged strict hosted+three-UI selection.
-
-A prototype using the 246 fully completed measured identities, retained prior
-measurements and **47 still-unknown methods at 60s** totals 23146.417s UI bodies.
-Adding hosted713 and the old modeled overhead430/lane gives mean3412.427s/lane,
-above3300 independently of packing. Whole-class LPT max2990.182s body+host;
-splitting only PreviewSmoke lowers that maximum just5.882s. No method split or
-routing-only rerun is justified by that gain. A conservative usable-body budget
-with120s verification and480s preparation/runner/upload/cleanup reserve is
-`8*(3300-600)-713=20887s`, below the current body estimate by2259.417s. These
-reserves are planning assumptions, not measured upper bounds or changed timeouts.
-The actual final first-pass/unfinished/retry inventory must refine this estimate.
-
-The concrete execution redundancy is in verification: `verify-xcresult.py` already
-reads the SDK `tests` response for retry checking and reporting; each workflow then
-read that same bundle again for inventory. The correction adds an optional
-`--tests-json-output` argument, atomically publishes that **same fresh response**,
-and reuses it for inventory on both devices. It deletes stale output first; an
-empty/malformed/failed details read cannot publish a usable file and fails a
-requested export. A red test verdict still exports valid details so inventory can
-run. A failed summary cannot turn green, but no longer prevents a valid details
-export for the separate inventory diagnostic. Strict no-retry checks are unchanged.
-Standalone callers without an export retain their previous advisory-details behavior.
-
-Search's interval from native success to Run-tests completion was about104s.
-The old log does not separate its two details reads, summary query and inventory:
-**the correction cannot claim all104s as removable duplicate work**. New telemetry
-separately times the single SDK details query and atomic JSON serialization.
-No measured savings, overall budget achievement, or corrected-head native runtime
-acceptance is claimed by fake-SDK controls. Original first failures, cancellation
-annotations, missing IDs, prior reporter correction and deferred acceptance remain.
+Source controls retain all79 current UI classes /426 methods once across eight
+iPhone jobs, the future-class catch-all, three intentional iPad UI repeats and
+whole hosted bundles once per device. Full/selected/daily scope behavior, job names,
+check gates, retries and timeouts remain unchanged. Cheap controls are not SDK
+or native discovery. Independent delta reviews and one justified composed hosted
+run must preserve missing IDs, first failures, actual complete inventories,
+verification time, first signal vs visibility intervals, all-checks CP, queue,
+wall and summed compute before any performance/green/landing claim.
