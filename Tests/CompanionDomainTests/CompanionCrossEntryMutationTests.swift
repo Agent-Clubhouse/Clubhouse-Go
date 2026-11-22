@@ -74,6 +74,11 @@ import Testing
             #expect(flow.canApply)
         }
     }
+    private func retain(_ stage: String, _ h: LiveServiceHarness) async throws {
+        let commands = try await h.transport.executed.map { try JSONDecoder().decode(AnnexJSON.self, from: $0.encoded()) }
+        let data = try JSONEncoder().encode(AnnexJSON.object(["stage": .string(stage), "commands": .array(commands)]))
+        print("CROSS_ENTRY_BOUNDARY " + String(decoding: data, as: UTF8.self))
+    }
     private func save(_ provider: Provider, _ h: LiveServiceHarness) async {
         if provider == .v1 { await h.store.providerFlow(for: target).save() }
         else { await h.store.providerV2Flow(for: target, requestedRuntime: "terminal").apply() }
@@ -104,11 +109,13 @@ import Testing
             }
         }
         let before = await h.transport.executed.map(\.commandID)
+        try await retain("recovery/\(provider)/\(recovery)/before", h)
         let notice = h.store.dispatcherResetNotices[target.hostID]
         let held = h.store.dispatcherResetPrompt
         let error = await serviceErrorKind { _ = try await h.store.updateSettings(.init(model: "default"), target: target) }
         #expect(error != .none)
         await save(provider, h)
+        try await retain("recovery/\(provider)/\(recovery)/after", h)
         if provider == .v1 { #expect(!h.store.providerFlow(for: target).canChoose) }
         else { #expect(!h.store.providerV2Flow(for: target, requestedRuntime: "terminal").canChoose) }
         #expect(await h.transport.executed.map(\.commandID) == before, "Blocked paths create no additional command IDs")
@@ -159,6 +166,7 @@ import Testing
         let heldApply = flow.lastApply, heldStart = flow.lastStart, heldConflict = flow.conflict
         let before = await h.transport.executed.map(\.commandID)
         let beforeMutations = await h.transport.executed.filter { $0.type != "agent.providerPreview" }.map(\.commandID)
+        try await retain("provider/\(scenario)/before", h)
         await h.store.confirmDispatcherReset(clear)
         await h.store.confirmDispatcherReset(forget)
         await h.store.askDispatcherReset(.clearChat, hostID: target.hostID)
@@ -167,6 +175,7 @@ import Testing
         #expect(await serviceErrorKind { _ = try await h.store.updateSettings(.init(model: "default"), target: target) } != .none)
         #expect(await serviceErrorKind { _ = try await h.store.updateDispatcher(.init(behavior: "light"), hostID: target.hostID) } != .none)
         #expect(await serviceErrorKind { _ = try await h.store.setDispatcherModels(.byHand(true), hostID: target.hostID) } != .none)
+        try await retain("provider/\(scenario)/after", h)
         #expect(await h.transport.executed.map(\.commandID) == before)
         _ = try await h.store.settings(for: target)
         _ = try await h.store.loadDispatcherSettings(hostID: target.hostID)
@@ -209,5 +218,6 @@ import Testing
         await save(provider, h)
         #expect(await h.transport.executed.last?.type == "agent.providerChange")
         #expect(h.store.hasPendingProviderAction(target))
+        try await retain("unlocked/\(provider)", h)
     }
 }
