@@ -25,8 +25,9 @@ import XCTest
             expandFold(quiet, revealing: sleeping, in: app)
             XCTAssertTrue(scrollTo(sleeping, in: app) && sleeping.isHittable)
             let details = app.buttons["Agent details"]
+            let sleepingLabel = sleeping.label
             openMenuWithOneVisibleRowPress(sleeping, in: app, shows: details)
-            let sleepingMenu = try nativeMenu(in: app, labels: ["Wake & Resume", "Start New Session", "Agent details", "Agent settings", "Terminal"])
+            let sleepingMenu = try nativeMenu(in: app, targetLabel: sleepingLabel, labels: ["Wake & Resume", "Start New Session", "Agent details", "Agent settings", "Terminal"])
             try assertItems(in: sleepingMenu, app: app, allowScroll: accessibility)
             capture(app, "Sleeping native Home menu \(scheme) \(accessibility ? "AX5" : "standard")")
             try reveal("Agent details", in: sleepingMenu, app: app, allowScroll: accessibility).tap()
@@ -38,8 +39,9 @@ import XCTest
             XCTAssertTrue(home.exists)
             let running = element(app, "agent-preview-studio-cedar")
             XCTAssertTrue(scrollUntilExists(running, in: app, up: false) && scrollTo(running, in: app, up: false))
+            let runningLabel = running.label
             openMenuWithOneVisibleRowPress(running, in: app, shows: details)
-            let runningMenu = try nativeMenu(in: app, labels: ["Agent details", "Agent settings", "Terminal"])
+            let runningMenu = try nativeMenu(in: app, targetLabel: runningLabel, labels: ["Agent details", "Agent settings", "Terminal"])
             try assertItems(in: runningMenu, app: app, allowScroll: accessibility)
             XCTAssertFalse(app.buttons["Wake & Resume"].exists, "A running agent must not offer a stale Wake")
             XCTAssertFalse(app.buttons["Start New Session"].exists)
@@ -89,16 +91,31 @@ import XCTest
     }
 
     private struct NativeMenu {
-        let collection: XCUIElement
         let panel: XCUIElement
+        let preview: XCUIElement
+        let targetLabel: String
         let labels: [String]
 
-        func viewport(in app: XCUIApplication) -> CGRect {
+        func currentCollection(file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
+            // Keep the original context and target while resolving its current child.
+            // Never replace the original panel or preview with a global query.
+            _ = try XCTUnwrap(panel.exists && preview.exists && preview.label == targetLabel ? true : nil,
+                              "The original native panel and full agent preview must remain open and unchanged", file: file, line: line)
+            let children = panel.collectionViews
+            _ = try XCTUnwrap(children.count == 1 ? true : nil,
+                              "Exactly one current native collection must belong to the original panel", file: file, line: line)
+            let collection = children.element(boundBy: 0)
+            _ = try XCTUnwrap(collection.exists ? true : nil,
+                              "The original panel's current collection must exist", file: file, line: line)
+            return collection
+        }
+
+        func viewport(in app: XCUIApplication, collection: XCUIElement) -> CGRect {
             panel.frame.intersection(collection.frame).intersection(app.frame)
         }
     }
 
-    private func nativeMenu(in app: XCUIApplication, labels: [String],
+    private func nativeMenu(in app: XCUIApplication, targetLabel: String, labels: [String],
                             file: StaticString = #filePath, line: UInt = #line) throws -> NativeMenu {
         capture(app, "Native menu before validation")
         // Bind the collection and its clipping ancestor to their actual AX elements.
@@ -123,20 +140,29 @@ import XCTest
             let right = $1.frame.intersection(menu.frame).intersection(app.frame)
             return left.width * left.height < right.width * right.height
         }, "A public ancestor of the native collection must provide its actual clip", file: file, line: line)
-        return NativeMenu(collection: menu, panel: panel, labels: labels)
+        let previews = app.otherElements.matching(NSPredicate(format: "label == %@", targetLabel))
+            .allElementsBoundByAccessibilityElement
+        let preview = try XCTUnwrap(previews.count == 1 ? previews.first : nil,
+                                    "One native preview must name the full long-pressed agent and desktop", file: file, line: line)
+        let bound = NativeMenu(panel: panel, preview: preview, targetLabel: targetLabel, labels: labels)
+        let current = try bound.currentCollection(file: file, line: line)
+        XCTAssertEqual(current.buttons.allElementsBoundByIndex.map(\.label), labels,
+                       "The original panel owns the same ordered native actions", file: file, line: line)
+        return bound
     }
 
     private func assertItems(in menu: NativeMenu, app: XCUIApplication, allowScroll: Bool,
                              file: StaticString = #filePath, line: UInt = #line) throws {
         for label in menu.labels {
             let item = try reveal(label, in: menu, app: app, allowScroll: allowScroll, file: file, line: line)
-            let matches = menu.collection.buttons.matching(NSPredicate(format: "label == %@", label))
+            let collection = try menu.currentCollection(file: file, line: line)
+            let matches = collection.buttons.matching(NSPredicate(format: "label == %@", label))
             XCTAssertEqual(matches.count, 1, "The native menu has one \(label)", file: file, line: line)
             XCTAssertTrue(item.exists && item.isHittable && item.isEnabled, label, file: file, line: line)
             let frame = item.frame
             XCTAssertTrue(frame.minX.isFinite && frame.minY.isFinite && frame.width > 0 && frame.height > 0, label, file: file, line: line)
             XCTAssertTrue(app.frame.contains(frame), "Native item remains on screen at this text size: \(label)", file: file, line: line)
-            XCTAssertTrue(menu.viewport(in: app).contains(frame), "Full item is inside the menu's actual clip: \(label)", file: file, line: line)
+            XCTAssertTrue(menu.viewport(in: app, collection: collection).contains(frame), "Full item is inside the menu's actual clip: \(label)", file: file, line: line)
         }
     }
 
@@ -144,14 +170,13 @@ import XCTest
                         file: StaticString = #filePath, line: UInt = #line) throws -> XCUIElement {
         let targetIndex = try XCTUnwrap(menu.labels.firstIndex(of: label), file: file, line: line)
         for step in 0...8 {
-            _ = try XCTUnwrap(menu.collection.exists && menu.panel.exists ? true : nil,
-                              "The original native menu must remain open; a gesture must not activate an item", file: file, line: line)
-            let viewport = menu.viewport(in: app)
+            let collection = try menu.currentCollection(file: file, line: line)
+            let viewport = menu.viewport(in: app, collection: collection)
             _ = try XCTUnwrap(!viewport.isNull && !viewport.isEmpty ? viewport : nil,
                               "The original native menu still has a real clip", file: file, line: line)
-            let item = menu.collection.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
+            let item = collection.buttons.matching(NSPredicate(format: "label == %@", label)).firstMatch
             let frame = item.exists ? item.frame : nil
-            let buttons = menu.collection.buttons.allElementsBoundByAccessibilityElement
+            let buttons = collection.buttons.allElementsBoundByAccessibilityElement
             _ = try XCTUnwrap(Set(buttons.map(\.label)).isSubset(of: Set(menu.labels)) ? true : nil,
                               "The bound native menu must retain only its original actions", file: file, line: line)
             let visible = buttons.compactMap { button -> (Int, CGRect)? in
