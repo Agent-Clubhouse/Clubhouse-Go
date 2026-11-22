@@ -155,6 +155,60 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5), "Drag in the transcript dismisses the keyboard")
     }
 
+    /// The expanded pasted draft leaves a short viewport whose center can be Latest.
+    /// Use the leading padding convention from KeyboardDismissalUITests, only when it is clear.
+    private func routedPasteBlankPoint(window: CGRect, navigation: CGRect, transcript: CGRect,
+                                       composer: CGRect, keyboard: CGRect, occupied: [CGRect]) -> CGPoint? {
+        let frames = [window, navigation, transcript, composer, keyboard] + occupied
+        guard frames.allSatisfy({ frame in
+            [frame.origin.x, frame.origin.y, frame.size.width, frame.size.height, frame.maxX, frame.maxY].allSatisfy(\.isFinite)
+                && frame.size.width >= 0 && frame.size.height >= 0
+        }) else { return nil }
+        let visible = transcript.intersection(window)
+        let top = max(visible.minY, navigation.maxY)
+        let bottom = min(visible.maxY, composer.minY, keyboard.minY)
+        guard visible.width > 16, bottom - top > 48 else { return nil }
+        let viewport = CGRect(x: visible.minX, y: top, width: visible.width, height: bottom - top)
+        // Stay within the first 48pt even if asynchronous Paste shortens the viewport.
+        let point = CGPoint(x: viewport.minX + 8, y: viewport.minY + 24)
+        guard point.x.isFinite, point.y.isFinite, viewport.insetBy(dx: 4, dy: 4).contains(point),
+              !occupied.contains(where: { !$0.isEmpty && $0.insetBy(dx: -4, dy: -4).contains(point) }) else { return nil }
+        return point
+    }
+
+    /// One real user tap, scoped to routed Copy/Paste; the shared drag helper's callers are unchanged.
+    private func dismissRoutedPasteKeyboard(_ app: XCUIApplication) -> Bool {
+        guard app.keyboards.firstMatch.exists else { return true }
+        guard let root = try? app.snapshot() else { XCTFail("Capture the current River layout before dismissing Paste"); return false }
+        var nodes: [XCUIElementSnapshot] = []
+        func visit(_ node: XCUIElementSnapshot) {
+            nodes.append(node)
+            for child in node.children { visit(child) }
+        }
+        visit(root)
+        let navigation = nodes.filter { $0.elementType == .navigationBar && $0.identifier == "River" }
+        let transcript = nodes.filter { $0.elementType == .other && $0.identifier == "companion-transcript" }
+        let composer = nodes.filter { $0.identifier == "companion-composer-region" }
+        let keyboard = nodes.filter { $0.elementType == .keyboard }
+        guard navigation.count == 1, transcript.count == 1, composer.count == 1, keyboard.count == 1 else {
+            XCTFail("One River navigation bar, visible transcript marker, composer and keyboard must identify the current route"); return false
+        }
+        let interactive: [XCUIElement.ElementType] = [.button, .link, .staticText, .textField, .secureTextField,
+            .textView, .cell, .slider, .switch, .stepper, .picker, .pickerWheel, .segmentedControl, .menuItem, .key]
+        let occupied = nodes.filter { interactive.contains($0.elementType) }.map(\.frame)
+        guard let point = routedPasteBlankPoint(window: root.frame, navigation: navigation[0].frame, transcript: transcript[0].frame,
+                                                composer: composer[0].frame, keyboard: keyboard[0].frame, occupied: occupied) else {
+            XCTFail("Paste needs clear, visible transcript padding outside the current controls and text"); return false
+        }
+        XCTContext.runActivity(named: "Routed Paste ONE blank tap \(point); viewport \(transcript[0].frame); keyboard \(keyboard[0].frame); excluded frames \(occupied.count)") { _ in
+            app.coordinate(withNormalizedOffset: .zero)
+                .withOffset(CGVector(dx: point.x - root.frame.minX, dy: point.y - root.frame.minY)).tap()
+        }
+        let dismissed = app.keyboards.firstMatch.waitForNonExistence(timeout: 5)
+        XCTAssertTrue(dismissed, "The blank transcript tap ends editing after System Paste")
+        return dismissed
+    }
+
     private func text(_ app: XCUIApplication, containing fragment: String) -> XCUIElement {
         app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", fragment)).firstMatch
     }
@@ -315,10 +369,46 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         _ = paste.waitForExistence(timeout: 1)
         waitAndTap(composer, until: paste, timeout: 3, "The composer offers Paste")
         paste.tap()
-        // Focused UITextView AX values can lag the visibly pasted text on iOS 26.5. Reopening also proves
-        // the complete raw delivery reached the draft binding, rather than only the UIKit editor.
-        app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(river.waitForExistence(timeout: 10))
+        // Native plain-text paste loads asynchronously. Leave editing, then require completion before Back.
+        // The focused UITextView AX value can lag. Tap verified blank padding: the expanded draft's
+        // viewport center can be covered by Latest, so the shared center-origin drag is unsuitable here.
+        guard dismissRoutedPasteKeyboard(app) else { return }
+        let pasted = app.textFields["companion-composer"]
+        XCTAssertTrue(waitFor(pasted, NSPredicate(format: "value == %@", raw), timeout: 5),
+                      "System Paste completes with the entire raw delivery before navigation")
+        // Closing a Markdown preview returns to River, not the list. Both steps share the
+        // original ten-second navigation budget, and only River's native Back leaves the chat.
+        let returnDeadline = ProcessInfo.processInfo.systemUptime + 10
+        func remainingReturnTime() -> TimeInterval {
+            max(0, returnDeadline - ProcessInfo.processInfo.systemUptime)
+        }
+        let blockDone = app.buttons["companion-markdown-block-done"]
+        if blockDone.exists {
+            guard app.navigationBars["Table"].exists,
+                  app.scrollViews["companion-markdown-block-sheet"].exists else {
+                XCTFail("Only the identified Table preview may be closed before leaving River")
+                return
+            }
+            blockDone.tap()
+            guard blockDone.waitForNonExistence(timeout: remainingReturnTime()) else {
+                XCTFail("Table must close within the existing return-to-list budget")
+                return
+            }
+        }
+        let riverNavigation = app.navigationBars["River"]
+        let back = riverNavigation.buttons["BackButton"]
+        guard remainingReturnTime() > 0, riverNavigation.exists, back.exists, back.isHittable else {
+            XCTFail("River's own native Back must be available before leaving the chat")
+            return
+        }
+        back.tap()
+        guard river.waitForExistence(timeout: remainingReturnTime()),
+              !riverNavigation.exists, app.navigationBars["Clubhouse"].exists,
+              remainingReturnTime() > 0 else {
+            XCTFail("Back must leave River for its Home list within the existing ten-second budget")
+            return
+        }
+        // Reopening separately proves the complete raw delivery reached the saved draft binding.
         XCTAssertTrue(scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
         let restored = app.textFields["companion-composer"]
@@ -696,6 +786,10 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTFail("Sender part must expand")
     }
 
+    /// One native fold round trip: collapse, leave and reopen the chat, tap Refresh, find the same row still collapsed,
+    /// then expand it to the correct body. Refresh starts an asynchronous load this test doesn't observe being applied;
+    /// the refresh itself and the part/conversation/session permutations are proven at the Store level by
+    /// CompanionRoutedFoldPersistenceTests (and CompanionHelperMessagePresentationTests).
     func testSenderMessagesStartExpandedAndExplicitFoldsSurviveRefreshAndNavigation() {
         let app = launchApp(["--companion-preview", "--companion-preview-dispatcher", "--companion-preview-start-dispatch"], allowance: 360)
         let home = tab(app, "Home")
@@ -712,45 +806,46 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         XCTAssertTrue(shortValue.contains(":"), "The source and steer value also keeps the timestamp")
         let first = app.buttons["companion-routed-sender-preview-0"]
         let second = app.buttons["companion-routed-sender-preview-1"]
+        let body = element(app, "companion-routed-body-sender-preview-0")
         bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
         XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "Long helper replies start readable with the live name")
-        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true)
+        let openValue = first.value as? String ?? ""
+        XCTAssertTrue(openValue.hasPrefix("Expanded") && openValue.contains("Mission") && openValue.contains("Steered into the running turn"))
+        XCTAssertTrue(openValue.contains(":"), "Open long parts keep their timestamp with the source and steer metadata")
+        XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
         first.tap()
         XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
         XCTAssertTrue(element(app, "companion-sender-avatar-sender-preview-0").exists)
+        // Preserve the independent-part check while retaining main's collapsed round trip.
         bringCaptionIntoView(second, identifier: "companion-routed-sender-preview-1", in: app)
         XCTAssertTrue((second.value as? String)?.hasPrefix("Expanded") == true)
         second.tap()
         XCTAssertTrue(waitFor(second, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
         bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
-        expandSender(first)
-        XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
-        let openValue = first.value as? String ?? ""
-        XCTAssertTrue(openValue.contains("Mission") && openValue.contains("Steered into the running turn"))
-        XCTAssertTrue(openValue.contains(":"), "Open long parts keep their timestamp with the source and steer metadata")
-        XCTAssertEqual(second.value as? String, "Collapsed", "Each part folds independently")
-        let body = element(app, "companion-routed-body-sender-preview-0")
-        XCTAssertTrue(body.exists)
-        screenshot(app, "Helper avatar and expanded long message")
+        XCTAssertEqual(first.value as? String, "Collapsed", "Each part folds independently")
 
-        // Leave the row's viewport, then return. A fold must not depend on a row's lifetime.
-        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.01)).tap()
-        let top = text(app, containing: "Preview conversation")
-        XCTAssertTrue(scrollTo(top, in: app, up: false, maxSwipes: 12))
+        // Leave the conversation and reopen it from Home.
+        app.navigationBars.buttons.element(boundBy: 0).tap()
+        XCTAssertTrue(scrollTo(river, in: app))
+        waitAndTap(river, until: element(app, "companion-chat-header"))
         bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
-        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true)
+        XCTAssertEqual(first.value as? String, "Collapsed", "Leaving the conversation keeps its fold")
 
+        // After tapping Refresh (its load is asynchronous and not observed here), the same row is still collapsed.
         let actions = app.navigationBars.buttons["Conversation actions"]
         let refresh = app.buttons["Refresh conversation"]
         waitAndTap(actions, until: refresh)
         refresh.tap()
         bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
-        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true, "A new history snapshot keeps the fold open")
-        app.navigationBars.buttons.element(boundBy: 0).tap()
-        XCTAssertTrue(scrollTo(river, in: app))
-        waitAndTap(river, until: element(app, "companion-chat-header"))
-        bringCaptionIntoView(first, identifier: "companion-routed-sender-preview-0", in: app)
-        XCTAssertTrue((first.value as? String)?.hasPrefix("Expanded") == true, "Leaving the conversation keeps its open state")
+        XCTAssertEqual(first.value as? String, "Collapsed", "The fold stays after a Refresh tap")
+        XCTAssertFalse(body.exists, "A collapsed part shows no body")
+
+        // Expanding the same row shows its own body again.
+        expandSender(first)
+        XCTAssertTrue(first.label.hasPrefix("Cedar: ## Helper report"), "An open part keeps the sender/body accessibility label")
+        XCTAssertTrue(body.exists, "The expanded part shows its body")
+        XCTAssertEqual(second.value as? String, "Collapsed", "Expanding Cedar leaves the other part folded")
+        screenshot(app, "Helper avatar and re-expanded long message after refresh")
         first.tap()
         XCTAssertTrue(waitFor(first, NSPredicate(format: "value == %@", "Collapsed"), timeout: 5))
         XCTAssertFalse(body.exists, "Collapsed parts do not build their markdown")

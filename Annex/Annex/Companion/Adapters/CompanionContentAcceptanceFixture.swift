@@ -1,5 +1,7 @@
 #if DEBUG && canImport(UIKit)
 import UIKit
+import CryptoKit
+import UniformTypeIdentifiers
 
 /// Opt-in synthetic service data only. No desktop filesystem, transport or URL is accessed.
 @MainActor enum CompanionContentAcceptanceFixture {
@@ -10,6 +12,17 @@ import UIKit
     static let homeText = "~/.clubhouse/scratch/home.txt"
     static let temporaryText = "/tmp/clubhouse-preview/scratch.txt"
     static let homePDF = "~/.clubhouse/scratch/acceptance.pdf"
+    static let exportImage = "~/.clubhouse/scratch/original.png"
+    static let exportImageBytes: Data = {
+        let format = UIGraphicsImageRendererFormat()
+        format.scale = 1
+        return UIGraphicsImageRenderer(size: CGSize(width: 3000, height: 2400), format: format).pngData { context in
+            UIColor.systemBlue.setFill()
+            context.fill(CGRect(x: 0, y: 0, width: 3000, height: 2400))
+            ("Synthetic original image" as NSString).draw(at: CGPoint(x: 40, y: 40),
+                withAttributes: [.font: UIFont.systemFont(ofSize: 64), .foregroundColor: UIColor.white])
+        }
+    }()
     static let linkHref = "Some%20Folder/notes.md#intro"
     static let folderHref = "Some%20Folder/"
     static let truncatedHref = "Big%20Folder/"
@@ -22,6 +35,12 @@ import UIKit
     static let markdownText = "# Phone notes\r\n\r\n**Keep** trailing spaces  \r\nCaf\u{00e9} \u{1f680}\r\n\r\n- [x] Native preview\r\n\r\n![Blocked local image](./private.png)\r\n"
     static let markdownPath = "phone-notes.md"
     static var history: CompanionHistory {
+        if ProcessInfo.processInfo.arguments.contains("--companion-preview-artifact-export") {
+            return .init(items: [
+                .message(.init(id: "artifact-export-acceptance", role: .assistant,
+                              text: "Synthetic original files: `\(homePDF)` and `\(exportImage)`."))
+            ], contentRoots: .init(anyPath: true))
+        }
         if ProcessInfo.processInfo.arguments.contains("--companion-preview-markdown-files") {
             return .init(items: [
                 .message(.init(id: "markdown-file-acceptance", role: .assistant,
@@ -61,6 +80,8 @@ import UIKit
             return .file(path: href, name: (href as NSString).lastPathComponent, kind: "text", size: nil)
         case homePDF:
             return .file(path: href, name: (href as NSString).lastPathComponent, kind: "pdf", size: nil)
+        case exportImage:
+            return .file(path: href, name: "original.png", kind: "image", size: exportImageBytes.count)
         case codeSpanFile: return resolve(linkFile)
         case codeSpanFolder: return resolve(folderHref)
         case notAllowedLink: return .notAllowed
@@ -77,6 +98,8 @@ import UIKit
         case homeText, temporaryText:
             return .init(kind: "text", name: name, mimeType: "text/plain",
                          text: "Synthetic scratch preview\nRaw path: \(path)")
+        case exportImage:
+            return .init(kind: "image", name: name, mimeType: "image/png", bytes: exportImageBytes)
         case homePDF:
             let renderer = UIGraphicsPDFRenderer(bounds: CGRect(x: 0, y: 0, width: 300, height: 400))
             let bytes = renderer.pdfData { context in
@@ -92,12 +115,32 @@ import UIKit
                         // PDF link bounds use bottom-left PDF space; drawing uses top-left user space.
                         context.setURL(url, for: context.cgContext.convertToDeviceSpace(rectangle))
                     }
+
                 }
             }
             return .init(kind: "pdf", name: name, mimeType: "application/pdf", bytes: bytes)
         default:
             throw CompanionContentError.unavailable(CompanionContentReference.unavailableLinkMessage(hostName: "Studio Mac"))
         }
+    }
+
+    static func recordExportContent(_ content: CompanionContent, path: String) {
+        guard ProcessInfo.processInfo.arguments.contains("--companion-preview-artifact-export") else { return }
+        guard let bytes = content.bytes else { preconditionFailure("Synthetic artifact export must carry complete file bytes") }
+        let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        print("ARTIFACT_EXPORT_FIXTURE_CONTENT path=\(path) bytes=\(bytes.count) sha256=\(hash)")
+    }
+
+    static func recordSavedExport(_ url: URL) throws {
+        guard enabled, ProcessInfo.processInfo.arguments.contains("--companion-preview-artifact-export") else { return }
+        let scoped = url.startAccessingSecurityScopedResource()
+        defer { if scoped { url.stopAccessingSecurityScopedResource() } }
+        let bytes = try Data(contentsOf: url)
+        guard let type = try url.resourceValues(forKeys: [.contentTypeKey]).contentType else {
+            throw CompanionContentError.unavailable("The saved synthetic file didn't report its content type.")
+        }
+        let hash = SHA256.hash(data: bytes).map { String(format: "%02x", $0) }.joined()
+        print("ARTIFACT_EXPORT_SAVED name=\(url.lastPathComponent) type=\(type.identifier) bytes=\(bytes.count) sha256=\(hash)")
     }
 }
 #endif

@@ -1,0 +1,22 @@
+{
+  "repository": "Agent-Clubhouse/Clubhouse",
+  "commit": "c4cdbacc052b1a714d6db8f9ae2b25a0df0384c8",
+  "tree": "238568bbc1d82f739330081dd7102f63857d5060",
+  "paths": {
+    "provider-control-v2.json": "test/fixtures/annex-mobile/provider-control-v2.json",
+    "capabilities.json": "test/fixtures/annex-mobile/capabilities.json"
+  },
+  "files": {
+    "provider-control-v2.json": {
+      "bytes": 291790,
+      "sha256": "5e2da9b877b3038066e25c7d54b866977657dedc3713f5b8a170f8daf1fbf44e",
+      "git_blob": "c9cb8d9c1b5bb3676aa35bfa51f8998e0621d320"
+    },
+    "capabilities.json": {
+      "bytes": 10212,
+      "sha256": "ef486b9c51eb4743c8e3c61f9b5335f5deae2e36d049a0e5dcc7f610942a360e",
+      "git_blob": "4518a86a1406ed8d65b1ffd816c031e9109465ef"
+    }
+  },
+  "scope": "Canonical synthetic wire fixtures only. Not installed-host/backend/device/runtime acceptance."
+}

@@ -6,9 +6,16 @@ on:
   pull_request:
     # Validate each mobile stack layer before its dependency lands on main.
     branches: [main, 'codex/mobile-*']
+  # The coalesced daily run takes every lane, a fast UI core and one rotating slice of the extended UI inventory
+  # (scripts/ci/ui_tiers.py: every UI test at least weekly). Pull requests and pushes to main run a small pre-merge
+  # scope (scripts/ci/ui_scope.py); a `ci:full` label (then push or re-run) or a manual run takes every UI test.
+  schedule:
+    - cron: '23 10 * * *' # 10:23 UTC daily
+  workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  # The scheduled run has its own group: a push never replaces a queued daily slice, nor the reverse.
+  group: ${{ github.workflow }}-${{ github.ref }}${{ github.event_name == 'schedule' && '-schedule' || '' }}
   # Each merge to main used to cancel main's run, so none finished. Let the run in progress finish.
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
@@ -25,8 +32,11 @@ env:
 #          └─ release-build                         (parallel; not on the critical path)
 # ci-result gathers them into one check.
 #
-# Pull requests run only the lanes their files need (scripts/ci/changes.py); pushes to main run everything.
-# UI shards come from scripts/ci/ui_shards.py.
+# Pull requests and pushes to main run only the lanes their files need (scripts/ci/changes.py) and a small pre-merge
+# UI scope (scripts/ci/ui_scope.py): a fixed native smoke, the classes they edit and the critical journeys of the areas
+# they touch, with a broader tier for hubs and unknown files. The daily run takes every lane with the fast UI core and
+# today's extended slice (scripts/ci/ui_tiers.py); a manual run and the `ci:full` label run every lane and UI class
+# from scripts/ci/ui_shards.py.
 jobs:
   changes:
     name: Plan
@@ -36,8 +46,14 @@ jobs:
       swift: ${{ steps.plan.outputs.swift }}
       app: ${{ steps.plan.outputs.app }}
       ui-shards: ${{ steps.plan.outputs.ui-shards }}
+      ui: ${{ steps.plan.outputs.ui }}
+      ipad: ${{ steps.plan.outputs.ipad }}
+      release: ${{ steps.plan.outputs.release }}
     steps:
+      # Two commits: a pull request's merge commit and its base, or a push and its parent.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
 
       - name: Test CI scripts
         run: python3 -m unittest discover -s scripts/ci/tests
@@ -47,15 +63,53 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
+          PUSHED_COMMITS: ${{ github.event_name == 'push' && toJSON(github.event.commits) || '[]' }}
         run: |
+          set -euo pipefail
+          SELECT=false
           if [ "$GITHUB_EVENT_NAME" = pull_request ]; then
-            gh api --paginate "repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER/files" --jq '.[].filename' > changed-files.txt
+            # Read the labels now (read-only), not from the event payload: after adding `ci:full`, push a commit or
+            # re-run this workflow and it takes every lane. Adding a label alone starts no run; there is no `labeled`
+            # trigger, so other labels never start or replace one.
+            # A failed lookup fails the plan rather than silently narrowing.
+            LABELS=$(gh api "repos/$GITHUB_REPOSITORY/issues/$PR_NUMBER/labels" --jq '.[].name')
+            if printf '%s\n' "$LABELS" | grep -qx 'ci:full'; then
+              echo "ci:full label: every lane"
+            else
+              SELECT=true
+            fi
+          elif [ "$GITHUB_EVENT_NAME" = push ] && [ "$(echo "$PUSHED_COMMITS" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')" = 1 ]; then
+            SELECT=true  # one pushed commit (a squash merge) and its parent; anything else runs everything
+          fi
+          if [ "$SELECT" = true ]; then
+            # Statuses, renames and line hunks come from one immutable local diff: the PR's merge commit against its
+            # base parent, or the pushed commit against its parent. No paginated or racing API file list.
+            git diff --name-status -M HEAD^1 HEAD > changed-files.txt
+            git diff -U0 -M HEAD^1 HEAD > changes.diff
             echo "Changed files:"; cat changed-files.txt
-            python3 scripts/ci/changes.py < changed-files.txt | tee -a "$GITHUB_OUTPUT"
+            cut -f2- changed-files.txt | tr '\t' '\n' | python3 scripts/ci/changes.py | tee -a "$GITHUB_OUTPUT"
+            python3 scripts/ci/ui_shards.py \
+              | python3 scripts/ci/ui_scope.py changed-files.txt --diff changes.diff --manifest impact-manifest.json \
+              | tee -a "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" = schedule ]; then
+            python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
+            python3 scripts/ci/ui_shards.py \
+              | python3 scripts/ci/ui_tiers.py --manifest impact-manifest.json \
+              | tee -a "$GITHUB_OUTPUT"
           else
             python3 scripts/ci/changes.py --all | tee -a "$GITHUB_OUTPUT"
+            python3 scripts/ci/ui_shards.py >> "$GITHUB_OUTPUT"
+            printf 'ui=true\nipad=true\nrelease=true\nunit=true\n' >> "$GITHUB_OUTPUT"
+            echo '{"decision": {"full": true, "reason": "manual, ci:full or multi-commit push"}}' > impact-manifest.json
           fi
-          python3 scripts/ci/ui_shards.py >> "$GITHUB_OUTPUT"
+          # Lanes the selection doesn't need report as skipped; the CI result accepts success or skipped.
+
+      # The selection record, for replaying or auditing exactly what this run chose.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: impact-manifest
+          path: impact-manifest.json
+          retention-days: 14
 
   swift-packages:
     name: Swift packages
@@ -199,7 +253,7 @@ jobs:
   release-build:
     name: Release build
     needs: changes
-    if: needs.changes.outputs.app == 'true'
+    if: needs.changes.outputs.app == 'true' && needs.changes.outputs.release == 'true'
     runs-on: macos-26
     timeout-minutes: 30
     steps:
@@ -229,14 +283,13 @@ jobs:
   ui-tests:
     name: ${{ matrix.name }}
     needs: [changes, build]
+    if: needs.changes.outputs.ui == 'true'
     runs-on: macos-26
-    # Fifteen lanes cover the current whole-class inventory within the existing job budget.
+    # Eight lanes balance whole UI classes within the existing job budget.
     # Keep per-test hang deadlines and retry reporting unchanged; see ui_shards.py.
     timeout-minutes: 55
     strategy:
       fail-fast: false
-      # Retain the previous eight-lane peak while the expanded inventory queues.
-      max-parallel: 8
       matrix: ${{ fromJSON(needs.changes.outputs.ui-shards) }}
     steps:
       - uses: actions/checkout@v4
@@ -291,6 +344,9 @@ jobs:
 
           python3 scripts/verify-xcresult.py TestResults/UITests.xcresult "${{ matrix.name }}" \
             ${{ matrix.unit && '--no-retries-in ClubhouseGoTests' || '' }}
+          # Every planned class must have run, so a narrowed shard can't pass on an empty or partial selection.
+          xcrun xcresulttool get test-results tests --path TestResults/UITests.xcresult > TestResults/tests.json
+          python3 scripts/ci/verify_selection.py "${{ matrix.selection }}" TestResults/tests.json
 
       # Opt-in preview diagnostics contain closed reasons and numeric geometry only.
       # Preserve them even when a UI assertion fails; the app runs in a separate process.
@@ -332,15 +388,11 @@ jobs:
           retention-days: 7
 
   ipad-tests:
-    name: iPad ${{ matrix.name }}
+    name: iPad hosted tests + UI smoke
     needs: [changes, build]
+    if: needs.changes.outputs.ipad == 'true'
     runs-on: macos-26
     timeout-minutes: 25
-    strategy:
-      # Keep the original single iPad slot. Each bounded job gets its own complete result.
-      fail-fast: false
-      max-parallel: 1
-      matrix: ${{ fromJSON('{"include":[{"name":"hosted","tests":"-only-testing:ClubhouseGoTests"},{"name":"UI smoke","tests":"-only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption"}]}') }}
     steps:
       - uses: actions/checkout@v4
 
@@ -377,19 +429,19 @@ jobs:
       - name: Skip first-use keyboard education on the test simulator
         run: xcrun simctl spawn "$SIMULATOR_UDID" defaults write com.apple.keyboard.preferences DidShowContinuousPathIntroduction -bool YES
 
-      # Reuse the iPhone build. The full hosted suite and the same three UI regressions
-      # each run once; separating their runner handoff keeps the 25-minute job gate.
+      # Reuse the iPhone build; qualify all hosted tests and the three iPad regressions
+      # without paying for another full UI suite or accepting a passing retry.
       - name: Run iPad tests without retries
-        env:
-          TEST_SELECTORS: ${{ matrix.tests }}
         run: |
-          read -ra selectors <<< "$TEST_SELECTORS"
           if ! xcodebuild test-without-building \
             -xctestrun "$XCTESTRUN" \
             -configuration Debug \
             -destination "$DEST" \
             -jobs 2 \
-            "${selectors[@]}" \
+            -only-testing:ClubhouseGoTests \
+            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testClearQueuedFeedbackIsReachableFromEnrollmentSheetAndSettings \
+            -only-testing:ClubhouseGoUITests/FeedbackTriggersUITests/testHeldReportsRequireConfirmationAndCanBeClearedWhileUnenrolled \
+            -only-testing:ClubhouseGoUITests/CompanionAgentTreeUITests/testProjectUsesSameTreeAndCrossProjectCaption \
             -parallel-testing-enabled NO \
             -test-timeouts-enabled YES \
             -default-test-execution-time-allowance 120 \
@@ -397,14 +449,14 @@ jobs:
             2>&1 | tee xcodebuild-ipad.log; then
             echo "::warning::xcodebuild exited unsuccessfully; checking the complete xcresult"
           fi
-          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad ${{ matrix.name }}" \
+          python3 scripts/verify-xcresult.py TestResults/iPad.xcresult "iPad hosted tests + UI smoke" \
             --no-retries-in ClubhouseGoTests --no-retries-in ClubhouseGoUITests
 
       - name: Upload iPad test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: test-results-ipad-${{ strategy.job-index }}
+          name: test-results-ipad
           path: |
             TestResults
             xcodebuild-ipad.log

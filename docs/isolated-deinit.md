@@ -18,6 +18,37 @@ Lazy queue ownership removes repeated allocation/discard on SwiftUI root initial
 
 ## Field affinity decisions
 
+Dispatcher visible-chat recovery adds five Store fields: two `Set<CompanionTarget>` values, an optional `CompanionDispatcherChatPrompt`, a UUID→chat-prompt map and a UUID→(reset-prompt, target) map. Targets contain String identifiers; chat prompts contain UUID, String and action-enum values; reset prompts contain Strings, optional Strings and the reset enum. These own no callbacks, tasks, UI objects, services or actor-bound teardown. Claims are explicitly consumed before commands; shutdown admission and the existing epoch/session checks refuse late dispatch. No deinit cleanup or constructor capture changes are required. The Store retains its empty ARC-only deinit and all other class ownership records remain unchanged.
+
+Cross-entry mutation admission (#622) adds `settingsMutationOwners: [CompanionTarget: UUID]`.
+Its local `SettingsMutationReservation` contains only a `CompanionTarget` (String identifiers)
+and a UUID value. Neither owns a callback, task, service, UI object or teardown work. Existing
+catalogue cleanup invalidates a removed target's token; only a matching current token releases
+its pending membership. This prevents an old completion from releasing a replacement writer.
+A generic same-provider settings read must still own its token before forwarding a mixed edit.
+These values leave Store's empty ARC-only deinit, constructor captures and runtime shutdown
+sequence unchanged. The surface records classify these exact values; they waive no binary,
+actor-affinity, lifecycle or hosted gate.
+
+Feedback renewal proof (#609) reviews exactly three changed constructor capture records, not new
+teardown exemptions. AppRoot's DEBUG fallback and Release branch contain two identical Store
+constructors with the already-reviewed LiveService, Bool and optional local persistence owners.
+The DEBUG renewal fixture's capture-free Store constructor uses the reviewed UI-free PreviewService,
+without persistence. Its lazy lifetime factory captures only the synthetic FeedbackModel and
+per-launch UserDefaults: no Fixture/self, UIKit object or UI-capturing callback. The model has nil
+telemetry/diagnostics and default incident/clock providers; its Client actor owns a frozen Date,
+configuration values, lock-protected in-memory enrollment/queue values and a non-socket transport
+holding only a lock, optional immutable Data and an Int counter. The preserved local 26.0 Debug
+binary emits ordinary FeedbackModel deinit symbols, not an isolated-deallocating symbol. This is
+specific emitted-symbol evidence, not an SDK-wide safety exemption. Unmaterialized factories own
+only that UI-free model/defaults graph; materialized factories additionally cache Runtime, whose
+existing MainActor-task teardown remains unchanged. Temporary prior DEBUG hooks are restored by
+defer during factory invocation, not retained as additional factory captures. Preferences retains
+only its reviewed values/UserDefaults. Runtime still stops Presenter and shuts down Store before
+awaiting lifecycle/service teardown. Class policies, stored-property fingerprints, deinit bodies
+and enforcement remain unchanged; the reviewed rules must pass against the preserved same Swift
+binary before any new admission.
+
 Agent-row access defaults (#434) add only two Store dictionaries keyed by Sendable project/agent targets
 with permission-level enum values. They retain no UI objects, callbacks or tasks and introduce no deinit
 work. The response fence also holds `accessDefaultGenerations: [String: UUID]`, a per-host map of
@@ -84,13 +115,14 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionIconStore.ImageBox` | arc_only | Immutable Sendable CGImage wrapper, made only by bounded ImageIO decode; no UIKit ownership, callbacks or main-only teardown. |
 | `CompanionImageBytes` | arc_only | Immutable Data bytes, Sendable; no decoded UIImage is stored. |
 | `CompanionLifecycle` | arc_only | Bool, optional Sendable task handles for the latest phase/resume/suspension and transition closure capturing only the reviewed ARC-only LiveService in production. Constructor captures are gated; no UI owner or main-only field destruction. Task closures capture the transition/prior suspension by value, not Lifecycle or UI; background cancels resumes during MainActor update. Empty deinit does not cancel tasks, invoke transitions or touch task-locals (#349). |
-| `CompanionLiveService` | arc_only | Transport/value/task state, including a Sendable lifecycle-generation UUID and per-host String-to-UUID registration intent dictionary; intents add no callback/UI owner or teardown work, and are retired during explicit remove/shutdown, not deinit; the MCP-off cache adds only Bool, optional String and Set<String> in a Sendable value struct, with no callback or UI owner. All three production callbacks in AppRoot still capture Runtime WEAKLY, not raw UI. New assignments require capture review. |
+| `CompanionLiveService` | arc_only | Transport/value/task state, including a Sendable lifecycle-generation UUID and per-host String-to-UUID registration intent dictionary; intents add no callback/UI owner or teardown work, and are retired during explicit remove/shutdown, not deinit; the MCP-off cache adds only Bool, optional String and Set<String> in a Sendable value struct, with no callback or UI owner. All three production callbacks in AppRoot still capture Runtime WEAKLY, not raw UI. V2 attempted/unresolved identifiers and held Apply receipts add only closed Sendable value graphs; no callback/UI/process owner or teardown work. New assignments require capture review. |
 | `CompanionLiveTerminalChannel` | arc_only | Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned. |
 | `CompanionLocalDrafts` | arc_only | UserDefaults (thread-safe Foundation) plus fixed String; deinit performs no write. |
 | `CompanionLocalFinished` | arc_only | UserDefaults plus fixed String; no UI fields or deinit I/O. |
 | `CompanionMarkdown.Box` | arc_only | Immutable markdown document value; NSObject cache wrapper has no UI fields. |
 | `CompanionMessageSlices.Box` | arc_only | Immutable array of message-slice values; NSObject cache wrapper has no UI fields. |
 | `CompanionPartExpansion` | arc_only | Optional Bool and Observation registrar only. |
+| `CompanionProviderV2Flow` | main_actor | Injected service and two callbacks keep synthesized MainActor teardown. Production closures capture Store weakly plus a value target; Store.shutdown releases providerV2Flows before any await inside Runtime’s task. Other fields are typed Sendable value evidence, with no resend queue or teardown work. |
 | `CompanionProviderFlow` | main_actor | Injected service and permission callback are not constrained to UI-free owners. Preserve synthesized actor teardown. Production callback captures Store weakly and a value target; remaining fields hold receipt/identifier/Boolean values. |
 | `CompanionPreferences` | arc_only | Stored choices are values and UserDefaults; the last-tab choice is a Sendable raw-value enum, and recent choices contain only Sendable CompanionTarget values. UIDevice is read during init, not retained. No callback, UI owner or teardown change. |
 | `CompanionPreviewService` | arc_only | Boolean flags and Sendable AsyncStream continuation; no UI object/callback fields. #610 adds DEBUG/UIKit-only String/Set<String> and a dictionary of Sendable provider receipt values (Outcome/Preview → Strings, Bools, enums and String arrays); no UI, transport, process, session or callback owners. Existing ARC-only teardown/capture policy remains. |
@@ -105,8 +137,8 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionTimelineProjection` | arc_only | UUID, counters/index dictionaries and Sendable timeline rows; reachable image wrappers own immutable Data with reviewed ARC-only teardown. No UI or callbacks. |
 | `CompanionRuntime` | main_actor_task | Nonisolated deinit transfers feedback and whole Store/service/lifecycle subtrees into a MainActor task. First quiesce Presenter, clear Store's isolated provider flows and stop listeners/telemetry without awaiting. Then settle queued transitions, shut down/disconnect and relinquish transports, and release owners inside the task. Fields and exact deinit body are gated (#349). |
 | `CompanionHomeRenderSession` | `main_actor_task` | Lazy SwiftUI StateObject owns display snapshot and existing Root execution handles. StateObject teardown reproduced the isolated-deinit runtime invalid-free abort. Empty/nonisolated ARC alone cannot waive captured UI affinity: deinit copies actions/snapshot into a real MainActor Task and extends their lifetime there; exact fields and body are gated. No task handle is retained. |
-| `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue, Runtime, a synthetic PreviewService Store, or the DEBUG feedback-fixture tuple. The DEBUG prefix-trim fixture adds a capture-free factory producing a synthetic reading PreviewService Store, with the same UI-free ownership graph. Factories capture Store, a Bool, or nothing; Runtime separately defers UI teardown onto MainActor. New constructor/capture sites require review. |
-| `CompanionStore` | arc_only | Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Home decision projection stores only existing Sendable approval/question timeline values; no callbacks/tasks/UI owner. |
+| `CompanionStateLifetime` | arc_only | Reviewed constructors produce Queue, Runtime, a synthetic PreviewService Store, or the DEBUG feedback-fixture tuple. The DEBUG prefix-trim fixture adds a capture-free factory producing a synthetic reading PreviewService Store, with the same UI-free ownership graph. Factories capture Store, a Bool, or nothing; the #609 renewal factory additionally captures only the specifically reviewed synthetic model and UserDefaults graph described above. Runtime separately defers UI teardown onto MainActor. New constructor/capture sites require review. |
+| `CompanionStore` | arc_only | Reviewed concrete production owners: LiveService/PreviewService, LocalDrafts/LocalFinished, value state and Sendable task/clock handles. Those implementations are UI-free; new Store constructor sites require review. Home decision projection stores only existing Sendable approval/question timeline values; no callbacks/tasks/UI owner. Provider v2 adds a flow dictionary cleared with providerFlows inside shutdown before any await; its injected service/callback owners keep MainActor teardown. |
 | `CompanionStreamDiagnostics` | arc_only | Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields. |
 | `CompanionTelemetry` | main_actor | Owns SDK/MetricKit/subscription objects; their destruction affinity is not proved here. |
 | `CompanionTerminalFocus` | arc_only | Only a WEAK UIKit reference and Bool/Observation registrar. Weak-slot destruction does not release the view. |
@@ -187,5 +219,10 @@ The external Dispatcher restore-failure acknowledgment adds one value-only Bool 
 The external-launch authority correction adds one Store Bool (`hasReceivedHostReport`) and one DEBUG-only optional Runtime diagnostic value (`CompanionLaunchKeychainDiagnostic`: Int32 statuses and an outcome String). These distinguish unknown initial storage from a known empty report and retain status-only test evidence. They own no UI, callback, credentials or teardown work. Runtime and Store deinit bodies and policy modes stay unchanged. A capability probe uses a unique test-service Keychain item, deleting it synchronously after a successful add.
 
 Hosted entrypoint review: `Self.unitTestHost` is the unchanged Bool producer for the same lazy Runtime factory; capture ownership and teardown policy are unchanged.
+
+
+Provider v2 client ownership delta: LiveService stores only Set<CompanionCommandKey>, Set<CompanionTarget> and [CompanionTarget: CompanionProviderV2Applied]. The applied value contains a target, epoch/command Strings and AnnexProviderApplyReceiptV2, whose entire transitive graph is Sendable structs/enums, Strings, Bools and arrays. PreviewService’s opt-in DEBUG/UIKit fixture adds two Bools, two Set<String> values and the same optional applied value. These owners add no callbacks, UI handles, processes, sessions or cleanup effects. CompanionProviderV2Flow is explicitly main_actor, never ARC-only; Store’s explicit shutdown clears its flow cache before an await. Ownership surfaces were inspected with the existing cached parser; compiled deinit and policy acceptance remain required on the reviewed implementation head.
+
+Provider capability read revisions add only [String: UUID] to LiveService’s existing value state, without callbacks, reference owners or teardown work. The generation is separate from connection review and advances on relevant same-epoch capability changes.
 
 The opt-in #582 `CompanionReadingOpeningFixture` uses the same lazily constructed Store/reading-preview ownership as `CompanionReadingPrefixTrimFixture`. Its two exact constructor-capture records contain no producers; the Store/Preview service teardown audit is unchanged. Transcript opening state is value-only SwiftUI State and adds no actor-owned holder. The DEBUG observation hook is reset when the fixture task ends.

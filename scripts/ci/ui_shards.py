@@ -15,155 +15,108 @@ import sys
 UI_TARGET = "ClubhouseGoUITests"
 UNIT_TARGET = "ClubhouseGoTests"
 
-# Rebalanced against the 2026-11-19 source inventory and original run
-# 44622082206 timings. Fifteen whole-class lanes include measured setup/hosted
-# reserves under the unchanged 55-minute job timeout. See docs/ci-shard-balance.md
-# for the observation inputs, unsampled reserves and estimate limits.
+# Estimates use first-attempt method medians from the 2026-11-16 CI audit.
+# Unsampled methods reserve 60s per appearance/checked viewport; add 5m setup and
+# 5m for hosted tests in the unit shard. These are estimates, not timeout gates.
+# See docs/ci-shard-balance.md for the unchanged inventory and measurement limits.
 SHARDS = [
     {
-        "name": "UI tests (grants, projects) + unit tests",
-        "unit": True,
-        "tests": [
-            "QA368GrantLayoutUITests",
-            "CompanionHeaderEdgeUITests",
-            "CompanionProjectPageUITests",
-            "CompanionSearchUITests",
-            "CompanionOfflineBannerUITests",
-        ],
-    },
-    {
-        "name": "UI tests (preview)",
+        # Route prototype: about 50.9 minutes on one run; see docs/provider-v2-hosted-route.md.
+        "name": "UI tests (preview, project pages)",
         "tests": [
             "CompanionPreviewSmokeTests",
-            "CompanionQueuedBurstUITests",
+            "CompanionSpawnVisualUITests",
+            "FramebriarShakeDiagnosticsUITests",
         ],
     },
     {
-        "name": "UI tests (feedback diagnostics)",
+        # Estimated elapsed: 40.7 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (feedback, needs you)",
         "tests": [
             "FeedbackDiagnosticsWireUITests",
             "CompanionNeedsYouActionCardUITests",
-        ],
-    },
-    {
-        "name": "UI tests (dispatcher, settings)",
-        "tests": [
-            "CompanionDispatcherUITests",
-            "DiagnosticSettingsTests",
-            "CompanionSlashCommandUITests",
-            "CompanionReviewUITests",
-        ],
-    },
-    {
-        "name": "UI tests (chips, lifecycle)",
-        "tests": [
-            "CompanionDispatchChipsUITests",
-            "CompanionSessionModelUITests",
-            "CompanionAppLifetimeUITests",
-            "CompanionManagedSpawnUITests",
-            "CompanionHardwareKeyboardUITests",
-        ],
-    },
-    {
-        "name": "UI tests (decisions, linked home)",
-        "tests": [
             "CompanionPinnedDecisionUITests",
-            "CompanionCombinedLinkedHomeUITests",
+            "CompanionProjectPageUITests",
             "CompanionContextWindowUITests",
-            "FramebriarShakeDiagnosticsUITests",
-            "CompanionMarkdownFileUITests",
-        ],
-    },
-    {
-        "name": "UI tests (home, settings)",
-        "tests": [
-            "CompanionLinkedHomeUITests",
-            "CompanionSettingsRegroupUITests",
-            "CompanionLatestUITests",
-            "CompanionGlassSchemeUITests",
-            "CompanionLargeCatalogUITests",
-        ],
-    },
-    {
-        "name": "UI tests (footer, desktop scope)",
-        "tests": [
-            "CompanionComposerFooterSurfaceUITests",
-            "CompanionHomeDesktopScopeUITests",
-            "CompanionAppUpdateUITests",
-            "CompanionChatHeaderUITests",
-            "CompanionMarkdownBlockUITests",
-            "FeedbackMenuAttachmentUITests",
-        ],
-    },
-    {
-        "name": "UI tests (opening, terminal)",
-        "tests": [
-            "CompanionReadingOpeningUITests",
-            "CompanionTerminalUITests",
-            "CompanionChatChromeUITests",
-            "CompanionLinkedProjectUITests",
-            "CompanionAgentTreeUITests",
-            "CompanionHomeVisibilityUITests",
-        ],
-    },
-    {
-        "name": "UI tests (launch, native menus)",
-        "tests": [
-            "CompanionDispatcherLaunchUITests",
-            "CompanionAgentRowMenuUITests",
-            "CompanionAgentSettingsVisualUITests",
-            "CompanionToolbarUITests",
-            "CompanionComposerPasteUITests",
-            "CompanionLongReplyUITests",
-        ],
-    },
-    {
-        "name": "UI tests (unicode, reading)",
-        "tests": [
-            "CompanionUnicodeFocusUITests",
-            "CompanionReadingUITests",
-            "CompanionAgentSheetsTests",
-            "FeedbackTriggersUITests",
-            "FramebriarShakeUITests",
             "CompanionNeedsYouUITests",
         ],
     },
     {
-        "name": "UI tests (composer, keyboard)",
+        # Route prototype: about 53.0 minutes on one run; see docs/provider-v2-hosted-route.md.
+        "name": "UI tests (dispatcher, terminal)",
         "tests": [
-            "CompanionCompactComposerUITests",
-            "CompanionKeyboardDismissalUITests",
-            "CompanionHomeSubtitleUITests",
+            "CompanionDispatcherUITests",
+            "CompanionSessionModelUITests",
+            "CompanionTerminalUITests",
             "CompanionGrantRequestUITests",
-            "CompanionImageAttachmentUITests",
-            "CompanionRecoveryIntegrationUITests",
+            "FramebriarShakeUITests",
+            "DiagnosticSettingsTests",
+            "CompanionQueuedBurstUITests",
+            "CompanionAdditionalProviderTests",
+            "CompanionPhoneWorkflowTests",
+            "CompanionHelperPresetsUITests",
+            "CompanionHomeSubtitleUITests",
+            "CompanionLinkedProjectUITests",
+            "CompanionAppLifetimeUITests",
+            "CompanionComposerPasteUITests",
         ],
     },
     {
-        "name": "UI tests (header, catalog)",
+        # Combined recovery, Provider and archive lane duration is unmeasured.
+        "name": "UI tests (unicode, home)",
         "tests": [
-            "CompanionChatHeaderVisualUITests",
-            "CompanionLinkedProjectStateUITests",
-            "CompanionAutoQuotaUITests",
-            "CompanionHelperPresetsUITests",
+            "CompanionUnicodeFocusUITests",
+            "CompanionMarkdownFileUITests",
+            "CompanionDispatcherRecoveryUITests",
+            "CompanionProviderV2UITests",
+            "CompanionReadingArchiveHeaderUITests",
+        ],
+    },
+    {
+        # Estimated elapsed: 40.9 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (search, permissions)",
+        "tests": [
+            "CompanionOfflineBannerUITests",
+            "CompanionSearchUITests",
+            "CompanionPermissionMenuUITests",
+            "FeedbackTriggersUITests",
+            "CompanionMarkdownBlockUITests",
+            "CompanionLongReplyUITests",
+            "CompanionImageAttachmentUITests",
+        ],
+    },
+    {
+        # The combined AppUpdate and link workload has no measured full-lane duration yet.
+        "name": "UI tests (composer, sheets)",
+        "tests": [
+            "CompanionCompactComposerUITests",
+            "CompanionManagedSpawnUITests",
+            "CompanionRecoveryIntegrationUITests",
+            "CompanionAgentSettingsVisualUITests",
             "CompanionWakeFocusUITests",
+            "CompanionHardwareKeyboardUITests",
+            "CompanionReviewUITests",
+            "CompanionAppUpdateUITests",
+            "CompanionTextLinkUITests",
+        ],
+    },
+    {
+        # Estimated elapsed: 40.8 minutes; timeout/retry policy is unchanged.
+        "name": "UI tests (reading, grants) + unit tests",
+        "unit": True,
+        "tests": [
+            "CompanionReadingUITests",
+            "CompanionAutoQuotaUITests",
+            "QA368GrantLayoutUITests",
+            "CompanionAgentTreeUITests",
+            "CompanionChatHeaderUITests",
             "CompanionQuestionUITests",
         ],
     },
     {
-        "name": "UI tests (activity, permissions)",
-        "tests": [
-            "CompanionWorkingActivityUITests",
-            "CompanionPermissionMenuUITests",
-            "CompanionHeaderReflowUITests",
-            "CompanionReadingRestoreUITests",
-            "CompanionPermissionStatusUITests",
-            "CompanionSpawnVisualUITests",
-        ],
-    },
-    {
+        # Estimated elapsed: 40.6 minutes; timeout/retry policy is unchanged.
         "name": "UI tests (other)",
-        # Future classes remain covered without a selector edit.
+        # Catch all remaining classes, including future additions and live-test guards.
         "tests": None,
     },
 ]

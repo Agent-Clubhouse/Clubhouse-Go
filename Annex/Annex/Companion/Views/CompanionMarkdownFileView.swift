@@ -2,6 +2,7 @@ import SwiftUI
 import ImageIO
 
 struct CompanionMarkdownFileView: View {
+    @Environment(\.openURL) private var openExternalURL
     let source: String
     var line: Int?
     let truncated: Bool
@@ -47,7 +48,9 @@ struct CompanionMarkdownFileView: View {
                         .frame(height: 420)
                         .environment(\.openURL, OpenURLAction { url in
                             switch CompanionMarkdownFilePolicy.link(url.absoluteString) {
-                            case .external: return .systemAction
+                            case .external:
+                                openExternalURL(url)
+                                return .handled
                             case .fragment(let fragment):
                                 if let index = preview.anchors[fragment] { reader.scrollTo(index, anchor: .top) }
                                 return .handled

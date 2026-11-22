@@ -1,0 +1,531 @@
+import Foundation
+import Testing
+@testable import ClubhouseTransport
+@testable import CompanionDomain
+
+/// Original c4cdbacc fixtures stay frozen. These scenario replies echo ONLY dynamic
+/// request IDs/epoch, and Start's already-reviewed expected state; no real network.
+private func providerV2Fixtures() throws -> AnnexJSON {
+    let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("ClubhouseTransportTests/Fixtures/ProviderControlV2/provider-control-v2.json")
+    return try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: path))
+}
+private func providerV2Caps(_ epoch: String = "00000000-0000-4000-8000-000000000001") throws -> AnnexJSON {
+    let path = URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+        .appendingPathComponent("ClubhouseTransportTests/Fixtures/ProviderControlV2/capabilities.json")
+    let original = try JSONDecoder().decode(AnnexJSON.self, from: Data(contentsOf: path))
+    let body = try #require(original["response"]?["body"])
+    let keys = ["version", "controlAuth", "controlAvailable", "commands", "idempotency", "providerControl", "providerControlV2", "providerStartV2", "agentSettings"]
+    var fields = Dictionary(uniqueKeysWithValues: keys.compactMap { key in body[key].map { (key, $0) } })
+    fields["epoch"] = .string(epoch)
+    return .object(fields)
+}
+private func changed(_ value: AnnexJSON, _ key: String, _ replacement: AnnexJSON) throws -> AnnexJSON {
+    guard case .object(var object) = value else { throw AnnexTransportError.malformedResponse }
+    object[key] = replacement; return .object(object)
+}
+
+private actor ProviderV2IO: AnnexIO {
+    let fixtures: AnnexJSON
+    var caps: AnnexJSON
+    let lost: String?
+    private(set) var posts: [AnnexJSON] = []
+    private(set) var saved = false
+    private var overrides: [String: AnnexJSON] = [:]
+    init(lost: String?) throws { self.lost = lost; fixtures = try providerV2Fixtures(); caps = try providerV2Caps() }
+    func setEpoch(_ epoch: String) throws { caps = try providerV2Caps(epoch) }
+    func override(_ kind: String, body: AnnexJSON) { overrides[kind] = body }
+    func setCapabilities(_ value: AnnexJSON) { caps = value }
+    func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
+        guard request.httpMethod == "POST" else { return .init(status: 200, data: try JSONEncoder().encode(caps)) }
+        let command = try JSONDecoder().decode(AnnexJSON.self, from: try #require(request.httpBody))
+        posts.append(command)
+        let type = try #require(command["type"]?.string)
+        let key: String
+        switch type {
+        case "agent.providerPreview": key = saved ? "savedDefaultsPreview" : "preview"
+        case "agent.providerChange":
+            let reply = overrides[type]
+            let prewriteRefusal = reply?["status"] == .string("rejected") && reply?["result"] == nil
+                && reply?["transition"] == nil && reply?["contract"] == nil
+            if !prewriteRefusal { saved = true }
+            key = "applied"
+        case "agent.start": key = "started"
+        default: throw AnnexTransportError.malformedResponse
+        }
+        if type == lost { throw URLError(.networkConnectionLost) }
+        var body = try #require(overrides[type] ?? fixtures[key]?["body"])
+        body = try changed(changed(body, "commandId", try #require(command["commandId"])), "epoch", try #require(command["epoch"]))
+        // A plain prewrite refusal has no creation contract to echo or invent.
+        if type == "agent.start", body["result"]?["contract"] != nil || body["contract"] != nil {
+            let completed = body["status"] == .string("completed")
+            var contract = try #require(completed ? body["result"]?["contract"] : body["contract"])
+            var target = try #require(contract["target"])
+            target = try changed(changed(target, "commandId", try #require(command["commandId"])), "hostEpoch", try #require(command["epoch"]))
+            if contract["configured"] != .null {
+                contract = try changed(contract, "configured", try #require(command["expectedNextWake"]))
+            }
+            contract = try changed(contract, "target", target)
+            if completed {
+                let result = try #require(body["result"])
+                body = try changed(body, "result", changed(result, "contract", contract))
+            } else {
+                body = try changed(body, "contract", contract)
+            }
+        }
+        return .init(status: body["status"] == .string("completed") ? 200 : 409, data: try JSONEncoder().encode(body))
+    }
+    func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket { throw AnnexTransportError.disconnected }
+    /// Every non-preview POST counts, including an unexpected generic update/stop/fallback.
+    func mutations() -> [AnnexJSON] { posts.filter { $0["type"] != .string("agent.providerPreview") } }
+}
+
+private actor ProviderV2Transport: AnnexTransporting {
+    private struct ConnectGate: Sendable {
+        let id: UUID
+        let stream: AsyncStream<Void>
+        let release: AsyncStream<Void>.Continuation
+    }
+    let catalog: ScriptedAnnexTransport
+    var commands: AnnexTransport
+    private var nextConnectGate: ConnectGate?
+    private var activeConnectGate: ConnectGate?
+    init(catalog: ScriptedAnnexTransport, commands: AnnexTransport) { self.catalog = catalog; self.commands = commands }
+    func replaceCommands(_ commands: AnnexTransport) { self.commands = commands }
+    func holdNextConnect() throws -> UUID {
+        guard nextConnectGate == nil, activeConnectGate == nil else { throw AnnexTransportError.commandInFlight }
+        let pair = AsyncStream<Void>.makeStream(bufferingPolicy: .bufferingOldest(1))
+        let gate = ConnectGate(id: UUID(), stream: pair.stream, release: pair.continuation)
+        nextConnectGate = gate
+        return gate.id
+    }
+    func releaseConnect(_ id: UUID) {
+        if let gate = nextConnectGate, gate.id == id {
+            gate.release.finish(); nextConnectGate = nil
+        }
+        if let gate = activeConnectGate, gate.id == id {
+            gate.release.yield(()); gate.release.finish()
+        }
+    }
+    func events() async -> AsyncThrowingStream<AnnexTransportEvent, Error> { await catalog.events() }
+    func connect() async throws {
+        guard activeConnectGate == nil else { throw AnnexTransportError.commandInFlight }
+        let gate = nextConnectGate; nextConnectGate = nil; activeConnectGate = gate
+        defer {
+            if let gate, activeConnectGate?.id == gate.id {
+                gate.release.finish(); activeConnectGate = nil
+            }
+        }
+        // Production AnnexTransport.beginConnection emits connecting before connected.
+        await catalog.emit(.connection(.connecting))
+        if let gate {
+            await withTaskCancellationHandler {
+                for await _ in gate.stream { break }
+            } onCancel: { gate.release.finish() }
+        }
+        try Task.checkCancellation()
+        _ = try await commands.read(.capabilities)
+        try await catalog.connect()
+    }
+    func disconnect() async { await commands.disconnect(); await catalog.disconnect() }
+    func read(_ route: AnnexReadRoute) async throws -> AnnexJSON { try await catalog.read(route) }
+    func execute(_ command: AnnexCommand) async throws -> AnnexCommandReceipt { try await commands.execute(command) }
+}
+
+@Suite @MainActor struct CompanionProviderV2TransportTests {
+    /// Synthetic decoded request bodies from the actual IO boundary, NOT original wire-byte serialization.
+    private func retainBoundary(_ scenario: String, stage: String, mutations: [AnnexJSON]) throws {
+        let value = AnnexJSON.object(["scenario": .string(scenario), "stage": .string(stage),
+                                     "count": .integer(Int64(mutations.count)), "decodedPosts": .array(mutations)])
+        let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
+        let data = try encoder.encode(value)
+        print("PROVIDER_V2_BOUNDARY_PROOF " + String(decoding: data, as: UTF8.self))
+    }
+    private func wait(_ condition: () async -> Bool, sourceLocation: SourceLocation = #_sourceLocation) async throws {
+        for _ in 0..<1000 { if await condition() { return }; try await Task.sleep(for: .milliseconds(5)) }
+        Issue.record("Provider fixture did not reach its expected state", sourceLocation: sourceLocation)
+        throw AnnexTransportError.disconnected
+    }
+    /// One original wait budget covers BOTH public connecting delivery and the unchanged ready predicate.
+    private func reconnect(_ service: CompanionLiveService, store: CompanionStore, transport: ProviderV2Transport,
+                           target: CompanionTarget, sourceLocation: SourceLocation = #_sourceLocation,
+                           ready: () -> Bool) async throws {
+        let id = try await transport.holdNextConnect()
+        let task = Task { await service.reconnect(hostID: target.hostID) }
+        do {
+            var observedConnecting = false
+            try await wait({
+                if !observedConnecting, store.host(for: target)?.connection == .connecting {
+                    observedConnecting = true
+                    await transport.releaseConnect(id)
+                }
+                return observedConnecting && ready()
+            }, sourceLocation: sourceLocation)
+            await task.value
+        } catch {
+            task.cancel()
+            await transport.releaseConnect(id)
+            await task.value
+            throw error
+        }
+    }
+    private func commands(host: TrustedAnnexHost, io: ProviderV2IO) async throws -> AnnexTransport {
+        let credentials = MemoryAnnexCredentialStore()
+        await credentials.save(try AnnexCredential(bearerToken: "synthetic-only"), for: host.hostID)
+        return AnnexTransport(host: host, credentials: credentials, io: io)
+    }
+    private func setup(lost: String?) async throws -> (CompanionStore, CompanionLiveService, ProviderV2IO, ProviderV2Transport, ScriptedAnnexTransport, CompanionTarget) {
+        let io = try ProviderV2IO(lost: lost), catalog = await ScriptedAnnexTransport()
+        await catalog.setRead("capabilities", try providerV2Caps())
+        await catalog.setAgents(.array([.object(["id": .string("durable_term"), "name": .string("Synthetic"), "status": .string("sleeping"), "orchestrator": .string("claude-code")])]))
+        let host = try LiveServiceHarness.trustedHost()
+        let transport = ProviderV2Transport(catalog: catalog, commands: try await commands(host: host, io: io))
+        let service = CompanionLiveService(), store = CompanionStore(service: service)
+        store.start()
+        await service.register(.init(host: host, alias: "Synthetic", transport: transport))
+        let target = CompanionTarget(hostID: host.hostID, projectID: "project", agentID: "durable_term")
+        try await wait { store.host(for: target)?.connection == .connected }
+        return (store, service, io, transport, catalog, target)
+    }
+
+    @Test(arguments: ["agent.providerChange", "agent.start"], [false, true])
+    func lostMutationNeverRedispatchesAfterReopenReplacementReconnectOrEqualRead(lost: String, changedEpoch: Bool) async throws {
+        let (store, service, io, transport, catalog, target) = try await setup(lost: lost)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        #expect(flow.canApply && !flow.canStart)
+        await flow.apply()
+        if lost == "agent.start" {
+            #expect(flow.canStart && flow.lastApply?.value.contract.saved.model.source == .providerDefault)
+            await flow.startNew()
+        }
+        #expect(flow.blocksMutations && !flow.canApply && !flow.canStart && !store.mayWake(target))
+        let before = await io.mutations()
+        let scenario = "lost/\(lost)/changedEpoch=\(changedEpoch)"
+        try retainBoundary(scenario, stage: "after-loss", mutations: before)
+        #expect(before.count == (lost == "agent.start" ? 2 : 1))
+        let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(reopened === flow)
+        let originalHeld = flow.lastApply
+        await flow.refresh()
+        #expect(flow.reportedSaved?.provider == "codex-cli" && flow.blocksMutations, "Equal fresh state is not a receipt")
+        try retainBoundary(scenario, stage: "after-reopen-and-equal-read", mutations: await io.mutations())
+        // Replace the actual production transport: its command cache starts EMPTY.
+        if changedEpoch {
+            let epoch = "00000000-0000-4000-8000-000000000002"
+            try await io.setEpoch(epoch); await catalog.setRead("capabilities", try providerV2Caps(epoch))
+        }
+        await transport.replaceCommands(try await commands(host: LiveServiceHarness.trustedHost(), io: io))
+        let expectedEpoch = changedEpoch ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000001"
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == expectedEpoch
+        }
+        await reopened.refresh()
+        #expect(reopened.reportedSaved?.provider == "codex-cli" && reopened.blocksMutations)
+        reopened.reviewHeldResult(); await reopened.select("claude-code"); await reopened.apply(); await reopened.startNew()
+        #expect(await io.mutations() == before, "No extra mutation request, regardless of server/transport cache state")
+        try retainBoundary(scenario, stage: "after-replacement-reconnect-equal-read-and-local-review", mutations: await io.mutations())
+        let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
+        do { _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "new-id-is-not-recovery"); Issue.record("Unresolved target must stay locked") } catch {}
+        if let applied = originalHeld {
+            do { _ = try await service.startProviderV2(target, applied: applied, witness: witness, clientCommandID: "another-start-is-not-recovery"); Issue.record("Unknown Start must stay locked") } catch {}
+        }
+        #expect(await io.mutations() == before && reopened.blocksMutations)
+        try retainBoundary(scenario, stage: "after-direct-new-ID-attempts", mutations: await io.mutations())
+        #expect(before.allSatisfy { $0["contractVersion"] == .integer(2) && $0["model"] == nil && $0["effort"] == nil })
+        #expect(Set(before.compactMap { $0["commandId"]?.string }).count == before.count)
+    }
+
+    @Test func successfulApplyAndSeparateStartKeepFullStateAndHistoricalCreation() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        #expect(flow.lastApply != nil && flow.lastStart == nil && flow.canStart)
+        let apply = try #require(await io.mutations().first)
+        #expect(apply["expectedState"] == .string("000000000000000000000000000000000000000000000000000000000000000b"))
+        await flow.startNew()
+        let mutations = await io.mutations(), start = try #require(mutations.last)
+        #expect(mutations.count == 2 && start["type"] == .string("agent.start"))
+        #expect(start["commandId"] != apply["commandId"] && start["resume"] == .bool(false))
+        #expect(start["expectedState"] == .string("000000000000000000000000000000000000000000000000000000000000000a"))
+        #expect(start["expectedNextWake"] == (try flow.lastApply?.value.contract.saved.json))
+        #expect(flow.lastStart?.start.wasObserved == true && !flow.canStart && !flow.blocksMutations)
+        #expect(flow.lastStart?.running.model == nil && flow.lastStart?.running.effort == nil)
+    }
+    @Test func changedWitnessTokenBlocksStartEvenWithEqualSavedValues() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        let fixture = try providerV2Fixtures(), body = try #require(fixture["savedDefaultsPreview"]?["body"])
+        let result = try changed(#require(body["result"]), "expectedState", .string("a-new-token-is-not-the-Apply-token"))
+        await io.override("agent.providerPreview", body: try changed(body, "result", result))
+        await flow.startNew()
+        #expect(await io.mutations().count == 1 && flow.lastStart == nil && !flow.canStart)
+        #expect(flow.reportedSaved == flow.lastApply?.value.contract.saved)
+    }
+
+    @Test(arguments: ["target", "saved", "selection"])
+    func contradictoryApplyReceiptStaysUnknownAndCannotAuthorizeStart(field: String) async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let fixture = try providerV2Fixtures(), body = try #require(fixture["applied"]?["body"])
+        let result = try #require(body["result"]), contract = try #require(result["contract"])
+        let wrong: AnnexJSON
+        switch field {
+        case "target": wrong = .object(["agentId": .string("different-agent")])
+        case "selection": wrong = .object(["contractVersion": .integer(2), "effort": .null])
+        default: wrong = try #require(fixture["preview"]?["body"]?["result"]?["contract"]?["current"])
+        }
+        let altered = try changed(result, "contract", changed(contract, field, wrong))
+        await io.override("agent.providerChange", body: try changed(body, "result", altered))
+        await flow.apply()
+        try retainBoundary("contradictory-Apply/\(field)", stage: "after-contradictory-Apply", mutations: await io.mutations())
+        await flow.startNew()
+        try retainBoundary("contradictory-Apply/\(field)", stage: "after-blocked-Start", mutations: await io.mutations())
+        #expect(flow.blocksMutations && flow.lastApply == nil && flow.lastStart == nil)
+        #expect(await io.mutations().count == 1)
+    }
+
+    @Test func advertisedMalformedV2CannotDowngradeToV1OrGenericSettings() async throws {
+        let (store, service, io, transport, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let malformed = try changed(providerV2Caps(), "providerControlV2", .string("unrecognized"))
+        await catalog.setRead("capabilities", malformed); await io.setCapabilities(malformed)
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.providerApplyV2 == nil
+        }
+        #expect(store.host(for: target)?.providerV2Advertised == true)
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply(); await flow.startNew()
+        do { _ = try await service.providerPreview(target, provider: "codex-cli"); Issue.record("No V1 downgrade") } catch {}
+        #expect(await io.posts.isEmpty && !flow.canApply && !flow.canStart)
+    }
+
+    @Test func separateMissingStartCapabilityAllowsApplyButNeverStart() async throws {
+        let (store, service, io, transport, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        guard case .object(var fields) = try providerV2Caps() else { throw AnnexTransportError.malformedResponse }
+        fields["providerStartV2"] = nil
+        await catalog.setRead("capabilities", .object(fields)); await io.setCapabilities(.object(fields))
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.providerStartV2 == nil
+        }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply(); await flow.startNew()
+        #expect(flow.lastApply != nil && !flow.canStart && flow.lastStart == nil)
+        #expect(await io.mutations().count == 1)
+    }
+
+    @Test(arguments: ["refused", "changed-token", "contradictory-saved"])
+    func applyReceiptCannotEnableStartBeforeAFreshMatchingWitness(failure: String) async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let fixture = try providerV2Fixtures()
+        var body = try #require(fixture["savedDefaultsPreview"]?["body"])
+        if failure == "refused" {
+            body = .object(["version": .integer(1), "status": .string("rejected"), "error": .object(["code": .string("stale_state"), "message": .string("synthetic read refusal")])])
+        } else {
+            var result = try #require(body["result"])
+            if failure == "changed-token" {
+                result = try changed(result, "expectedState", .string("different-from-Apply-token"))
+            } else {
+                let contract = try #require(result["contract"])
+                let old = try #require(fixture["preview"]?["body"]?["result"]?["contract"]?["current"])
+                result = try changed(result, "contract", changed(contract, "saved", old))
+            }
+            body = try changed(body, "result", result)
+        }
+        await io.override("agent.providerPreview", body: body)
+        await flow.apply()
+        #expect(flow.lastApply != nil && !flow.canStart && !flow.blocksMutations)
+        await flow.startNew()
+        #expect(await io.mutations().count == 1 && flow.lastStart == nil)
+    }
+
+    @Test(arguments: [false, true])
+    func reconnectCannotRestoreStartReadinessWithoutANewMatchingWitness(changedEpoch: Bool) async throws {
+        let (store, service, io, transport, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        #expect(flow.canStart)
+        let nextEpoch = changedEpoch ? "00000000-0000-4000-8000-000000000002" : "00000000-0000-4000-8000-000000000001"
+        try await io.setEpoch(nextEpoch); await catalog.setRead("capabilities", try providerV2Caps(nextEpoch))
+        try await reconnect(service, store: store, transport: transport, target: target) {
+            store.host(for: target)?.connection == .connected && store.host(for: target)?.controlEpoch == nextEpoch
+        }
+        #expect(!flow.canStart, "A witness from the previous connection cannot enable Start")
+        await flow.refresh()
+        #expect(flow.canStart == !changedEpoch, "Only a new matching witness and the original Apply epoch may restore readiness")
+        #expect(await io.mutations().count == 1)
+    }
+
+    @Test(arguments: [false, true], ["unsupported", "malformed", "missing"])
+    func sameEpochCapabilityChangeInvalidatesManagedAuthorityWithoutReconnect(afterApply: Bool, platform: String) async throws {
+        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let originalWitness = try #require(flow.preview)
+        #expect(originalWitness.value.preview.outcome.instructionScope == "managed_composition")
+        #expect(originalWitness.value.delivery?.isAdmittedUnloaded == true)
+        if afterApply {
+            await flow.apply()
+            #expect(flow.lastApply?.value.outcome.instructionScope == "managed_composition" && flow.canStart)
+        }
+        else { #expect(flow.canApply) }
+        let before = await io.mutations(), originalCaps = try providerV2Caps()
+        guard case .object(var applyCap) = originalCaps["providerControlV2"] else { throw AnnexTransportError.malformedResponse }
+        switch platform {
+        case "missing": applyCap["managedPlatform"] = nil
+        case "malformed": applyCap["managedPlatform"] = .string("unsupported-shape")
+        default:
+            applyCap["managedPlatform"] = .object(["current": .string("win32"), "supported": .bool(false), "supportedPlatforms": .array([.string("darwin"), .string("linux")]), "refusalCode": .string("managed_platform_unsupported")])
+        }
+        let unsupported = try changed(originalCaps, "providerControlV2", .object(applyCap))
+        await catalog.setRead("capabilities", unsupported); await io.setCapabilities(unsupported)
+        // Direct read refresh, no reconnect/resync; review generation must stay the SAME.
+        try await service.refreshSleepState(target)
+        try await wait { store.host(for: target)?.providerApplyV2?.managedPlatform?.permitsManaged != true }
+        #expect(store.host(for: target)?.providerStartV2?.isSupported == true)
+        #expect(!flow.canStart && !flow.canApply)
+        #expect(!service.providerV2WitnessIsCurrent(originalWitness, starting: false))
+        let freshUnsupported = try await service.providerPreviewV2(target, provider: "codex-cli")
+        #expect(freshUnsupported.generation == originalWitness.generation && freshUnsupported.epoch == originalWitness.epoch)
+        #expect(freshUnsupported.capabilityRevision != originalWitness.capabilityRevision)
+        #expect(!freshUnsupported.value.permitsApply(capability: freshUnsupported.capability))
+        await flow.startNew(); await flow.apply()
+        #expect(await io.mutations() == before)
+        await catalog.setRead("capabilities", originalCaps); await io.setCapabilities(originalCaps)
+        try await service.refreshSleepState(target)
+        #expect(!flow.canStart && !flow.canApply, "Restoring old capability values alone cannot revive the old witness")
+        await flow.refresh()
+        #expect(afterApply ? flow.canStart : flow.canApply, "Only a fresh matching valid witness restores this known operation")
+        #expect(await io.mutations() == before)
+        // With managed support absent, a FRESH independently valid native preview still permits editing.
+        await catalog.setRead("capabilities", unsupported); await io.setCapabilities(unsupported)
+        try await service.refreshSleepState(target)
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.providerPreview", body: try #require(fixture["inheritedPreview"]?["body"]))
+        await flow.select("claude-code")
+        #expect(flow.preview?.value.preview.outcome.instructionScope == "native_primary_only" && flow.canApply)
+        #expect(await io.mutations() == before)
+    }
+
+    @Test func prewriteApplyRefusalAllowsFreshReviewWithoutAuthorizingStart() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let savedBefore = try #require(flow.reportedSaved)
+        #expect(savedBefore.provider == "claude-code")
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.providerChange", body: try #require(fixture["authorityDenied"]?["body"]))
+        await flow.apply()
+        let refused = await io.mutations()
+        #expect(refused.count == 1 && refused.first?["type"] == .string("agent.providerChange"))
+        #expect(flow.error != nil && !flow.blocksMutations && flow.canChoose)
+        #expect(flow.preview == nil && flow.lastApply == nil && !flow.canApply && !flow.canStart)
+        #expect(flow.reportedSaved == savedBefore)
+        await flow.startNew()
+        await flow.refresh()
+        #expect(flow.canApply && !flow.canStart, "A refusal permits a new review, never an automatic Apply or Start")
+        #expect(flow.reportedSaved == savedBefore && flow.preview?.value.contract.saved == savedBefore)
+        #expect(await io.mutations() == refused)
+    }
+
+    @Test func acknowledgedContextConflictStaysLockedDespiteEqualSavedProvider() async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli")
+        let fixture = try providerV2Fixtures()
+        let body = try #require(fixture["acknowledgedIntentConflicts"]?["context_reset"]?["apply"]?["body"])
+        await io.override("agent.providerChange", body: body)
+        await flow.apply()
+        let conflict = try #require(flow.conflict), before = await io.mutations()
+        #expect(conflict.isAcknowledgedConflict && conflict.conflicts == ["contextWindow"])
+        #expect(conflict.saved == conflict.proposed && flow.reportedSaved == conflict.saved)
+        #expect(flow.blocksMutations && !flow.canChoose && !flow.canApply && !flow.canStart)
+        #expect(flow.lastApply == nil && flow.lastStart == nil && !store.mayWake(target))
+        #expect(flow.error?.contains("acknowledged a write") == true && before.count == 1)
+        let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(reopened === flow)
+        await reopened.refresh()
+        #expect(reopened.reportedSaved == conflict.saved && reopened.blocksMutations)
+        await reopened.apply(); await reopened.startNew()
+        let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
+        do {
+            _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "conflict-is-not-another-Apply")
+            Issue.record("Acknowledged conflict must retain the service target lock")
+        } catch CompanionServiceError.uncertain(let message) {
+            #expect(message == "The previous provider action is unresolved. It will not be sent again. Review the desktop before another Apply or Start.")
+        } catch { Issue.record("Expected the unresolved target lock, not an unrelated failure: \(error)") }
+        #expect(await io.mutations() == before && reopened.conflict == conflict && reopened.blocksMutations)
+    }
+
+    @Test(arguments: ["authorityDenied", "refusedBeforeCreation"])
+    func precreationStartRefusalRequiresANewReviewWithoutCreationCredit(reply: String) async throws {
+        let (store, service, io, _, _, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        #expect(flow.canStart)
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.start", body: try #require(fixture[reply]?["body"]))
+        await flow.startNew()
+        let refused = await io.mutations()
+        #expect(refused.count == 2 && refused.last?["type"] == .string("agent.start"))
+        #expect(refused.first?["commandId"] != refused.last?["commandId"])
+        #expect(flow.error != nil && !flow.blocksMutations && flow.canChoose)
+        #expect(flow.lastApply != nil && flow.lastStart == nil && !flow.canStart && !flow.canApply)
+        await flow.startNew(); await flow.refresh()
+        #expect(!flow.canStart && flow.canApply, "Refused creation cannot reuse the old Apply as Start authority")
+        #expect(await io.mutations() == refused)
+    }
+
+    @Test func failedAfterCreationStaysLockedWhileKeepingHistoricalEvidence() async throws {
+        let (store, service, io, _, catalog, target) = try await setup(lost: nil)
+        defer { store.stop(); service.remove(hostID: target.hostID) }
+        let flow = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        await flow.select("codex-cli"); await flow.apply()
+        #expect(store.mayWake(target), "The stale sleeping catalog would otherwise expose generic Wake")
+        let originalApplied = try #require(flow.lastApply)
+        let fixture = try providerV2Fixtures()
+        await io.override("agent.start", body: try #require(fixture["failedAfterCreation"]?["body"]))
+        await flow.startNew()
+        #expect(flow.lastStart?.start.wasObserved == true && flow.lastStart?.result.status == "failed_after_creation")
+        #expect(flow.blocksMutations && !flow.canStart && !flow.canApply && !store.mayWake(target))
+        let before = await io.mutations(); #expect(before.count == 2)
+        try retainBoundary("failed-after-creation", stage: "historical-observed-failure", mutations: before)
+        let reads = await catalog.readRoutes
+        do {
+            _ = try await store.updateSettings(.init(model: "default"), target: target)
+            Issue.record("Unresolved provider creation must block generic Store edits")
+        } catch CompanionServiceError.rejected(let message) {
+            #expect(message == "Wait for the desktop to confirm that the agent is asleep.")
+        } catch { Issue.record("Expected the Store's pending-provider guard, not a later read refusal") }
+        #expect(await catalog.readRoutes == reads, "The blocked edit must not even enter the settings adapter")
+        await store.wake(target)
+        #expect(await io.mutations() == before)
+        try retainBoundary("failed-after-creation", stage: "after-generic-Store-edit-and-wake", mutations: await io.mutations())
+        let reopened = store.providerV2Flow(for: target, requestedRuntime: "terminal")
+        #expect(reopened === flow)
+        reopened.reviewHeldResult(); await reopened.refresh(); await reopened.select("claude-code")
+        await reopened.apply(); await reopened.startNew()
+        let witness = try await service.providerPreviewV2(target, provider: "codex-cli")
+        do { _ = try await service.applyProviderV2(target, preview: witness, clientCommandID: "failed-creation-is-not-another-Apply"); Issue.record("Failed creation must remain locked") } catch {}
+        do { _ = try await service.startProviderV2(target, applied: originalApplied, witness: witness, clientCommandID: "failed-creation-is-not-another-Start"); Issue.record("Failed creation cannot authorize another Start") } catch {}
+        #expect(await io.mutations() == before && reopened.blocksMutations && !store.mayWake(target))
+        try retainBoundary("failed-after-creation", stage: "after-reopen-equal-read-and-direct-new-IDs", mutations: await io.mutations())
+        #expect(reopened.lastStart?.start.wasObserved == true, "A fresh read cannot erase or promote historical creation evidence")
+    }
+
+}
