@@ -61,3 +61,26 @@ combined geometry has no new native acceptance. Native caption membership,
 hittability, final strict fit and composed fold actions remain to be measured.
 Package/compiler/native/hosted results must not be inferred from pure controls or
 syntax parsing. Parent retains publication, CI and landing ownership.
+
+## Static inventory and controls
+
+The combined textual census is 84 UI classes / 453 zero-argument UI methods,
+owned once by the unchanged eight-lane full matrix, plus its one complete hosted
+owner and the existing iPad repeats. All 676 zero-argument hosted/UI XCTest
+identities on current main remain; the candidate has 677, adding #620's header
+detail overshoot method. Fifteen historical #620 class/method declarations are
+already absent or relocated on main: the old settings/spawn theme wrappers,
+pinned theme/typing cases, old Wake smoke name and archive-header method in its
+old class. This merge preserves main's existing consolidation/relocation rather
+than reinstating those obsolete declarations. A literal union-of-both-historical
+parents control initially rejected those differences; the final control verifies
+no current-main identity loss and no additional historical loss beyond main's
+existing supersessions. These counts are source discovery, not SDK/runtime proof.
+
+The 77 current pure CI controls pass, including the seven carried package receipt
+controls with inert Swift commands. Three directly integrated Swift files pass
+frontend syntax parsing only. Exact source checks bind main's complete Copy and
+Paste helpers, Grant and strict transport files, router and coverage controls;
+the strict reveal helper and package receipt tests match #620 verbatim. Reversing
+only the two package-receipt workflow edits recovers the entire current main
+workflow. No local package, app, simulator or hosted execution was requested.
