@@ -382,7 +382,7 @@ import ClubhouseTransport
             let encoded = value["base64"]?.string
             guard (encoded?.utf8.count ?? 0) <= 12 * 1024 * 1024 else { throw AnnexTransportError.responseTooLarge }
             let bytes = encoded.flatMap { Data(base64Encoded: $0) }
-            guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= 8 * 1024 * 1024 else { throw AnnexTransportError.malformedResponse }
+            guard encoded == nil || bytes != nil, (bytes?.count ?? 0) <= CompanionContent.maximumPreviewBytes else { throw AnnexTransportError.malformedResponse }
             // Future kinds stay named file chips, never active content selected by their MIME or payload.
             // Known `other` retains its existing semantics; malformed envelopes and caps still reject above.
             guard ["image", "text", "video", "audio", "pdf", "other"].contains(kind) else {
