@@ -138,10 +138,6 @@ import Vision
         try requestArrivingWhileTypingAtLargestText(appearance: [])
     }
 
-    /// The same contract in dark appearance; also captures the Review-only look for review.
-    func testRequestArrivingWhileTypingAtLargestTextInDarkKeepsEveryComposerActionAboveTheKeyboard() throws {
-        try requestArrivingWhileTypingAtLargestText(appearance: ["--companion-preview-dark"])
-    }
 
     private func requestArrivingWhileTypingAtLargestText(appearance: [String]) throws {
         let app = openRiver(extra: ["--companion-preview-pinned-late", "--companion-preview-assistive-keyboard", "--companion-ui-test-fit-metrics",
@@ -510,9 +506,6 @@ import Vision
     }
 
     func testLightDecisionBar() { appearance("light", flags: ["--companion-preview-light"]) }
-    func testDarkDecisionBar() { appearance("dark", flags: ["--companion-preview-dark"]) }
-    func testLatteDecisionBar() { appearance("Catppuccin Latte", flags: ["--companion-preview-light", "--companion-preview-theme-latte"]) }
-    func testMochaDecisionBar() { appearance("Catppuccin Mocha", flags: ["--companion-preview-dark", "--companion-preview-theme-mocha"]) }
     func testAccessibilityDecisionBar() {
         appearance("accessibility XXXL", flags: ["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"])
     }

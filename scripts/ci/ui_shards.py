@@ -84,7 +84,8 @@ SHARDS = [
         ],
     },
     {
-        # Estimated elapsed: 41.1 minutes; timeout/retry policy is unchanged.
+        # Observed 35m57s to 37m55s on #617/#619; reserve 13m for unsampled link scenarios.
+        # This is a first-attempt estimate, not a timeout or retry-policy change.
         "name": "UI tests (composer, sheets)",
         "tests": [
             "CompanionCompactComposerUITests",
@@ -94,6 +95,7 @@ SHARDS = [
             "CompanionWakeFocusUITests",
             "CompanionHardwareKeyboardUITests",
             "CompanionReviewUITests",
+            "CompanionTextLinkUITests",
         ],
     },
     {

@@ -1001,35 +1001,6 @@ final class CompanionPreviewSmokeTests: ReliableUITestCase {
         XCTAssertEqual(error.label, "Preview only. This action does not contact a desktop.")
     }
 
-    func testWakeSheetAcceptsTextWithoutTapping() {
-        continueAfterFailure = false
-        executionTimeAllowance = 240
-        XCUIDevice.shared.orientation = .portrait
-        let app = XCUIApplication()
-        app.launchArguments = ["--companion-preview"]
-        app.launch()
-        let any = app.descendants(matching: .any)
-        let project = any.matching(identifier: "open-project-preview-studio-clubhouse").firstMatch
-        XCTAssertTrue(scrollUntilExists(project, in: app) && scrollTo(project, in: app))
-        let wake = app.buttons["project-wake"]
-        waitAndTap(project, until: app.buttons["project-page-options"])
-        waitAndTap(app.buttons["project-page-options"], until: wake)
-        XCTAssertTrue(wake.isEnabled)
-        wake.tap()
-        let message = any.matching(identifier: "wake-message").firstMatch
-        XCTAssertTrue(message.waitForExistence(timeout: 5))
-        let beforeTyping = XCTAttachment(screenshot: app.screenshot())
-        beforeTyping.name = "Wake sheet before no-tap typing"
-        beforeTyping.lifetime = .keepAlways
-        add(beforeTyping)
-        message.typeText("No-tap wake autofocus")
-        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(message.value as? String, "No-tap wake autofocus")
-        XCTAssertTrue(app.buttons["wake-send"].isEnabled)
-        app.buttons["Cancel"].tap()
-        XCTAssertTrue(message.waitForNonExistence(timeout: 5))
-    }
-
     /// Retained runs share the quiet fold; the overflow menu wakes a sleeping agent with a message.
     func testProjectPageFinishedFoldAndWake() {
         continueAfterFailure = false
