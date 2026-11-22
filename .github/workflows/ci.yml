@@ -355,11 +355,10 @@ jobs:
       - name: Collect preview follow diagnostics
         if: ${{ failure() && env.SIMULATOR_UDID != '' }}
         continue-on-error: true
-        run: |
-          mkdir -p TestResults
-          xcrun simctl spawn "$SIMULATOR_UDID" log show --last 1h --style compact \
-            --predicate 'eventMessage BEGINSWITH "CHAT_FOLLOW " OR eventMessage BEGINSWITH "CHAT_PHASE " OR eventMessage BEGINSWITH "CHAT_UP "' \
-            > TestResults/chat-follow.log
+        timeout-minutes: 1
+        # Bound this optional read client so it cannot spend the result-upload reserve.
+        # Preserve partial output and its explicit completeness receipt on timeout.
+        run: python3 scripts/ci/collect_preview_diagnostics.py "$SIMULATOR_UDID" TestResults/chat-follow.log
 
       - name: Upload test results
         if: always()
