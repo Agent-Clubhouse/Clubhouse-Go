@@ -376,9 +376,39 @@ final class CompanionDispatcherUITests: ReliableUITestCase {
         let pasted = app.textFields["companion-composer"]
         XCTAssertTrue(waitFor(pasted, NSPredicate(format: "value == %@", raw), timeout: 5),
                       "System Paste completes with the entire raw delivery before navigation")
+        // Closing a Markdown preview returns to River, not the list. Both steps share the
+        // original ten-second navigation budget, and only River's native Back leaves the chat.
+        let returnDeadline = ProcessInfo.processInfo.systemUptime + 10
+        func remainingReturnTime() -> TimeInterval {
+            max(0, returnDeadline - ProcessInfo.processInfo.systemUptime)
+        }
+        let blockDone = app.buttons["companion-markdown-block-done"]
+        if blockDone.exists {
+            guard app.navigationBars["Table"].exists,
+                  app.scrollViews["companion-markdown-block-sheet"].exists else {
+                XCTFail("Only the identified Table preview may be closed before leaving River")
+                return
+            }
+            blockDone.tap()
+            guard blockDone.waitForNonExistence(timeout: remainingReturnTime()) else {
+                XCTFail("Table must close within the existing return-to-list budget")
+                return
+            }
+        }
+        let riverNavigation = app.navigationBars["River"]
+        let back = riverNavigation.buttons["BackButton"]
+        guard remainingReturnTime() > 0, riverNavigation.exists, back.exists, back.isHittable else {
+            XCTFail("River's own native Back must be available before leaving the chat")
+            return
+        }
+        back.tap()
+        guard river.waitForExistence(timeout: remainingReturnTime()),
+              !riverNavigation.exists, app.navigationBars["Clubhouse"].exists,
+              remainingReturnTime() > 0 else {
+            XCTFail("Back must leave River for its Home list within the existing ten-second budget")
+            return
+        }
         // Reopening separately proves the complete raw delivery reached the saved draft binding.
-        app.navigationBars.buttons.firstMatch.tap()
-        XCTAssertTrue(river.waitForExistence(timeout: 10))
         XCTAssertTrue(scrollTo(river, in: app))
         waitAndTap(river, until: element(app, "companion-chat-header"), timeout: 10)
         let restored = app.textFields["companion-composer"]
