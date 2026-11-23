@@ -175,7 +175,16 @@ import Vision
     }
 
     private func focus(_ app: XCUIApplication) {
-        element(app, "companion-composer").tap()
+        let composer = element(app, "companion-composer")
+        XCTAssertTrue(composer.exists && composer.isEnabled && composer.isHittable)
+        let frame = composer.frame
+        XCTAssertFalse(frame.isEmpty)
+        XCTAssertTrue(app.frame.contains(frame), "The native editor must be visible before focusing")
+        // XCTest's activation point landed only 5pt inside the editor's upper-left edge on the
+        // first hosted pending-tray failure. Tap the visible editable frame's interior once.
+        let point = CGPoint(x: frame.midX, y: frame.midY)
+        print("FOOTER_FOCUS frame=\(frame) point=\(point)")
+        coordinate(point, in: app).tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
     }
 
@@ -229,16 +238,18 @@ import Vision
         try assertFooterMatchesChatSurface(app, "\(name) keyboard up, content under footer")
 
         // Interactive dismissal (the 2a8633c2 report's path): nothing stays behind over the transcript.
-        let transcript = app.scrollViews["companion-transcript"].firstMatch
-        let start = transcript.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.3))
-        start.press(forDuration: 0.05, thenDragTo: start.withOffset(CGVector(dx: 0, dy: 500)), withVelocity: .default, thenHoldForDuration: 0)
+        let visible = try visibleTranscript(app)
+        let startPoint = CGPoint(x: visible.midX, y: visible.minY + visible.height * 0.3)
+        let endPoint = CGPoint(x: visible.midX, y: min(startPoint.y + 500, app.frame.maxY - 10))
+        coordinate(startPoint, in: app).press(forDuration: 0.05, thenDragTo: coordinate(endPoint, in: app), withVelocity: .default, thenHoldForDuration: 0)
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         returnToLatest(app)
         try assertFinalLineRestsAboveFooter(app, "\(name) after drag dismissal")
         try assertFooterMatchesChatSurface(app, "\(name) after drag dismissal")
 
         focus(app)
-        app.scrollViews["companion-transcript"].firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap()
+        let tappingRegion = try visibleTranscript(app)
+        coordinate(CGPoint(x: tappingRegion.midX, y: tappingRegion.minY + tappingRegion.height * 0.2), in: app).tap()
         XCTAssertTrue(app.keyboards.firstMatch.waitForNonExistence(timeout: 5))
         try assertFinalLineRestsAboveFooter(app, "\(name) after tap dismissal")
         try assertFooterMatchesChatSurface(app, "\(name) after tap dismissal")
