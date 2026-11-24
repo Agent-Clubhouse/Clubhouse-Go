@@ -15,6 +15,7 @@ import Testing
     var removedMessages: [String] = []
     var removalIsUncertain = false
     var historyValue = CompanionHistory(items: [])
+    var historyCalls = 0
     var historyGate: CheckedContinuation<CompanionHistory, Error>?
     var shouldSuspendHistory = false
     var sendGate: CheckedContinuation<CompanionCommandReceipt, Error>?
@@ -38,6 +39,7 @@ import Testing
 
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
+        historyCalls += 1
         if shouldSuspendHistory { return try await withCheckedThrowingContinuation { historyGate = $0 } }
         return historyValue
     }
@@ -453,6 +455,110 @@ import Testing
         #expect(service.spawnCount == 1)
     }
 
+    @Test(arguments: [false, true], [false, true])
+    func interruptedHistoryAllowsReconnectRefreshAndRejectsLateCompletion(hasCachedHistory: Bool, oldReadFails: Bool) async {
+        for resyncEvent in [false, true] {
+            for oldCompletion in ["before reconnect", "during replacement", "after replacement"] {
+                let service = TestCompanionService()
+                let store = makeStore(service: service)
+                let cached: [CompanionTimelineItem] = hasCachedHistory ? [.notice(id: "cached", text: "Keep this conversation")] : []
+                if hasCachedHistory {
+                    service.historyValue = .init(items: cached, sessionID: "cached-session")
+                    await store.load(target)
+                }
+                let previousCalls = service.historyCalls
+                service.shouldSuspendHistory = true
+                let otherTarget = CompanionTarget(hostID: "host-b", projectID: "project", agentID: "agent")
+                let otherRead = Task { await store.load(otherTarget, force: true) }
+                while service.historyGate == nil { await Task.yield() }
+                let otherGate = service.historyGate
+                service.historyGate = nil
+                let oldRead = Task { await store.load(target, force: true) }
+                while service.historyGate == nil { await Task.yield() }
+                let gate = service.historyGate
+                service.historyGate = nil
+                #expect(store.conversation(for: target).isLoading)
+
+                var desktop = host(id: target.hostID)
+                if resyncEvent {
+                    store.apply(.resyncRequired(hostID: target.hostID))
+                } else {
+                    desktop.connection = .reconnecting
+                    store.apply(.hosts([desktop, host(id: "host-b")]))
+                }
+                #expect(!store.conversation(for: target).isLoading, "A retired request must not keep the refresh spinner active")
+                #expect(store.conversation(for: target).requiresResync)
+                #expect(store.conversation(for: target).items == cached)
+                #expect(!store.canOperate(target))
+                #expect(store.conversation(for: otherTarget).isLoading && !store.conversation(for: otherTarget).requiresResync,
+                        "Invalidating one desktop must not retire another desktop's pending history")
+
+                func finishOldRead() {
+                    if oldReadFails { gate?.resume(throwing: URLError(.timedOut)) }
+                    else { gate?.resume(returning: .init(items: [.notice(id: "stale", text: "Old connection")], sessionID: "old-session")) }
+                }
+                if oldCompletion == "before reconnect" {
+                    finishOldRead()
+                    await oldRead.value
+                    #expect(store.conversation(for: target).items == cached)
+                    #expect(store.conversation(for: target).requiresResync, "An old success cannot unblock stale content")
+                    #expect(store.conversation(for: target).error == nil, "An old failure cannot become the new refresh's error")
+                }
+
+                desktop.connection = .connected
+                store.apply(.hosts([desktop, host(id: "host-b")]))
+                let conversation = store.conversation(for: target)
+                let recovery = CompanionRecoveryStatus(connection: desktop.connection, isLoading: conversation.isLoading,
+                    requiresResync: conversation.requiresResync, error: conversation.error)
+                #expect(recovery.phase == .refreshRequired && recovery.retryAction == .refreshConversation)
+                // The view admits its reconnect refresh using exactly these state predicates.
+                let canReload = desktop.connection.canOperate && conversation.requiresResync && !conversation.isLoading
+                #expect(canReload)
+                let fresh: [CompanionTimelineItem] = [.notice(id: "fresh", text: "Current conversation")]
+                if canReload {
+                    let replacement = Task { await store.load(target, force: true) }
+                    while service.historyGate == nil { await Task.yield() }
+                    let replacementGate = service.historyGate
+                    service.historyGate = nil
+                    if oldCompletion == "during replacement" {
+                        finishOldRead()
+                        await oldRead.value
+                        #expect(store.conversation(for: target).isLoading, "An old completion cannot clear the new request's spinner")
+                        #expect(store.conversation(for: target).items == cached && store.conversation(for: target).error == nil)
+                    }
+                    replacementGate?.resume(returning: .init(items: fresh, sessionID: "new-session"))
+                    await replacement.value
+                }
+                if oldCompletion != "before reconnect" && (oldCompletion != "during replacement" || !canReload) {
+                    finishOldRead()
+                    await oldRead.value
+                }
+                #expect(service.historyCalls == previousCalls + 3)
+                #expect(store.conversation(for: target).items == fresh)
+                #expect(store.conversation(for: target).sessionID == "new-session")
+                #expect(!store.conversation(for: target).isLoading && !store.conversation(for: target).requiresResync)
+                #expect(store.conversation(for: target).error == nil && store.canOperate(target))
+                #expect(store.conversation(for: otherTarget).isLoading && !store.conversation(for: otherTarget).requiresResync)
+                otherGate?.resume(returning: .init(items: [.notice(id: "other", text: "Other desktop")]))
+                await otherRead.value
+                #expect(store.conversation(for: otherTarget).items.map(\.id) == ["notice:other"])
+                #expect(!store.conversation(for: otherTarget).isLoading && store.canOperate(otherTarget))
+            }
+        }
+    }
+
+    @Test func emptyHistoryCompletesWithoutLeavingARefreshSpinner() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        await store.load(target)
+        let conversation = store.conversation(for: target)
+        #expect(conversation.items.isEmpty && conversation.isLoaded && !conversation.isLoading)
+        #expect(!conversation.requiresResync && conversation.error == nil && store.canOperate(target))
+        #expect(CompanionRecoveryStatus(connection: .connected, isLoading: conversation.isLoading,
+            requiresResync: conversation.requiresResync, error: conversation.error).phase == .hidden)
+        #expect(service.historyCalls == 1)
+    }
+
     @Test func failedRefreshKeepsCommandsBlockedUntilReconciled() async {
         let service = TestCompanionService()
         service.shouldSuspendHistory = true
@@ -466,6 +572,10 @@ import Testing
         service.historyGate?.resume(throwing: CompanionServiceError.unavailable("Offline"))
         await task.value
         #expect(!store.canSend(target))
+        let failed = store.conversation(for: target)
+        #expect(!failed.isLoading && failed.requiresResync && failed.error == "Offline")
+        #expect(CompanionRecoveryStatus(connection: .connected, isLoading: failed.isLoading,
+            requiresResync: failed.requiresResync, error: failed.error).retryAction == .refreshConversation)
         #expect(store.drafts[target] == "Keep this direction")
         service.shouldSuspendHistory = false
         await store.load(target, force: true)
