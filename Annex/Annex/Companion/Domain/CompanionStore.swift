@@ -363,6 +363,16 @@ import Observation
         return nil
     }
 
+    /// A read from before recovery no longer owns the spinner or the conversation.
+    /// Its HTTP completion may arrive later; the generation guard in load rejects it.
+    private func retireHistoryLoads(hostID: String) {
+        for target in conversations.keys where target.hostID == hostID && conversations[target]?.isLoading == true {
+            historyGenerations[target] = nil
+            conversations[target]?.isLoading = false
+            conversations[target]?.requiresResync = true
+        }
+    }
+
     func load(_ target: CompanionTarget, force: Bool = false) async {
         guard force || (!conversation(for: target).isLoaded && !conversation(for: target).isLoading) else { return }
         let generation = UUID()
@@ -1859,6 +1869,7 @@ import Observation
             appUpdateCheckErrors = appUpdateCheckErrors.filter { incomingIDs.contains($0.key) }
             reconcileAppUpdateAttempts(in: incoming)
             for host in incoming where !host.connection.canOperate {
+                retireHistoryLoads(hostID: host.id)
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }
                 fetchedReviews = fetchedReviews.filter { $0.key.hostID != host.id }
                 fullReviewFailures = fullReviewFailures.filter { $0.key.hostID != host.id }
@@ -1924,6 +1935,7 @@ import Observation
             conversations[target, default: .init()].sessionID = sessionID
             reconcileDecisionNotices(authoritativeTarget: replacesTimeline ? target : nil)
         case .resyncRequired(let hostID):
+            retireHistoryLoads(hostID: hostID)
             clearAlreadyCheckingAppUpdate(hostID: hostID)
             fullReviews = fullReviews.filter { $0.key.hostID != hostID }
             fetchedReviews = fetchedReviews.filter { $0.key.hostID != hostID }
