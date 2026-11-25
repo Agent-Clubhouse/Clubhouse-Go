@@ -161,3 +161,70 @@ func aWrappedURLIsExactWhenItsHeadHasScrolledIntoScrollback(cols: Int) {
     let screen = linkScreen("\u{1B}[?7labcdef", cols: 4, rows: 3)
     #expect(screen.grid[0].last?.wrapsToNextRow == false)
 }
+
+// MARK: Rows that stop following one another
+
+@Test func deletingTheContinuationRowDoesNotJoinTheNextLineOntoTheAddress() {
+    // A 24-character address wraps at 20 columns; the next line follows; then the continuation row is deleted.
+    var screen = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    #expect(screen.links().map(\.text) == ["https://a.co/abcdefghijk"])
+    screen.feed("\u{1B}[2;1H\u{1B}[1M")
+    #expect(screen.logicalLines().map { $0.map(\.text).joined() } == ["https://a.co/abcdefg", "NEXT"], "The deleted row's line ended where it did")
+    #expect(screen.links().map(\.text) == ["https://a.co/abcdefg"], "Not https://a.co/abcdefgNEXT")
+}
+
+@Test func insertingLinesInARegionDoesNotJoinTheFooterOntoTheAddress() {
+    // Region rows 1-5 with a footer on row 6. The address wraps over rows 4-5; inserting a line at the top pushes the
+    // continuation out of the region, leaving the first half last in the region, right above the footer.
+    var screen = linkScreen("\u{1B}[1;5r\u{1B}[4;1Hhttps://a.co/abcdefghijk\u{1B}[6;1HFOOTER", cols: 20, rows: 6)
+    #expect(screen.links().map(\.text) == ["https://a.co/abcdefghijk"])
+    screen.feed("\u{1B}[1;1H\u{1B}[1L")
+    #expect(screen.logicalLines().last.map { $0.map(\.text).joined() } == "FOOTER")
+    #expect(screen.links().map(\.text) == ["https://a.co/abcdefg"], "Not https://a.co/abcdefgFOOTER")
+}
+
+@Test func insertingALineRightBelowAWrappedRowDoesNotJoinIt() {
+    var screen = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    screen.feed("\u{1B}[2;1H\u{1B}[1L")
+    #expect(screen.grid[0].last?.wrapsToNextRow == false)
+}
+
+@Test func aRegionThatScrollsDoesNotJoinTheRowAboveItToItsNewTop() {
+    // The address wraps from row 1 (outside the region) onto row 2, the region's first row; the region then scrolls.
+    var screen = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    screen.feed("\u{1B}[2;6r\u{1B}[6;1H\u{1B}[1S")
+    #expect(screen.links().map(\.text) == ["https://a.co/abcdefg"])
+    var down = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    down.feed("\u{1B}[2;6r\u{1B}[1T")
+    #expect(down.links().map(\.text) == ["https://a.co/abcdefg"])
+}
+
+@Test func plainScrollingStillJoinsAWrappedAddressAtTheBottom() {
+    // Normal output scrolling the whole screen keeps rows joined (the flag moves up with its row).
+    let screen = linkScreen("\(syntheticURL)", cols: 20, rows: 3)
+    #expect(!screen.scrollback.isEmpty)
+    #expect(screen.links().map(\.text) == [syntheticURL])
+}
+
+// MARK: Invisible characters, emphasis
+
+@Test func aLinkNeverContainsInvisibleFormatCharacters() {
+    // Direction overrides and zero-width characters can make shown text lie about where it goes.
+    let override = linkScreen("go https://a.example.test/x\u{202E}moc.evil.test/y", cols: 80)
+    #expect(override.links().map(\.text) == ["https://a.example.test/x"], "The address stops at the override")
+    #expect(linkScreen("https://a.example.test/\u{200B}x https://b.example.test/ok", cols: 80).links().map(\.text) == ["https://b.example.test/ok", "https://a.example.test/"])
+    #expect(CompanionTerminalLink("https://a.example.test/x\u{202E}y") == nil)
+    #expect(CompanionTerminalLink("https://a.example.test/\u{200B}") == nil)
+    #expect(CompanionTerminalLink("https://a.example.test/\u{FEFF}") == nil)
+    #expect(CompanionTerminalLink("https://a.example.test/\u{00AD}") == nil)
+    // An OSC 8 target with one is ignored, not cleaned.
+    #expect(linkScreen("\u{1B}]8;;https://a.example.test/x\u{202E}y\u{07}t\u{1B}]8;;\u{07}", cols: 80).links().isEmpty)
+    // Ordinary non-ASCII stays.
+    #expect(CompanionTerminalLink("https://a.example.test/caf\u{E9}") != nil)
+}
+
+@Test func emphasisMarksAroundAnAddressAreNotPartOfIt() {
+    let screen = linkScreen("**https://a.example.test/1** and _https://b.example.test/2_ and *https://c.example.test/3*, and https://d.example.test/x_y_", cols: 120)
+    #expect(Set(screen.links().map(\.text)) == ["https://a.example.test/1", "https://b.example.test/2", "https://c.example.test/3", "https://d.example.test/x_y_"],
+            "An unopened trailing underscore belongs to the address")
+}

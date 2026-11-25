@@ -8,9 +8,10 @@ struct CompanionTerminalLink: Hashable, Identifiable, Sendable {
     var id: String { text }
     var host: String { url.host() ?? "" }
 
-    /// Only a complete http or https address with a host: the in-app browser raises on anything else.
+    /// Only a complete http or https address with a host: the in-app browser raises on anything else. Invisible
+    /// format characters (direction overrides, zero-width spaces) are refused, since the text is shown and copied.
     init?(_ text: String) {
-        guard text.unicodeScalars.allSatisfy({ (0x21...0x7E).contains($0.value) || $0.value > 0x9F }),
+        guard text.unicodeScalars.allSatisfy({ ((0x21...0x7E).contains($0.value) || $0.value > 0x9F) && $0.properties.generalCategory != .format }),
               let url = URL(string: text), let scheme = url.scheme?.lowercased(), scheme == "http" || scheme == "https",
               url.host()?.isEmpty == false else { return nil }
         self.text = text; self.url = url
@@ -34,7 +35,7 @@ extension CompanionTerminalScreen {
             guard text.contains("://") else { continue }
             for match in Self.webURL.matches(in: text, range: NSRange(text.startIndex..., in: text)) {
                 guard let range = Range(match.range, in: text),
-                      let link = CompanionTerminalLink(Self.trimmed(text[range])) else { continue }
+                      let link = CompanionTerminalLink(Self.trimmed(text[range], before: text[..<range.lowerBound])) else { continue }
                 found.append((link, lineIndex, match.range.location))
             }
         }
@@ -52,17 +53,23 @@ extension CompanionTerminalScreen {
         linkTargets.indices.contains(Int(id) - 1) ? linkTargets[Int(id) - 1] : nil
     }
 
-    /// An address runs to whitespace, a quote or bracket that can't be in one, or the box-drawing characters a
-    /// program draws its frames with.
-    private static let webURL = try! NSRegularExpression(pattern: #"(?i)(?<![\p{L}\p{N}])https?://[^\s<>"`|─-╿]+"#)
+    /// An address runs to whitespace, a quote or bracket that can't be in one, the box-drawing characters a
+    /// program draws its frames with, or an invisible format character.
+    private static let webURL = try! NSRegularExpression(pattern: #"(?i)(?<![\p{L}\p{N}])https?://[^\s<>"`|\u2500-\u257F\p{Cf}]+"#)
 
     /// Without the punctuation a sentence puts after an address, and a closing bracket its address never opened.
-    private static func trimmed(_ match: Substring) -> String {
+    private static func trimmed(_ match: Substring, before: Substring) -> String {
         var url = match
+        // Markdown emphasis around an address (`**https://…**`, `_https://…_`): a closing `*` or `_` is dropped as
+        // often as the same character opened it.
+        let mark = before.last.flatMap { $0 == "*" || $0 == "_" ? $0 : nil }
+        var opened = mark.map { m in before.reversed().prefix { $0 == m }.count } ?? 0
         let pairs: [Character: Character] = [")": "(", "]": "[", "}": "{"]
         while let last = url.last {
             if ".,;:!?'".contains(last) {
                 url.removeLast()
+            } else if last == mark, opened > 0 {
+                url.removeLast(); opened -= 1
             } else if let open = pairs[last], url.filter({ $0 == last }).count > url.filter({ $0 == open }).count {
                 url.removeLast()
             } else {

@@ -267,6 +267,14 @@ struct CompanionTerminalScreen: Sendable {
         if scrollTop == 0 && !isAlternateScreen { pushScrollback(removed) }
         grid.removeSubrange(scrollTop..<(scrollTop + count))
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: scrollBottom - count + 1)
+        // A row above a region that scrolls up no longer continues into what is now at its top. (At the top of the
+        // screen the removed rows join scrollback, which still precedes the rest.)
+        clearWrap(scrollTop - 1)
+    }
+
+    /// Rows that no longer follow one another must not stay joined: only the row before a change can go on into it.
+    private mutating func clearWrap(_ row: Int) {
+        if grid.indices.contains(row) { grid[row][cols - 1].wrapsToNextRow = false }
     }
 
     private mutating func scrollDown(_ count: Int) {
@@ -274,6 +282,7 @@ struct CompanionTerminalScreen: Sendable {
         guard count > 0 else { return }
         grid.removeSubrange((scrollBottom - count + 1)...scrollBottom)
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: scrollTop)
+        clearWrap(scrollTop - 1); clearWrap(scrollBottom)
     }
 
     private mutating func pushScrollback<S: Sequence>(_ lines: S) where S.Element == [Cell] {
@@ -443,6 +452,8 @@ struct CompanionTerminalScreen: Sendable {
         let count = min(count, scrollBottom - cursorRow + 1)
         grid.removeSubrange((scrollBottom - count + 1)...scrollBottom)
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: cursorRow)
+        // The row above now ends at the new blank rows, and the region's last row is followed by what is outside it.
+        clearWrap(cursorRow - 1); clearWrap(scrollBottom)
         cursorCol = 0
     }
 
@@ -450,6 +461,8 @@ struct CompanionTerminalScreen: Sendable {
         let count = min(count, scrollBottom - cursorRow + 1)
         grid.removeSubrange(cursorRow..<(cursorRow + count))
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: scrollBottom - count + 1)
+        // The row above no longer continues into the row it did: what follows it is another line.
+        clearWrap(cursorRow - 1)
         cursorCol = 0
     }
 

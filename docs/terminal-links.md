@@ -8,8 +8,9 @@ page must be opened without leaving the app.
   a row carries `wrapsToNextRow` when autowrap moved output onto the next row. Wrapped rows are joined into one logical
   line, so an address wrapped over several rows comes out exact; a hard newline always starts a new line. Scrollback and
   the screen are both searched (with the alternate screen, the main screen it hides comes first). Rows wrapped before a
-  resize are not reflowed. Addresses end at whitespace, quotes, brackets and box-drawing characters; trailing sentence
-  punctuation and unbalanced closing brackets are trimmed.
+  resize are not reflowed. Row edits that make two rows stop following one another (insert/delete line, a scrolling region)
+  clear the wrap mark on the row before the change. Addresses end at whitespace, quotes, brackets, box-drawing characters and invisible format characters (a link that contains one is refused); trailing sentence
+  punctuation, unbalanced closing brackets and Markdown `*`/`_` emphasis the address was wrapped in are trimmed.
 - **OSC 8 hyperlinks** are parsed: only complete `http(s)` targets are kept (up to 1024 distinct per screen; an OSC string
   over 2048 bytes is dropped, never trusted). A hyperlink is listed by its target, never by the text drawn over it. Other
   OSC sequences are unchanged.
@@ -17,7 +18,11 @@ page must be opened without leaving the app.
   links (`terminal-link-open-N`, `terminal-link-copy-N`). Open shows the address in `SFSafariViewController`, presented
   over full screen with UIKit so the terminal never leaves the hierarchy; the scene stays active, so the connection and the
   shell stay up. Copy puts the exact text on the pasteboard. Dismissing Safari restores the keyboard if it was up.
-  `CompanionTerminalSession.viewDisappeared()` does not close the shell while a page is showing.
+  The page is presented `.overFullScreen`, which does not take the terminal's view off screen (verified on the iOS 26.0
+  simulator: closing on every `onDisappear` still passes the round trip), so `onDisappear` closes the shell only when the
+  terminal itself goes. If every presentation is cleared from outside (the Message Dispatcher App Intent), the page leaves
+  with it without calling its delegate: the shell is closed, and the next Open notices the stale browser (its weakly held
+  controller has no presenter) and works.
 - **New shell**: after a dropped connection the notice says the desktop ended the previous shell and its programs. A shell
   is never replaced silently.
 - Preview shell: the `links` command prints a synthetic Claude-like login prompt for the UI test.
