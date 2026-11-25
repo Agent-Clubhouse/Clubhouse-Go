@@ -249,7 +249,8 @@ import ClubhouseTransport
         }
     }
 
-    /// A refused reattach never becomes a spawn: the person decides. Only an unreachable shell may be tried again
+    /// A refused reattach never becomes a spawn: the person decides. Only an unreachable shell (`terminal_unavailable`) or
+    /// a busy desktop (`busy`: refused before anything was claimed, the shell still detached) may be tried again
     /// under the same id; every other answer says the shell is gone or the id unusable, so "New shell" takes a new id.
     private func reattachFailed(_ code: String, _ payload: AnnexJSON) {
         awaitingSnapshot = false; pendingOutput = []
@@ -266,7 +267,7 @@ import ClubhouseTransport
         if code == "session_exited" {
             resumable = false; spawnUnacked = false; needsNewIdentity = true
             yield(.exited(code: Self.int(payload["exitCode"])))
-        } else if code == "terminal_unavailable" {
+        } else if code == "terminal_unavailable" || code == "busy" {
             yield(.failed(Self.message(for: code)))
         } else {
             resumable = false; spawnUnacked = false; needsNewIdentity = true
@@ -295,6 +296,7 @@ import ClubhouseTransport
         case "too_many_shells": "Too many terminals are open from this phone. Close one and try again."
         case "session_expired": "The desktop ended this shell after it was away too long."
         case "terminal_unavailable": "The desktop couldn't reach this shell right now. Try again."
+        case "busy": "The desktop is busy. Try again in a moment."
         case "authorization_revoked": "This phone's access to the desktop was revoked. Pair it again to open terminals."
         case "session_in_use", "session_not_found", "invalid_session_id": "The desktop lost track of this terminal. Open it again."
         case "internal_error", "": "The desktop couldn't open this terminal. Try again."

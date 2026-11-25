@@ -796,6 +796,7 @@ private func isResize(_ frame: AnnexTerminalFrame) -> Bool { if case .resize = f
     (#"{"op":"pty:reattach-shell","sessionId":"s1","message":"session_expired"}"#, .failed("The desktop ended this shell after it was away too long.")),
     (#"{"op":"pty:reattach-shell","sessionId":"s1","code":"session_exited","exitCode":3}"#, .exited(code: 3)),
     (#"{"op":"pty:reattach-shell","sessionId":"s1","code":"terminal_unavailable"}"#, .failed("The desktop couldn't reach this shell right now. Try again.")),
+    (#"{"op":"pty:reattach-shell","sessionId":"s1","code":"busy","message":"busy"}"#, .failed("The desktop is busy. Try again in a moment.")),
     (#"{"op":"pty:reattach-shell","sessionId":"s1","code":"session_not_found"}"#, .failed("The desktop lost track of this terminal. Open it again.")),
     (#"{"op":"pty:reattach-shell","sessionId":"s1","code":"invalid_session_id"}"#, .failed("The desktop lost track of this terminal. Open it again.")),
     (#"{"op":"pty:reattach-shell","sessionId":"s1","code":"session_in_use"}"#, .failed("The desktop lost track of this terminal. Open it again.")),
@@ -1131,4 +1132,41 @@ func aRefusedInputIsRecognizedByCodeOrMessage(payload: String, isInputRefusal: B
         // Not an input refusal: it is an error for the shell, as before.
         if case .failed = received[1] {} else { Issue.record("Expected a failure, got \(received[1])") }
     }
+}
+
+// MARK: busy (desktop #3843: refused before anything is claimed; the shell is still detached)
+
+@MainActor @Test func aBusyDesktopIsRetriableUnderTheSameIDAndNeverSpawns() async {
+    let (session, transport) = await reattachShell(reattach: true)
+    await dropAndRestore(session, transport)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    await transport.push("error", .object(["message": .string("busy"), "code": .string("busy"), "op": .string("pty:reattach-shell"), "sessionId": .string("s1")]))
+    await waitUntil("the retriable failure") { session.state == .failed("The desktop is busy. Try again in a moment.") }
+    try? await Task.sleep(for: .milliseconds(60))
+    #expect(await transport.sent.filter(isSpawn).count == 1, "A busy refusal never spawns")
+    // Try again re-sends the reattach under the SAME id (a new id would abandon a shell that is still detached).
+    session.restart()
+    await waitUntil("the second reattach") { await transport.sent.filter(isReattach).count == 2 }
+    await transport.push("pty:reattach-shell:ack", .object(["sessionId": .string("s1"), "buffer": .string("hello\r\n"), "outputSeq": .integer(7)]))
+    await waitUntil("running") { session.state == .running }
+    session.paste("SYNTH-CODE-1234")
+    await waitUntil("input") { await transport.sent.contains(.input(id: "s1", data: "SYNTH-CODE-1234")) }
+    let sent = await transport.sent
+    #expect(sent.filter(isSpawn).count == 1)
+    #expect(sent.filter(isReattach) == [.reattachShell(sessionID: "s1", cols: 40, rows: 10), .reattachShell(sessionID: "s1", cols: 40, rows: 10)])
+    #expect(!unwrapped(session).contains("new shell") && !unwrapped(session).contains("ended"))
+    session.close()
+}
+
+@MainActor @Test func aBusyDesktopForAnUnackedSpawnIsAlsoRetriableUnderTheSameID() async {
+    let (session, transport) = await unackedSpawn(reattach: true)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    await transport.push("error", .object(["message": .string("busy"), "code": .string("busy"), "op": .string("pty:reattach-shell"), "sessionId": .string("s1")]))
+    await waitUntil("the retriable failure") { session.state == .failed("The desktop is busy. Try again in a moment.") }
+    session.restart()
+    await waitUntil("the second reattach") { await transport.sent.filter(isReattach).count == 2 }
+    try? await Task.sleep(for: .milliseconds(60))
+    #expect(await transport.sent.filter(isSpawn).count == 1, "Zero spawns beyond the original")
+    #expect(await transport.sent.filter(isReattach) == [.reattachShell(sessionID: "s1", cols: 40, rows: 10), .reattachShell(sessionID: "s1", cols: 40, rows: 10)])
+    session.close()
 }
