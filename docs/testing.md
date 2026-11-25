@@ -39,6 +39,12 @@ leaves margin for rendered sRGB rounding rather than landing exactly on the thre
 without changing the palette, the 44pt target, native disabled/keyboard semantics or other controls.
 Pressed feedback changes scale, not foreground opacity. Both states retain the same 4.5:1 rendered requirement.
 
+Terminal defines text and accent as the same `#00ff00`, which made body text, the header wash and controls one color (#592).
+`CompanionPalette` now treats a theme whose text equals its accent as a role collision: reading text is that color mixed
+70% toward white (dark) or black (light), controls keep the accent, and the wash opacity is capped at 0.22 and reduced
+further until the label keeps 7:1 over the wash at its peak. Themes with distinct text and accent are unchanged.
+`CompanionThemeContrastTests` pins this, plus the Send arrow's contrast against its disc for every built-in in both appearances.
+
 `CompanionContextLimitsUITests` exercises the production “Context and limits” sheet with synthetic
 `--companion-context-sheet-fixture` inputs inside the existing header preview. It checks the
 “84k of 200k tokens” format, the usage event's reported time (or explicit unknown), only the

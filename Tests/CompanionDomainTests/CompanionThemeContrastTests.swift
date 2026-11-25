@@ -105,4 +105,60 @@ struct CompanionThemeContrastTests {
         #expect(CompanionRGB.white.adjusted(toContrast: 7, against: impossible) == .black)
         #expect(CompanionRGB.black.adjusted(toContrast: 7, against: .white) == .black)
     }
+
+    // MARK: Terminal chat: Send glyph, wash and text roles (#591, #592)
+
+    private func terminalTheme() throws -> CompanionDesktopTheme {
+        let record = try #require(try builtins().first { $0.id == "terminal" })
+        return try #require(CompanionDesktopTheme.transported(record.colors, gradient: record.gradient))
+    }
+
+    /// The wash as composited over the screen background at its brightest point, in sRGB like SwiftUI.
+    private func washPeaks(_ palette: CompanionPalette) -> [CompanionRGB] {
+        [palette.washStart, palette.washEnd].map { palette.background.mixed(with: $0, amount: palette.washOpacity) }
+    }
+
+    @Test func sendArrowContrastsWithItsDiscInEveryBuiltinThemeAndAppearance() throws {
+        // CompanionComposerSendButtonStyle: enabled onTint on tint, disabled label on card.
+        for record in try builtins() {
+            let theme = try #require(CompanionDesktopTheme.transported(record.colors, gradient: record.gradient))
+            for dark in [false, true] {
+                let palette = CompanionPalette(theme: theme, dark: dark)
+                #expect(palette.onTint.contrast(with: palette.tint) >= 4.5, "\(record.id), dark: \(dark), enabled arrow")
+                #expect(palette.label.contrast(with: palette.card) >= 4.5, "\(record.id), dark: \(dark), disabled arrow")
+            }
+        }
+    }
+
+    @Test func terminalSendArrowIsDarkOnItsGreenDisc() throws {
+        let palette = CompanionPalette(theme: try terminalTheme(), dark: true)
+        #expect(palette.tint == CompanionRGB(hex: "#00ff00"))
+        #expect(palette.onTint.contrast(with: palette.tint) >= 13)
+    }
+
+    @Test func terminalBodyTextIsNotTheControlAccentAndStaysReadableOverTheWash() throws {
+        let palette = CompanionPalette(theme: try terminalTheme(), dark: true)
+        // Text and accent are both #00ff00 on desktop; the phone keeps them as separate roles.
+        #expect(palette.label != palette.tint)
+        #expect(palette.label.chroma < palette.tint.chroma * 0.5, "body text is a soft tint, not the accent")
+        #expect(palette.label.contrast(with: palette.card) >= 7)
+        for peak in washPeaks(palette) {
+            #expect(palette.label.contrast(with: peak) >= 7, "body text over the wash peak \(peak.hex)")
+        }
+        // The wash is an atmosphere, not a second accent: it stays well below the control fill.
+        #expect(palette.washOpacity <= 0.25)
+    }
+
+    @Test func themesWithDistinctTextAndAccentKeepTheirBodyTextAndWash() throws {
+        for record in try builtins() where record.id != "terminal" {
+            let theme = try #require(CompanionDesktopTheme.transported(record.colors, gradient: record.gradient))
+            for dark in [false, true] {
+                let palette = CompanionPalette(theme: theme, dark: dark)
+                #expect(palette.washOpacity == (dark ? 0.42 : 0.3), "\(record.id), dark: \(dark), wash")
+                if palette.usesThemeGrounds {
+                    #expect(palette.label == theme.text.adjusted(toContrast: 7, against: palette.card), "\(record.id), dark: \(dark), label")
+                }
+            }
+        }
+    }
 }

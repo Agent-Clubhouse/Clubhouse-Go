@@ -60,7 +60,7 @@ private struct CompanionBackground: ViewModifier {
                         RadialGradient(colors: [Color(palette.washEnd), .clear], center: UnitPoint(x: 0.95, y: 0.08), startRadius: 0, endRadius: 320)
                     }
                     .frame(height: 460)
-                    .opacity(palette.isDark ? 0.42 : 0.3)
+                    .opacity(palette.washOpacity)
                 }
             }
             .ignoresSafeArea()
