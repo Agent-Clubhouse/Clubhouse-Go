@@ -39,6 +39,9 @@ struct CompanionRGB: Hashable, Sendable {
         return (lighter + 0.05) / (darker + 0.05)
     }
 
+    /// Distance between the strongest and weakest channel: how far the color is from grey.
+    var chroma: Double { max(red, max(green, blue)) - min(red, min(green, blue)) }
+
     /// HSL saturation distinguishes a colored pastel from a fitted grey or olive tone.
     var saturation: Double {
         let maximum = max(red, max(green, blue)), minimum = min(red, min(green, blue))
@@ -143,6 +146,8 @@ struct CompanionPalette: Sendable, Equatable {
     var info: CompanionRGB
     var washStart: CompanionRGB
     var washEnd: CompanionRGB
+    /// Opacity of the radial wash behind transparent bars.
+    var washOpacity: Double
     /// True when the theme's accent was darkened or lightened to stay readable.
     var accentWasAdjusted: Bool
 
@@ -153,15 +158,20 @@ struct CompanionPalette: Sendable, Equatable {
         isDark = dark
         usesThemeGrounds = (theme.mode == .dark) == dark
         let primary: CompanionRGB, secondary: CompanionRGB
+        let roleCollision: Bool
         if usesThemeGrounds {
             background = dark ? theme.crust : theme.mantle
             card = theme.base
             raisedCard = dark ? theme.surface0 : theme.crust
-            primary = theme.text
+            // A theme whose text is its accent (Terminal's #00ff00) would make body text, controls and the
+            // wash one color. Reading text becomes a soft tint of it; the accent stays on controls.
+            roleCollision = theme.text == theme.accent
+            primary = roleCollision ? theme.text.mixed(with: dark ? .white : .black, amount: Self.collidingTextNeutralMix) : theme.text
             secondary = theme.subtext
             separator = theme.surface1.mixed(with: theme.base, amount: 0.3)
             fill = theme.surface0.mixed(with: theme.base, amount: 0.15)
         } else {
+            roleCollision = false
             let hint = theme.accent
             background = (dark ? CompanionRGB.black : CompanionRGB(red: 0.949, green: 0.949, blue: 0.969)).mixed(with: hint, amount: dark ? 0.07 : 0.06)
             card = dark ? CompanionRGB(red: 0.11, green: 0.11, blue: 0.118).mixed(with: hint, amount: 0.07) : .white
@@ -188,10 +198,35 @@ struct CompanionPalette: Sendable, Equatable {
                            fallback: CompanionRGB(red: dark ? 0.039 : 0, green: dark ? 0.518 : 0.478, blue: 1))
         washStart = theme.gradient.first ?? theme.accent
         washEnd = theme.gradient.dropFirst().first ?? theme.accent2 ?? theme.accent.mixed(with: dark ? .white : .black, amount: 0.35)
+        let washCeiling = dark ? 0.42 : 0.3
+        washOpacity = roleCollision
+            ? Self.calmWashOpacity(ceiling: min(washCeiling, Self.collidingWashOpacity), label: label, background: background,
+                                   colors: [washStart, washEnd])
+            : washCeiling
     }
 }
 
 extension CompanionPalette {
+    /// How far theme text that equals its accent moves toward white (dark) or black (light) for reading.
+    static let collidingTextNeutralMix = 0.7
+    /// The wash's strongest opacity when it shares its hue with text and controls.
+    static let collidingWashOpacity = 0.22
+
+    /// The strongest wash, up to `ceiling`, that leaves `label` at 7:1 over each wash color at its peak,
+    /// blended in sRGB like the gradient is drawn.
+    static func calmWashOpacity(ceiling: Double, label: CompanionRGB, background: CompanionRGB, colors: [CompanionRGB]) -> Double {
+        func readable(_ opacity: Double) -> Bool {
+            colors.allSatisfy { label.contrast(with: background.mixed(with: $0, amount: opacity)) >= 7 }
+        }
+        if readable(ceiling) { return ceiling }
+        var lower = 0.0, upper = ceiling
+        for _ in 0..<24 {
+            let amount = (lower + upper) / 2
+            if readable(amount) { lower = amount } else { upper = amount }
+        }
+        return lower
+    }
+
     /// Below 35% HSL saturation, fitted status colors can read as grey or olive on the opposite appearance.
     static let minimumStatusSaturation = 0.35
 
