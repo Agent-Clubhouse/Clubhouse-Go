@@ -2,7 +2,7 @@ import Foundation
 
 /// Terminals over the mTLS WebSocket (desktop #2476): a shell at a project root or an agent's worktree, and an
 /// attached view of a terminal-mode agent's own PTY. Shell output goes only to the socket that spawned it, never
-/// into replay, and the desktop kills a socket's shells when it disconnects, so a reconnect spawns a new one.
+/// into replay, and a desktop without `shellReattach` kills a socket's shells when it disconnects, so a reconnect spawns a new one.
 nonisolated public extension AnnexCapabilities {
     /// The `terminal` block of `/api/v1/mobile/capabilities`. Absent on desktops without phone terminals.
     struct Terminal: Decodable, Sendable, Equatable {
@@ -33,6 +33,20 @@ nonisolated public extension AnnexCapabilities {
         private enum CodingKeys: String, CodingKey { case version, projectShell, agentShell, agentAttach, maxShellsPerConnection, maxInputLength }
         public var isUsable: Bool { version == 1 && (projectShell || agentShell || agentAttach) }
     }
+
+    /// The top-level `shellReattach` block: how long the desktop keeps a shell after its phone disconnects.
+    struct ShellReattach: Decodable, Sendable, Equatable {
+        public let version: Int
+        public let graceSeconds: Int
+        public init(version: Int, graceSeconds: Int) { self.version = version; self.graceSeconds = graceSeconds }
+        /// A malformed block grants nothing (version and grace read as 0) rather than failing the document.
+        public init(from decoder: Decoder) throws {
+            let c = try decoder.container(keyedBy: CodingKeys.self)
+            version = (try? c.decode(Int.self, forKey: .version)) ?? 0
+            graceSeconds = (try? c.decode(Int.self, forKey: .graceSeconds)) ?? 0
+        }
+        private enum CodingKeys: String, CodingKey { case version, graceSeconds }
+    }
 }
 
 /// One terminal message from the phone. `pty:input` and `pty:resize` are keyed by `agentId`, which is the shell's
@@ -43,6 +57,8 @@ nonisolated public enum AnnexTerminalFrame: Sendable, Equatable {
     case resize(id: String, cols: Int, rows: Int)
     case close(sessionID: String)
     case attach(agentID: String)
+    /// Takes back a shell the desktop kept through a dropped connection (`shellReattach`); the ack carries a snapshot.
+    case reattachShell(sessionID: String, cols: Int, rows: Int)
 
     public var type: String {
         switch self {
@@ -51,6 +67,7 @@ nonisolated public enum AnnexTerminalFrame: Sendable, Equatable {
         case .resize: "pty:resize"
         case .close: "pty:close"
         case .attach: "pty:attach"
+        case .reattachShell: "pty:reattach-shell"
         }
     }
 
@@ -64,6 +81,8 @@ nonisolated public enum AnnexTerminalFrame: Sendable, Equatable {
         case .resize(let id, let cols, let rows): return .object(["agentId": .string(id), "cols": .integer(Int64(cols)), "rows": .integer(Int64(rows))])
         case .close(let session): return .object(["sessionId": .string(session)])
         case .attach(let agent): return .object(["agentId": .string(agent)])
+        case .reattachShell(let session, let cols, let rows):
+            return .object(["sessionId": .string(session), "cols": .integer(Int64(cols)), "rows": .integer(Int64(rows))])
         }
     }
 
