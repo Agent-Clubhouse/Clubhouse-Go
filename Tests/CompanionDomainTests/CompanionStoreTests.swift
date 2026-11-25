@@ -16,6 +16,7 @@ import Testing
     var removalIsUncertain = false
     var historyValue = CompanionHistory(items: [])
     var historyCalls = 0
+    var reportDuringHistory: (() -> Void)?
     var historyGate: CheckedContinuation<CompanionHistory, Error>?
     var shouldSuspendHistory = false
     var sendGate: CheckedContinuation<CompanionCommandReceipt, Error>?
@@ -40,6 +41,9 @@ import Testing
     func events() -> AsyncStream<CompanionEvent> { AsyncStream { $0.finish() } }
     func history(for target: CompanionTarget) async throws -> CompanionHistory {
         historyCalls += 1
+        let report = reportDuringHistory
+        reportDuringHistory = nil
+        report?()
         if shouldSuspendHistory { return try await withCheckedThrowingContinuation { historyGate = $0 } }
         return historyValue
     }
@@ -453,6 +457,27 @@ import Testing
         let supported = await store.spawn(project: project, prompt: "Task", provider: nil, model: nil)
         #expect(supported)
         #expect(service.spawnCount == 1)
+    }
+
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing, .reconnecting, .offline, .failed("Unavailable")])
+    func historyCatalogReportDoesNotRetireItsOwnRead(connection: CompanionConnection) async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var desktop = host(id: target.hostID)
+        desktop.connection = connection
+        store.apply(.hosts([desktop, host(id: "host-b")]))
+        let items: [CompanionTimelineItem] = [.notice(id: "loaded", text: "Authoritative history")]
+        service.historyValue = .init(items: items, lastSequence: 7, sessionID: "current")
+        // LiveService.history publishes its updated agent catalog before returning the read.
+        desktop.projects[0].agents[0].name = "Updated by history"
+        service.reportDuringHistory = { store.apply(.hosts([desktop, self.host(id: "host-b")])) }
+        await store.load(target)
+        let result = store.conversation(for: target)
+        #expect(service.historyCalls == 1)
+        #expect(result.items == items && result.lastSequence == 7 && result.sessionID == "current")
+        #expect(result.isLoaded && !result.isLoading && !result.requiresResync && result.error == nil)
+        #expect(store.agent(for: target)?.name == "Updated by history")
+        #expect(!store.canOperate(target), "Successful history does not grant authority to an unavailable desktop")
     }
 
     @Test(arguments: [false, true], [false, true])
