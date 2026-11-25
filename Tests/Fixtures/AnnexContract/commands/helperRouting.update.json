@@ -11,16 +11,16 @@
             "provider": "codex-cli"
           }
         ],
-        "commandId": "cmd_172",
+        "commandId": "routing_cmd_001",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r1.3",
+        "revision": "r0.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_172",
+          "commandId": "routing_cmd_001",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -33,6 +33,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -84,18 +89,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -115,6 +124,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -222,6 +232,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -242,6 +253,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -352,6 +364,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -372,6 +385,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -490,6 +504,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -498,7 +513,7 @@
                 }
               }
             },
-            "revision": "r2.3",
+            "revision": "r1.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "completed",
@@ -518,22 +533,22 @@
             "provider": "codex-cli"
           }
         ],
-        "commandId": "cmd_173",
+        "commandId": "routing_cmd_002",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r1.3",
+        "revision": "r0.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_173",
+          "commandId": "routing_cmd_002",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "helper_routing_stale",
             "message": "These presets changed since this page loaded. Check the new values and make your change again."
           },
-          "revision": "r2.3",
+          "revision": "r1.3",
           "settings": {
             "auto": {
               "effective": false,
@@ -545,6 +560,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -596,18 +616,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -627,6 +651,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -734,6 +759,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -754,6 +780,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -864,6 +891,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -884,6 +912,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -1002,6 +1031,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -1010,7 +1040,7 @@
                 }
               }
             },
-            "revision": "r2.3",
+            "revision": "r1.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "rejected",
@@ -1030,16 +1060,16 @@
             "provider": "codex-cli"
           }
         ],
-        "commandId": "cmd_174",
+        "commandId": "routing_cmd_003",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_174",
+          "commandId": "routing_cmd_003",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "model_unavailable",
@@ -1062,16 +1092,16 @@
             "provider": "codex-cli"
           }
         ],
-        "commandId": "cmd_175",
+        "commandId": "routing_cmd_004",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_175",
+          "commandId": "routing_cmd_004",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "effort_unavailable",
@@ -1094,16 +1124,16 @@
             "provider": "other-cli"
           }
         ],
-        "commandId": "cmd_176",
+        "commandId": "routing_cmd_005",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_176",
+          "commandId": "routing_cmd_005",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "invalid_helper_routing",
@@ -1126,16 +1156,16 @@
             "provider": "copilot-cli"
           }
         ],
-        "commandId": "cmd_177",
+        "commandId": "routing_cmd_006",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_177",
+          "commandId": "routing_cmd_006",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "effort_unavailable",
@@ -1150,17 +1180,17 @@
     {
       "name": "invalid_helper_routing (project scope)",
       "request": {
-        "commandId": "cmd_178",
+        "commandId": "routing_cmd_007",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "reset": {},
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_178",
+          "commandId": "routing_cmd_007",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "invalid_helper_routing",
@@ -1175,9 +1205,9 @@
     {
       "name": "invalid_command (nothing to do)",
       "request": {
-        "commandId": "cmd_179",
+        "commandId": "routing_cmd_008",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
@@ -1198,20 +1228,20 @@
     {
       "name": "accepted reset one cell",
       "request": {
-        "commandId": "cmd_180",
+        "commandId": "routing_cmd_009",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "reset": {
           "difficulty": "easy",
           "provider": "codex-cli"
         },
-        "revision": "r2.3",
+        "revision": "r1.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_180",
+          "commandId": "routing_cmd_009",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -1224,6 +1254,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -1275,18 +1310,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -1306,6 +1345,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -1413,6 +1453,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -1433,6 +1474,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -1540,6 +1582,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -1560,6 +1603,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -1678,6 +1722,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -1686,7 +1731,7 @@
                 }
               }
             },
-            "revision": "r3.3",
+            "revision": "r2.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "completed",
@@ -1712,16 +1757,16 @@
             "provider": "codex-cli"
           }
         ],
-        "commandId": "cmd_181",
+        "commandId": "routing_cmd_010",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r3.3",
+        "revision": "r2.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_181",
+          "commandId": "routing_cmd_010",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -1734,6 +1779,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -1785,18 +1835,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -1816,6 +1870,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -1926,6 +1981,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -1946,6 +2002,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -2056,6 +2113,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -2076,6 +2134,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -2194,6 +2253,524 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
+                "quota": {
+                  "asOf": null,
+                  "source": "none",
+                  "state": "unknown",
+                  "unknownReason": "not_supported"
+                }
+              }
+            },
+            "revision": "r3.3",
+            "serverTime": "2027-01-15T08:00:00.000Z"
+          },
+          "status": "completed",
+          "version": 1
+        },
+        "status": 200
+      }
+    },
+    {
+      "name": "accepted reset one provider",
+      "request": {
+        "commandId": "routing_cmd_011",
+        "epoch": "00000000-0000-4000-8000-000000000001",
+        "reset": {
+          "provider": "claude-code"
+        },
+        "revision": "r3.3",
+        "scope": "app",
+        "type": "helperRouting.update",
+        "version": 1
+      },
+      "response": {
+        "body": {
+          "commandId": "routing_cmd_011",
+          "epoch": "00000000-0000-4000-8000-000000000001",
+          "result": {
+            "auto": {
+              "effective": false,
+              "reason": "not_enabled",
+              "scopes": {
+                "app": {
+                  "editable": true,
+                  "value": false
+                }
+              },
+              "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
+            },
+            "copilotAuto": true,
+            "labels": {
+              "autoOff": {
+                "dispatcher_locked": "The Dispatcher doesn’t start helpers",
+                "mcp_off": "Clubhouse MCP is off for this agent",
+                "not_enabled": "It isn’t turned on",
+                "orchestration_off": "This agent doesn’t orchestrate",
+                "project_off": "This project turned it off"
+              },
+              "autoSource": {
+                "agent": "Set on this agent",
+                "app": "Set for the whole app",
+                "default": "Off unless turned on",
+                "dispatcher_locked": "Not for the Dispatcher",
+                "mcp_off": "Clubhouse MCP is off for this agent",
+                "project": "Set for this project"
+              },
+              "cell": {
+                "stale": "No longer offered",
+                "unverified": "Couldn’t be checked",
+                "valid": "Offered"
+              },
+              "fallback": {
+                "builtin_preset": "The saved choice is no longer offered, so the default was used",
+                "candidate_skipped": "Another provider was skipped",
+                "model_unverified": "The model list may be out of date, so this couldn’t be checked",
+                "none": "None",
+                "retried_after_spawn_failure": "Started on another provider after the first failed to start"
+              },
+              "generic": {
+                "unknownCode": "Clubhouse gave a reason this version can’t show"
+              },
+              "quota": {
+                "exhausted": "Limit reached",
+                "known": "Limit available",
+                "low": "Limit getting low",
+                "near_limit": "Close to the limit",
+                "unknown": "Unknown"
+              },
+              "reason": {
+                "better_quota_tier": "This provider has more of its limit left",
+                "default_order": "No reason to switch",
+                "explicit_request": "You or the orchestrator chose this",
+                "fair_rotation": "Its turn among providers with the same usage",
+                "last_resort_unmeasured": "Its quota is unknown. No provider with readable plan usage was eligible",
+                "lower_load": "Fewer helpers running on this provider",
+                "lower_pressure": "Less of this provider’s weekly limit is used",
+                "only_candidate": "The only provider available",
+                "persona_pinned": "Set by the persona",
+                "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
+                "sticky": "Stayed on the provider chosen last",
+                "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
+              },
+              "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
+                "auto_disabled": "Turned off for Auto in Settings",
+                "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
+                "cli_disabled": "Turned off in Settings",
+                "cli_unavailable": "Not available on this computer",
+                "cooling_down": "It failed to start recently",
+                "mapping_changed": "The mapping changed while this start was being prepared",
+                "no_valid_mapping": "No choice for this difficulty is offered now",
+                "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
+                "quota_near_limit": "Close to its limit"
+              },
+              "unknown": {
+                "not_applicable": "This login has no plan limit",
+                "not_read": "Not checked yet",
+                "not_supported": "This provider doesn’t report it",
+                "read_failed": "Couldn’t check",
+                "stale": "Last checked too long ago"
+              },
+              "window": {
+                "fiveHour": "5-hour limit",
+                "other": "Plan limit",
+                "weekly": "Weekly limit"
+              }
+            },
+            "providers": {
+              "claude-code": {
+                "autoCandidate": true,
+                "autoEligible": true,
+                "available": true,
+                "cells": {
+                  "easy": {
+                    "builtin": {
+                      "effort": "low",
+                      "model": "haiku"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "low",
+                      "model": "haiku"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "hard": {
+                    "builtin": {
+                      "effort": "high",
+                      "model": "opus"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "high",
+                      "model": "opus"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "maximum": {
+                    "builtin": {
+                      "effort": "high",
+                      "model": "opus"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "high",
+                      "model": "opus"
+                    },
+                    "follows": "hard",
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "medium": {
+                    "builtin": {
+                      "effort": "medium",
+                      "model": "sonnet"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "medium",
+                      "model": "sonnet"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "minimum": {
+                    "builtin": {
+                      "effort": "low",
+                      "model": "haiku"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "low",
+                      "model": "haiku"
+                    },
+                    "follows": "easy",
+                    "source": "builtin",
+                    "state": "valid"
+                  }
+                },
+                "choices": {
+                  "asOf": "2027-01-15T08:00:00.000Z",
+                  "models": [
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high"
+                      ],
+                      "id": "opus",
+                      "label": "Opus"
+                    },
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high"
+                      ],
+                      "id": "sonnet",
+                      "label": "Sonnet"
+                    },
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high"
+                      ],
+                      "id": "haiku",
+                      "label": "Haiku"
+                    }
+                  ],
+                  "source": "live"
+                },
+                "enabled": true,
+                "quota": {
+                  "asOf": "2027-01-15T08:00:00.000Z",
+                  "fiveHour": {
+                    "resetsAt": "2027-01-15T10:24:00.000Z",
+                    "usedPercent": 12
+                  },
+                  "limitingWindow": "weekly",
+                  "refreshAfterSeconds": 300,
+                  "resetsAt": "2027-01-18T08:00:00.000Z",
+                  "source": "cli_query",
+                  "state": "known",
+                  "weekly": {
+                    "resetsAt": "2027-01-18T08:00:00.000Z",
+                    "usedPercent": 41
+                  }
+                }
+              },
+              "codex-cli": {
+                "autoCandidate": true,
+                "autoEligible": true,
+                "available": true,
+                "cells": {
+                  "easy": {
+                    "builtin": {
+                      "effort": "low",
+                      "model": "gpt-6-luna"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "low",
+                      "model": "gpt-6-luna"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "hard": {
+                    "builtin": {
+                      "effort": "high",
+                      "model": "gpt-6.1-sol"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "high",
+                      "model": "gpt-6.1-sol"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "maximum": {
+                    "builtin": {
+                      "effort": "high",
+                      "model": "gpt-6.1-sol"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "high",
+                      "model": "gpt-6.1-sol"
+                    },
+                    "follows": "hard",
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "medium": {
+                    "builtin": {
+                      "effort": "medium",
+                      "model": "gpt-6.1-terra"
+                    },
+                    "custom": {
+                      "effort": null,
+                      "model": "gpt-6-luna"
+                    },
+                    "editable": true,
+                    "effective": {
+                      "effort": null,
+                      "model": "gpt-6-luna"
+                    },
+                    "source": "custom",
+                    "state": "valid"
+                  },
+                  "minimum": {
+                    "builtin": {
+                      "effort": "low",
+                      "model": "gpt-6-luna"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "low",
+                      "model": "gpt-6-luna"
+                    },
+                    "follows": "easy",
+                    "source": "builtin",
+                    "state": "valid"
+                  }
+                },
+                "choices": {
+                  "asOf": "2027-01-15T08:00:00.000Z",
+                  "models": [
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high"
+                      ],
+                      "id": "gpt-6.1-sol",
+                      "label": "Sol"
+                    },
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high"
+                      ],
+                      "id": "gpt-6.1-terra",
+                      "label": "Terra"
+                    },
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high"
+                      ],
+                      "id": "gpt-6-luna",
+                      "label": "Luna"
+                    }
+                  ],
+                  "source": "live"
+                },
+                "enabled": true,
+                "quota": {
+                  "asOf": "2027-01-15T08:00:00.000Z",
+                  "fiveHour": {
+                    "resetsAt": "2027-01-15T10:24:00.000Z",
+                    "usedPercent": 12
+                  },
+                  "limitingWindow": "weekly",
+                  "refreshAfterSeconds": 300,
+                  "resetsAt": "2027-01-18T08:00:00.000Z",
+                  "source": "cli_query",
+                  "state": "known",
+                  "weekly": {
+                    "resetsAt": "2027-01-18T08:00:00.000Z",
+                    "usedPercent": 41
+                  }
+                }
+              },
+              "copilot-cli": {
+                "autoCandidate": true,
+                "autoEligible": true,
+                "available": true,
+                "cells": {
+                  "easy": {
+                    "builtin": {
+                      "effort": "low",
+                      "model": "claude-haiku-5.5"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "low",
+                      "model": "claude-haiku-5.5"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "hard": {
+                    "builtin": {
+                      "effort": "high",
+                      "model": "claude-opus-5.5"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "high",
+                      "model": "claude-opus-5.5"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "maximum": {
+                    "builtin": {
+                      "effort": "high",
+                      "model": "claude-opus-5.5"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "high",
+                      "model": "claude-opus-5.5"
+                    },
+                    "follows": "hard",
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "medium": {
+                    "builtin": {
+                      "effort": "medium",
+                      "model": "claude-sonnet-5.5"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "medium",
+                      "model": "claude-sonnet-5.5"
+                    },
+                    "source": "builtin",
+                    "state": "valid"
+                  },
+                  "minimum": {
+                    "builtin": {
+                      "effort": "low",
+                      "model": "claude-haiku-5.5"
+                    },
+                    "custom": null,
+                    "editable": true,
+                    "effective": {
+                      "effort": "low",
+                      "model": "claude-haiku-5.5"
+                    },
+                    "follows": "easy",
+                    "source": "builtin",
+                    "state": "valid"
+                  }
+                },
+                "choices": {
+                  "asOf": "2027-01-15T08:00:00.000Z",
+                  "models": [
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                      ],
+                      "id": "claude-haiku-5.5",
+                      "label": "Claude Haiku 5.5"
+                    },
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                      ],
+                      "id": "claude-sonnet-5.5",
+                      "label": "Claude Sonnet 5.5"
+                    },
+                    {
+                      "efforts": [
+                        "low",
+                        "medium",
+                        "high",
+                        "xhigh",
+                        "max"
+                      ],
+                      "id": "claude-opus-5.5",
+                      "label": "Claude Opus 5.5"
+                    },
+                    {
+                      "efforts": [],
+                      "id": "claude-haiku-4.5",
+                      "label": "Claude Haiku 4.5"
+                    }
+                  ],
+                  "source": "live"
+                },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -2212,13 +2789,11 @@
       }
     },
     {
-      "name": "accepted reset one provider",
+      "name": "accepted reset all",
       "request": {
-        "commandId": "cmd_182",
+        "commandId": "routing_cmd_012",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "reset": {
-          "provider": "claude-code"
-        },
+        "reset": {},
         "revision": "r4.3",
         "scope": "app",
         "type": "helperRouting.update",
@@ -2226,7 +2801,7 @@
       },
       "response": {
         "body": {
-          "commandId": "cmd_182",
+          "commandId": "routing_cmd_012",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -2239,6 +2814,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -2290,18 +2870,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -2321,6 +2905,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -2428,6 +3013,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -2448,6 +3034,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -2497,16 +3084,13 @@
                       "effort": "medium",
                       "model": "gpt-6.1-terra"
                     },
-                    "custom": {
-                      "effort": null,
-                      "model": "gpt-6-luna"
-                    },
+                    "custom": null,
                     "editable": true,
                     "effective": {
-                      "effort": null,
-                      "model": "gpt-6-luna"
+                      "effort": "medium",
+                      "model": "gpt-6.1-terra"
                     },
-                    "source": "custom",
+                    "source": "builtin",
                     "state": "valid"
                   },
                   "minimum": {
@@ -2558,6 +3142,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -2578,6 +3163,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -2696,6 +3282,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -2714,11 +3301,11 @@
       }
     },
     {
-      "name": "accepted reset all",
+      "name": "accepted auto off app-wide",
       "request": {
-        "commandId": "cmd_183",
+        "auto": false,
+        "commandId": "routing_cmd_013",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "reset": {},
         "revision": "r5.3",
         "scope": "app",
         "type": "helperRouting.update",
@@ -2726,7 +3313,7 @@
       },
       "response": {
         "body": {
-          "commandId": "cmd_183",
+          "commandId": "routing_cmd_013",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -2739,6 +3326,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -2790,18 +3382,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -2821,6 +3417,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -2928,6 +3525,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -2948,6 +3546,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -3055,6 +3654,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -3075,6 +3675,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -3193,6 +3794,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -3211,517 +3813,20 @@
       }
     },
     {
-      "name": "accepted auto off app-wide",
-      "request": {
-        "auto": false,
-        "commandId": "cmd_184",
-        "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r6.3",
-        "scope": "app",
-        "type": "helperRouting.update",
-        "version": 1
-      },
-      "response": {
-        "body": {
-          "commandId": "cmd_184",
-          "epoch": "00000000-0000-4000-8000-000000000001",
-          "result": {
-            "auto": {
-              "effective": false,
-              "reason": "not_enabled",
-              "scopes": {
-                "app": {
-                  "editable": true,
-                  "value": false
-                }
-              },
-              "source": "default"
-            },
-            "copilotAuto": true,
-            "labels": {
-              "autoOff": {
-                "dispatcher_locked": "The Dispatcher doesn’t start helpers",
-                "mcp_off": "Clubhouse MCP is off for this agent",
-                "not_enabled": "It isn’t turned on",
-                "orchestration_off": "This agent doesn’t orchestrate",
-                "project_off": "This project turned it off"
-              },
-              "autoSource": {
-                "agent": "Set on this agent",
-                "app": "Set for the whole app",
-                "default": "Off unless turned on",
-                "dispatcher_locked": "Not for the Dispatcher",
-                "mcp_off": "Clubhouse MCP is off for this agent",
-                "project": "Set for this project"
-              },
-              "cell": {
-                "stale": "No longer offered",
-                "unverified": "Couldn’t be checked",
-                "valid": "Offered"
-              },
-              "fallback": {
-                "builtin_preset": "The saved choice is no longer offered, so the default was used",
-                "candidate_skipped": "Another provider was skipped",
-                "model_unverified": "The model list may be out of date, so this couldn’t be checked",
-                "none": "None",
-                "retried_after_spawn_failure": "Started on another provider after the first failed to start"
-              },
-              "generic": {
-                "unknownCode": "Clubhouse gave a reason this version can’t show"
-              },
-              "quota": {
-                "exhausted": "Limit reached",
-                "known": "Limit available",
-                "low": "Limit getting low",
-                "near_limit": "Close to the limit",
-                "unknown": "Unknown"
-              },
-              "reason": {
-                "better_quota_tier": "This provider has more of its limit left",
-                "default_order": "No reason to switch",
-                "explicit_request": "You or the orchestrator chose this",
-                "fair_rotation": "Its turn among providers with the same usage",
-                "last_resort_unmeasured": "Its quota is unknown. No provider with readable plan usage was eligible",
-                "lower_load": "Fewer helpers running on this provider",
-                "lower_pressure": "Less of this provider’s weekly limit is used",
-                "only_candidate": "The only provider available",
-                "persona_pinned": "Set by the persona",
-                "preset_on_cli": "From the helper settings for this difficulty",
-                "sticky": "Stayed on the provider chosen last",
-                "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
-              },
-              "skipped": {
-                "auto_disabled": "Turned off for Auto in Settings",
-                "auto_not_supported": "Auto doesn’t support this provider yet",
-                "cli_disabled": "Turned off in Settings",
-                "cli_unavailable": "Not available on this computer",
-                "cooling_down": "It failed to start recently",
-                "mapping_changed": "The mapping changed while this start was being prepared",
-                "no_valid_mapping": "No choice for this difficulty is offered now",
-                "quota_exhausted": "The provider reports its limit reached",
-                "quota_near_limit": "Close to its limit"
-              },
-              "unknown": {
-                "not_applicable": "This login has no plan limit",
-                "not_read": "Not checked yet",
-                "not_supported": "This provider doesn’t report it",
-                "read_failed": "Couldn’t check",
-                "stale": "Last checked too long ago"
-              },
-              "window": {
-                "fiveHour": "5-hour limit",
-                "other": "Plan limit",
-                "weekly": "Weekly limit"
-              }
-            },
-            "providers": {
-              "claude-code": {
-                "autoCandidate": true,
-                "autoEligible": true,
-                "cells": {
-                  "easy": {
-                    "builtin": {
-                      "effort": "low",
-                      "model": "haiku"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "low",
-                      "model": "haiku"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "hard": {
-                    "builtin": {
-                      "effort": "high",
-                      "model": "opus"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "high",
-                      "model": "opus"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "maximum": {
-                    "builtin": {
-                      "effort": "high",
-                      "model": "opus"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "high",
-                      "model": "opus"
-                    },
-                    "follows": "hard",
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "medium": {
-                    "builtin": {
-                      "effort": "medium",
-                      "model": "sonnet"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "medium",
-                      "model": "sonnet"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "minimum": {
-                    "builtin": {
-                      "effort": "low",
-                      "model": "haiku"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "low",
-                      "model": "haiku"
-                    },
-                    "follows": "easy",
-                    "source": "builtin",
-                    "state": "valid"
-                  }
-                },
-                "choices": {
-                  "asOf": "2027-01-15T08:00:00.000Z",
-                  "models": [
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high"
-                      ],
-                      "id": "opus",
-                      "label": "Opus"
-                    },
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high"
-                      ],
-                      "id": "sonnet",
-                      "label": "Sonnet"
-                    },
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high"
-                      ],
-                      "id": "haiku",
-                      "label": "Haiku"
-                    }
-                  ],
-                  "source": "live"
-                },
-                "quota": {
-                  "asOf": "2027-01-15T08:00:00.000Z",
-                  "fiveHour": {
-                    "resetsAt": "2027-01-15T10:24:00.000Z",
-                    "usedPercent": 12
-                  },
-                  "limitingWindow": "weekly",
-                  "refreshAfterSeconds": 300,
-                  "resetsAt": "2027-01-18T08:00:00.000Z",
-                  "source": "cli_query",
-                  "state": "known",
-                  "weekly": {
-                    "resetsAt": "2027-01-18T08:00:00.000Z",
-                    "usedPercent": 41
-                  }
-                }
-              },
-              "codex-cli": {
-                "autoCandidate": true,
-                "autoEligible": true,
-                "cells": {
-                  "easy": {
-                    "builtin": {
-                      "effort": "low",
-                      "model": "gpt-6-luna"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "low",
-                      "model": "gpt-6-luna"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "hard": {
-                    "builtin": {
-                      "effort": "high",
-                      "model": "gpt-6.1-sol"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "high",
-                      "model": "gpt-6.1-sol"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "maximum": {
-                    "builtin": {
-                      "effort": "high",
-                      "model": "gpt-6.1-sol"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "high",
-                      "model": "gpt-6.1-sol"
-                    },
-                    "follows": "hard",
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "medium": {
-                    "builtin": {
-                      "effort": "medium",
-                      "model": "gpt-6.1-terra"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "medium",
-                      "model": "gpt-6.1-terra"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "minimum": {
-                    "builtin": {
-                      "effort": "low",
-                      "model": "gpt-6-luna"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "low",
-                      "model": "gpt-6-luna"
-                    },
-                    "follows": "easy",
-                    "source": "builtin",
-                    "state": "valid"
-                  }
-                },
-                "choices": {
-                  "asOf": "2027-01-15T08:00:00.000Z",
-                  "models": [
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high"
-                      ],
-                      "id": "gpt-6.1-sol",
-                      "label": "Sol"
-                    },
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high"
-                      ],
-                      "id": "gpt-6.1-terra",
-                      "label": "Terra"
-                    },
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high"
-                      ],
-                      "id": "gpt-6-luna",
-                      "label": "Luna"
-                    }
-                  ],
-                  "source": "live"
-                },
-                "quota": {
-                  "asOf": "2027-01-15T08:00:00.000Z",
-                  "fiveHour": {
-                    "resetsAt": "2027-01-15T10:24:00.000Z",
-                    "usedPercent": 12
-                  },
-                  "limitingWindow": "weekly",
-                  "refreshAfterSeconds": 300,
-                  "resetsAt": "2027-01-18T08:00:00.000Z",
-                  "source": "cli_query",
-                  "state": "known",
-                  "weekly": {
-                    "resetsAt": "2027-01-18T08:00:00.000Z",
-                    "usedPercent": 41
-                  }
-                }
-              },
-              "copilot-cli": {
-                "autoCandidate": true,
-                "autoEligible": true,
-                "cells": {
-                  "easy": {
-                    "builtin": {
-                      "effort": "low",
-                      "model": "claude-haiku-5.5"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "low",
-                      "model": "claude-haiku-5.5"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "hard": {
-                    "builtin": {
-                      "effort": "high",
-                      "model": "claude-opus-5.5"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "high",
-                      "model": "claude-opus-5.5"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "maximum": {
-                    "builtin": {
-                      "effort": "high",
-                      "model": "claude-opus-5.5"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "high",
-                      "model": "claude-opus-5.5"
-                    },
-                    "follows": "hard",
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "medium": {
-                    "builtin": {
-                      "effort": "medium",
-                      "model": "claude-sonnet-5.5"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "medium",
-                      "model": "claude-sonnet-5.5"
-                    },
-                    "source": "builtin",
-                    "state": "valid"
-                  },
-                  "minimum": {
-                    "builtin": {
-                      "effort": "low",
-                      "model": "claude-haiku-5.5"
-                    },
-                    "custom": null,
-                    "editable": true,
-                    "effective": {
-                      "effort": "low",
-                      "model": "claude-haiku-5.5"
-                    },
-                    "follows": "easy",
-                    "source": "builtin",
-                    "state": "valid"
-                  }
-                },
-                "choices": {
-                  "asOf": "2027-01-15T08:00:00.000Z",
-                  "models": [
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high",
-                        "xhigh",
-                        "max"
-                      ],
-                      "id": "claude-haiku-5.5",
-                      "label": "Claude Haiku 5.5"
-                    },
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high",
-                        "xhigh",
-                        "max"
-                      ],
-                      "id": "claude-sonnet-5.5",
-                      "label": "Claude Sonnet 5.5"
-                    },
-                    {
-                      "efforts": [
-                        "low",
-                        "medium",
-                        "high",
-                        "xhigh",
-                        "max"
-                      ],
-                      "id": "claude-opus-5.5",
-                      "label": "Claude Opus 5.5"
-                    },
-                    {
-                      "efforts": [],
-                      "id": "claude-haiku-4.5",
-                      "label": "Claude Haiku 4.5"
-                    }
-                  ],
-                  "source": "live"
-                },
-                "quota": {
-                  "asOf": null,
-                  "source": "none",
-                  "state": "unknown",
-                  "unknownReason": "not_supported"
-                }
-              }
-            },
-            "revision": "r7.3",
-            "serverTime": "2027-01-15T08:00:00.000Z"
-          },
-          "status": "completed",
-          "version": 1
-        },
-        "status": 200
-      }
-    },
-    {
       "name": "accepted auto off for a project",
       "request": {
         "auto": "off",
-        "commandId": "cmd_185",
+        "commandId": "routing_cmd_014",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "projectId": "proj_app",
-        "revision": "r7.3",
+        "revision": "r6.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_185",
+          "commandId": "routing_cmd_014",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -3743,6 +3848,11 @@
               },
               "source": "project"
             },
+            "autoBudget": {
+              "editable": false,
+              "invalid": false,
+              "policy": null
+            },
             "copilotAuto": true,
             "labels": {
               "autoOff": {
@@ -3793,18 +3903,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -3824,6 +3938,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -3931,6 +4046,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -3951,6 +4067,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -4058,6 +4175,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -4078,6 +4196,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -4196,6 +4315,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -4204,7 +4324,7 @@
                 }
               }
             },
-            "revision": "r8.3",
+            "revision": "r7.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "completed",
@@ -4217,17 +4337,17 @@
       "name": "accepted project override removed (null, which never enables)",
       "request": {
         "auto": null,
-        "commandId": "cmd_186",
+        "commandId": "routing_cmd_015",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "projectId": "proj_app",
-        "revision": "r8.3",
+        "revision": "r7.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_186",
+          "commandId": "routing_cmd_015",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -4249,6 +4369,11 @@
               },
               "source": "default"
             },
+            "autoBudget": {
+              "editable": false,
+              "invalid": false,
+              "policy": null
+            },
             "copilotAuto": true,
             "labels": {
               "autoOff": {
@@ -4299,18 +4424,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -4330,6 +4459,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -4437,6 +4567,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -4457,6 +4588,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -4564,6 +4696,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -4584,6 +4717,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -4702,6 +4836,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -4710,7 +4845,7 @@
                 }
               }
             },
-            "revision": "r9.3",
+            "revision": "r8.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "completed",
@@ -4723,17 +4858,17 @@
       "name": "invalid_helper_routing (project can't turn it on)",
       "request": {
         "auto": true,
-        "commandId": "cmd_187",
+        "commandId": "routing_cmd_016",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "projectId": "proj_app",
-        "revision": "r9.3",
+        "revision": "r8.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_187",
+          "commandId": "routing_cmd_016",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "invalid_helper_routing",
@@ -4749,16 +4884,16 @@
       "name": "invalid_helper_routing (app-wide off value)",
       "request": {
         "auto": "off",
-        "commandId": "cmd_188",
+        "commandId": "routing_cmd_017",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r9.3",
+        "revision": "r8.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_188",
+          "commandId": "routing_cmd_017",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "invalid_helper_routing",
@@ -4774,17 +4909,17 @@
       "name": "project_not_found",
       "request": {
         "auto": "off",
-        "commandId": "cmd_189",
+        "commandId": "routing_cmd_018",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "projectId": "missing",
-        "revision": "r9.3",
+        "revision": "r8.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_189",
+          "commandId": "routing_cmd_018",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "project_not_found",
@@ -4800,22 +4935,22 @@
       "name": "helper_routing_stale (a desktop project change)",
       "request": {
         "auto": true,
-        "commandId": "cmd_190",
+        "commandId": "routing_cmd_019",
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r9.3",
+        "revision": "r8.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_190",
+          "commandId": "routing_cmd_019",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "helper_routing_stale",
             "message": "These presets changed since this page loaded. Check the new values and make your change again."
           },
-          "revision": "r10.3",
+          "revision": "r9.3",
           "settings": {
             "auto": {
               "effective": false,
@@ -4827,6 +4962,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -4878,18 +5018,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -4909,6 +5053,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -5016,6 +5161,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -5036,6 +5182,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -5143,6 +5290,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -5163,6 +5311,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -5281,6 +5430,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -5289,7 +5439,7 @@
                 }
               }
             },
-            "revision": "r10.3",
+            "revision": "r9.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "rejected",
@@ -5302,23 +5452,23 @@
       "name": "helper_routing_stale (project scope, fresh values for that project)",
       "request": {
         "auto": null,
-        "commandId": "cmd_191",
+        "commandId": "routing_cmd_020",
         "epoch": "00000000-0000-4000-8000-000000000001",
         "projectId": "proj_app",
-        "revision": "r10.3",
+        "revision": "r9.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_191",
+          "commandId": "routing_cmd_020",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "helper_routing_stale",
             "message": "These presets changed since this page loaded. Check the new values and make your change again."
           },
-          "revision": "r11.3",
+          "revision": "r10.3",
           "settings": {
             "auto": {
               "effective": false,
@@ -5339,6 +5489,11 @@
               },
               "source": "project"
             },
+            "autoBudget": {
+              "editable": false,
+              "invalid": false,
+              "policy": null
+            },
             "copilotAuto": true,
             "labels": {
               "autoOff": {
@@ -5389,18 +5544,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -5420,6 +5579,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -5527,6 +5687,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -5547,6 +5708,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -5654,6 +5816,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -5674,6 +5837,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -5792,6 +5956,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -5800,7 +5965,7 @@
                 }
               }
             },
-            "revision": "r11.3",
+            "revision": "r10.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "rejected",
@@ -5812,17 +5977,17 @@
     {
       "name": "accepted Copilot Auto opt-out",
       "request": {
-        "commandId": "cmd_copilot_auto_off",
+        "commandId": "routing_cmd_021",
         "copilotAuto": false,
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r14.3",
+        "revision": "r13.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_copilot_auto_off",
+          "commandId": "routing_cmd_021",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -5835,6 +6000,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": false,
             "labels": {
@@ -5886,18 +6056,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -5917,6 +6091,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -6024,6 +6199,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -6044,6 +6220,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -6151,6 +6328,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -6171,6 +6349,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -6289,6 +6468,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -6297,7 +6477,7 @@
                 }
               }
             },
-            "revision": "r15.3",
+            "revision": "r14.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "completed",
@@ -6309,18 +6489,18 @@
     {
       "name": "invalid_helper_routing (Copilot opt-out is app-wide)",
       "request": {
-        "commandId": "cmd_copilot_auto_project",
+        "commandId": "routing_cmd_022",
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
         "projectId": "proj_app",
-        "revision": "r15.3",
+        "revision": "r14.3",
         "scope": "project",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_copilot_auto_project",
+          "commandId": "routing_cmd_022",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "error": {
             "code": "invalid_helper_routing",
@@ -6335,17 +6515,17 @@
     {
       "name": "accepted Copilot Auto opt-in",
       "request": {
-        "commandId": "cmd_copilot_auto_on",
+        "commandId": "routing_cmd_023",
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
-        "revision": "r15.3",
+        "revision": "r14.3",
         "scope": "app",
         "type": "helperRouting.update",
         "version": 1
       },
       "response": {
         "body": {
-          "commandId": "cmd_copilot_auto_on",
+          "commandId": "routing_cmd_023",
           "epoch": "00000000-0000-4000-8000-000000000001",
           "result": {
             "auto": {
@@ -6358,6 +6538,11 @@
                 }
               },
               "source": "default"
+            },
+            "autoBudget": {
+              "editable": true,
+              "invalid": false,
+              "policy": null
             },
             "copilotAuto": true,
             "labels": {
@@ -6409,18 +6594,22 @@
                 "only_candidate": "The only provider available",
                 "persona_pinned": "Set by the persona",
                 "preset_on_cli": "From the helper settings for this difficulty",
+                "reset_urgency": "Preferred usable weekly budget before its reset",
                 "sticky": "Stayed on the provider chosen last",
                 "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
               },
               "skipped": {
+                "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
                 "auto_disabled": "Turned off for Auto in Settings",
                 "auto_not_supported": "Auto doesn’t support this provider yet",
+                "auto_reserve": "Auto’s configured reserve would be reached",
                 "cli_disabled": "Turned off in Settings",
                 "cli_unavailable": "Not available on this computer",
                 "cooling_down": "It failed to start recently",
                 "mapping_changed": "The mapping changed while this start was being prepared",
                 "no_valid_mapping": "No choice for this difficulty is offered now",
                 "quota_exhausted": "The provider reports its limit reached",
+                "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
                 "quota_near_limit": "Close to its limit"
               },
               "unknown": {
@@ -6440,6 +6629,7 @@
               "claude-code": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -6547,6 +6737,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -6567,6 +6758,7 @@
               "codex-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -6674,6 +6866,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": true,
                 "quota": {
                   "asOf": "2027-01-15T08:00:00.000Z",
                   "fiveHour": {
@@ -6694,6 +6887,7 @@
               "copilot-cli": {
                 "autoCandidate": true,
                 "autoEligible": true,
+                "available": true,
                 "cells": {
                   "easy": {
                     "builtin": {
@@ -6812,6 +7006,7 @@
                   ],
                   "source": "live"
                 },
+                "enabled": false,
                 "quota": {
                   "asOf": null,
                   "source": "none",
@@ -6820,7 +7015,7 @@
                 }
               }
             },
-            "revision": "r16.3",
+            "revision": "r15.3",
             "serverTime": "2027-01-15T08:00:00.000Z"
           },
           "status": "completed",
