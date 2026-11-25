@@ -9,8 +9,10 @@ import ClubhouseTransport
     // ARC-only teardown; reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
     let scope: CompanionTerminalScope
-    /// The `agentId` of every input, resize and output frame.
-    let id: String
+    /// The `agentId` of every input, resize and output frame. A shell's changes only when the person starts a new
+    /// one after it ended; a dropped connection, a reattach and "Try again" all keep it.
+    private(set) var id: String
+    private let makeSessionID: () -> String
     private let transport: any AnnexTransporting
     private var subscription: Task<AsyncStream<AnnexTerminalEvent>, Never>?
     private var listening: Task<Void, Never>?
@@ -23,9 +25,22 @@ import ClubhouseTransport
     private var pendingOutput: [(data: String, outputSeq: Int64?)] = []
     private var awaitingSnapshot = false
     private var snapshotSeq: Int64?
+    /// A shell the desktop has acked and that hasn't ended: after a dropped connection it may still be there to
+    /// reattach to, if the desktop keeps shells through one.
+    private var resumable = false
+    /// A spawn was sent and not yet acked. The desktop may have made the shell and lost only the ack, leaving it
+    /// detached and reclaimable; a spawn under the same id would replace it, so with `shellReattach` the phone
+    /// reattaches instead. A "not found" answer says no shell was made, and is shown: only the person's New shell
+    /// spawns, once, under a new id.
+    private var spawnUnacked = false
+    /// The reattach in flight is for a shell the phone never saw open.
+    private var reattachingUnopened = false
+    /// The shell ended (exit, or a refusal that ends this id): the next open is a new shell with a new id.
+    private var needsNewIdentity = false
 
-    init(transport: any AnnexTransporting, scope: CompanionTerminalScope, sessionID: String = UUID().uuidString) {
-        self.transport = transport; self.scope = scope
+    init(transport: any AnnexTransporting, scope: CompanionTerminalScope, sessionID: String = UUID().uuidString,
+         makeSessionID: @escaping () -> String = { UUID().uuidString }) {
+        self.transport = transport; self.scope = scope; self.makeSessionID = makeSessionID
         if case .agentPTY(let target) = scope { id = target.agentID } else { id = sessionID }
     }
 
@@ -60,19 +75,69 @@ import ClubhouseTransport
         _ = await subscription?.value
         let frame: AnnexTerminalFrame
         switch scope {
-        case .project(let project):
+        case .project, .agentShell:
             size = (cols, rows)
-            frame = .spawnShell(sessionID: id, projectID: project.projectID, agentID: nil)
-        case .agentShell(let target):
-            size = (cols, rows)
-            frame = .spawnShell(sessionID: id, projectID: target.projectID, agentID: target.agentID)
+            guard let shell = await shellFrame(cols: cols, rows: rows) else {
+                capabilityUnknown()
+                return
+            }
+            frame = shell
         case .agentPTY:
             pendingOutput = []; snapshotSeq = nil; awaitingSnapshot = true
             frame = .attach(agentID: id)
         }
         isOpen = false
         do { try await transport.sendTerminal(frame) }
-        catch { failed(error) }
+        catch {
+            if case .reattachShell = frame, case .unsupportedCapability? = error as? AnnexTransportError {
+                // The capability went away between the check and the send: the same unknown as above, not "update
+                // the desktop".
+                awaitingSnapshot = false; pendingOutput = []
+                capabilityUnknown()
+            } else {
+                failed(error)
+            }
+        }
+    }
+
+    /// Whether this desktop keeps shells isn't known right now, and the shell may still be there, so it is neither
+    /// respawned nor lost: all its state is kept and nothing is sent.
+    /// - While the transport is disconnected, a real connection edge is coming and reopens it: stay reconnecting.
+    ///   The channel's own `connected` is left to follow the transport.
+    /// - While it is connected (a capabilities read failed without a disconnect) no edge will come, so say so and let
+    ///   the person try again, which reattaches once the capability is known, or fails the same way.
+    private func capabilityUnknown() {
+        if connected {
+            isOpen = false
+            yield(.failed(Self.message(for: "terminal_unavailable")))
+        } else {
+            connectionLost()
+        }
+    }
+
+    /// A shell opens one of three ways. Its desktop kept it through the drop: reattach, same id, and never fall back
+    /// to a spawn. The desktop doesn't keep shells: a spawn under the same id, as before. It ended, or the person asks
+    /// for a new one: a spawn under a new id.
+    /// Nil when a shell that may still be on the desktop can't be opened yet because the capability isn't known.
+    private func shellFrame(cols: Int, rows: Int) async -> AnnexTerminalFrame? {
+        if resumable || spawnUnacked {
+            switch await transport.supportsShellReattach() {
+            case nil: return nil
+            case true?:
+                pendingOutput = []; snapshotSeq = nil; awaitingSnapshot = true
+                reattachingUnopened = !resumable
+                return .reattachShell(sessionID: id, cols: cols, rows: rows)
+            case false?: break
+            }
+        }
+        if needsNewIdentity { id = makeSessionID(); needsNewIdentity = false }
+        resumable = false; reattachingUnopened = false; awaitingSnapshot = false; snapshotSeq = nil; pendingOutput = []
+        spawnUnacked = true
+        switch scope {
+        case .project(let project): return .spawnShell(sessionID: id, projectID: project.projectID, agentID: nil)
+        case .agentShell(let target): return .spawnShell(sessionID: id, projectID: target.projectID, agentID: target.agentID)
+        case .agentPTY(let target): return .attach(agentID: target.agentID)
+        }
     }
 
     func send(_ input: String) async throws {
@@ -100,8 +165,12 @@ import ClubhouseTransport
     private func failed(_ error: Error) {
         switch error as? AnnexTransportError {
         case .disconnected?: connectionLost()
-        case .unsupportedCapability?: yield(.failed(CompanionTerminalAvailability.updateDesktop))
-        default: yield(.failed(CompanionLiveService.readableError(error)))
+        case .unsupportedCapability?:
+            if scope.resizesPTY { spawnUnacked = false; needsNewIdentity = true }
+            yield(.failed(CompanionTerminalAvailability.updateDesktop))
+        default:
+            if scope.resizesPTY { spawnUnacked = false; needsNewIdentity = true }
+            yield(.failed(CompanionLiveService.readableError(error)))
         }
     }
 
@@ -128,8 +197,17 @@ import ClubhouseTransport
         switch type {
         case "pty:spawn-shell:ack":
             guard scope.resizesPTY else { return }
-            isOpen = true
+            isOpen = true; resumable = true; spawnUnacked = false
             yield(.opened(cwd: payload["cwd"]?.string, snapshot: nil, cols: nil, rows: nil))
+        case "pty:reattach-shell:ack":
+            // Like an attach: a snapshot, the output that raced ahead of it after it, and only what it lacks.
+            guard scope.resizesPTY, awaitingSnapshot else { return }
+            isOpen = true; resumable = true; spawnUnacked = false; reattachingUnopened = false; awaitingSnapshot = false
+            snapshotSeq = payload["outputSeq"]?.integer
+            yield(.opened(cwd: payload["cwd"]?.string, snapshot: payload["buffer"]?.string ?? "", cols: Self.int(payload["cols"]), rows: Self.int(payload["rows"])))
+            let early = pendingOutput
+            pendingOutput = []
+            for frame in early { output(frame.data, outputSeq: frame.outputSeq) }
         case "pty:attach:ack":
             guard !scope.resizesPTY else { return }
             isOpen = true; awaitingSnapshot = false
@@ -148,20 +226,54 @@ import ClubhouseTransport
         case "pty:exit":
             guard isOpen || awaitingSnapshot else { return }
             isOpen = false; awaitingSnapshot = false
+            if scope.resizesPTY { resumable = false; spawnUnacked = false; needsNewIdentity = true }
             yield(.exited(code: Self.int(payload["exitCode"])))
         case "error":
-            let code = payload["message"]?.string ?? ""
+            let code = payload["code"]?.string ?? payload["message"]?.string ?? ""
+            // The desktop's reason may come as `code` or as `message`; a refused input is recognized in either.
+            let refusedInput = [payload["code"]?.string, payload["message"]?.string].contains { $0?.hasPrefix("pty:input") == true }
             switch payload["op"]?.string {
             case "pty:resize": return
+            case "pty:reattach-shell": reattachFailed(code, payload)
             // A refused input clears queued keys/paste without reopening or replacing the terminal.
-            case "pty:input" where code.hasPrefix("pty:input"):
+            case "pty:input" where refusedInput:
                 yield(.inputRejected(CompanionTerminalSession.inputRefusedMessage))
             default:
                 awaitingSnapshot = false
                 isOpen = false
+                // A refused spawn or attach leaves no shell under this id: the next try is a new one.
+                if scope.resizesPTY { resumable = false; spawnUnacked = false; needsNewIdentity = true }
                 yield(.failed(Self.message(for: code)))
             }
         default: break
+        }
+    }
+
+    /// A refused reattach never becomes a spawn: the person decides. Only an unreachable shell (`terminal_unavailable`) or
+    /// a busy desktop (`busy`: refused before anything was claimed, the shell still detached) may be tried again
+    /// under the same id; every other answer says the shell is gone or the id unusable, so "New shell" takes a new id.
+    private func reattachFailed(_ code: String, _ payload: AnnexJSON) {
+        awaitingSnapshot = false; pendingOutput = []
+        isOpen = false
+        let unopened = reattachingUnopened
+        reattachingUnopened = false
+        if unopened, code == "session_not_found" || code == "invalid_session_id" {
+            // No shell was ever made under this id. That is still a refusal, shown to the person: only their
+            // "New shell" starts one, under a new id, so nothing is spawned behind their back.
+            resumable = false; spawnUnacked = false; needsNewIdentity = true
+            yield(.failed(Self.neverStartedMessage))
+            return
+        }
+        if code == "session_exited" {
+            resumable = false; spawnUnacked = false; needsNewIdentity = true
+            yield(.exited(code: Self.int(payload["exitCode"])))
+        } else if code == "terminal_unavailable" || code == "busy" {
+            yield(.failed(Self.message(for: code)))
+        } else {
+            resumable = false; spawnUnacked = false; needsNewIdentity = true
+            let known: Set<String> = ["session_expired", "session_not_found", "invalid_session_id", "session_in_use", "authorization_revoked",
+                                      "too_many_shells", "internal_error", ""]
+            yield(.failed(known.contains(code) ? Self.message(for: code) : "The desktop couldn't reattach this shell: \(code)"))
         }
     }
 
@@ -172,6 +284,8 @@ import ClubhouseTransport
 
     private static func int(_ value: AnnexJSON?) -> Int? { value?.int }
 
+    static let neverStartedMessage = "This shell didn't start before the connection dropped."
+
     /// The desktop's error codes in the phone's words. A failed spawn sends the shell's own error text.
     nonisolated static func message(for code: String) -> String {
         switch code {
@@ -180,6 +294,10 @@ import ClubhouseTransport
         case "agent_not_running": "This agent isn't running. Start it on your desktop to see its terminal."
         case "agent_not_terminal": "This agent doesn't run in a terminal."
         case "too_many_shells": "Too many terminals are open from this phone. Close one and try again."
+        case "session_expired": "The desktop ended this shell after it was away too long."
+        case "terminal_unavailable": "The desktop couldn't reach this shell right now. Try again."
+        case "busy": "The desktop is busy. Try again in a moment."
+        case "authorization_revoked": "This phone's access to the desktop was revoked. Pair it again to open terminals."
         case "session_in_use", "session_not_found", "invalid_session_id": "The desktop lost track of this terminal. Open it again."
         case "internal_error", "": "The desktop couldn't open this terminal. Try again."
         case "Control messages require mTLS authentication": "Pair this desktop again to open terminals."

@@ -247,6 +247,11 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     }
 
     static let inputRefusedMessage = "Paste stopped because the desktop refused terminal input. Some text may already have been sent."
+    /// Printed when the person starts a new shell (after an exit or a failure), so it never replaces one silently.
+    static let restartedShellNotice = "New shell started. The previous one has ended."
+    /// Printed into a shell that was started again after the connection dropped. The desktop ends a phone's shells
+    /// when its connection goes, so nothing that ran in the old one is still running.
+    static let newShellNotice = "Reconnected. The desktop ended the previous shell and its programs when the connection dropped. This is a new shell."
 
     let scope: CompanionTerminalScope
     let title: String
@@ -257,6 +262,10 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     /// The shell's working directory from the desktop.
     private(set) var cwd: String?
     private(set) var inputError: String?
+    /// Web links in the output, newest first. Updated shortly after output that could hold one, and by `refreshLinks`.
+    private(set) var links: [CompanionTerminalLink] = []
+    /// The link open in the in-app browser, if any.
+    private(set) var browserLink: CompanionTerminalLink?
     /// The next typed character is sent with Ctrl, from the accessory bar's Ctrl key.
     var controlArmed = false
     @ObservationIgnored private let channel: any CompanionTerminalChannel
@@ -264,6 +273,11 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     @ObservationIgnored private var outbox: [String] = []
     @ObservationIgnored private var flushing = false
     @ObservationIgnored private var hasOpened = false
+    /// The next open was asked for by the person (New shell, Try again), not by the connection coming back.
+    @ObservationIgnored private var restartedByPerson = false
+    @ObservationIgnored private var linkRefresh: Task<Void, Never>?
+    /// The end of the output before, for an address or hyperlink start that arrives split across two messages.
+    @ObservationIgnored private var outputTail = ""
 
     init(scope: CompanionTerminalScope, title: String, channel: any CompanionTerminalChannel, cols: Int = 80, rows: Int = 24) {
         self.scope = scope; self.title = title; self.channel = channel
@@ -297,6 +311,7 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     /// After an exit or failure: a new shell, or the agent's terminal again.
     func restart() {
         guard state != .closed, !state.isLive else { return }
+        restartedByPerson = true
         open()
     }
 
@@ -304,9 +319,36 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         guard state != .closed else { return }
         state = .closed
         listening?.cancel(); listening = nil
+        linkRefresh?.cancel(); linkRefresh = nil
+        browserLink = nil
         outbox = []
         Task { await channel.close() }
     }
+
+    // MARK: Links
+
+    func refreshLinks() {
+        linkRefresh?.cancel(); linkRefresh = nil
+        let current = screen.links()
+        if current != links { links = current }
+    }
+
+    /// Output that may hold a link refreshes the list, at most four times a second however fast output arrives.
+    private func noteOutput(_ text: String) {
+        let window = outputTail + text
+        outputTail = String(window.suffix(8))
+        guard linkRefresh == nil, !links.isEmpty || window.localizedCaseInsensitiveContains("http") || window.contains("\u{1B}]8;") else { return }
+        linkRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.refreshLinks()
+        }
+    }
+
+    /// Shows a link in the in-app browser. The app stays in front, so the desktop keeps this shell: the person
+    /// authorizes in the page, then comes back and pastes what it gives them into the same shell.
+    func openInBrowser(_ link: CompanionTerminalLink) { browserLink = link }
+    func browserDismissed() { browserLink = nil }
 
     func apply(_ event: CompanionTerminalChannelEvent) {
         guard state != .closed else { return }
@@ -314,12 +356,18 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         case .opened(let cwd, let snapshot, let cols, let rows):
             if let cwd { self.cwd = cwd }
             if let snapshot {
+                // A shell reattached after a dropped connection is drawn at the size it had, then follows the phone's
+                // again (below); an agent's PTY keeps the desktop's.
+                let phone = (cols: screen.cols, rows: screen.rows)
                 screen = CompanionTerminalScreen(cols: cols ?? screen.cols, rows: rows ?? screen.rows)
                 screen.feed(snapshot)
+                if scope.resizesPTY { screen.resize(cols: phone.cols, rows: phone.rows) }
+                noteOutput(snapshot)
             } else if hasOpened, scope.resizesPTY {
-                // The desktop killed the old shell when the connection dropped.
-                notice("Reconnected. This is a new shell.")
+                // The desktop ended the old shell, and the programs in it, when the connection dropped.
+                notice(restartedByPerson ? Self.restartedShellNotice : Self.newShellNotice)
             }
+            restartedByPerson = false
             inputError = nil
             hasOpened = true
             state = .running
@@ -332,11 +380,14 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         case .output(let text):
             screen.feed(text)
             for reply in screen.takeReplies() { enqueue(reply) }
+            noteOutput(text)
             changed()
         case .exited(let code):
+            restartedByPerson = false
             state = .exited(code: code)
             notice(code.map { "Process exited with code \($0)." } ?? "Process exited.")
         case .failed(let message):
+            restartedByPerson = false
             state = .failed(message)
         case .inputRejected(let message):
             outbox = []

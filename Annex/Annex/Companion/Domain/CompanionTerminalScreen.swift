@@ -23,6 +23,11 @@ struct CompanionTerminalScreen: Sendable {
         /// One character, with any combining marks that follow it.
         var text: String = " "
         var style = Style()
+        /// On a row's last cell: output ran past the last column and autowrapped onto the next row, rather than
+        /// the program ending the line. It's what lets `logicalLines()` join a long URL the screen wrapped.
+        var wrapsToNextRow = false
+        /// The OSC 8 hyperlink this cell belongs to: an index into the screen's link table, 0 for none.
+        var link: UInt32 = 0
         var isBlank: Bool { text == " " && style == Style() }
     }
 
@@ -61,11 +66,19 @@ struct CompanionTerminalScreen: Sendable {
     private var primary: (grid: [[Cell]], row: Int, col: Int)?
     private var lastPrinted: String?
     private var state = ParseState.ground
+    /// OSC 8 targets (http and https only) in the order first seen; a cell's `link` is its index plus one.
+    private(set) var linkTargets: [String] = []
+    private var linkIDs: [String: UInt32] = [:]
+    private var activeLink: UInt32 = 0
+    /// Distinct hyperlink targets kept; past it, new ones are drawn as plain text.
+    static let linkTargetLimit = 1024
+    /// An OSC string longer than this is dropped rather than buffered; a hyperlink cut short is never trusted.
+    static let stringLimit = 2048
 
     private enum ParseState: Sendable {
         case ground, escape, charset
         case csi(String)
-        /// OSC, DCS, APC and PM strings run to BEL or ST; only OSC titles are kept.
+        /// OSC, DCS, APC and PM strings run to BEL or ST; only OSC titles and OSC 8 hyperlinks are kept.
         case string(String, isOSC: Bool)
         case stringEscape(String, isOSC: Bool)
     }
@@ -141,7 +154,7 @@ struct CompanionTerminalScreen: Sendable {
             case 0x07: finishString(buffer, isOSC: isOSC)
             case 0x1B: state = .stringEscape(buffer, isOSC: isOSC)
             case 0x18, 0x1A: state = .ground
-            default: state = .string(buffer.count > 512 ? buffer : buffer + String(Character(scalar)), isOSC: isOSC)
+            default: state = .string(buffer.utf8.count > Self.stringLimit ? buffer : buffer + String(Character(scalar)), isOSC: isOSC)
             }
         case .stringEscape(let buffer, let isOSC):
             if scalar == "\\" { finishString(buffer, isOSC: isOSC) } else { state = .ground; process(scalar) }
@@ -181,8 +194,26 @@ struct CompanionTerminalScreen: Sendable {
     private mutating func finishString(_ buffer: String, isOSC: Bool) {
         state = .ground
         guard isOSC else { return }
+        // OSC 8 ; params ; URI starts a hyperlink, and an empty URI ends it.
+        let link = buffer.split(separator: ";", maxSplits: 2, omittingEmptySubsequences: false)
+        if link.count == 3, link[0] == "8" {
+            setHyperlink(String(link[2]), truncated: buffer.utf8.count > Self.stringLimit)
+            return
+        }
         let parts = buffer.split(separator: ";", maxSplits: 1, omittingEmptySubsequences: false)
         if parts.count == 2, parts[0] == "0" || parts[0] == "2" { title = String(parts[1]) }
+    }
+
+    private mutating func setHyperlink(_ target: String, truncated: Bool) {
+        activeLink = 0
+        // Only a complete http(s) target is kept: it is what the in-app browser opens, and it is shown as it is,
+        // never as the text the program drew over it.
+        guard !truncated, CompanionTerminalLink(target) != nil else { return }
+        if let id = linkIDs[target] { activeLink = id; return }
+        guard linkTargets.count < Self.linkTargetLimit else { return }
+        linkTargets.append(target)
+        activeLink = UInt32(linkTargets.count)
+        linkIDs[target] = activeLink
     }
 
     // MARK: Printing
@@ -196,10 +227,14 @@ struct CompanionTerminalScreen: Sendable {
         }
         if pendingWrap {
             pendingWrap = false
-            if autowrap { cursorCol = 0; lineFeed() }
+            if autowrap {
+                // The row goes on below, not ends: remember it so a wrapped URL can be put back together.
+                grid[cursorRow][cols - 1].wrapsToNextRow = true
+                cursorCol = 0; lineFeed()
+            }
         }
         let text = String(Character(scalar))
-        grid[cursorRow][cursorCol] = Cell(text: text, style: style)
+        grid[cursorRow][cursorCol] = Cell(text: text, style: style, link: activeLink)
         lastPrinted = text
         if cursorCol == cols - 1 { pendingWrap = true } else { cursorCol += 1 }
     }
@@ -232,6 +267,14 @@ struct CompanionTerminalScreen: Sendable {
         if scrollTop == 0 && !isAlternateScreen { pushScrollback(removed) }
         grid.removeSubrange(scrollTop..<(scrollTop + count))
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: scrollBottom - count + 1)
+        // A row above a region that scrolls up no longer continues into what is now at its top. (At the top of the
+        // screen the removed rows join scrollback, which still precedes the rest.)
+        clearWrap(scrollTop - 1)
+    }
+
+    /// Rows that no longer follow one another must not stay joined: only the row before a change can go on into it.
+    private mutating func clearWrap(_ row: Int) {
+        if grid.indices.contains(row) { grid[row][cols - 1].wrapsToNextRow = false }
     }
 
     private mutating func scrollDown(_ count: Int) {
@@ -239,6 +282,7 @@ struct CompanionTerminalScreen: Sendable {
         guard count > 0 else { return }
         grid.removeSubrange((scrollBottom - count + 1)...scrollBottom)
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: scrollTop)
+        clearWrap(scrollTop - 1); clearWrap(scrollBottom)
     }
 
     private mutating func pushScrollback<S: Sequence>(_ lines: S) where S.Element == [Cell] {
@@ -408,6 +452,8 @@ struct CompanionTerminalScreen: Sendable {
         let count = min(count, scrollBottom - cursorRow + 1)
         grid.removeSubrange((scrollBottom - count + 1)...scrollBottom)
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: cursorRow)
+        // The row above now ends at the new blank rows, and the region's last row is followed by what is outside it.
+        clearWrap(cursorRow - 1); clearWrap(scrollBottom)
         cursorCol = 0
     }
 
@@ -415,6 +461,8 @@ struct CompanionTerminalScreen: Sendable {
         let count = min(count, scrollBottom - cursorRow + 1)
         grid.removeSubrange(cursorRow..<(cursorRow + count))
         grid.insert(contentsOf: Array(repeating: blankRow, count: count), at: scrollBottom - count + 1)
+        // The row above no longer continues into the row it did: what follows it is another line.
+        clearWrap(cursorRow - 1)
         cursorCol = 0
     }
 
@@ -427,9 +475,9 @@ struct CompanionTerminalScreen: Sendable {
 
     /// RIS: a fresh screen, keeping the size and scrollback.
     private mutating func reset() {
-        let history = scrollback
+        let history = scrollback, targets = linkTargets, ids = linkIDs
         self = CompanionTerminalScreen(cols: cols, rows: rows)
-        scrollback = history
+        scrollback = history; linkTargets = targets; linkIDs = ids
     }
 
     // MARK: Output
@@ -460,6 +508,36 @@ struct CompanionTerminalScreen: Sendable {
             }
         }
         return runs
+    }
+
+    /// Scrollback and the screen as logical lines: rows the screen wrapped are joined back into the line the program
+    /// wrote, and a hard newline always starts a new one. A wrapped row keeps its full width, so text split at the
+    /// edge comes out exact; the end of any other row loses its blank cells. While a program holds the alternate
+    /// screen, the main screen it hides comes first and the alternate screen is its own lines.
+    /// Lines wrapped before a resize are not reflowed, so the old wrap points stay where they were.
+    func logicalLines() -> [[Cell]] {
+        var lines: [[Cell]] = []
+        func join(_ rows: [[Cell]]) {
+            var current: [Cell] = []
+            for row in rows {
+                if row.last?.wrapsToNextRow == true {
+                    current += row
+                } else {
+                    current += row.prefix((row.lastIndex { !$0.isBlank } ?? -1) + 1)
+                    lines.append(current)
+                    current = []
+                }
+            }
+            if !current.isEmpty { lines.append(current) }
+            while lines.last?.isEmpty == true { lines.removeLast() }
+        }
+        if isAlternateScreen {
+            join(scrollback + (primary?.grid ?? []))
+            join(grid)
+        } else {
+            join(scrollback + grid)
+        }
+        return lines
     }
 
     /// Everything on screen and in scrollback as plain text, for Copy all.

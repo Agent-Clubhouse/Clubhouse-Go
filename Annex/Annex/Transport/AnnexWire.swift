@@ -149,6 +149,9 @@ nonisolated public protocol AnnexTransporting: Sendable {
     func terminalEvents() async -> AsyncStream<AnnexTerminalEvent>
     /// Sends one terminal message over the WebSocket. `pty:input` longer than the desktop's cap is split.
     func sendTerminal(_ frame: AnnexTerminalFrame) async throws
+    /// Whether the desktop keeps a shell through a dropped connection and takes `pty:reattach-shell`. Nil while the
+    /// answer isn't known (not connected, or capabilities not read yet), which is not "no".
+    func supportsShellReattach() async -> Bool?
 }
 
 nonisolated public extension AnnexTransporting {
@@ -160,4 +163,5 @@ nonisolated public extension AnnexTransporting {
     }
     func terminalEvents() async -> AsyncStream<AnnexTerminalEvent> { AsyncStream { $0.finish() } }
     func sendTerminal(_ frame: AnnexTerminalFrame) async throws { throw AnnexTransportError.unsupportedCapability("terminal") }
+    func supportsShellReattach() async -> Bool? { false }
 }

@@ -113,6 +113,51 @@ final class CompanionTerminalUITests: ReliableUITestCase {
         waitAndTap(app.buttons["terminal-done"], untilGone: output, timeout: 5, "Done closes the terminal")
     }
 
+    /// A login round trip with an invented address: the shell prints a long wrapped URL, Links lists it, Open shows it in
+    /// the in-app browser, and Done returns to the same shell, which still echoes, with the keyboard and Paste usable.
+    func testLinksOpenInTheInAppBrowserAndReturnToTheSameShell() {
+        let app = launchApp(["--companion-preview"], attempts: 1)
+        let output = openProjectTerminal(app)
+        waitForOutput(output, containing: "clubhouse %")
+        XCTAssertFalse(element(app, "terminal-links").exists, "No Links action before the terminal has shown a link")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.typeText("echo before login\n")
+        waitForOutput(output, containing: "\nbefore login\n")
+        app.typeText("links\n")
+        waitForOutput(output, containing: "Paste code here")
+        let links = element(app, "terminal-links")
+        XCTAssertTrue(links.waitForExistence(timeout: 5), "A shown link adds the Links action")
+        screenshot(app, "Terminal with Links action")
+        links.tap()
+        let open = element(app, "terminal-link-open-0")
+        XCTAssertTrue(open.waitForExistence(timeout: 5), "Links offers Open for the address")
+        XCTAssertTrue(element(app, "terminal-link-copy-0").exists, "Links offers Copy for the address")
+        let shown = element(app, "terminal-link-text-0")
+        XCTAssertTrue((shown.label).hasPrefix("https://claude.example.test/oauth/authorize?code=true&client_id=SYNTH"), "The address is shown as printed: \(shown.label)")
+        XCTAssertTrue(shown.label.hasSuffix("SYNTHCHALLENGE0123456789abcdefghijklmnopqrs"), "The whole wrapped address is listed")
+        screenshot(app, "Links sheet")
+        open.tap()
+        // The in-app browser covers the app; the page itself can't load an invented address, and that's fine.
+        // Safari's own bar and Done button (identifier "Close"); the terminal's Done is a different control.
+        XCTAssertTrue(element(app, "TopBrowserBar").waitForExistence(timeout: 15), "Open shows the address in the in-app browser")
+        let done = app.buttons["Close"]
+        XCTAssertTrue(done.waitForExistence(timeout: 5), "The in-app browser has its Done button")
+        XCTAssertEqual(app.state, .runningForeground, "The app stays in the foreground")
+        XCTAssertFalse(element(app, "terminal-output").isHittable, "The browser covers the terminal")
+        screenshot(app, "In-app browser")
+        done.tap()
+        XCTAssertTrue(output.waitForExistence(timeout: 10), "Dismissing the browser returns to the terminal")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "The keyboard comes back with the terminal")
+        XCTAssertTrue(element(app, "terminal-paste").isEnabled, "Paste is usable again")
+        XCTAssertFalse(app.staticTexts.containing(NSPredicate(format: "label CONTAINS %@", "Reconnecting")).firstMatch.exists)
+        // The same shell: it still has the earlier command's output and still takes input.
+        waitForOutput(output, containing: "\nbefore login\n")
+        app.typeText("echo SYNTH-CODE-1234\n")
+        waitForOutput(output, containing: "\nSYNTH-CODE-1234\n")
+        XCTAssertFalse((output.value as? String ?? "").contains("new shell"), "No new shell was started")
+        screenshot(app, "Back in the same shell")
+    }
+
     func testPasteButtonSendsBytesWithKeyboardShownAndHidden() {
         let app = launchApp(["--companion-preview", "--companion-preview-terminal-input-audit"])
         let output = openProjectTerminal(app)
