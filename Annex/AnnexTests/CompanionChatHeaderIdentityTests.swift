@@ -35,6 +35,31 @@ import Observation
         await CompanionIconStore.shared.remove(host: hostID)
     }
 
+    /// UIKit can offer the title less room before the asynchronous bar-width sample catches up.
+    /// Exercise the real identity and the production width modifier, not a copy of the layout arithmetic.
+    func testStaleWidePrincipalRequestAcceptsNarrowNativeProposal() {
+        let agent = CompanionAgent(id: .init(hostID: "header-width", projectID: "fixture", agentID: "header"),
+                                   name: "Clubhouse-Orchestrator — streaming release coordination",
+                                   subtitle: "", status: .working, model: nil, capabilities: [])
+        // A 956pt bar requested 706pt. The portrait bar's native title slot can already be 143pt
+        // while SwiftUI still has that old request. Include a still narrower Back/leading-item slot.
+        for requested in [CGFloat(706), 190] {
+            let controller = UIHostingController(rootView:
+                CompanionConversationIdentityButton(agent: agent, isExpanded: .constant(false),
+                                                    accessibilityLabel: agent.name)
+                    .modifier(CompanionHeaderPrincipalWidth(maximumWidth: requested)))
+            for proposed in [CGFloat(64), 143, 190] where proposed < requested {
+                let size = controller.sizeThatFits(in: CGSize(width: proposed, height: 88))
+                print("HEADER_WIDTH requested=\(requested) proposed=\(proposed) actual=\(size)")
+                XCTAssertLessThanOrEqual(size.width, proposed + 0.5,
+                                        "A stale wide request must yield to the native title slot before its measurement updates")
+                XCTAssertGreaterThanOrEqual(size.height, 44, "The identity keeps its usable target")
+            }
+            let wide = controller.sizeThatFits(in: CGSize(width: 956, height: 88))
+            XCTAssertEqual(wide.width, requested, accuracy: 0.5, "Available room still uses the requested balanced width")
+        }
+    }
+
     private func checkHeaderIdentity(hostID: String) async throws {
         var agent = CompanionAgent(id: .init(hostID: hostID, projectID: "fixture", agentID: "header"),
                                    name: "Header fixture", subtitle: "", status: .idle, model: nil,
