@@ -289,8 +289,8 @@ import UIKit
                 "Prior-generation geometry cannot be accepted")
     }
 
-    /// Main retains the request after use: it runs once again on a later opening. This test preserves that policy.
-    @Test func aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest() async throws {
+    /// A hidden request survives until reveal, but the same UUID cannot replay on a later mount.
+    @Test func aHiddenShowInChatRequestRunsOncePerUUIDAcrossReveals() async throws {
         let f = try await Fixture()
         defer { f.navigation.jump = nil; f.close() }
         var samples: [CompanionReadingOpeningProbe.Sample] = []
@@ -317,9 +317,64 @@ import UIKit
         f.navigation.visible = false
         try await f.settle()
         #expect(samples.filter { $0.phase == .jump }.count == 2)
+        let priorMount = try #require(samples.last { $0.phase == .body }?.mountID)
+        let bookmark = f.store.readingBookmark(for: f.agents[0].id)
+        bookmark.position = .init(followsLatest: false, entryID: "message:reading-140", shownEntries: 300)
+        bookmark.hasMounted = true
         f.navigation.visible = true
-        try await f.wait { samples.filter { $0.phase == .jump }.count == 3 }
-        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id, second.id])
+        try await f.wait { samples.contains { $0.phase == .body && $0.mountID != priorMount } }
+        for _ in 0..<3 { try await f.settle() }
+        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
+        #expect(samples.last { $0.phase == .body }?.windowStartID == "message:reading-140",
+                "The person's later saved reading position remains the opening authority")
+    }
+
+    @Test func anAdmittedShowInChatRequestIsConsumedWhenRestorationIsCancelled() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause()
+        CompanionReadingRestoreProbe.deliver = { _, _, _, _ in false }
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        f.mount()
+        try await f.wait { samples.contains { $0.phase == .body } }
+        let request = CompanionDecisionChatJump(itemID: "message:reading-100")
+        f.navigation.jump = request
+        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
+        try await f.wait { samples.contains { $0.phase == .jump } && viewport.restoration?.outcome == nil }
+        f.navigation.visible = false
+        try await f.wait { samples.contains { $0.phase == .unmounted } }
+        let priorMount = try #require(samples.last { $0.phase == .body }?.mountID)
+        f.navigation.visible = true
+        try await f.wait { samples.contains { $0.phase == .body && $0.mountID != priorMount } }
+        for _ in 0..<3 { try await f.settle() }
+        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [request.id])
+    }
+
+    @Test func aNewShowInChatRequestSurvivesAnOlderRestorationCancellation() async throws {
+        let f = try await Fixture()
+        defer { f.close() }
+        f.pause()
+        CompanionReadingRestoreProbe.deliver = { _, _, _, _ in false }
+        var samples: [CompanionReadingOpeningProbe.Sample] = []
+        CompanionReadingOpeningProbe.record = { samples.append($0) }
+        f.mount()
+        try await f.wait { samples.contains { $0.phase == .body } }
+        let first = CompanionDecisionChatJump(itemID: "message:reading-100")
+        let next = CompanionDecisionChatJump(itemID: "message:reading-110")
+        f.navigation.jump = first
+        let viewport = f.store.readingBookmark(for: f.agents[0].id).viewport
+        try await f.wait { samples.filter { $0.phase == .jump }.count == 1 && viewport.restoration?.outcome == nil }
+        f.navigation.jump = next
+        try await f.wait { samples.filter { $0.phase == .jump }.count == 2 }
+        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, next.id])
+        f.navigation.visible = false
+        try await f.wait { samples.contains { $0.phase == .unmounted } }
+        let priorMount = try #require(samples.last { $0.phase == .body }?.mountID)
+        f.navigation.visible = true
+        try await f.wait { samples.contains { $0.phase == .body && $0.mountID != priorMount } }
+        for _ in 0..<3 { try await f.settle() }
+        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, next.id])
     }
 
 
