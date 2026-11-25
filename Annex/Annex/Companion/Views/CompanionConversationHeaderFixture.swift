@@ -71,10 +71,19 @@ struct CompanionConversationHeaderFixture: View {
         // `--companion-preview-toolbar-scheme-flip` (#534): a synthetic mismatch. The palette keeps the launch
         // appearance while the conversation and its bar items see the opposite colorScheme. It shows the bar glass
         // keeps to the palette over an opposite environment, not that this is how iOS 27 drew it white.
-        .environment(\.colorScheme, arguments.contains("--companion-preview-toolbar-scheme-flip") != isLight ? .light : .dark)
+        .environment(\.colorScheme, independentLightSystem || arguments.contains("--companion-preview-toolbar-scheme-flip") != isLight ? .light : .dark)
+        .overlay(alignment: .bottomLeading) {
+            if independentLightSystem || arguments.contains("--companion-header-contrast-evidence") {
+                CompanionHeaderAppearanceProbe(connection: store.host(for: target).map { String(describing: $0.connection) } ?? "unavailable")
+                    .frame(width: 1, height: 1).allowsHitTesting(false)
+            }
+        }
+        .modifier(CompanionHeaderIndependentPalette(enabled: independentLightSystem, theme: theme))
     }
 
     private var isLight: Bool { arguments.contains("--companion-header-light") }
+    /// A dark app palette under a genuinely Light window, not merely an inner SwiftUI scheme flip.
+    private var independentLightSystem: Bool { arguments.contains("--companion-header-independent-light-system") }
 
 
     var body: some View {
@@ -137,7 +146,7 @@ struct CompanionConversationHeaderFixture: View {
             }
         }
         .companionTheme(theme)
-        .preferredColorScheme(isLight ? .light : .dark)
+        .preferredColorScheme(independentLightSystem || isLight ? .light : .dark)
         .task {
             guard !ready else { return }
             var host = CompanionPreviewService.hosts(now: .now, helperRequests: CompanionPreviewService.helperRequests,
@@ -249,6 +258,43 @@ struct CompanionConversationHeaderFixture: View {
         hosts[0].projects[0].agents[0].icon = icon
         store.apply(.hosts(hosts))
         imageVersion = next
+    }
+}
+
+/// Test-only separation of the app palette from its UIKit window appearance. Normal launches use CompanionThemed.
+private struct CompanionHeaderIndependentPalette: ViewModifier {
+    let enabled: Bool
+    let theme: CompanionDesktopTheme
+    @ViewBuilder func body(content: Content) -> some View {
+        if enabled {
+            let palette = CompanionPalette(theme: theme, dark: true)
+            content.environment(\.companionPalette, palette)
+                .foregroundStyle(Color(palette.label)).tint(Color(palette.tint))
+        } else { content }
+    }
+}
+
+/// Reads actual mounted UIKit traits; the requested flag alone is not appearance evidence.
+private struct CompanionHeaderAppearanceProbe: UIViewRepresentable {
+    let connection: String
+    @Environment(\.companionPalette) private var palette
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.isAccessibilityElement = true
+        view.accessibilityIdentifier = "header-fixture-appearance"
+        view.accessibilityLabel = "Synthetic header appearance"
+        return view
+    }
+    func updateUIView(_ view: UIView, context: Context) {
+        let paletteSide = palette.isDark ? "dark" : "light"
+        let connection = connection
+        DispatchQueue.main.async { [weak view] in
+            guard let view else { return }
+            func name(_ style: UIUserInterfaceStyle?) -> String {
+                switch style { case .light: "light"; case .dark: "dark"; default: "unavailable" }
+            }
+            view.accessibilityValue = "palette=\(paletteSide) window=\(name(view.window?.traitCollection.userInterfaceStyle)) view=\(name(view.traitCollection.userInterfaceStyle)) screen=\(name(view.window?.screen.traitCollection.userInterfaceStyle)) connection=\(connection)"
+        }
     }
 }
 

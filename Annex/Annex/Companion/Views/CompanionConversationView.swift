@@ -202,7 +202,7 @@ struct CompanionConversationView: View {
                         .allowsHitTesting(false).accessibilityHidden(true)
                 }
                 .sharedBackgroundVisibility(.hidden)
-                // Identity and actions draw their own glass over the theme card.
+                // Identity and actions draw their own palette cards, independently of native bar glass.
                 ToolbarItem(placement: .principal) {
                     CompanionConversationIdentityButton(agent: agent, isExpanded: $showHeaderDetails,
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
@@ -262,7 +262,7 @@ struct CompanionConversationView: View {
                     }
                     .buttonStyle(.plain)
                     .companionToolbarSecondary()
-                    .companionToolbarCardGlass()
+                    .companionToolbarCard()
                     .accessibilityElement(children: .contain)
                     .accessibilityIdentifier("companion-chat-header-actions")
                     .frame(width: headerTrailingReservation, alignment: .trailing)

@@ -25,7 +25,7 @@ struct CompanionConversationIdentityButton: View {
         }
         .foregroundStyle(Color(palette.label))
         .padding(.horizontal, 9).padding(.vertical, 3)
-        .companionToolbarCardGlass()
+        .companionToolbarCard()
     }
 
     /// Like Messages: the photo centred over a small name pill, floating over the transcript. A short (landscape)
@@ -159,18 +159,21 @@ extension View {
         background { CompanionCardGlass(shape: shape, interactive: interactive) }
     }
 
-    /// Interactive card glass for a header bar control, pinned to the palette's appearance (#534). On iOS 27.2 the
-    /// name pill and the trailing actions pill drew as white glass under the dark theme's light labels, while the
-    /// same glass off the bar (Latest) stayed dark. The likeliest, unproven, cause is that the bar's hosts adapt
-    /// their own appearance; pinning keeps the glass and its content on the palette's side either way.
-    func companionToolbarCardGlass() -> some View { modifier(CompanionToolbarCardGlass()) }
+    /// These two toolbar pills use the palette's opaque card. They still appeared white on a dark palette
+    /// after #548 pinned the appearance; the platform cause is unproven. Keep fill and labels outside glass rendering.
+    /// Other card glass, native bar buttons and the controls' actions/targets are unchanged (#534).
+    func companionToolbarCard() -> some View { modifier(CompanionToolbarCard()) }
 }
 
-private struct CompanionToolbarCardGlass: ViewModifier {
+private struct CompanionToolbarCard: ViewModifier {
     @Environment(\.companionPalette) private var palette
     func body(content: Content) -> some View {
         content
-            .companionCardGlass(Capsule(), interactive: true)
+            .background {
+                Capsule().fill(Color(palette.card))
+                    .overlay { Capsule().strokeBorder(Color(palette.separator), lineWidth: 0.5) }
+                    .shadow(color: .black.opacity(palette.isDark ? 0.3 : 0.12), radius: 6, y: 1)
+            }
             .environment(\.colorScheme, palette.isDark ? .dark : .light)
     }
 }
