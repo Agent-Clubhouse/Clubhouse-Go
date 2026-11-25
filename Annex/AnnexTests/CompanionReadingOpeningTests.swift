@@ -289,8 +289,8 @@ import UIKit
                 "Prior-generation geometry cannot be accepted")
     }
 
-    /// Main retains the request after use: it runs once again on a later opening. This test preserves that policy.
-    @Test func aHiddenShowInChatRequestRunsOncePerRevealAndOncePerNewRequest() async throws {
+    /// A hidden request survives until reveal, but the same UUID cannot replay on a later mount.
+    @Test func aHiddenShowInChatRequestRunsOncePerUUIDAcrossReveals() async throws {
         let f = try await Fixture()
         defer { f.navigation.jump = nil; f.close() }
         var samples: [CompanionReadingOpeningProbe.Sample] = []
@@ -317,9 +317,11 @@ import UIKit
         f.navigation.visible = false
         try await f.settle()
         #expect(samples.filter { $0.phase == .jump }.count == 2)
+        let priorMount = try #require(samples.last { $0.phase == .body }?.mountID)
         f.navigation.visible = true
-        try await f.wait { samples.filter { $0.phase == .jump }.count == 3 }
-        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id, second.id])
+        try await f.wait { samples.contains { $0.phase == .body && $0.mountID != priorMount } }
+        for _ in 0..<3 { try await f.settle() }
+        #expect(samples.filter { $0.phase == .jump }.map(\.requestID) == [first.id, second.id])
     }
 
 
