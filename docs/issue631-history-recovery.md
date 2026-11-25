@@ -34,3 +34,9 @@ Full text logs remain private:
 | Full corrected run3 |444022|0620fdec78410272e0b2c2f3531948f10736c85e4ffa41f8d4b6e16d04474c0c|
 
 The original PR’s separate same-socket ScheduledConditionTimeout has a verified main precedent in44990988347. Exact9600 main45079382106 failed a related snapshot-grace timeout but passed the same-socket case and affected wire methods. No wire-recovery failure is absorbed into that known scheduling signature. Any final CI exception must be verified against main and named in the merge note. No screenshots, manual CI reruns, deadline changes, beta/release or install are part of this work.
+
+## Ownership policy and remaining limit
+
+The 3135 PR build compiled the app, then rejected the stale CompanionStore ownership surface. The narrowly updated policy records HistoryLoadOwner as UUID and Bool values, replacing the prior UUID dictionary value. It adds no callback, service, task, UI owner or teardown effect. The empty ARC-only deinit, constructor captures and all other class surfaces remain unchanged. All 20 extractor tests pass, and every recorded class surface and capture site matches the parser output. The compiled binary policy check remains a gate on the revised PR head.
+
+A read admitted while the connection cannot operate can also span a genuine replay-gap resync and later clear requiresResync. The view refreshes only when connected; the other pre-wake load callers have not been fully traced. The independent review classified this as a low-risk residual limit, not evidence of a broader recovery guarantee.
