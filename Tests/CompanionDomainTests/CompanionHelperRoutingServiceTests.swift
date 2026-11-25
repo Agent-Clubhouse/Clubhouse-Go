@@ -22,25 +22,32 @@ import Testing
         })
     }
     @Test func labelsAreReadOncePerRevisionAndSnapshotAndEventInvalidate() async throws {
+        let initialRevision = try #require(body()["revision"]?.string)
         let h = try await start(); defer { h.stop() }
-        try await h.waitUntil { h.host?.helperRoutingRevision == "r1.0" }
+        try await h.waitUntil { h.host?.helperRoutingRevision == initialRevision }
         #expect(h.host?.helperRoutingLabels["reason"]?["preset_on_cli"] == "From the helper settings for this difficulty")
         let reads = await h.transport.readRoutes.filter { $0.name == "helperRouting" }.count
-        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string("r1.0")]))
+        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string(initialRevision)]))
         try await h.refreshCatalog()
         #expect(await h.transport.readRoutes.filter { $0.name == "helperRouting" }.count == reads)
         let stale = try commandCase("helper_routing_stale")
         let fresh = try #require(stale["response"]?["body"]?["settings"])
+        let freshRevision = try #require(fresh["revision"]?.string)
+        #expect(freshRevision != initialRevision)
         await h.transport.setRead("helperRouting", fresh)
         let event = try #require(ContractFixtures.json("helper-routing-changed.json")["frames"].arrayValue.first).decode(AnnexEnvelope.self)
+        #expect(event.payload?["revision"]?.string == freshRevision)
         await h.transport.emit(.message(event))
-        try await h.waitUntil { h.host?.helperRoutingRevision == "r2.3" }
+        try await h.waitUntil { h.host?.helperRoutingRevision == freshRevision }
         try await h.waitUntil { await h.transport.readRoutes.filter { $0.name == "helperRouting" }.count == reads + 1 }
-        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string("r2.3")]))
+        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string(freshRevision)]))
         try await h.refreshCatalog()
         #expect(await h.transport.readRoutes.filter { $0.name == "helperRouting" }.count == reads + 1)
-        await h.transport.setRead("helperRouting", try body("stalePreset"))
-        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string("r1.1")]))
+        let changed = try body("stalePreset")
+        let changedRevision = try #require(changed["revision"]?.string)
+        #expect(changedRevision != freshRevision)
+        await h.transport.setRead("helperRouting", changed)
+        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string(changedRevision)]))
         try await h.waitUntil { await h.transport.readRoutes.filter { $0.name == "helperRouting" }.count == reads + 2 }
         _ = try await h.service.helperRouting(hostID: LiveServiceHarness.hostID, projectID: "profile project", agentID: "helper/id")
         let last = await h.transport.readRoutes.last
