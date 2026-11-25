@@ -254,6 +254,11 @@ private func host(terminal: CompanionTerminalSupport?, connection: CompanionConn
     func close() async { closed = true }
 }
 
+/// The screen's text with the rows it wrapped run together.
+@MainActor private func unwrapped(_ session: CompanionTerminalSession) -> String {
+    session.screen.logicalLines().map { $0.map(\.text).joined() }.joined(separator: "\n")
+}
+
 @MainActor private func settle() async { for _ in 0..<5 { await Task.yield() } }
 
 @MainActor @Test func sessionRunsAShell() async {
@@ -296,7 +301,7 @@ private func host(terminal: CompanionTerminalSupport?, connection: CompanionConn
     #expect(channel.opens == 2)
     session.apply(.opened(cwd: nil, snapshot: nil, cols: nil, rows: nil))
     #expect(session.state == .running)
-    #expect(session.screen.plainText().contains("This is a new shell."))
+    #expect(unwrapped(session).contains("The desktop ended the previous shell and its programs when the connection dropped. This is a new shell."))
     session.apply(.exited(code: 2))
     #expect(session.state == .exited(code: 2))
     #expect(session.screen.plainText().contains("Process exited with code 2."))
@@ -606,4 +611,108 @@ func locallyStoppedInputShowsRefusalWithoutReconnect(code: String) async {
     await transport.push("error", .object(["op": .string("pty:input"), "agentId": .string("s1"), "message": .string("session_not_found")]))
     #expect(await collect(events, count: 1) == [.failed("The desktop lost track of this terminal. Open it again.")])
     await channel.close()
+}
+
+// MARK: Login round trip (synthetic)
+
+/// Waits, a few milliseconds at a time, until `condition` holds; the live channel hops through actors and tasks.
+@MainActor private func waitUntil(_ what: String, _ condition: () async -> Bool) async {
+    for _ in 0..<400 {
+        if await condition() { return }
+        try? await Task.sleep(for: .milliseconds(5))
+    }
+    Issue.record("Timed out waiting for \(what)")
+}
+
+private let loginURL = "https://claude.example.test/oauth/authorize?code=true&client_id=SYNTH-0000-1111-2222"
+    + "&response_type=code&redirect_uri=https%3A%2F%2Fclaude.example.test%2Foauth%2Fcode%2Fcallback"
+    + "&scope=org%3Acreate_api_key+user%3Aprofile+user%3Ainference&code_challenge=SYNTHCHALLENGE0123456789abcdefghijklmnopqrs"
+private let loginCode = "SYNTH-CODE-1234"
+
+@MainActor private func openProjectShell(_ transport: FakeTerminalTransport) async -> (CompanionTerminalSession, CompanionLiveTerminalChannel) {
+    let scope = CompanionTerminalScope.project(.init(hostID: "h", projectID: "p"))
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: scope, sessionID: "s1")
+    let session = CompanionTerminalSession(scope: scope, title: "Project", channel: channel, cols: 40, rows: 10)
+    session.start()
+    await waitUntil("the spawn") { await transport.sent.count == 1 }
+    await transport.push("pty:spawn-shell:ack", .object(["sessionId": .string("s1"), "cwd": .string("/repo")]))
+    await waitUntil("the shell to open") { session.state == .running }
+    await transport.push("pty:data", .object(["agentId": .string("s1"), "data": .string("Browse to \(loginURL)\r\nPaste code here if prompted > "), "outputSeq": .integer(1)]))
+    await waitUntil("the login prompt") { session.screen.plainText().contains("Paste code here") }
+    session.refreshLinks()
+    return (session, channel)
+}
+
+private func spawns(_ frames: [AnnexTerminalFrame]) -> Int {
+    frames.filter { if case .spawnShell = $0 { true } else { false } }.count
+}
+
+@MainActor @Test func theLoginRoundTripThroughTheInAppBrowserKeepsTheSameShell() async throws {
+    let transport = FakeTerminalTransport()
+    let (session, _) = await openProjectShell(transport)
+    let link = try #require(session.links.first)
+    #expect(session.links.map(\.text) == [loginURL], "The wrapped address comes out exact")
+
+    // Open it in the in-app browser: the app stays in front, and the terminal's view going under the page is not leaving.
+    session.openInBrowser(link)
+    #expect(session.browserLink == link)
+    session.viewDisappeared()
+    #expect(session.state == .running, "A page over the terminal must not close the shell")
+    session.browserDismissed()
+    #expect(session.browserLink == nil && session.state == .running)
+
+    // Back from the page, paste the code it gave.
+    session.paste(loginCode)
+    await waitUntil("the code to be sent") { await transport.sent.count == 2 }
+    let sent = await transport.sent.filter { if case .resize = $0 { false } else { true } }
+    #expect(spawns(sent) == 1, "One shell the whole time")
+    #expect(sent == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil), .input(id: "s1", data: loginCode)])
+    #expect(!sent.contains { if case .close = $0 { true } else { false } })
+    #expect(!unwrapped(session).contains("new shell"), "Nothing replaced the shell, so nothing says it was")
+    #expect(session.screen.plainText().contains("Paste code here"), "The screen is the same one")
+    session.close()
+}
+
+@MainActor @Test func leavingTheTerminalStillEndsItsShell() async {
+    let transport = FakeTerminalTransport()
+    let (session, _) = await openProjectShell(transport)
+    session.viewDisappeared()
+    await waitUntil("the close") { await transport.sent.contains { if case .close = $0 { true } else { false } } }
+    #expect(session.state == .closed)
+}
+
+@MainActor @Test func aDroppedConnectionIsTheOnlyWayToANewShellAndTheScreenSaysSo() async throws {
+    let transport = FakeTerminalTransport()
+    let (session, _) = await openProjectShell(transport)
+    // What backgrounding does today: the connection drops (the desktop ends the shell), then comes back.
+    await transport.connection(.reconnecting(attempt: 1, delaySeconds: 1))
+    await waitUntil("reconnecting") { session.state == .reconnecting }
+    session.paste(loginCode)
+    await transport.connection(.connected)
+    await waitUntil("a second spawn") { await spawns(transport.sent) == 2 }
+    await transport.push("pty:spawn-shell:ack", .object(["sessionId": .string("s1"), "cwd": .string("/repo")]))
+    await waitUntil("the new shell") { session.state == .running }
+    let sent = await transport.sent.filter { if case .resize = $0 { false } else { true } }
+    #expect(sent == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil), .spawnShell(sessionID: "s1", projectID: "p", agentID: nil)],
+            "The code pasted while away was dropped, and the shell was started again")
+    let text = unwrapped(session)
+    #expect(text.contains("The desktop ended the previous shell and its programs when the connection dropped."))
+    #expect(text.contains("This is a new shell."))
+    session.close()
+}
+
+@MainActor @Test func linksAppearShortlyAfterOutputWithoutAskingForThem() async {
+    let transport = FakeTerminalTransport()
+    let scope = CompanionTerminalScope.project(.init(hostID: "h", projectID: "p"))
+    let session = CompanionTerminalSession(scope: scope, title: "P", channel: CompanionLiveTerminalChannel(transport: transport, scope: scope, sessionID: "s1"), cols: 40, rows: 10)
+    session.start()
+    await waitUntil("the spawn") { await transport.sent.count == 1 }
+    await transport.push("pty:spawn-shell:ack", .object(["sessionId": .string("s1")]))
+    await waitUntil("open") { session.state == .running }
+    #expect(session.links.isEmpty)
+    // The address starts in one message and ends in the next.
+    await transport.push("pty:data", .object(["agentId": .string("s1"), "data": .string("go to ht"), "outputSeq": .integer(1)]))
+    await transport.push("pty:data", .object(["agentId": .string("s1"), "data": .string("tps://a.example.test/x\r\n"), "outputSeq": .integer(2)]))
+    await waitUntil("the links") { session.links.map(\.text) == ["https://a.example.test/x"] }
+    session.close()
 }

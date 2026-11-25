@@ -247,6 +247,9 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     }
 
     static let inputRefusedMessage = "Paste stopped because the desktop refused terminal input. Some text may already have been sent."
+    /// Printed into a shell that was started again after the connection dropped. The desktop ends a phone's shells
+    /// when its connection goes, so nothing that ran in the old one is still running.
+    static let newShellNotice = "Reconnected. The desktop ended the previous shell and its programs when the connection dropped. This is a new shell."
 
     let scope: CompanionTerminalScope
     let title: String
@@ -257,6 +260,10 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     /// The shell's working directory from the desktop.
     private(set) var cwd: String?
     private(set) var inputError: String?
+    /// Web links in the output, newest first. Updated shortly after output that could hold one, and by `refreshLinks`.
+    private(set) var links: [CompanionTerminalLink] = []
+    /// The link open in the in-app browser, if any.
+    private(set) var browserLink: CompanionTerminalLink?
     /// The next typed character is sent with Ctrl, from the accessory bar's Ctrl key.
     var controlArmed = false
     @ObservationIgnored private let channel: any CompanionTerminalChannel
@@ -264,6 +271,9 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     @ObservationIgnored private var outbox: [String] = []
     @ObservationIgnored private var flushing = false
     @ObservationIgnored private var hasOpened = false
+    @ObservationIgnored private var linkRefresh: Task<Void, Never>?
+    /// The end of the output before, for an address or hyperlink start that arrives split across two messages.
+    @ObservationIgnored private var outputTail = ""
 
     init(scope: CompanionTerminalScope, title: String, channel: any CompanionTerminalChannel, cols: Int = 80, rows: Int = 24) {
         self.scope = scope; self.title = title; self.channel = channel
@@ -304,8 +314,41 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         guard state != .closed else { return }
         state = .closed
         listening?.cancel(); listening = nil
+        linkRefresh?.cancel(); linkRefresh = nil
+        browserLink = nil
         outbox = []
         Task { await channel.close() }
+    }
+
+    // MARK: Links
+
+    func refreshLinks() {
+        linkRefresh?.cancel(); linkRefresh = nil
+        let current = screen.links()
+        if current != links { links = current }
+    }
+
+    /// Output that may hold a link refreshes the list, at most four times a second however fast output arrives.
+    private func noteOutput(_ text: String) {
+        let window = outputTail + text
+        outputTail = String(window.suffix(8))
+        guard linkRefresh == nil, !links.isEmpty || window.localizedCaseInsensitiveContains("http") || window.contains("\u{1B}]8;") else { return }
+        linkRefresh = Task { [weak self] in
+            try? await Task.sleep(for: .milliseconds(250))
+            guard !Task.isCancelled else { return }
+            self?.refreshLinks()
+        }
+    }
+
+    /// Shows a link in the in-app browser. The app stays in front, so the desktop keeps this shell: the person
+    /// authorizes in the page, then comes back and pastes what it gives them into the same shell.
+    func openInBrowser(_ link: CompanionTerminalLink) { browserLink = link }
+    func browserDismissed() { browserLink = nil }
+
+    /// The terminal's view left the screen. A page covering it isn't leaving: closing then would end the shell.
+    func viewDisappeared() {
+        guard browserLink == nil else { return }
+        close()
     }
 
     func apply(_ event: CompanionTerminalChannelEvent) {
@@ -316,9 +359,10 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
             if let snapshot {
                 screen = CompanionTerminalScreen(cols: cols ?? screen.cols, rows: rows ?? screen.rows)
                 screen.feed(snapshot)
+                noteOutput(snapshot)
             } else if hasOpened, scope.resizesPTY {
-                // The desktop killed the old shell when the connection dropped.
-                notice("Reconnected. This is a new shell.")
+                // The desktop killed the old shell, and the programs in it, when the connection dropped.
+                notice(Self.newShellNotice)
             }
             inputError = nil
             hasOpened = true
@@ -332,6 +376,7 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         case .output(let text):
             screen.feed(text)
             for reply in screen.takeReplies() { enqueue(reply) }
+            noteOutput(text)
             changed()
         case .exited(let code):
             state = .exited(code: code)

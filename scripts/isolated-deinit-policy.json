@@ -562,6 +562,11 @@
       "source": "Annex/Annex/Companion/Domain/CompanionTerminal.swift",
       "reason": "Injected terminal-channel protocol can own main-only objects; preserve isolation."
     },
+    "CompanionInAppBrowser": {
+      "policy": "main_actor",
+      "source": "Annex/Annex/Companion/Views/CompanionTerminalLinksView.swift",
+      "reason": "NSObject delegate whose completion callback captures the terminal session and SwiftUI State (keyboard restore); it lives only while Safari is up. Preserve isolated teardown; no new ARC-only exemption."
+    },
     "CompanionTerminalKeyInput": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Views/CompanionTerminalView.swift",

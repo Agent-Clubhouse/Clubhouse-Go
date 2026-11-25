@@ -55,12 +55,18 @@ struct CompanionTerminalScreenView: View {
     @State private var session: CompanionTerminalSession?
     @State private var openError: String?
     @State private var copied = false
+    @State private var focus = CompanionTerminalFocus()
+    @State private var showLinks = false
+    /// What the Links sheet asked to open, shown once the sheet has gone.
+    @State private var pendingLink: CompanionTerminalLink?
+    /// The keyboard was up when a sheet or page covered the terminal, and comes back with it.
+    @State private var keyboardWasUp = false
 
     var body: some View {
         NavigationStack {
             Group {
                 if let session {
-                    CompanionTerminalPane(session: session, colors: colors)
+                    CompanionTerminalPane(session: session, colors: colors, focus: focus)
                 } else {
                     ContentUnavailableView("Terminal unavailable", systemImage: "terminal", description: Text(openError ?? ""))
                 }
@@ -80,6 +86,17 @@ struct CompanionTerminalScreenView: View {
                     .accessibilityIdentifier("terminal-done")
                 }
                 if let session {
+                    if !session.links.isEmpty {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button {
+                                keyboardWasUp = focus.isEditing
+                                showLinks = true
+                            } label: {
+                                Image(systemName: "link").foregroundStyle(Color(colors.foreground)).accessibilityLabel("Links")
+                            }
+                            .accessibilityIdentifier("terminal-links")
+                        }
+                    }
                     ToolbarItem(placement: .topBarTrailing) {
                         Menu {
                             Button("Copy all", systemImage: "doc.on.doc") {
@@ -113,8 +130,38 @@ struct CompanionTerminalScreenView: View {
             guard copied else { return }
             try? await Task.sleep(for: .seconds(1.5)); copied = false
         }
+        .sheet(isPresented: $showLinks, onDismiss: linksDismissed) {
+            if let session {
+                CompanionTerminalLinksSheet(links: session.links) { link in
+                    pendingLink = link
+                    showLinks = false
+                }
+            }
+        }
         .onAppear(perform: open)
-        .onDisappear { session?.close() }
+        // A page over the terminal isn't leaving it: the session keeps its shell while the browser is up.
+        .onDisappear { session?.viewDisappeared() }
+    }
+
+    private func linksDismissed() {
+        if let link = pendingLink {
+            pendingLink = nil
+            guard let session else { return }
+            session.openInBrowser(link)
+            let shown = CompanionInAppBrowser.present(link) {
+                session.browserDismissed()
+                restoreKeyboard()
+            }
+            if !shown { session.browserDismissed(); restoreKeyboard() }
+        } else {
+            restoreKeyboard()
+        }
+    }
+
+    private func restoreKeyboard() {
+        guard keyboardWasUp else { return }
+        keyboardWasUp = false
+        focus.show()
     }
 
     private var restartLabel: String { scope.resizesPTY ? "New shell" : "Reattach" }
@@ -172,8 +219,15 @@ struct CompanionAgentTerminalPane: View {
 struct CompanionTerminalPane: View {
     let session: CompanionTerminalSession
     let colors: CompanionTerminalColors
-    @State private var focus = CompanionTerminalFocus()
+    /// The full-screen terminal shares its focus with the toolbar, which restores the keyboard after a sheet or page.
+    private let sharedFocus: CompanionTerminalFocus?
+    @State private var ownFocus = CompanionTerminalFocus()
     @Environment(\.companionTelemetryScreen) private var screen
+    private var focus: CompanionTerminalFocus { sharedFocus ?? ownFocus }
+
+    init(session: CompanionTerminalSession, colors: CompanionTerminalColors, focus: CompanionTerminalFocus? = nil) {
+        self.session = session; self.colors = colors; sharedFocus = focus
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -228,7 +282,15 @@ struct CompanionTerminalPane: View {
     nonisolated deinit {}
     @ObservationIgnored weak var view: CompanionTerminalUIView?
     private(set) var isEditing = false
-    func toggle() { if isEditing { _ = view?.resignFirstResponder() } else { _ = view?.becomeFirstResponder() } }
+    func toggle() { if isEditing { _ = view?.resignFirstResponder() } else { show() } }
+    /// Brings the keyboard up. Right after a sheet or page goes, the terminal isn't back in its window yet, so it
+    /// tries again a few times rather than giving up on the first.
+    func show(attempts: Int = 8) {
+        guard !isEditing, attempts > 0 else { return }
+        if view?.window == nil || view?.becomeFirstResponder() != true {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in self?.show(attempts: attempts - 1) }
+        }
+    }
     func editingChanged(_ editing: Bool) { isEditing = editing }
 }
 

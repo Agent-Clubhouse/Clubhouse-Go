@@ -142,6 +142,7 @@ The root-owner replacement regression waits for an actual teardown event before 
 | `CompanionStreamDiagnostics` | arc_only | Value cursor map, lock-protected Sendable transport diagnostic scopes and telemetry; no UI fields. |
 | `CompanionTelemetry` | main_actor | Owns SDK/MetricKit/subscription objects; their destruction affinity is not proved here. |
 | `CompanionTerminalFocus` | arc_only | Only a WEAK UIKit reference and Bool/Observation registrar. Weak-slot destruction does not release the view. |
+| `CompanionInAppBrowser` | main_actor | NSObject delegate whose completion callback captures the terminal session and SwiftUI State (keyboard restore); it lives only while Safari is up. Preserve isolated teardown; no new ARC-only exemption. |
 | `CompanionTerminalKeyInput` | main_actor | UIView/UIKeyInput subclass, session and UIKit superclass state; preserve isolation. |
 | `CompanionToolbarIdentityCenter.Anchor` | main_actor | UIView layout state and SwiftUI State callback; queued samples capture weakly, dismantle clears callback. |
 | `CompanionTerminalSession` | main_actor | Injected terminal-channel protocol can own main-only objects; preserve isolation. |
