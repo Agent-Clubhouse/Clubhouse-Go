@@ -368,7 +368,7 @@ struct CompanionConversationView: View {
     private var headerActivityDetails: String? {
         guard agent.status == .working,
               let line = CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt,
-                                                    items: conversation.items), line != agent.status.label else { return nil }
+                                                    items: conversation.items, friendlyTools: false), line != agent.status.label else { return nil }
         return line
     }
 
@@ -403,11 +403,17 @@ struct CompanionConversationView: View {
                 .font(.caption.monospacedDigit()).foregroundStyle(Color(palette.secondaryLabel))
                 // One element for VoiceOver: who is working and on what, without the separator.
                 .accessibilityElement(children: .ignore)
-                .accessibilityLabel("\(agent.displayName), \(activity)")
+                .accessibilityLabel("\(agent.displayName), \(rawActivity(at: context.date) ?? activity)")
                 .accessibilityAddTraits(.isStaticText)
                 .accessibilityIdentifier("companion-chat-activity")
             }
         }
+    }
+
+    /// The activity with the tool's full identifier, for VoiceOver; the visible line shows its friendly label.
+    private func rawActivity(at date: Date) -> String? {
+        CompanionChatActivity.line(status: agent.status, turnStartedAt: agent.turnStartedAt, items: conversation.items,
+                                   now: date, friendlyTools: false)
     }
 
     private var contextName: String {

@@ -213,6 +213,65 @@ struct CompanionChatActivityTests {
         #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: [older, request, next]) == "Edit file")
     }
 
+    @Test(arguments: [
+        ("mcp__clubhouse__message_parent", "Clubhouse · message parent"),
+        ("mcp__clubhouse__list_group_projects", "Clubhouse · list group projects"),
+        ("mcp__claude_ai_Gmail__search_threads", "Gmail · search threads"),
+        ("mcp__plugin_data_amplitude__queryEvents", "Data amplitude · query Events"),
+        ("mcp__github__repo-search", "Github · repo search"),
+        ("mcp__server__tool__with__extra", "Server · tool with extra"),
+        ("mcp__lonely", "lonely"),
+        ("mcp__", "mcp__"),
+        ("Read file", "Read file"),
+        ("Bash", "Bash"),
+        ("WebSearch", "WebSearch"),
+        ("some_unknown_tool", "some_unknown_tool"),
+        ("  Run\nswift\ttest  ", "Run swift test"),
+        ("mcp__clubhouse__bad\nname", "Clubhouse · bad name"),
+        ("", "")
+    ]) func toolLabelsAreFriendlyAndSingleLine(identifier: String, label: String) {
+        #expect(CompanionChatActivity.toolLabel(identifier) == label)
+        #expect(!CompanionChatActivity.toolLabel(identifier).contains { $0.isNewline })
+    }
+
+    @Test func workingLineShowsFriendlyToolButKeepsRawForAccessibility() {
+        let items: [CompanionTimelineItem] = [
+            .message(.init(id: "u", role: .user, text: "Go")),
+            .tool(.init(id: "t", name: "mcp__clubhouse__message_parent", summary: "", state: .running))
+        ]
+        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: start, items: items, now: start.addingTimeInterval(65))
+                == "1:05 · Clubhouse · message parent")
+        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: start, items: items, now: start.addingTimeInterval(65), friendlyTools: false)
+                == "1:05 · mcp__clubhouse__message_parent")
+        // An unnameable tool never drops the line.
+        let blank: [CompanionTimelineItem] = [.tool(.init(id: "b", name: " \n ", summary: "", state: .running))]
+        #expect(CompanionChatActivity.line(status: .working, turnStartedAt: nil, items: blank) == "Working")
+    }
+
+    /// The footer is bottom-anchored, so a working turn must always have a line: through every tool
+    /// boundary (running, completed, failed, between tools, MCP names) the line is present and one line tall.
+    @Test func workingLineIsPresentAndSingleLineAcrossEveryToolBoundary() {
+        let request = CompanionTimelineItem.message(.init(id: "request", role: .user, text: "Go"))
+        func tool(_ name: String, _ state: CompanionTool.State) -> CompanionTimelineItem {
+            .tool(.init(id: name + "\(state)", name: name, summary: "", state: state))
+        }
+        let sequence: [[CompanionTimelineItem]] = [
+            [request],
+            [request, tool("Read file", .running)],
+            [request, tool("Read file", .completed)],
+            [request, tool("Read file", .completed), tool("mcp__clubhouse__message_parent", .running)],
+            [request, tool("Read file", .completed), tool("mcp__clubhouse__message_parent", .failed)],
+            [request, tool("Read file", .completed), tool("mcp__clubhouse__message_parent", .completed), tool("", .running)]
+        ]
+        for turnStartedAt in [nil, start] as [Date?] {
+            for items in sequence {
+                let line = CompanionChatActivity.line(status: .working, turnStartedAt: turnStartedAt, items: items, now: start.addingTimeInterval(9))
+                #expect(line?.isEmpty == false)
+                #expect(line?.contains { $0.isNewline } == false)
+            }
+        }
+    }
+
     @Test func waitingStatesSayWhatTheyWaitOn() {
         let items = [approval("done", title: "Old", resolution: .allowed), approval("p", title: "Edit README.md")]
         #expect(CompanionChatActivity.line(status: .approval, turnStartedAt: start, items: items) == "Edit README.md")
