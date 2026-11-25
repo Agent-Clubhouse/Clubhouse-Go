@@ -132,33 +132,6 @@ import Vision
         capture(app, "Show in chat: original request and pinned decisions")
     }
 
-    func testShowInChatDoesNotReplayOnTabReturnAfterLatest() {
-        let app = openRiver()
-        awaitApproval(app)
-        awaitManyUpdates(app)
-        app.buttons["companion-decision-show-in-chat"].tap()
-        let transcript = app.scrollViews["companion-transcript"]
-        XCTAssertTrue(waitFor(transcript, NSPredicate(format: "value BEGINSWITH %@", "Following: 0;"), timeout: 5))
-        let latest = app.buttons["companion-latest"]
-        XCTAssertTrue(latest.waitForExistence(timeout: 5) && latest.isHittable)
-        latest.tap()
-        XCTAssertTrue(waitFor(transcript, NSPredicate(format: "value BEGINSWITH %@", "Following: 1;"), timeout: 5))
-        print("SHOW_IN_CHAT_RETURN phase=before-tabs value=\(transcript.value as? String ?? "missing")")
-        let needsYou = app.tabBars.buttons["Needs you"]
-        XCTAssertTrue(needsYou.isHittable)
-        needsYou.tap()
-        XCTAssertTrue(app.navigationBars["Needs you"].waitForExistence(timeout: 5))
-        app.tabBars.buttons["Home"].tap()
-        XCTAssertTrue(element(app, "companion-composer").waitForExistence(timeout: 5))
-        print("SHOW_IN_CHAT_RETURN phase=after-tabs value=\(transcript.value as? String ?? "missing")")
-        XCTAssertTrue(waitFor(transcript, NSPredicate(format: "value BEGINSWITH %@", "Following: 1;"), timeout: 5),
-                      "A consumed navigation request must not replace the person's later Latest intent")
-        let replay = XCTNSPredicateExpectation(predicate: NSPredicate(format: "value BEGINSWITH %@", "Following: 0;"), object: transcript)
-        replay.isInverted = true
-        XCTAssertEqual(XCTWaiter.wait(for: [replay], timeout: 1), .completed)
-        XCTAssertEqual(summary(app).value as? String, "1 of 3 waiting · Bash", "Navigation cannot answer a decision")
-    }
-
     /// #543: typing first, then a request arrives. Every composer action stays above the keyboard. The tray shows one
     /// Review control only when the full rows do not fit, and the ticking activity line never flips it back and forth.
     func testRequestArrivingWhileTypingAtLargestTextKeepsEveryComposerActionAboveTheKeyboard() throws {

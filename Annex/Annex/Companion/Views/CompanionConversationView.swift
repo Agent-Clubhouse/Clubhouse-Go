@@ -29,7 +29,7 @@ struct CompanionConversationView: View {
     @State private var headerBarWidth: CGFloat = 0
     @State private var headerOverflowMonitor = CompanionHeaderOverflowMonitor()
     @State private var keyboardVisible = false
-    @State private var decisionChatJump: CompanionDecisionChatJump?
+    @State private var decisionChatJumps = CompanionDecisionChatJumps()
     // A stable, lazily created bookmark survives retained-tab content unmounts. Input State lives below.
     @State private var composerMemory = CompanionStateLifetime { CompanionComposerMemory() }
     @State private var composerFocusRequests = 0
@@ -101,7 +101,7 @@ struct CompanionConversationView: View {
         }
         #if DEBUG
         .onChange(of: debugReadingJump, initial: true) { _, request in
-            if let request { decisionChatJump = request }
+            if let request { decisionChatJumps.request(request) }
         }
         #endif
     }
@@ -282,7 +282,7 @@ struct CompanionConversationView: View {
             // A short editing viewport must fit the composer before reserving transcript space.
             CompanionConversationGrantFooter(store: store, target: target,
                 maximumHeight: max(44, available.size.height),
-                showInChat: { decisionChatJump = .init(itemID: $0) }) {
+                showInChat: { decisionChatJumps.request(.init(itemID: $0)) }) {
                     composerBar(compactHeight: available.size.height < 360)
                         .environment(\.companionPermissionMenuAvailableHeight, available.size.height)
                         .environment(\.companionPermissionMenuKeyboardVisible, keyboardVisible)
@@ -477,8 +477,11 @@ struct CompanionConversationView: View {
     private var timeline: some View {
         CompanionReadingSeedScope(store: store, target: target) { opening in
             CompanionConversationTranscript(store: store, target: target, opening: opening,
-                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJump,
-                entryCapabilities: agent.capabilities, dismissComposer: dismissComposer,
+                isVisibilityManaged: isVisible != nil, decisionChatJump: decisionChatJumps.pending,
+                entryCapabilities: agent.capabilities,
+                beginDecisionChatJump: { decisionChatJumps.begin($0) },
+                finishDecisionChatJump: { decisionChatJumps.finish($0) },
+                dismissComposer: dismissComposer,
                 header: { timelineHeader }, entry: { entry, items in timelineEntry(entry, items: items) }).equatable()
         }
         .id(target)
@@ -584,11 +587,6 @@ struct CompanionConversationView: View {
 }
 
 
-struct CompanionDecisionChatJump: Equatable {
-    let id = UUID()
-    let itemID: String
-}
-
 /// StateObject's autoclosure computes the seed once per mounted target, not per discarded View initializer.
 /// This owner retains immutable values only; composer and all mutable reading State stay outside it.
 @MainActor private final class CompanionReadingSeed: ObservableObject {
@@ -634,6 +632,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View,
     let entryCapabilities: CompanionCapabilities
     let isVisibilityManaged: Bool
     let decisionChatJump: CompanionDecisionChatJump?
+    let beginDecisionChatJump: (UUID) -> Bool
+    let finishDecisionChatJump: (UUID) -> Void
     let dismissComposer: () -> Void
     @ViewBuilder var header: () -> Header
     @ViewBuilder var entry: (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry
@@ -655,6 +655,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View,
 
     init(store: CompanionStore, target: CompanionTarget, opening: CompanionReadingOpening, isVisibilityManaged: Bool,
          decisionChatJump: CompanionDecisionChatJump?, entryCapabilities: CompanionCapabilities,
+         beginDecisionChatJump: @escaping (UUID) -> Bool,
+         finishDecisionChatJump: @escaping (UUID) -> Void,
          dismissComposer: @escaping () -> Void,
          @ViewBuilder header: @escaping () -> Header,
          @ViewBuilder entry: @escaping (CompanionTimelineEntry, [CompanionTimelineItem]) -> Entry) {
@@ -664,6 +666,8 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View,
         self.entryCapabilities = entryCapabilities
         self.isVisibilityManaged = isVisibilityManaged
         self.decisionChatJump = decisionChatJump
+        self.beginDecisionChatJump = beginDecisionChatJump
+        self.finishDecisionChatJump = finishDecisionChatJump
         self.dismissComposer = dismissComposer
         self.header = header
         self.entry = entry
@@ -945,10 +949,12 @@ private struct CompanionConversationTranscript<Header: View, Entry: View>: View,
             .onChange(of: followLatest) { _, follows in readingBookmark.position.followsLatest = follows }
             .onChange(of: shownEntries) { _, count in readingBookmark.position.shownEntries = count }
             .task(id: decisionChatJump?.id) {
-                guard let request = decisionChatJump else { return }
+                guard !Task.isCancelled, let request = decisionChatJump else { return }
                 let allEntries = CompanionTimelineWindow(rows: store.timelineRows(for: target), limit: .max).entries
                 guard let entry = CompanionTimelineEntry.jumpTarget(for: request.itemID, in: allEntries),
-                      let index = allEntries.firstIndex(where: { $0.id == entry.id }) else { return }
+                      let index = allEntries.firstIndex(where: { $0.id == entry.id }),
+                      !Task.isCancelled, beginDecisionChatJump(request.id) else { return }
+                defer { finishDecisionChatJump(request.id) }
                 #if DEBUG
                 traceOpening(.jump, firstEntryID: entries.first?.id)
                 #endif
