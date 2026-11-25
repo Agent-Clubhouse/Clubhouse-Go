@@ -657,11 +657,10 @@ private func spawns(_ frames: [AnnexTerminalFrame]) -> Int {
     let link = try #require(session.links.first)
     #expect(session.links.map(\.text) == [loginURL], "The wrapped address comes out exact")
 
-    // Open it in the in-app browser: the app stays in front, and the terminal's view going under the page is not leaving.
+    // Open it in the in-app browser: the app stays in front, and the page (presented over full screen) doesn't
+    // take the terminal's view off screen, so the terminal doesn't close.
     session.openInBrowser(link)
-    #expect(session.browserLink == link)
-    session.viewDisappeared()
-    #expect(session.state == .running, "A page over the terminal must not close the shell")
+    #expect(session.browserLink == link && session.state == .running)
     session.browserDismissed()
     #expect(session.browserLink == nil && session.state == .running)
 
@@ -677,12 +676,17 @@ private func spawns(_ frames: [AnnexTerminalFrame]) -> Int {
     session.close()
 }
 
-@MainActor @Test func leavingTheTerminalStillEndsItsShell() async {
+@MainActor @Test func theTerminalGoingAwayWhileTheBrowserIsUpClosesItsShell() async throws {
+    // Everything presented can be cleared from outside (the Message Dispatcher App Intent): the page goes with the
+    // terminal and never calls back, so the shell must still end.
     let transport = FakeTerminalTransport()
     let (session, _) = await openProjectShell(transport)
-    session.viewDisappeared()
+    let link = try #require(session.links.first)
+    session.openInBrowser(link)
+    session.close()
     await waitUntil("the close") { await transport.sent.contains { if case .close = $0 { true } else { false } } }
-    #expect(session.state == .closed)
+    #expect(session.state == .closed && session.browserLink == nil)
+    #expect(await transport.sent.contains(.close(sessionID: "s1")))
 }
 
 @MainActor @Test func aDroppedConnectionIsTheOnlyWayToANewShellAndTheScreenSaysSo() async throws {

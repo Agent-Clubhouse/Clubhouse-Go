@@ -58,37 +58,58 @@ struct CompanionTerminalLinksSheet: View {
 /// left alone. The app doesn't leave the foreground, so its connection to the desktop stays up. Only
 /// `CompanionTerminalLink` addresses (http and https) get here: Safari view controllers raise on any other scheme.
 @MainActor final class CompanionInAppBrowser: NSObject, SFSafariViewControllerDelegate {
-    private static var current: CompanionInAppBrowser?
+    private(set) static var current: CompanionInAppBrowser?
     private let finished: () -> Void
     private var didFinish = false
+    /// Weak: if the whole stack is dismissed from outside (an App Intent clears every presentation), the controller
+    /// goes away without telling its delegate, and this is how the next `present` notices.
+    private weak var controller: UIViewController?
 
     private init(finished: @escaping () -> Void) { self.finished = finished }
 
-    /// False when there is nothing to present over; `finished` then never runs.
+    /// A browser is up: its controller is still presented.
+    static var isPresented: Bool { current?.controller?.presentingViewController != nil }
+
+    /// False when there is already a browser up, or nothing to present over; `finished` then never runs.
+    /// `presenter`, `animated` and `makeController` are for tests (Safari's remote view won't stay up in a unit-test
+    /// host); the app presents Safari over the foreground scene's topmost controller.
     @discardableResult
-    static func present(_ link: CompanionTerminalLink, finished: @escaping () -> Void) -> Bool {
-        guard current == nil,
-              let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first(where: { $0.activationState == .foregroundActive }),
-              var top = (scene.keyWindow ?? scene.windows.first)?.rootViewController else { return false }
+    static func present(_ link: CompanionTerminalLink, over presenter: UIViewController? = nil, animated: Bool = true,
+                        makeController: ((URL) -> UIViewController)? = nil, finished: @escaping () -> Void) -> Bool {
+        // A browser dismissed by anything other than its own Done never reports back; forget it so Open still works.
+        if !isPresented { current = nil }
+        guard current == nil, var top = presenter ?? foregroundRoot() else { return false }
         while let next = top.presentedViewController, !next.isBeingDismissed { top = next }
-        let configuration = SFSafariViewController.Configuration()
-        configuration.entersReaderIfAvailable = false
-        let controller = SFSafariViewController(url: link.url, configuration: configuration)
-        controller.dismissButtonStyle = .done
+        let controller: UIViewController
+        if let makeController {
+            controller = makeController(link.url)
+        } else {
+            let configuration = SFSafariViewController.Configuration()
+            configuration.entersReaderIfAvailable = false
+            let safari = SFSafariViewController(url: link.url, configuration: configuration)
+            safari.dismissButtonStyle = .done
+            controller = safari
+        }
         // Over the terminal rather than replacing it, so the terminal's view never leaves the hierarchy.
         controller.modalPresentationStyle = .overFullScreen
         let browser = CompanionInAppBrowser(finished: finished)
-        controller.delegate = browser
+        browser.controller = controller
+        (controller as? SFSafariViewController)?.delegate = browser
         current = browser
-        top.present(controller, animated: true)
+        top.present(controller, animated: animated)
         return true
+    }
+
+    private static func foregroundRoot() -> UIViewController? {
+        let scene = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.first { $0.activationState == .foregroundActive }
+        return (scene?.keyWindow ?? scene?.windows.first)?.rootViewController
     }
 
     nonisolated func safariViewControllerDidFinish(_ controller: SFSafariViewController) {
         MainActor.assumeIsolated {
             guard !didFinish else { return }
             didFinish = true
-            Self.current = nil
+            if Self.current === self { Self.current = nil }
             finished()
         }
     }

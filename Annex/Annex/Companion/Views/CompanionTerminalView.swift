@@ -139,8 +139,9 @@ struct CompanionTerminalScreenView: View {
             }
         }
         .onAppear(perform: open)
-        // A page over the terminal isn't leaving it: the session keeps its shell while the browser is up.
-        .onDisappear { session?.viewDisappeared() }
+        // The browser is presented over full screen, which doesn't take this view off screen, so this only runs when
+        // the terminal itself goes (Done, or every presentation cleared by an App Intent): then the shell ends.
+        .onDisappear { session?.close() }
     }
 
     private func linksDismissed() {

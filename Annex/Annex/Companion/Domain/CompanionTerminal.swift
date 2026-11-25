@@ -350,12 +350,6 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     func openInBrowser(_ link: CompanionTerminalLink) { browserLink = link }
     func browserDismissed() { browserLink = nil }
 
-    /// The terminal's view left the screen. A page covering it isn't leaving: closing then would end the shell.
-    func viewDisappeared() {
-        guard browserLink == nil else { return }
-        close()
-    }
-
     func apply(_ event: CompanionTerminalChannelEvent) {
         guard state != .closed else { return }
         switch event {
