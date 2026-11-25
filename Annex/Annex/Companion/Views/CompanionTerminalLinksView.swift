@@ -67,8 +67,15 @@ struct CompanionTerminalLinksSheet: View {
 
     private init(finished: @escaping () -> Void) { self.finished = finished }
 
-    /// A browser is up: its controller is still presented.
-    static var isPresented: Bool { current?.controller?.presentingViewController != nil }
+    /// A browser is up: its controller is still on screen. Several signs, because how soon UIKit clears each one after
+    /// an outside dismissal varies by OS: the controller is gone, nothing presents it, it is on its way out, or (once
+    /// it has finished appearing) its view has left every window.
+    static var isPresented: Bool {
+        guard let controller = current?.controller else { return false }
+        if controller.presentingViewController == nil || controller.isBeingDismissed { return false }
+        if !controller.isBeingPresented, controller.isViewLoaded, controller.view.window == nil { return false }
+        return true
+    }
 
     /// False when there is already a browser up, or nothing to present over; `finished` then never runs.
     /// `presenter`, `animated` and `makeController` are for tests (Safari's remote view won't stay up in a unit-test
