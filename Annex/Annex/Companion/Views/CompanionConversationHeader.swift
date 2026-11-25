@@ -57,6 +57,16 @@ struct CompanionConversationIdentityButton: View {
     }
 }
 
+/// The width requested by the chat's measured side reservations. Kept separate so the actual
+/// identity control can be tested against a native title proposal during a resize.
+struct CompanionHeaderPrincipalWidth: ViewModifier {
+    let maximumWidth: CGFloat
+
+    func body(content: Content) -> some View {
+        content.frame(width: maximumWidth)
+    }
+}
+
 /// Toolbar hosts have separate SwiftUI coordinate roots. Measure the side reservations in the actual bar;
 /// the caller balances their fixed origins without moving the identity outside the native title's hit area.
 struct CompanionToolbarIdentityCenter: UIViewRepresentable {

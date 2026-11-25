@@ -208,7 +208,7 @@ struct CompanionConversationView: View {
                                                         accessibilityLabel: headerAccessibilityLabel, reviewPosition: reviewPosition,
                                                         detailsLackRoom: headerDetailsLackRoom)
                         // Keep the native 16pt title clearance on both sides of the equal reservations.
-                        .frame(width: headerPrincipalWidth(available.size.width))
+                        .modifier(CompanionHeaderPrincipalWidth(maximumWidth: headerPrincipalWidth(available.size.width)))
                         .background {
                             CompanionToolbarIdentityCenter(correct: { _, _ in }, observe: { frame, width in
                                 observeHeader(.principal, frame, barWidth: width, availableWidth: available.size.width)
