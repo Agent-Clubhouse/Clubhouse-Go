@@ -295,13 +295,13 @@ private func connected(terminal: Bool, maxInputLength: Int = 4, shellReattach: A
 
 @Test func reattachNeedsAKnownShellReattachVersion() async throws {
     let known = try await connected(terminal: true, shellReattach: .object(["version": .integer(1), "graceSeconds": .integer(120)]))
-    #expect(await known.0.supportsShellReattach())
+    #expect(await known.0.supportsShellReattach() == true)
     try await known.0.sendTerminal(.reattachShell(sessionID: "s1", cols: 44, rows: 12))
     let sent = await known.1.socket.sent.last
     #expect(sent?["type"]?.string == "pty:reattach-shell")
     #expect(sent?["payload"] == .object(["sessionId": .string("s1"), "cols": .integer(44), "rows": .integer(12)]))
     await known.0.disconnect()
-    #expect(await known.0.supportsShellReattach() == false, "Not while disconnected")
+    #expect(await known.0.supportsShellReattach() == nil, "Not known while disconnected: neither yes nor no")
 
     // A version this phone doesn't know, and a desktop without the block: the legacy path, and nothing is sent.
     for block: AnnexJSON? in [.object(["version": .integer(2), "graceSeconds": .integer(120)]), nil, .object(["version": .integer(1), "graceSeconds": .integer(0)])] {

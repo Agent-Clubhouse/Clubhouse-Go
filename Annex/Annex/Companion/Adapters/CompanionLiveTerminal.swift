@@ -77,24 +77,45 @@ import ClubhouseTransport
         switch scope {
         case .project, .agentShell:
             size = (cols, rows)
-            frame = await shellFrame(cols: cols, rows: rows)
+            guard let shell = await shellFrame(cols: cols, rows: rows) else {
+                // Whether this desktop keeps shells isn't known right now (a flap, or capabilities not read yet). A
+                // shell that may still be there is neither respawned nor failed: it stays reconnecting, with
+                // everything kept and nothing sent, until the connection settles and `connectionRestored` reopens it.
+                connectionLost()
+                connected = false
+                return
+            }
+            frame = shell
         case .agentPTY:
             pendingOutput = []; snapshotSeq = nil; awaitingSnapshot = true
             frame = .attach(agentID: id)
         }
         isOpen = false
         do { try await transport.sendTerminal(frame) }
-        catch { failed(error) }
+        catch {
+            if case .reattachShell = frame, case .unsupportedCapability? = error as? AnnexTransportError {
+                // The capability went away between the check and the send: a flap, not "update the desktop".
+                connectionLost(); connected = false
+            } else {
+                failed(error)
+            }
+        }
     }
 
     /// A shell opens one of three ways. Its desktop kept it through the drop: reattach, same id, and never fall back
     /// to a spawn. The desktop doesn't keep shells: a spawn under the same id, as before. It ended, or the person asks
     /// for a new one: a spawn under a new id.
-    private func shellFrame(cols: Int, rows: Int) async -> AnnexTerminalFrame {
-        if resumable || spawnUnacked, await transport.supportsShellReattach() {
-            pendingOutput = []; snapshotSeq = nil; awaitingSnapshot = true
-            reattachingUnopened = !resumable
-            return .reattachShell(sessionID: id, cols: cols, rows: rows)
+    /// Nil when a shell that may still be on the desktop can't be opened yet because the capability isn't known.
+    private func shellFrame(cols: Int, rows: Int) async -> AnnexTerminalFrame? {
+        if resumable || spawnUnacked {
+            switch await transport.supportsShellReattach() {
+            case nil: return nil
+            case true?:
+                pendingOutput = []; snapshotSeq = nil; awaitingSnapshot = true
+                reattachingUnopened = !resumable
+                return .reattachShell(sessionID: id, cols: cols, rows: rows)
+            case false?: break
+            }
         }
         if needsNewIdentity { id = makeSessionID(); needsNewIdentity = false }
         resumable = false; reattachingUnopened = false; awaitingSnapshot = false; snapshotSeq = nil; pendingOutput = []
@@ -196,11 +217,13 @@ import ClubhouseTransport
             yield(.exited(code: Self.int(payload["exitCode"])))
         case "error":
             let code = payload["code"]?.string ?? payload["message"]?.string ?? ""
+            // The desktop's reason may come as `code` or as `message`; a refused input is recognized in either.
+            let refusedInput = [payload["code"]?.string, payload["message"]?.string].contains { $0?.hasPrefix("pty:input") == true }
             switch payload["op"]?.string {
             case "pty:resize": return
             case "pty:reattach-shell": reattachFailed(code, payload)
             // A refused input clears queued keys/paste without reopening or replacing the terminal.
-            case "pty:input" where code.hasPrefix("pty:input"):
+            case "pty:input" where refusedInput:
                 yield(.inputRejected(CompanionTerminalSession.inputRefusedMessage))
             default:
                 awaitingSnapshot = false

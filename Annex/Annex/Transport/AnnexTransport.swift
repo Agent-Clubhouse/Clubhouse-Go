@@ -102,7 +102,10 @@ public actor AnnexTransport: AnnexTransporting {
         envelope.type.hasPrefix("pty:") || (envelope.type == "error" && envelope.payload?["op"]?.string?.hasPrefix("pty:") == true)
     }
 
-    public func supportsShellReattach() async -> Bool { state == .connected && capabilities?.supportsShellReattach == true }
+    public func supportsShellReattach() async -> Bool? {
+        guard state == .connected, let capabilities else { return nil }
+        return capabilities.supportsShellReattach
+    }
 
     /// Terminal messages are mTLS-only on the desktop, like commands, and need its `terminal` capability.
     public func sendTerminal(_ frame: AnnexTerminalFrame) async throws {

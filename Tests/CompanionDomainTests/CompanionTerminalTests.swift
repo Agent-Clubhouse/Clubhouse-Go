@@ -341,10 +341,11 @@ private actor FakeTerminalTransport: AnnexTransporting {
     func sendTerminal(_ frame: AnnexTerminalFrame) async throws { sent.append(frame) }
     func push(_ type: String, _ payload: AnnexJSON) { continuation?.yield(.frame(AnnexEnvelope(type: type, payload: payload))) }
     func connection(_ state: AnnexConnectionState) { continuation?.yield(.connection(state)) }
-    private var reattach = false
-    /// Whether this desktop advertises `shellReattach` v1 with a grace period.
-    func setReattach(_ supported: Bool) { reattach = supported }
-    func supportsShellReattach() async -> Bool { reattach }
+    private var reattach: Bool? = false
+    /// Whether this desktop advertises `shellReattach` v1 with a grace period; nil while that isn't known (not
+    /// connected, or capabilities not read yet during a flap).
+    func setReattach(_ supported: Bool?) { reattach = supported }
+    func supportsShellReattach() async -> Bool? { reattach }
 }
 
 @MainActor private func collect(_ stream: AsyncStream<CompanionTerminalChannelEvent>, count: Int) async -> [CompanionTerminalChannelEvent] {
@@ -732,7 +733,7 @@ private func isReattach(_ frame: AnnexTerminalFrame) -> Bool { if case .reattach
 private func isResize(_ frame: AnnexTerminalFrame) -> Bool { if case .resize = frame { true } else { false } }
 
 /// A project shell, opened with ids from `ids`, whose desktop keeps shells through a drop when `reattach`.
-@MainActor private func reattachShell(reattach: Bool, ids: [String] = ["s2", "s3"]) async -> (CompanionTerminalSession, FakeTerminalTransport) {
+@MainActor private func reattachShell(reattach: Bool?, ids: [String] = ["s2", "s3"]) async -> (CompanionTerminalSession, FakeTerminalTransport) {
     let transport = FakeTerminalTransport()
     await transport.setReattach(reattach)
     var remaining = ids
@@ -893,7 +894,7 @@ func aRefusedReattachSaysWhyAndNeverSpawns(payload: String, expected: CompanionT
 }
 
 /// A project shell whose spawn was sent but whose ack never arrived before the connection dropped and came back.
-@MainActor private func unackedSpawn(reattach: Bool) async -> (CompanionTerminalSession, FakeTerminalTransport) {
+@MainActor private func unackedSpawn(reattach: Bool?) async -> (CompanionTerminalSession, FakeTerminalTransport) {
     let transport = FakeTerminalTransport()
     await transport.setReattach(reattach)
     let scope = CompanionTerminalScope.project(.init(hostID: "h", projectID: "p"))
@@ -984,4 +985,86 @@ func anotherRefusalOfAnUnackedSpawnsReattachDoesNotSpawn(code: String) async {
     #expect(await transport.sent.filter(isSpawn).last == .spawnShell(sessionID: "s2", projectID: "p", agentID: nil))
     #expect(await !transport.sent.contains(where: isReattach))
     session.close()
+}
+
+// MARK: Capability unknown during a flap
+
+@MainActor @Test func aCapabilityFlapOnRestoreKeepsTheShellAndTheNextRestoreReattaches() async {
+    let (session, transport) = await reattachShell(reattach: true)
+    // The connection drops and comes back, but the desktop's capabilities aren't known yet (or are gone again).
+    await transport.setReattach(nil)
+    await dropAndRestore(session, transport)
+    try? await Task.sleep(for: .milliseconds(80))
+    var sent = await transport.sent
+    #expect(sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil)], "Nothing is sent while it isn't known")
+    #expect(session.state == .reconnecting, "It stays reconnecting: no failure, no \"update the desktop\"")
+    #expect(!unwrapped(session).contains("new shell") && !unwrapped(session).contains("ended"))
+
+    // The connection settles with the capability: the same shell, reattached under the same id.
+    await transport.setReattach(true)
+    await transport.connection(.connected)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    await transport.push("pty:reattach-shell:ack", .object(["sessionId": .string("s1"), "buffer": .string("hello\r\n"), "outputSeq": .integer(7)]))
+    await waitUntil("running") { session.state == .running }
+    session.paste("SYNTH-CODE-1234")
+    await waitUntil("input") { await transport.sent.contains(.input(id: "s1", data: "SYNTH-CODE-1234")) }
+    sent = await transport.sent
+    #expect(sent.filter(isSpawn).count == 1, "Never a same-id spawn, which would replace a kept shell")
+    #expect(sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil), .reattachShell(sessionID: "s1", cols: 40, rows: 10),
+                                              .input(id: "s1", data: "SYNTH-CODE-1234")])
+    session.close()
+}
+
+@MainActor @Test func anUnackedSpawnIsAlsoKeptThroughAFlapAndThenReattached() async {
+    let (session, transport) = await unackedSpawn(reattach: nil)
+    // The restore reopens (connecting) and the unknown capability sends it back to reconnecting, with nothing sent.
+    try? await Task.sleep(for: .milliseconds(150))
+    await waitUntil("reconnecting again") { session.state == .reconnecting }
+    #expect(await transport.sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil)], "No second spawn while the capability is unknown")
+    #expect(session.state == .reconnecting)
+    await transport.setReattach(true)
+    await transport.connection(.connected)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    #expect(await transport.sent.filter(isSpawn).count == 1)
+    #expect(await transport.sent.filter(isReattach) == [.reattachShell(sessionID: "s1", cols: 40, rows: 10)])
+    session.close()
+}
+
+@MainActor @Test func aKnownLegacyDesktopStillRespawnsAfterAFlapSettles() async {
+    // Unknown first, then known to lack shellReattach: only then the legacy same-id spawn.
+    let (session, transport) = await reattachShell(reattach: nil)
+    await dropAndRestore(session, transport)
+    try? await Task.sleep(for: .milliseconds(60))
+    #expect(await transport.sent.filter(isSpawn).count == 1)
+    await transport.setReattach(false)
+    await transport.connection(.connected)
+    await waitUntil("a second spawn") { await transport.sent.filter(isSpawn).count == 2 }
+    #expect(await !transport.sent.contains(where: isReattach))
+    session.close()
+}
+
+// MARK: Input refusals by code or message
+
+@MainActor @Test(arguments: [
+    (#"{"op":"pty:input","agentId":"s1","code":"pty:input data exceeds 64KB limit","message":"something else"}"#, true),
+    (#"{"op":"pty:input","agentId":"s1","code":"something else","message":"pty:input data exceeds 64KB limit"}"#, true),
+    (#"{"op":"pty:input","agentId":"s1","message":"pty:input data exceeds 64KB limit"}"#, true),
+    (#"{"op":"pty:input","agentId":"s1","code":"pty:input rejected"}"#, true),
+    (#"{"op":"pty:input","agentId":"s1","code":"unrelated","message":"also unrelated"}"#, false),
+])
+func aRefusedInputIsRecognizedByCodeOrMessage(payload: String, isInputRefusal: Bool) async throws {
+    let transport = FakeTerminalTransport()
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: .project(.init(hostID: "h", projectID: "p")), sessionID: "s1")
+    let events = channel.events()
+    await channel.open(cols: 40, rows: 10)
+    await transport.push("pty:spawn-shell:ack", .object(["sessionId": .string("s1")]))
+    await transport.push("error", try JSONDecoder().decode(AnnexJSON.self, from: Data(payload.utf8)))
+    let received = await collect(events, count: 2)
+    #expect(received[0] == .opened(cwd: nil, snapshot: nil, cols: nil, rows: nil))
+    if isInputRefusal {
+        #expect(received[1] == .inputRejected(CompanionTerminalSession.inputRefusedMessage), "A refused paste never replaces or fails the shell")
+    } else {
+        // Not an input refusal: it is an error for the shell, as before.
+        if case .failed = received[1] {} else { Issue.record("Expected a failure, got \(received[1])") }
+    }
 }

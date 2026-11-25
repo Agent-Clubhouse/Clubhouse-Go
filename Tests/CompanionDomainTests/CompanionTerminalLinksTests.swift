@@ -165,38 +165,38 @@ func aWrappedURLIsExactWhenItsHeadHasScrolledIntoScrollback(cols: Int) {
 // MARK: Rows that stop following one another
 
 @Test func deletingTheContinuationRowDoesNotJoinTheNextLineOntoTheAddress() {
-    // A 24-character address wraps at 20 columns; the next line follows; then the continuation row is deleted.
-    var screen = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
-    #expect(screen.links().map(\.text) == ["https://a.co/abcdefghijk"])
+    // A 34-character address wraps at 30 columns; the next line follows; then the continuation row is deleted.
+    var screen = linkScreen("https://x.example.test/abcdefghijk\r\nNEXT", cols: 30, rows: 6)
+    #expect(screen.links().map(\.text) == ["https://x.example.test/abcdefghijk"])
     screen.feed("\u{1B}[2;1H\u{1B}[1M")
-    #expect(screen.logicalLines().map { $0.map(\.text).joined() } == ["https://a.co/abcdefg", "NEXT"], "The deleted row's line ended where it did")
-    #expect(screen.links().map(\.text) == ["https://a.co/abcdefg"], "Not https://a.co/abcdefgNEXT")
+    #expect(screen.logicalLines().map { $0.map(\.text).joined() } == ["https://x.example.test/abcdefg", "NEXT"], "The deleted row's line ended where it did")
+    #expect(screen.links().map(\.text) == ["https://x.example.test/abcdefg"], "Not https://x.example.test/abcdefgNEXT")
 }
 
 @Test func insertingLinesInARegionDoesNotJoinTheFooterOntoTheAddress() {
     // Region rows 1-5 with a footer on row 6. The address wraps over rows 4-5; inserting a line at the top pushes the
     // continuation out of the region, leaving the first half last in the region, right above the footer.
-    var screen = linkScreen("\u{1B}[1;5r\u{1B}[4;1Hhttps://a.co/abcdefghijk\u{1B}[6;1HFOOTER", cols: 20, rows: 6)
-    #expect(screen.links().map(\.text) == ["https://a.co/abcdefghijk"])
+    var screen = linkScreen("\u{1B}[1;5r\u{1B}[4;1Hhttps://x.example.test/abcdefghijk\u{1B}[6;1HFOOTER", cols: 30, rows: 6)
+    #expect(screen.links().map(\.text) == ["https://x.example.test/abcdefghijk"])
     screen.feed("\u{1B}[1;1H\u{1B}[1L")
     #expect(screen.logicalLines().last.map { $0.map(\.text).joined() } == "FOOTER")
-    #expect(screen.links().map(\.text) == ["https://a.co/abcdefg"], "Not https://a.co/abcdefgFOOTER")
+    #expect(screen.links().map(\.text) == ["https://x.example.test/abcdefg"], "Not https://x.example.test/abcdefgFOOTER")
 }
 
 @Test func insertingALineRightBelowAWrappedRowDoesNotJoinIt() {
-    var screen = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    var screen = linkScreen("https://x.example.test/abcdefghijk\r\nNEXT", cols: 30, rows: 6)
     screen.feed("\u{1B}[2;1H\u{1B}[1L")
     #expect(screen.grid[0].last?.wrapsToNextRow == false)
 }
 
 @Test func aRegionThatScrollsDoesNotJoinTheRowAboveItToItsNewTop() {
     // The address wraps from row 1 (outside the region) onto row 2, the region's first row; the region then scrolls.
-    var screen = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    var screen = linkScreen("https://x.example.test/abcdefghijk\r\nNEXT", cols: 30, rows: 6)
     screen.feed("\u{1B}[2;6r\u{1B}[6;1H\u{1B}[1S")
-    #expect(screen.links().map(\.text) == ["https://a.co/abcdefg"])
-    var down = linkScreen("https://a.co/abcdefghijk\r\nNEXT", cols: 20, rows: 6)
+    #expect(screen.links().map(\.text) == ["https://x.example.test/abcdefg"])
+    var down = linkScreen("https://x.example.test/abcdefghijk\r\nNEXT", cols: 30, rows: 6)
     down.feed("\u{1B}[2;6r\u{1B}[1T")
-    #expect(down.links().map(\.text) == ["https://a.co/abcdefg"])
+    #expect(down.links().map(\.text) == ["https://x.example.test/abcdefg"])
 }
 
 @Test func plainScrollingStillJoinsAWrappedAddressAtTheBottom() {
