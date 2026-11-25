@@ -1869,7 +1869,11 @@ import Observation
             appUpdateCheckErrors = appUpdateCheckErrors.filter { incomingIDs.contains($0.key) }
             reconcileAppUpdateAttempts(in: incoming)
             for host in incoming where !host.connection.canOperate {
-                retireHistoryLoads(hostID: host.id)
+                // History can publish a catalog before the socket is connected. That report
+                // does not invalidate its own read; only a lost operable connection does.
+                if self.hosts.first(where: { $0.id == host.id })?.connection.canOperate == true {
+                    retireHistoryLoads(hostID: host.id)
+                }
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }
                 fetchedReviews = fetchedReviews.filter { $0.key.hostID != host.id }
                 fullReviewFailures = fullReviewFailures.filter { $0.key.hostID != host.id }

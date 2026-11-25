@@ -175,6 +175,9 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
         await service.register(.init(host: host, alias: "Fixture", transport: transport))
         let result = Self(io: io, transport: transport, service: service, store: store, target: .init(hostID: id, projectID: "project", agentID: "agent"), clock: clock, monitor: monitor)
         try await result.wait { await io.sockets.count == 1 }
+        // Terminal fixtures already send their first snapshot. Observe that connection
+        // before reading history, so its startup resync cannot retire the initial read.
+        if terminalAckBytes != nil { try await result.wait { result.host?.connection == .connected } }
         await store.load(result.target)
         #expect(store.conversation(for: result.target).lastSequence == 7)
         return result
@@ -404,7 +407,6 @@ private func recoverySnapshot(_ seq: Int64, fresh: Bool = true, name: String = "
     @Test(.timeLimit(.minutes(2)), arguments: [1_247_805, 26 * 1024 * 1024, 66 * 1024 * 1024])
     func attachedTerminalReopensAndRepeatsOversizedAck(bytes: Int) async throws {
         let h = try await RecoveryHarness.start(terminalAckBytes: bytes)
-        try await h.wait { h.host?.connection == .connected }
         let channel = CompanionLiveTerminalChannel(transport: h.transport, scope: .agentPTY(h.target))
         let session = CompanionTerminalSession(scope: .agentPTY(h.target), title: "PTY", channel: channel)
         session.start()
