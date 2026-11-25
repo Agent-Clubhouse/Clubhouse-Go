@@ -480,6 +480,52 @@ import Testing
         #expect(!store.canOperate(target), "Successful history does not grant authority to an unavailable desktop")
     }
 
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing, .reconnecting, .offline, .failed("Unavailable")])
+    func startupResyncKeepsHistoryThatBeganBeforeConnectionWasOperable(connection: CompanionConnection) async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var desktop = host(id: target.hostID)
+        desktop.connection = connection
+        store.apply(.hosts([desktop, host(id: "host-b")]))
+        service.shouldSuspendHistory = true
+        let initialRead = Task { await store.load(target) }
+        while service.historyGate == nil { await Task.yield() }
+        store.apply(.resyncRequired(hostID: target.hostID))
+        #expect(store.conversation(for: target).isLoading && store.conversation(for: target).requiresResync)
+        desktop.connection = .connected
+        store.apply(.hosts([desktop, host(id: "host-b")]))
+        // Buffered startup signals can reach Store after the connected report, too.
+        store.apply(.resyncRequired(hostID: target.hostID))
+        #expect(store.conversation(for: target).isLoading, "Ownership depends on admission, not the later connection state")
+        let items: [CompanionTimelineItem] = [.notice(id: "initial", text: "Initial authoritative history")]
+        service.historyGate?.resume(returning: .init(items: items, lastSequence: 7, sessionID: "initial"))
+        await initialRead.value
+        let result = store.conversation(for: target)
+        #expect(service.historyCalls == 1)
+        #expect(result.items == items && result.lastSequence == 7 && result.sessionID == "initial")
+        #expect(result.isLoaded && !result.isLoading && !result.requiresResync && result.error == nil)
+        #expect(store.canOperate(target))
+    }
+
+    @Test func aColdReadIsRetiredWhenAnOperableConnectionIsSubsequentlyLost() async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var desktop = host(id: target.hostID)
+        desktop.connection = .connecting
+        store.apply(.hosts([desktop, host(id: "host-b")]))
+        service.shouldSuspendHistory = true
+        let initialRead = Task { await store.load(target) }
+        while service.historyGate == nil { await Task.yield() }
+        desktop.connection = .connected
+        store.apply(.hosts([desktop, host(id: "host-b")]))
+        desktop.connection = .reconnecting
+        store.apply(.hosts([desktop, host(id: "host-b")]))
+        #expect(!store.conversation(for: target).isLoading && store.conversation(for: target).requiresResync)
+        service.historyGate?.resume(returning: .init(items: [.notice(id: "stale", text: "Stale history")]))
+        await initialRead.value
+        #expect(store.conversation(for: target).items.isEmpty && store.conversation(for: target).requiresResync)
+    }
+
     @Test(arguments: [false, true], [false, true])
     func interruptedHistoryAllowsReconnectRefreshAndRejectsLateCompletion(hasCachedHistory: Bool, oldReadFails: Bool) async {
         for resyncEvent in [false, true] {
