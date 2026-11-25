@@ -78,11 +78,7 @@ import ClubhouseTransport
         case .project, .agentShell:
             size = (cols, rows)
             guard let shell = await shellFrame(cols: cols, rows: rows) else {
-                // Whether this desktop keeps shells isn't known right now (a flap, or capabilities not read yet). A
-                // shell that may still be there is neither respawned nor failed: it stays reconnecting, with
-                // everything kept and nothing sent, until the connection settles and `connectionRestored` reopens it.
-                connectionLost()
-                connected = false
+                capabilityUnknown()
                 return
             }
             frame = shell
@@ -94,11 +90,28 @@ import ClubhouseTransport
         do { try await transport.sendTerminal(frame) }
         catch {
             if case .reattachShell = frame, case .unsupportedCapability? = error as? AnnexTransportError {
-                // The capability went away between the check and the send: a flap, not "update the desktop".
-                connectionLost(); connected = false
+                // The capability went away between the check and the send: the same unknown as above, not "update
+                // the desktop".
+                awaitingSnapshot = false; pendingOutput = []
+                capabilityUnknown()
             } else {
                 failed(error)
             }
+        }
+    }
+
+    /// Whether this desktop keeps shells isn't known right now, and the shell may still be there, so it is neither
+    /// respawned nor lost: all its state is kept and nothing is sent.
+    /// - While the transport is disconnected, a real connection edge is coming and reopens it: stay reconnecting.
+    ///   The channel's own `connected` is left to follow the transport.
+    /// - While it is connected (a capabilities read failed without a disconnect) no edge will come, so say so and let
+    ///   the person try again, which reattaches once the capability is known, or fails the same way.
+    private func capabilityUnknown() {
+        if connected {
+            isOpen = false
+            yield(.failed(Self.message(for: "terminal_unavailable")))
+        } else {
+            connectionLost()
         }
     }
 

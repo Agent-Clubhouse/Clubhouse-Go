@@ -338,7 +338,13 @@ private actor FakeTerminalTransport: AnnexTransporting {
         continuation.yield(.connection(.connected))
         return stream
     }
-    func sendTerminal(_ frame: AnnexTerminalFrame) async throws { sent.append(frame) }
+    private var failReattachSend = false
+    /// The capability went away between the check and the send.
+    func setFailReattachSend(_ fail: Bool) { failReattachSend = fail }
+    func sendTerminal(_ frame: AnnexTerminalFrame) async throws {
+        if failReattachSend, case .reattachShell = frame { throw AnnexTransportError.unsupportedCapability("shellReattach") }
+        sent.append(frame)
+    }
     func push(_ type: String, _ payload: AnnexJSON) { continuation?.yield(.frame(AnnexEnvelope(type: type, payload: payload))) }
     func connection(_ state: AnnexConnectionState) { continuation?.yield(.connection(state)) }
     private var reattach: Bool? = false
@@ -987,22 +993,25 @@ func anotherRefusalOfAnUnackedSpawnsReattachDoesNotSpawn(code: String) async {
     session.close()
 }
 
-// MARK: Capability unknown during a flap
+// MARK: Capability unknown
 
-@MainActor @Test func aCapabilityFlapOnRestoreKeepsTheShellAndTheNextRestoreReattaches() async {
+private let unreachable = CompanionTerminalSession.State.failed("The desktop couldn't reach this shell right now. Try again.")
+
+@MainActor @Test func anUnknownCapabilityWhileConnectedFailsRetriablyAndTryAgainReattaches() async {
+    // The socket stays connected but the capabilities read failed: no connection edge will ever come, so the shell
+    // must not sit in "Reconnecting" forever.
     let (session, transport) = await reattachShell(reattach: true)
-    // The connection drops and comes back, but the desktop's capabilities aren't known yet (or are gone again).
     await transport.setReattach(nil)
     await dropAndRestore(session, transport)
-    try? await Task.sleep(for: .milliseconds(80))
+    await waitUntil("the retriable failure") { session.state == unreachable }
+    try? await Task.sleep(for: .milliseconds(60))
     var sent = await transport.sent
-    #expect(sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil)], "Nothing is sent while it isn't known")
-    #expect(session.state == .reconnecting, "It stays reconnecting: no failure, no \"update the desktop\"")
+    #expect(sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil)], "Nothing is sent and nothing is spawned")
     #expect(!unwrapped(session).contains("new shell") && !unwrapped(session).contains("ended"))
 
-    // The connection settles with the capability: the same shell, reattached under the same id.
+    // Try again once the capability is known: the same shell, reattached under the same id.
     await transport.setReattach(true)
-    await transport.connection(.connected)
+    session.restart()
     await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
     await transport.push("pty:reattach-shell:ack", .object(["sessionId": .string("s1"), "buffer": .string("hello\r\n"), "outputSeq": .integer(7)]))
     await waitUntil("running") { session.state == .running }
@@ -1015,13 +1024,68 @@ func anotherRefusalOfAnUnackedSpawnsReattachDoesNotSpawn(code: String) async {
     session.close()
 }
 
-@MainActor @Test func anUnackedSpawnIsAlsoKeptThroughAFlapAndThenReattached() async {
+@MainActor @Test func terminalUnavailableThenAnUnknownCapabilityKeepsTheShellForTheNextTryAgain() async {
+    let (session, transport) = await reattachShell(reattach: true)
+    await dropAndRestore(session, transport)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    await transport.push("error", .object(["op": .string("pty:reattach-shell"), "sessionId": .string("s1"), "code": .string("terminal_unavailable")]))
+    await waitUntil("the failure") { session.state == unreachable }
+    // Try again while the capability is unknown: the same retriable failure, nothing sent.
+    await transport.setReattach(nil)
+    session.restart()
+    await waitUntil("the failure again") { session.state == unreachable }
+    try? await Task.sleep(for: .milliseconds(60))
+    let held = await transport.sent
+    #expect(held.filter(isReattach).count == 1 && held.filter(isSpawn).count == 1)
+    // And once it is known, one more reattach under the same id.
+    await transport.setReattach(true)
+    session.restart()
+    await waitUntil("the second reattach") { await transport.sent.filter(isReattach).count == 2 }
+    let sent = await transport.sent
+    #expect(sent.filter(isSpawn).count == 1)
+    #expect(sent.filter(isReattach) == [.reattachShell(sessionID: "s1", cols: 40, rows: 10), .reattachShell(sessionID: "s1", cols: 40, rows: 10)])
+    session.close()
+}
+
+@MainActor @Test func anUnackedSpawnWithAnUnknownCapabilityFailsRetriablyThenReattaches() async {
     let (session, transport) = await unackedSpawn(reattach: nil)
-    // The restore reopens (connecting) and the unknown capability sends it back to reconnecting, with nothing sent.
-    try? await Task.sleep(for: .milliseconds(150))
-    await waitUntil("reconnecting again") { session.state == .reconnecting }
+    await waitUntil("the retriable failure") { session.state == unreachable }
+    try? await Task.sleep(for: .milliseconds(60))
     #expect(await transport.sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil)], "No second spawn while the capability is unknown")
-    #expect(session.state == .reconnecting)
+    await transport.setReattach(true)
+    session.restart()
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    #expect(await transport.sent.filter(isSpawn).count == 1)
+    #expect(await transport.sent.filter(isReattach) == [.reattachShell(sessionID: "s1", cols: 40, rows: 10)])
+    session.close()
+}
+
+@MainActor @Test func aCapabilityLostBetweenTheCheckAndTheSendIsTheSameRetriableFailure() async {
+    let (session, transport) = await reattachShell(reattach: true)
+    await transport.setFailReattachSend(true)
+    await dropAndRestore(session, transport)
+    await waitUntil("the retriable failure") { session.state == unreachable }
+    #expect(session.state != .failed(CompanionTerminalAvailability.updateDesktop), "A flap isn't \"update the desktop\"")
+    await transport.setFailReattachSend(false)
+    session.restart()
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    #expect(await transport.sent.filter(isSpawn).count == 1)
+    #expect(await transport.sent.filter(isReattach) == [.reattachShell(sessionID: "s1", cols: 40, rows: 10)])
+    session.close()
+}
+
+@MainActor @Test func anUnknownCapabilityWhileDisconnectedStaysReconnectingUntilTheNextEdge() async {
+    let (session, transport) = await reattachShell(reattach: true)
+    await transport.setReattach(nil)
+    // The connection drops, and the person tries again while it is still down: a real edge will come.
+    await transport.connection(.reconnecting(attempt: 1, delaySeconds: 1))
+    await waitUntil("reconnecting") { session.state == .reconnecting }
+    session.restart()
+    try? await Task.sleep(for: .milliseconds(100))
+    await waitUntil("reconnecting again") { session.state == .reconnecting }
+    #expect(await transport.sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil)], "Nothing is sent while it isn't known")
+    #expect(!unwrapped(session).contains("new shell") && !unwrapped(session).contains("ended"))
+    // The connection settles with the capability: the edge reopens it, reattaching under the same id.
     await transport.setReattach(true)
     await transport.connection(.connected)
     await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
@@ -1030,14 +1094,14 @@ func anotherRefusalOfAnUnackedSpawnsReattachDoesNotSpawn(code: String) async {
     session.close()
 }
 
-@MainActor @Test func aKnownLegacyDesktopStillRespawnsAfterAFlapSettles() async {
-    // Unknown first, then known to lack shellReattach: only then the legacy same-id spawn.
+@MainActor @Test func aKnownLegacyDesktopStillRespawnsAfterAnUnknownCapabilitySettles() async {
+    // Unknown first (retriable failure), then known to lack shellReattach: only then the legacy same-id spawn.
     let (session, transport) = await reattachShell(reattach: nil)
     await dropAndRestore(session, transport)
-    try? await Task.sleep(for: .milliseconds(60))
+    await waitUntil("the retriable failure") { session.state == unreachable }
     #expect(await transport.sent.filter(isSpawn).count == 1)
     await transport.setReattach(false)
-    await transport.connection(.connected)
+    session.restart()
     await waitUntil("a second spawn") { await transport.sent.filter(isSpawn).count == 2 }
     #expect(await !transport.sent.contains(where: isReattach))
     session.close()
