@@ -57,13 +57,14 @@ struct CompanionConversationIdentityButton: View {
     }
 }
 
-/// The width requested by the chat's measured side reservations. Kept separate so the actual
-/// identity control can be tested against a native title proposal during a resize.
+/// The side measurements are asynchronous and can still describe a wider bar during a transition.
+/// Treat that width as a ceiling/ideal, never an uncompressible requirement: the native title slot
+/// must be able to narrow the name immediately while Back and the trailing actions keep their space.
 struct CompanionHeaderPrincipalWidth: ViewModifier {
     let maximumWidth: CGFloat
 
     func body(content: Content) -> some View {
-        content.frame(width: maximumWidth)
+        content.frame(minWidth: 44, idealWidth: maximumWidth, maxWidth: maximumWidth)
     }
 }
 
