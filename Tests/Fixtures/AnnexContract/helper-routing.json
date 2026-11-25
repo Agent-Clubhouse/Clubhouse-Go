@@ -36,6 +36,11 @@
           },
           "source": "default"
         },
+        "autoBudget": {
+          "editable": false,
+          "invalid": false,
+          "policy": null
+        },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
@@ -87,18 +92,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -118,6 +127,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -225,6 +235,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -245,6 +256,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -352,6 +364,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -372,6 +385,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -490,6 +504,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -498,7 +513,7 @@
             }
           }
         },
-        "revision": "r1.0",
+        "revision": "r0.0",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -535,6 +550,11 @@
           },
           "source": "default"
         },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
+        },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
@@ -586,18 +606,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -617,6 +641,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -724,6 +749,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -744,6 +770,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -851,6 +878,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -871,6 +899,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -989,6 +1018,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -997,7 +1027,7 @@
             }
           }
         },
-        "revision": "r1.0",
+        "revision": "r0.0",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -1021,6 +1051,11 @@
             }
           },
           "source": "default"
+        },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
         },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
@@ -1073,18 +1108,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -1104,6 +1143,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -1211,6 +1251,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -1231,6 +1272,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -1338,6 +1380,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -1358,6 +1401,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -1479,6 +1523,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -1487,7 +1532,7 @@
             }
           }
         },
-        "revision": "r1.0",
+        "revision": "r0.0",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -1519,6 +1564,11 @@
             }
           },
           "source": "dispatcher_locked"
+        },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
         },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
@@ -1571,18 +1621,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -1602,6 +1656,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -1709,6 +1764,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -1729,6 +1785,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -1836,6 +1893,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -1856,6 +1914,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -1974,6 +2033,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -1982,7 +2042,7 @@
             }
           }
         },
-        "revision": "r1.0",
+        "revision": "r0.0",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -2027,6 +2087,11 @@
           },
           "source": "default"
         },
+        "autoBudget": {
+          "editable": false,
+          "invalid": false,
+          "policy": null
+        },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
@@ -2078,18 +2143,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -2109,6 +2178,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -2216,6 +2286,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -2236,6 +2307,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -2343,6 +2415,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -2363,6 +2436,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -2481,6 +2555,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -2489,7 +2564,7 @@
             }
           }
         },
-        "revision": "r1.0",
+        "revision": "r0.0",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -2522,6 +2597,11 @@
           },
           "source": "default"
         },
+        "autoBudget": {
+          "editable": false,
+          "invalid": false,
+          "policy": null
+        },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
@@ -2573,18 +2653,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -2604,6 +2688,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -2711,6 +2796,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -2731,6 +2817,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -2838,6 +2925,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -2858,6 +2946,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -2976,6 +3065,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -2984,7 +3074,7 @@
             }
           }
         },
-        "revision": "r1.0",
+        "revision": "r0.0",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -3021,6 +3111,11 @@
           },
           "source": "default"
         },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
+        },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
         "labels": {
@@ -3072,18 +3167,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -3103,6 +3202,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -3210,6 +3310,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -3230,6 +3331,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -3344,6 +3446,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -3364,6 +3467,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -3482,6 +3586,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -3490,7 +3595,7 @@
             }
           }
         },
-        "revision": "r1.1",
+        "revision": "r0.1",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -3514,6 +3619,11 @@
             }
           },
           "source": "default"
+        },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
         },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
@@ -3566,18 +3676,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -3597,6 +3711,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -3704,6 +3819,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -3724,6 +3840,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -3818,6 +3935,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -3838,6 +3956,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -3956,6 +4075,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -3964,7 +4084,7 @@
             }
           }
         },
-        "revision": "r1.1",
+        "revision": "r0.1",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -3988,6 +4108,11 @@
             }
           },
           "source": "default"
+        },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
         },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
@@ -4040,18 +4165,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -4071,6 +4200,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -4178,6 +4308,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -4198,6 +4329,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -4312,6 +4444,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -4332,6 +4465,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -4450,6 +4584,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -4458,7 +4593,7 @@
             }
           }
         },
-        "revision": "r1.1",
+        "revision": "r0.1",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },
@@ -4482,6 +4617,11 @@
             }
           },
           "source": "default"
+        },
+        "autoBudget": {
+          "editable": true,
+          "invalid": false,
+          "policy": null
         },
         "copilotAuto": true,
         "epoch": "00000000-0000-4000-8000-000000000001",
@@ -4534,18 +4674,22 @@
             "only_candidate": "The only provider available",
             "persona_pinned": "Set by the persona",
             "preset_on_cli": "From the helper settings for this difficulty",
+            "reset_urgency": "Preferred usable weekly budget before its reset",
             "sticky": "Stayed on the provider chosen last",
             "unknown_fallback": "Its usage couldn’t be checked, and the others are getting close to their limits"
           },
           "skipped": {
+            "auto_budget_invalid": "The saved Auto budget policy needs to be repaired in Settings",
             "auto_disabled": "Turned off for Auto in Settings",
             "auto_not_supported": "Auto doesn’t support this provider yet",
+            "auto_reserve": "Auto’s configured reserve would be reached",
             "cli_disabled": "Turned off in Settings",
             "cli_unavailable": "Not available on this computer",
             "cooling_down": "It failed to start recently",
             "mapping_changed": "The mapping changed while this start was being prepared",
             "no_valid_mapping": "No choice for this difficulty is offered now",
             "quota_exhausted": "The provider reports its limit reached",
+            "quota_incomplete": "Fresh, complete usage is needed to check the Auto reserve",
             "quota_near_limit": "Close to its limit"
           },
           "unknown": {
@@ -4565,6 +4709,7 @@
           "claude-code": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -4658,6 +4803,7 @@
               ],
               "source": "fallback"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -4678,6 +4824,7 @@
           "codex-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -4785,6 +4932,7 @@
               ],
               "source": "live"
             },
+            "enabled": true,
             "quota": {
               "asOf": "2027-01-15T08:00:00.000Z",
               "fiveHour": {
@@ -4805,6 +4953,7 @@
           "copilot-cli": {
             "autoCandidate": true,
             "autoEligible": true,
+            "available": true,
             "cells": {
               "easy": {
                 "builtin": {
@@ -4923,6 +5072,7 @@
               ],
               "source": "live"
             },
+            "enabled": false,
             "quota": {
               "asOf": null,
               "source": "none",
@@ -4931,7 +5081,7 @@
             }
           }
         },
-        "revision": "r1.2",
+        "revision": "r0.2",
         "serverTime": "2027-01-15T08:00:00.000Z",
         "version": 1
       },

@@ -42,7 +42,15 @@ import Testing
     }
 
     @Test func everyCanonicalEnvelopeRetainsFailedEvidenceBeforeClassification() throws {
-        let cases = envelopes(try fixture())
+        try assertCanonicalEnvelopeEvidence(fixture())
+    }
+
+    @Test func currentDesktopContractRetainsEveryProviderV2Receipt() throws {
+        try assertCanonicalEnvelopeEvidence(AnnexContract.json("provider-control-v2.json"))
+    }
+
+    private func assertCanonicalEnvelopeEvidence(_ recording: AnnexJSON) throws {
+        let cases = envelopes(recording)
         #expect(cases.count == 87)
         var transitions = 0, failedStartContracts = 0
         for item in cases {
