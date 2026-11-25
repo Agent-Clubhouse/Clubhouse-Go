@@ -102,11 +102,14 @@ public actor AnnexTransport: AnnexTransporting {
         envelope.type.hasPrefix("pty:") || (envelope.type == "error" && envelope.payload?["op"]?.string?.hasPrefix("pty:") == true)
     }
 
+    public func supportsShellReattach() async -> Bool { state == .connected && capabilities?.supportsShellReattach == true }
+
     /// Terminal messages are mTLS-only on the desktop, like commands, and need its `terminal` capability.
     public func sendTerminal(_ frame: AnnexTerminalFrame) async throws {
         guard let capabilities, capabilities.supportsTerminal, let terminal = capabilities.terminal else {
             throw AnnexTransportError.unsupportedCapability("terminal")
         }
+        if case .reattachShell = frame, !capabilities.supportsShellReattach { throw AnnexTransportError.unsupportedCapability("shellReattach") }
         guard state == .connected, let socket else { throw AnnexTransportError.disconnected }
         if case .input(let id, let data) = frame {
             // Include the id, envelope, quotes and JSON escaping in the 64 KiB wire budget.

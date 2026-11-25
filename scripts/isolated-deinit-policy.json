@@ -615,7 +615,7 @@
     "CompanionLiveTerminalChannel": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift",
-      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned.",
+      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned. Reviewed shell-reattach additions: resumable and needsNewIdentity are Bools, and makeSessionID is a `() -> String` id generator whose production default is a capture-free `UUID().uuidString` (tests pass closures over local Strings). None owns a UI object, task or teardown work.",
       "surface": {
         "bases": [
           "CompanionTerminalChannel"
@@ -629,7 +629,10 @@
           "isOpen": "Bool",
           "listening": "Task < Void , Never > ?",
           "lost": "Bool",
+          "makeSessionID": "( ) -> String",
+          "needsNewIdentity": "Bool",
           "pendingOutput": "[ ( data : String , outputSeq : Int64 ? ) ]",
+          "resumable": "Bool",
           "scope": "CompanionTerminalScope",
           "size": "( cols : Int , rows : Int ) ?",
           "snapshotSeq": "Int64 ?",
@@ -1027,7 +1030,7 @@
     "CompanionProviderV2Flow": {
       "policy": "main_actor",
       "source": "Annex/Annex/Companion/Domain/CompanionProviderV2Flow.swift",
-      "reason": "Injected CompanionService and two callbacks retain synthesized MainActor destruction, as V1. Production callbacks capture Store weakly and target values; no UI owner is captured. Store.shutdown explicitly releases providerV2Flows inside Runtime\u2019s real MainActor task before any await. Other fields are target, runtime Strings, Bool, optional typed Sendable preview/receipt/transition structs; no deinit work or resend queue."
+      "reason": "Injected CompanionService and two callbacks retain synthesized MainActor destruction, as V1. Production callbacks capture Store weakly and target values; no UI owner is captured. Store.shutdown explicitly releases providerV2Flows inside Runtime’s real MainActor task before any await. Other fields are target, runtime Strings, Bool, optional typed Sendable preview/receipt/transition structs; no deinit work or resend queue."
     }
   },
   "captureSites": {

@@ -24,3 +24,18 @@ page must be opened without leaving the app.
 
 Not handled: a program that wraps long text itself with hard newlines and no OSC 8 hyperlink (a hard newline is never
 joined), and the Links action on a terminal-mode agent's PTY inside its chat (full-screen terminals only).
+
+## Shell reattach (consumer of desktop Clubhouse#3843, proposed wire)
+
+When the desktop advertises top-level `shellReattach: {version, graceSeconds}` and the phone knows that version
+(`supportsShellReattach`: terminals usable, `version == 1`, `graceSeconds > 0`; an unknown higher version is the legacy path),
+a dropped connection no longer costs the shell:
+
+- After the connection returns, a shell that had been acked sends `pty:reattach-shell {sessionId, cols, rows}` under the
+  **same** id instead of a spawn. The ack's `buffer` is applied like an attach snapshot (output that raced ahead is buffered
+  and cut by `outputSeq`), the shell is resized to the phone's size, and no new-shell notice is printed.
+- A refused reattach (`code ?? message`) is shown, never turned into a spawn: `session_expired`, `session_exited` (exit code),
+  `terminal_unavailable` (retriable: Try again re-sends the reattach under the same id), `session_not_found`,
+  `invalid_session_id`, `session_in_use`, `authorization_revoked`, `too_many_shells`, `internal_error`, and unknown codes.
+- A New shell after an exit or any failure other than `terminal_unavailable` uses a **new** session id.
+- Without the capability the legacy path stays: a spawn under the same id and the ended-shell notice.

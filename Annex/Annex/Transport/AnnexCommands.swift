@@ -697,6 +697,11 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
     /// Project and agent shells and attached agent terminals (`terminal` v1). Absent on older desktops.
     public let terminal: Terminal?
     public var supportsTerminal: Bool { controlAvailable == true && terminal?.isUsable == true }
+    /// A shell outlives a dropped connection for `graceSeconds` and can be reattached (`shellReattach` v1). Absent on
+    /// desktops that end a phone's shells the moment its connection goes.
+    public let shellReattach: ShellReattach?
+    /// Only the version this phone knows: a higher one may mean different frames, so it takes the legacy path.
+    public var supportsShellReattach: Bool { supportsTerminal && shellReattach?.version == 1 && (shellReattach?.graceSeconds ?? 0) > 0 }
 
     /// The core fields are required. An optional block the phone can't read (the wrong type, a missing version)
     /// reads as absent, so that feature is off, rather than failing the whole document and the host with it.
@@ -742,11 +747,12 @@ nonisolated public struct AnnexCapabilities: Decodable, Sendable {
         appUpdate = optional(.appUpdate)
         attachments = optional(.attachments)
         terminal = optional(.terminal)
+        shellReattach = optional(.shellReattach)
         dispatcher = optional(.dispatcher)
     }
     private enum CodingKeys: String, CodingKey {
         case version, epoch, controlAuth, controlAvailable, commands, events, fullEvents, pairing, network, agentAddress, idempotency, routes, createOptions, agentSettings, agentState, providerControl, providerControlV2, providerStartV2
-        case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting
+        case iconRefs, projectState, finishedQuickAgents, chatControls, access, chatLinks, slashCommands, permissions, helperRequests, attachments, terminal, orchestration, contextWindow, dispatcher, helperRouting, shellReattach
         case grantRequests, appUpdate, snapshotTruncation, projectLinks, managedCreate, linkedProjectState
     }
 }

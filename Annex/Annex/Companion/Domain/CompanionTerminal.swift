@@ -247,6 +247,8 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     }
 
     static let inputRefusedMessage = "Paste stopped because the desktop refused terminal input. Some text may already have been sent."
+    /// Printed when the person starts a new shell (after an exit or a failure), so it never replaces one silently.
+    static let restartedShellNotice = "New shell started. The previous one has ended."
     /// Printed into a shell that was started again after the connection dropped. The desktop ends a phone's shells
     /// when its connection goes, so nothing that ran in the old one is still running.
     static let newShellNotice = "Reconnected. The desktop ended the previous shell and its programs when the connection dropped. This is a new shell."
@@ -271,6 +273,8 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     @ObservationIgnored private var outbox: [String] = []
     @ObservationIgnored private var flushing = false
     @ObservationIgnored private var hasOpened = false
+    /// The next open was asked for by the person (New shell, Try again), not by the connection coming back.
+    @ObservationIgnored private var restartedByPerson = false
     @ObservationIgnored private var linkRefresh: Task<Void, Never>?
     /// The end of the output before, for an address or hyperlink start that arrives split across two messages.
     @ObservationIgnored private var outputTail = ""
@@ -307,6 +311,7 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
     /// After an exit or failure: a new shell, or the agent's terminal again.
     func restart() {
         guard state != .closed, !state.isLive else { return }
+        restartedByPerson = true
         open()
     }
 
@@ -357,13 +362,18 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
         case .opened(let cwd, let snapshot, let cols, let rows):
             if let cwd { self.cwd = cwd }
             if let snapshot {
+                // A shell reattached after a dropped connection is drawn at the size it had, then follows the phone's
+                // again (below); an agent's PTY keeps the desktop's.
+                let phone = (cols: screen.cols, rows: screen.rows)
                 screen = CompanionTerminalScreen(cols: cols ?? screen.cols, rows: rows ?? screen.rows)
                 screen.feed(snapshot)
+                if scope.resizesPTY { screen.resize(cols: phone.cols, rows: phone.rows) }
                 noteOutput(snapshot)
             } else if hasOpened, scope.resizesPTY {
-                // The desktop killed the old shell, and the programs in it, when the connection dropped.
-                notice(Self.newShellNotice)
+                // The desktop ended the old shell, and the programs in it, when the connection dropped.
+                notice(restartedByPerson ? Self.restartedShellNotice : Self.newShellNotice)
             }
+            restartedByPerson = false
             inputError = nil
             hasOpened = true
             state = .running
@@ -379,9 +389,11 @@ enum CompanionTerminalChannelEvent: Equatable, Sendable {
             noteOutput(text)
             changed()
         case .exited(let code):
+            restartedByPerson = false
             state = .exited(code: code)
             notice(code.map { "Process exited with code \($0)." } ?? "Process exited.")
         case .failed(let message):
+            restartedByPerson = false
             state = .failed(message)
         case .inputRejected(let message):
             outbox = []
