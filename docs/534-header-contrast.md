@@ -45,10 +45,21 @@ and unusable regions/scales. A first harness had top-level visibility errors;
 putting the harness variables in a local function fixed the harness without a
 product-source change. Synthetic ratios are not header measurements.
 
-The approved local native launcher/assignment is unavailable. Parent owns the
-ordinary PR build and first native outcomes, including OCR availability, actual
-palette/traits/state, all three measured regions, dimming and real actions.
-iOS 26.0 compiler checks cannot establish an iOS 27 device cure or reproduce the
-reported white capsules. Physical Light-system/dark-app confirmation remains a
-separate device obligation. Issue, PR and chat evidence stays text-only. No
-screenshots are published, CI dispatched, or #620/#629 source changed here.
+The initial compiler/control proof had no approved native lane. The PR landing
+assignment subsequently authorized a fresh, private iOS 26.0 simulator and
+xcodebuild-managed test installs. The PR records those actual contrast/visual
+outcomes, original failures and main controls separately from compiler checks.
+The owner deletes only that fresh simulator and private derived data afterward;
+result bundles and text metrics remain private. No user's device app is installed
+or replaced, and no release is authorized by these tests.
+
+An AX target measured as 43.99999999999999 points needs one floating-point step
+to represent its requested 44 points. The target checks permit that single ULP,
+not a pixel or subpoint allowance; 43.99 points still fails the control.
+
+The ordinary PR plan may omit this contrast class. Its actual manifest must be
+read and local method inventory supplies omitted-case proof; CI selection is not
+changed here. iOS 26.0 results do not establish an iOS 27 device cure or reproduce
+the reported white capsules. Physical Light-system/dark-app confirmation remains
+separate. Issue, PR and chat evidence stays text-only. No screenshots are
+published or #620/#629 source changed here.
