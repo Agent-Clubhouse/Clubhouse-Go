@@ -54,6 +54,8 @@ import Testing
         #expect(caps.supportsOrchestration && caps.orchestration?.version == 1)
         #expect(caps.supportsAccess && caps.access?.version == 1)
         #expect(caps.supportsProviderControl)
+        #expect(caps.supportsProviderApplyV2 && caps.supportsProviderStartV2)
+        #expect(caps.supportsShellReattach && caps.shellReattach?.graceSeconds == 300)
         #expect(caps.attachments == .init(imageTypes: ["image/png", "image/jpeg", "image/gif", "image/webp"], maxImageBytes: 3_932_160, maxCount: 10))
         #expect(caps.terminal == .init(projectShell: true, agentShell: true, agentAttach: true, maxShellsPerConnection: 8, maxInputLength: 65_536))
         #expect(caps.idempotency.maxEntries == 2048 && caps.idempotency.ttlMs == 3_600_000 && caps.idempotency.scope == "peer-and-epoch")
