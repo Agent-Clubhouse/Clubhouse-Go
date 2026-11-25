@@ -888,19 +888,96 @@ func aRefusedReattachSaysWhyAndNeverSpawns(payload: String, expected: CompanionT
     session.close()
 }
 
-@MainActor @Test func aShellThatNeverOpenedIsNotReattached() async {
-    // The spawn was sent but never acked before the drop: there's no shell to take back, so it's spawned again.
+/// A project shell whose spawn was sent but whose ack never arrived before the connection dropped and came back.
+@MainActor private func unackedSpawn(reattach: Bool) async -> (CompanionTerminalSession, FakeTerminalTransport) {
     let transport = FakeTerminalTransport()
-    await transport.setReattach(true)
+    await transport.setReattach(reattach)
     let scope = CompanionTerminalScope.project(.init(hostID: "h", projectID: "p"))
-    let channel = CompanionLiveTerminalChannel(transport: transport, scope: scope, sessionID: "s1")
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: scope, sessionID: "s1", makeSessionID: { "s2" })
     let session = CompanionTerminalSession(scope: scope, title: "P", channel: channel, cols: 40, rows: 10)
     session.start()
     await waitUntil("the spawn") { await transport.sent.contains(where: isSpawn) }
-    await transport.connection(.reconnecting(attempt: 1, delaySeconds: 1))
-    await waitUntil("reconnecting") { session.state == .reconnecting }
-    await transport.connection(.connected)
+    await dropAndRestore(session, transport)
+    return (session, transport)
+}
+
+@MainActor @Test func aSpawnWhoseAckWasLostIsReattachedNotRespawned() async {
+    // The desktop may have made the shell and lost only the ack; a spawn under the same id would replace it.
+    let (session, transport) = await unackedSpawn(reattach: true)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    #expect(await transport.sent.filter(isSpawn).count == 1, "No second spawn while a reattach can still find the shell")
+    await transport.push("pty:reattach-shell:ack", .object(["sessionId": .string("s1"), "cwd": .string("/repo"), "buffer": .string("river % "), "outputSeq": .integer(8)]))
+    await waitUntil("running") { session.state == .running }
+    session.paste("SYNTH-CODE-1234")
+    await waitUntil("input") { await transport.sent.contains(.input(id: "s1", data: "SYNTH-CODE-1234")) }
+    let sent = await transport.sent
+    #expect(sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil), .reattachShell(sessionID: "s1", cols: 40, rows: 10),
+                                              .input(id: "s1", data: "SYNTH-CODE-1234")], "It resumes under the same id")
+    #expect(!unwrapped(session).contains("new shell") && !unwrapped(session).contains("ended"))
+    session.close()
+}
+
+@MainActor @Test(arguments: ["session_not_found", "invalid_session_id"])
+func aSpawnThatNeverReachedTheDesktopIsShownAndOnlyNewShellStartsOneUnderANewID(code: String) async {
+    let (session, transport) = await unackedSpawn(reattach: true)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    await transport.push("error", .object(["op": .string("pty:reattach-shell"), "sessionId": .string("s1"), "code": .string(code)]))
+    await waitUntil("the refusal") { if case .failed = session.state { true } else { false } }
+    #expect(session.state == .failed(CompanionLiveTerminalChannel.neverStartedMessage))
+    #expect(CompanionLiveTerminalChannel.neverStartedMessage == "This shell didn't start before the connection dropped.")
+    // Nothing starts a shell behind the person's back.
+    try? await Task.sleep(for: .milliseconds(80))
+    #expect(await transport.sent.filter(isSpawn).count == 1, "Only the original spawn: a refusal never spawns")
+    #expect(await transport.sent.filter(isReattach).count == 1)
+    // Their New shell spawns exactly once, under a new id, without a notice (nothing had opened, nothing ended).
+    session.restart()
+    await waitUntil("the new spawn") { await transport.sent.filter(isSpawn).count == 2 }
+    try? await Task.sleep(for: .milliseconds(80))
+    let sent = await transport.sent
+    #expect(sent.filter(isSpawn) == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil), .spawnShell(sessionID: "s2", projectID: "p", agentID: nil)])
+    #expect(sent.filter(isReattach).count == 1, "New shell is a spawn, not another reattach")
+    await transport.push("pty:spawn-shell:ack", .object(["sessionId": .string("s2"), "cwd": .string("/repo")]))
+    await waitUntil("running") { session.state == .running }
+    session.paste("echo hi")
+    await waitUntil("input to the new id") { await transport.sent.contains(.input(id: "s2", data: "echo hi")) }
+    #expect(await !transport.sent.contains(.input(id: "s1", data: "echo hi")))
+    #expect(!unwrapped(session).contains("new shell") && !unwrapped(session).contains("ended"))
+    session.close()
+}
+
+@MainActor @Test(arguments: ["session_in_use", "session_expired", "authorization_revoked", "internal_error", "synthetic_unknown"])
+func anotherRefusalOfAnUnackedSpawnsReattachDoesNotSpawn(code: String) async {
+    let (session, transport) = await unackedSpawn(reattach: true)
+    await waitUntil("the reattach") { await transport.sent.contains(where: isReattach) }
+    await transport.push("error", .object(["op": .string("pty:reattach-shell"), "sessionId": .string("s1"), "code": .string(code)]))
+    await waitUntil("the refusal") { if case .failed = session.state { true } else { false } }
+    try? await Task.sleep(for: .milliseconds(60))
+    #expect(await transport.sent.filter(isSpawn).count == 1, "A refusal never spawns")
+    session.close()
+}
+
+@MainActor @Test func withoutShellReattachAnUnackedSpawnIsRespawnedUnderTheSameID() async {
+    let (session, transport) = await unackedSpawn(reattach: false)
     await waitUntil("a second spawn") { await transport.sent.filter(isSpawn).count == 2 }
+    #expect(await transport.sent.filter { !isResize($0) } == [.spawnShell(sessionID: "s1", projectID: "p", agentID: nil), .spawnShell(sessionID: "s1", projectID: "p", agentID: nil)])
+    #expect(await !transport.sent.contains(where: isReattach))
+    session.close()
+}
+
+@MainActor @Test func aFailedSpawnTriedAgainIsNeverReattached() async {
+    // A refused spawn leaves nothing to reclaim: the next try is a spawn under a new id, even with the capability.
+    let transport = FakeTerminalTransport()
+    await transport.setReattach(true)
+    let scope = CompanionTerminalScope.project(.init(hostID: "h", projectID: "p"))
+    let channel = CompanionLiveTerminalChannel(transport: transport, scope: scope, sessionID: "s1", makeSessionID: { "s2" })
+    let session = CompanionTerminalSession(scope: scope, title: "P", channel: channel, cols: 40, rows: 10)
+    session.start()
+    await waitUntil("the spawn") { await transport.sent.contains(where: isSpawn) }
+    await transport.push("error", .object(["op": .string("pty:spawn-shell"), "sessionId": .string("s1"), "message": .string("too_many_shells")]))
+    await waitUntil("the failure") { if case .failed = session.state { true } else { false } }
+    session.restart()
+    await waitUntil("the second spawn") { await transport.sent.filter(isSpawn).count == 2 }
+    #expect(await transport.sent.filter(isSpawn).last == .spawnShell(sessionID: "s2", projectID: "p", agentID: nil))
     #expect(await !transport.sent.contains(where: isReattach))
     session.close()
 }

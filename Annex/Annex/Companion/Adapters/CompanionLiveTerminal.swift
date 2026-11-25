@@ -28,6 +28,13 @@ import ClubhouseTransport
     /// A shell the desktop has acked and that hasn't ended: after a dropped connection it may still be there to
     /// reattach to, if the desktop keeps shells through one.
     private var resumable = false
+    /// A spawn was sent and not yet acked. The desktop may have made the shell and lost only the ack, leaving it
+    /// detached and reclaimable; a spawn under the same id would replace it, so with `shellReattach` the phone
+    /// reattaches instead. A "not found" answer says no shell was made, and is shown: only the person's New shell
+    /// spawns, once, under a new id.
+    private var spawnUnacked = false
+    /// The reattach in flight is for a shell the phone never saw open.
+    private var reattachingUnopened = false
     /// The shell ended (exit, or a refusal that ends this id): the next open is a new shell with a new id.
     private var needsNewIdentity = false
 
@@ -84,12 +91,14 @@ import ClubhouseTransport
     /// to a spawn. The desktop doesn't keep shells: a spawn under the same id, as before. It ended, or the person asks
     /// for a new one: a spawn under a new id.
     private func shellFrame(cols: Int, rows: Int) async -> AnnexTerminalFrame {
-        if resumable, await transport.supportsShellReattach() {
+        if resumable || spawnUnacked, await transport.supportsShellReattach() {
             pendingOutput = []; snapshotSeq = nil; awaitingSnapshot = true
+            reattachingUnopened = !resumable
             return .reattachShell(sessionID: id, cols: cols, rows: rows)
         }
         if needsNewIdentity { id = makeSessionID(); needsNewIdentity = false }
-        resumable = false; awaitingSnapshot = false; snapshotSeq = nil; pendingOutput = []
+        resumable = false; reattachingUnopened = false; awaitingSnapshot = false; snapshotSeq = nil; pendingOutput = []
+        spawnUnacked = true
         switch scope {
         case .project(let project): return .spawnShell(sessionID: id, projectID: project.projectID, agentID: nil)
         case .agentShell(let target): return .spawnShell(sessionID: id, projectID: target.projectID, agentID: target.agentID)
@@ -122,8 +131,12 @@ import ClubhouseTransport
     private func failed(_ error: Error) {
         switch error as? AnnexTransportError {
         case .disconnected?: connectionLost()
-        case .unsupportedCapability?: yield(.failed(CompanionTerminalAvailability.updateDesktop))
-        default: yield(.failed(CompanionLiveService.readableError(error)))
+        case .unsupportedCapability?:
+            if scope.resizesPTY { spawnUnacked = false; needsNewIdentity = true }
+            yield(.failed(CompanionTerminalAvailability.updateDesktop))
+        default:
+            if scope.resizesPTY { spawnUnacked = false; needsNewIdentity = true }
+            yield(.failed(CompanionLiveService.readableError(error)))
         }
     }
 
@@ -150,12 +163,12 @@ import ClubhouseTransport
         switch type {
         case "pty:spawn-shell:ack":
             guard scope.resizesPTY else { return }
-            isOpen = true; resumable = true
+            isOpen = true; resumable = true; spawnUnacked = false
             yield(.opened(cwd: payload["cwd"]?.string, snapshot: nil, cols: nil, rows: nil))
         case "pty:reattach-shell:ack":
             // Like an attach: a snapshot, the output that raced ahead of it after it, and only what it lacks.
             guard scope.resizesPTY, awaitingSnapshot else { return }
-            isOpen = true; resumable = true; awaitingSnapshot = false
+            isOpen = true; resumable = true; spawnUnacked = false; reattachingUnopened = false; awaitingSnapshot = false
             snapshotSeq = payload["outputSeq"]?.integer
             yield(.opened(cwd: payload["cwd"]?.string, snapshot: payload["buffer"]?.string ?? "", cols: Self.int(payload["cols"]), rows: Self.int(payload["rows"])))
             let early = pendingOutput
@@ -179,7 +192,7 @@ import ClubhouseTransport
         case "pty:exit":
             guard isOpen || awaitingSnapshot else { return }
             isOpen = false; awaitingSnapshot = false
-            if scope.resizesPTY { resumable = false; needsNewIdentity = true }
+            if scope.resizesPTY { resumable = false; spawnUnacked = false; needsNewIdentity = true }
             yield(.exited(code: Self.int(payload["exitCode"])))
         case "error":
             let code = payload["code"]?.string ?? payload["message"]?.string ?? ""
@@ -193,7 +206,7 @@ import ClubhouseTransport
                 awaitingSnapshot = false
                 isOpen = false
                 // A refused spawn or attach leaves no shell under this id: the next try is a new one.
-                if scope.resizesPTY { resumable = false; needsNewIdentity = true }
+                if scope.resizesPTY { resumable = false; spawnUnacked = false; needsNewIdentity = true }
                 yield(.failed(Self.message(for: code)))
             }
         default: break
@@ -205,13 +218,22 @@ import ClubhouseTransport
     private func reattachFailed(_ code: String, _ payload: AnnexJSON) {
         awaitingSnapshot = false; pendingOutput = []
         isOpen = false
+        let unopened = reattachingUnopened
+        reattachingUnopened = false
+        if unopened, code == "session_not_found" || code == "invalid_session_id" {
+            // No shell was ever made under this id. That is still a refusal, shown to the person: only their
+            // "New shell" starts one, under a new id, so nothing is spawned behind their back.
+            resumable = false; spawnUnacked = false; needsNewIdentity = true
+            yield(.failed(Self.neverStartedMessage))
+            return
+        }
         if code == "session_exited" {
-            resumable = false; needsNewIdentity = true
+            resumable = false; spawnUnacked = false; needsNewIdentity = true
             yield(.exited(code: Self.int(payload["exitCode"])))
         } else if code == "terminal_unavailable" {
             yield(.failed(Self.message(for: code)))
         } else {
-            resumable = false; needsNewIdentity = true
+            resumable = false; spawnUnacked = false; needsNewIdentity = true
             let known: Set<String> = ["session_expired", "session_not_found", "invalid_session_id", "session_in_use", "authorization_revoked",
                                       "too_many_shells", "internal_error", ""]
             yield(.failed(known.contains(code) ? Self.message(for: code) : "The desktop couldn't reattach this shell: \(code)"))
@@ -224,6 +246,8 @@ import ClubhouseTransport
     }
 
     private static func int(_ value: AnnexJSON?) -> Int? { value?.int }
+
+    static let neverStartedMessage = "This shell didn't start before the connection dropped."
 
     /// The desktop's error codes in the phone's words. A failed spawn sends the shell's own error text.
     nonisolated static func message(for code: String) -> String {

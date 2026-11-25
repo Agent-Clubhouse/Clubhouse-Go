@@ -615,7 +615,7 @@
     "CompanionLiveTerminalChannel": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Adapters/CompanionLiveTerminal.swift",
-      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned. Reviewed shell-reattach additions: resumable and needsNewIdentity are Bools, and makeSessionID is a `() -> String` id generator whose production default is a capture-free `UUID().uuidString` (tests pass closures over local Strings). None owns a UI object, task or teardown work.",
+      "reason": "Sendable transport/tasks/continuation and text/number state; no UIView, layer or delegate owned. Reviewed shell-reattach additions: resumable, needsNewIdentity, spawnUnacked and reattachingUnopened are Bools, and makeSessionID is a `() -> String` id generator whose production default is a capture-free `UUID().uuidString` (tests pass closures over local Strings). None owns a UI object, task or teardown work.",
       "surface": {
         "bases": [
           "CompanionTerminalChannel"
@@ -632,10 +632,12 @@
           "makeSessionID": "( ) -> String",
           "needsNewIdentity": "Bool",
           "pendingOutput": "[ ( data : String , outputSeq : Int64 ? ) ]",
+          "reattachingUnopened": "Bool",
           "resumable": "Bool",
           "scope": "CompanionTerminalScope",
           "size": "( cols : Int , rows : Int ) ?",
           "snapshotSeq": "Int64 ?",
+          "spawnUnacked": "Bool",
           "subscription": "Task < AsyncStream < AnnexTerminalEvent > , Never > ?",
           "transport": "any AnnexTransporting"
         },

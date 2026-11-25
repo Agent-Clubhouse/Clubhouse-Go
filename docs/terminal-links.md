@@ -39,3 +39,8 @@ a dropped connection no longer costs the shell:
   `invalid_session_id`, `session_in_use`, `authorization_revoked`, `too_many_shells`, `internal_error`, and unknown codes.
 - A New shell after an exit or any failure other than `terminal_unavailable` uses a **new** session id.
 - Without the capability the legacy path stays: a spawn under the same id and the ended-shell notice.
+- A spawn that was sent but never acked before the drop may have made a detached shell on the desktop (only the ack was
+  lost), and a same-id spawn would replace it. With the capability the phone reattaches instead; an ack resumes the same id.
+  Every refusal is shown and nothing spawns: `session_not_found` / `invalid_session_id` here read "This shell didn't start
+  before the connection dropped." Only the person's New shell spawns, once, under a **new** id. Without the capability it
+  respawns under the same id as before.
