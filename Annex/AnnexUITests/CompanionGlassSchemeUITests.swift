@@ -59,8 +59,10 @@ import Vision
         }, timeout: 5), "Require the mounted palette, actual connection state and independently Light window")
         print("HEADER_CONTRAST_APPEARANCE \(probe.value as? String ?? "unavailable")")
         XCTAssertTrue(identity.isHittable && menu.isHittable && context.isHittable)
-        XCTAssertGreaterThanOrEqual(menu.frame.width, 44); XCTAssertGreaterThanOrEqual(menu.frame.height, 44)
-        XCTAssertGreaterThanOrEqual(context.frame.width, 44); XCTAssertGreaterThanOrEqual(context.frame.height, 44)
+        // AX subtraction represented an exact 44pt native target as 43.99999999999999.
+        // Admit only the adjacent floating-point value, not a pixel or point allowance below 44.
+        XCTAssertGreaterThanOrEqual(menu.frame.width.nextUp, 44); XCTAssertGreaterThanOrEqual(menu.frame.height.nextUp, 44)
+        XCTAssertGreaterThanOrEqual(context.frame.width.nextUp, 44); XCTAssertGreaterThanOrEqual(context.frame.height.nextUp, 44)
         let shot = app.screenshot()
         XCTAssertEqual(shot.image.imageOrientation, .up, "The fixture is portrait; do not silently rotate or move sample regions")
         let image = try XCTUnwrap(shot.image.cgImage)
