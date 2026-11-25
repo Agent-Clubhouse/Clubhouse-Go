@@ -100,6 +100,7 @@ import Foundation
         // The size the phone last sent, so a UI test can see the terminal follow rotation.
         case "stty": return size.map { "\($0.rows) \($0.cols)\r\n" } ?? "24 80\r\n"
         case "ls": return "\u{1B}[1;34mSources\u{1B}[0m  \u{1B}[1;34mTests\u{1B}[0m  Package.swift  README.md\r\n"
+        case "links": return Self.loginPrompt
         case "clear": return "\u{1B}[2J\u{1B}[H"
         case "colors":
             return (0..<8).map { "\u{1B}[3\($0)m■\u{1B}[0m" }.joined(separator: " ") + "\r\n"
@@ -110,6 +111,12 @@ import Foundation
         default: return "zsh: command not found: \(name)\r\n"
         }
     }
+
+    /// What `links` prints: a Claude-like login prompt with an invented address, to try the Links action.
+    static let loginURL = "https://claude.example.test/oauth/authorize?code=true&client_id=SYNTH-0000-1111-2222"
+        + "&response_type=code&redirect_uri=https%3A%2F%2Fclaude.example.test%2Foauth%2Fcode%2Fcallback"
+        + "&scope=org%3Acreate_api_key+user%3Aprofile+user%3Ainference&code_challenge=SYNTHCHALLENGE0123456789abcdefghijklmnopqrs"
+    static let loginPrompt = "Browse to \(loginURL)\r\nPaste code here if prompted > \r\n"
 
     /// A terminal-mode agent mid-task, as its PTY snapshot would show it.
     static let agentScreen = [

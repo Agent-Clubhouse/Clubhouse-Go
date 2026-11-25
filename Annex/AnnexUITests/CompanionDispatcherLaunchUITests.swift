@@ -100,6 +100,74 @@ import XCTest
         screenshot(app, "native-warm-action-draft-preserved")
     }
 
+    private func element(_ app: XCUIApplication, _ identifier: String) -> XCUIElement {
+        app.descendants(matching: .any).matching(identifier: identifier).firstMatch
+    }
+
+    /// The terminal from the project page, which stays where it was after the terminal is cleared from outside.
+    private func openProjectTerminal(_ app: XCUIApplication) -> XCUIElement {
+        let terminal = app.buttons["project-terminal"]
+        if !terminal.exists {
+            let header = element(app, "open-project-preview-studio-clubhouse")
+            scrollTo(header, in: app, maxSwipes: 4)
+            waitAndTap(header, until: terminal, timeout: 10, "The project page must offer Terminal")
+        }
+        let output = element(app, "terminal-output")
+        waitAndTap(terminal, until: output, timeout: 10, "Terminal must open a full-screen terminal")
+        return output
+    }
+
+    private func openLinkInTheInAppBrowser(_ app: XCUIApplication, _ output: XCUIElement, round: String) {
+        app.typeText("links\n")
+        XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", "Paste code here"), timeout: 10))
+        let links = element(app, "terminal-links")
+        XCTAssertTrue(links.waitForExistence(timeout: 5), "\(round): a shown link adds the Links action")
+        links.tap()
+        let open = element(app, "terminal-link-open-0")
+        XCTAssertTrue(open.waitForExistence(timeout: 5), "\(round): Links offers Open")
+        open.tap()
+        XCTAssertTrue(element(app, "TopBrowserBar").waitForExistence(timeout: 15), "\(round): Open shows the in-app browser")
+        XCTAssertTrue(app.buttons["Close"].waitForExistence(timeout: 5), "\(round): the in-app browser has its Done button")
+    }
+
+    /// B1 in the real app, where presentations really complete (a hosted unit test cannot model an outside dismissal on
+    /// iOS 26.5: its presentation never finishes). The Message Dispatcher action clears every presentation from
+    /// outside while the real in-app Safari is up over the terminal; Safari never reports back, and Open must still
+    /// work afterwards, in a fresh shell.
+    func testClearingPresentationsFromOutsideLeavesOpenWorkingAndClosesTheOldShell() {
+        let app = launchApp(["--companion-preview"], attempts: 1)
+        var output = openProjectTerminal(app)
+        XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", "clubhouse %"), timeout: 10))
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 5))
+        app.typeText("echo old shell marker\n")
+        XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", "\nold shell marker\n"), timeout: 10))
+        openLinkInTheInAppBrowser(app, output, round: "First")
+        screenshot(app, "in-app browser before the outside clear")
+
+        nativeAction()
+        XCTAssertTrue(app.wait(for: .runningForeground, timeout: 15))
+        XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForExistence(timeout: 15), "The action reaches the dispatcher guidance")
+        XCTAssertTrue(element(app, "terminal-output").waitForNonExistence(timeout: 10), "The terminal went with the browser")
+        XCTAssertFalse(app.buttons["Close"].exists, "The in-app browser is gone")
+        screenshot(app, "after the outside clear")
+        app.buttons["Cancel"].tap()
+        XCTAssertTrue(app.navigationBars["Message Dispatcher"].waitForNonExistence(timeout: 10))
+
+        // The stale-browser oracle: Open presents Safari again, though the old page never reported back.
+        output = openProjectTerminal(app)
+        XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", "clubhouse %"), timeout: 10))
+        XCTAssertFalse((output.value as? String ?? "").contains("old shell marker"), "The old shell was closed: this is a new one")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10))
+        openLinkInTheInAppBrowser(app, output, round: "Second")
+        screenshot(app, "in-app browser after the outside clear")
+        app.buttons["Close"].tap()
+        XCTAssertTrue(output.waitForExistence(timeout: 10), "Done returns to the terminal")
+        XCTAssertTrue(app.keyboards.firstMatch.waitForExistence(timeout: 10), "The keyboard comes back with the terminal")
+        app.typeText("echo after done\n")
+        XCTAssertTrue(waitFor(output, NSPredicate(format: "value CONTAINS %@", "\nafter done\n"), timeout: 10))
+        XCTAssertTrue((output.value as? String ?? "").contains("Paste code here"), "Done returns to the same shell, still showing the link")
+    }
+
     private func warmActionWhileSettingsIsPresented(multiple: Bool) {
         var flags = ["--companion-preview"]
         if multiple { flags += ["--companion-preview-dispatcher", "--companion-preview-multiple-dispatchers", "--companion-preview-named-dispatchers"] }

@@ -60,11 +60,15 @@ import Testing
     #expect(try decode(.resize(id: "s1", cols: 80, rows: 24))["payload"]?["cols"] == .integer(80))
     #expect(try decode(.close(sessionID: "s1"))["type"]?.string == "pty:close")
     #expect(try decode(.attach(agentID: "a1"))["payload"] == .object(["agentId": .string("a1")]))
+    let reattach = try decode(.reattachShell(sessionID: "s1", cols: 44, rows: 12))
+    #expect(reattach["type"]?.string == "pty:reattach-shell")
+    #expect(reattach["payload"] == .object(["sessionId": .string("s1"), "cols": .integer(44), "rows": .integer(12)]))
+    #expect(AnnexTerminalFrame.id(of: AnnexEnvelope(type: "pty:reattach-shell:ack", payload: .object(["sessionId": .string("s1")]))) == "s1")
     #expect(AnnexTerminalFrame.id(of: AnnexEnvelope(type: "error", payload: .object(["op": .string("pty:input"), "agentId": .string("s1")]))) == "s1")
 }
 
-private func capabilities(_ terminal: String?) throws -> AnnexCapabilities {
-    let block = terminal.map { #","terminal":\#($0)"# } ?? ""
+private func capabilities(_ terminal: String?, shellReattach: String? = nil) throws -> AnnexCapabilities {
+    let block = (terminal.map { #","terminal":\#($0)"# } ?? "") + (shellReattach.map { #","shellReattach":\#($0)"# } ?? "")
     let json = #"{"version":1,"epoch":"e","controlAuth":"mtls-pinned-client","controlAvailable":true,"commands":[],"idempotency":{"scope":"s","maxEntries":1,"ttlMs":1}\#(block)}"#
     return try JSONDecoder().decode(AnnexCapabilities.self, from: Data(json.utf8))
 }
@@ -79,6 +83,31 @@ private func capabilities(_ terminal: String?) throws -> AnnexCapabilities {
     #expect(try capabilities(#"{"version":"one","projectShell":"yes"}"#).supportsTerminal == false)
     #expect(try capabilities(#"{"version":2,"projectShell":true}"#).supportsTerminal == false)
     #expect(try capabilities(#"{"version":1,"projectShell":true}"#).terminal?.maxInputLength == 65_536)
+}
+
+private let usableTerminal = #"{"version":1,"projectShell":true,"agentShell":true,"agentAttach":false}"#
+
+@Test func shellReattachCapabilityIsDecodedTolerantlyAndGatesOnKnownVersions() throws {
+    // Absent: no reattach, and everything else is as before.
+    let absent = try capabilities(usableTerminal)
+    #expect(absent.shellReattach == nil && !absent.supportsShellReattach && absent.supportsTerminal)
+    // Valid.
+    let valid = try capabilities(usableTerminal, shellReattach: #"{"version":1,"graceSeconds":120}"#)
+    #expect(valid.shellReattach == .init(version: 1, graceSeconds: 120) && valid.supportsShellReattach)
+    // Malformed blocks grant nothing and don't fail the document.
+    for block in [#""yes""#, "42", "[]", "null", #"{"version":"1","graceSeconds":120}"#, #"{"version":1,"graceSeconds":"long"}"#, #"{"version":1}"#, #"{"graceSeconds":120}"#, "{}"] {
+        let caps = try capabilities(usableTerminal, shellReattach: block)
+        #expect(!caps.supportsShellReattach, "\(block)")
+        #expect(caps.supportsTerminal, "\(block) leaves terminals alone")
+    }
+    // No grace, or a version this phone doesn't know (1 only), is the legacy path.
+    #expect(try !capabilities(usableTerminal, shellReattach: #"{"version":1,"graceSeconds":0}"#).supportsShellReattach)
+    #expect(try !capabilities(usableTerminal, shellReattach: #"{"version":1,"graceSeconds":-5}"#).supportsShellReattach)
+    #expect(try !capabilities(usableTerminal, shellReattach: #"{"version":2,"graceSeconds":120}"#).supportsShellReattach)
+    #expect(try !capabilities(usableTerminal, shellReattach: #"{"version":0,"graceSeconds":120}"#).supportsShellReattach)
+    // Without terminals there is nothing to reattach.
+    #expect(try !capabilities(nil, shellReattach: #"{"version":1,"graceSeconds":120}"#).supportsShellReattach)
+    #expect(try !capabilities(#"{"version":2,"projectShell":true}"#, shellReattach: #"{"version":1,"graceSeconds":120}"#).supportsShellReattach)
 }
 
 // MARK: Transport
@@ -115,8 +144,11 @@ private actor TerminalIO: AnnexIO {
     let identity = AnnexPairingIdentity()
     let terminal: Bool
     let maxInputLength: Int
+    let shellReattach: AnnexJSON?
     let socket = TerminalSocket()
-    init(terminal: Bool, maxInputLength: Int) { self.terminal = terminal; self.maxInputLength = maxInputLength }
+    init(terminal: Bool, maxInputLength: Int, shellReattach: AnnexJSON? = nil) {
+        self.terminal = terminal; self.maxInputLength = maxInputLength; self.shellReattach = shellReattach
+    }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
         let body: AnnexJSON
         if request.url?.path.hasSuffix("identity") == true {
@@ -128,6 +160,7 @@ private actor TerminalIO: AnnexIO {
                 caps["terminal"] = .object(["version": .integer(1), "projectShell": .bool(true), "agentShell": .bool(true), "agentAttach": .bool(true),
                                             "maxShellsPerConnection": .integer(8), "maxInputLength": .integer(Int64(maxInputLength))])
             }
+            if let shellReattach { caps["shellReattach"] = shellReattach }
             body = .object(caps)
         }
         return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
@@ -135,8 +168,8 @@ private actor TerminalIO: AnnexIO {
     func openWebSocket(_ request: URLRequest) -> any AnnexWebSocket { socket }
 }
 
-private func connected(terminal: Bool, maxInputLength: Int = 4) async throws -> (AnnexTransport, TerminalIO, AsyncThrowingStream<AnnexTransportEvent, Error>, AsyncStream<AnnexTerminalEvent>) {
-    let io = TerminalIO(terminal: terminal, maxInputLength: maxInputLength)
+private func connected(terminal: Bool, maxInputLength: Int = 4, shellReattach: AnnexJSON? = nil) async throws -> (AnnexTransport, TerminalIO, AsyncThrowingStream<AnnexTransportEvent, Error>, AsyncStream<AnnexTerminalEvent>) {
+    let io = TerminalIO(terminal: terminal, maxInputLength: maxInputLength, shellReattach: shellReattach)
     let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: io.identity.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 4321), verifiedHostID: fingerprint,
                                     verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
@@ -258,4 +291,29 @@ private func connected(terminal: Bool, maxInputLength: Int = 4) async throws -> 
     try await transport.sendTerminal(.input(id: "s1", data: "new"))
     #expect(await io.socket.sent.last?["payload"]?["data"]?.string == "new")
     await transport.disconnect()
+}
+
+@Test func reattachNeedsAKnownShellReattachVersion() async throws {
+    let known = try await connected(terminal: true, shellReattach: .object(["version": .integer(1), "graceSeconds": .integer(120)]))
+    #expect(await known.0.supportsShellReattach() == true)
+    try await known.0.sendTerminal(.reattachShell(sessionID: "s1", cols: 44, rows: 12))
+    let sent = await known.1.socket.sent.last
+    #expect(sent?["type"]?.string == "pty:reattach-shell")
+    #expect(sent?["payload"] == .object(["sessionId": .string("s1"), "cols": .integer(44), "rows": .integer(12)]))
+    await known.0.disconnect()
+    #expect(await known.0.supportsShellReattach() == nil, "Not known while disconnected: neither yes nor no")
+
+    // A version this phone doesn't know, and a desktop without the block: the legacy path, and nothing is sent.
+    for block: AnnexJSON? in [.object(["version": .integer(2), "graceSeconds": .integer(120)]), nil, .object(["version": .integer(1), "graceSeconds": .integer(0)])] {
+        let (transport, io, _, _) = try await connected(terminal: true, shellReattach: block)
+        #expect(await transport.supportsShellReattach() == false)
+        await #expect(throws: AnnexTransportError.unsupportedCapability("shellReattach")) {
+            try await transport.sendTerminal(.reattachShell(sessionID: "s1", cols: 44, rows: 12))
+        }
+        #expect(await !io.socket.sent.contains { $0["type"]?.string == "pty:reattach-shell" }, "Nothing reattach-shaped reached the socket")
+        // Ordinary spawns still work.
+        try await transport.sendTerminal(.spawnShell(sessionID: "s1", projectID: "p1", agentID: nil))
+        #expect(await io.socket.sent.last?["type"]?.string == "pty:spawn-shell")
+        await transport.disconnect()
+    }
 }
