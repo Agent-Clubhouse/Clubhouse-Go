@@ -128,7 +128,11 @@ import Observation
     @ObservationIgnored private var listeningTask: Task<Void, Never>?
     private var isShutDown = false
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
-    @ObservationIgnored private var historyGenerations: [CompanionTarget: UUID] = [:]
+    private struct HistoryLoadOwner: Equatable {
+        let id = UUID()
+        let beganWithOperableConnection: Bool
+    }
+    @ObservationIgnored private var historyGenerations: [CompanionTarget: HistoryLoadOwner] = [:]
     /// Desktop ids of uploaded images, by `CompanionMessageImage.id`, so a retry doesn't upload them again.
     @ObservationIgnored private var uploadedAttachmentIDs: [String: String] = [:]
     /// Sessions that refused images (`images_not_supported`), by agent. A new session may take them.
@@ -365,8 +369,9 @@ import Observation
 
     /// A read from before recovery no longer owns the spinner or the conversation.
     /// Its HTTP completion may arrive later; the generation guard in load rejects it.
-    private func retireHistoryLoads(hostID: String) {
+    private func retireHistoryLoads(hostID: String, includeStartupReads: Bool) {
         for target in conversations.keys where target.hostID == hostID && conversations[target]?.isLoading == true {
+            if !includeStartupReads && historyGenerations[target]?.beganWithOperableConnection != true { continue }
             historyGenerations[target] = nil
             conversations[target]?.isLoading = false
             conversations[target]?.requiresResync = true
@@ -375,7 +380,7 @@ import Observation
 
     func load(_ target: CompanionTarget, force: Bool = false) async {
         guard force || (!conversation(for: target).isLoaded && !conversation(for: target).isLoading) else { return }
-        let generation = UUID()
+        let generation = HistoryLoadOwner(beganWithOperableConnection: host(for: target)?.connection.canOperate == true)
         historyGenerations[target] = generation
         conversations[target, default: .init()].isLoading = true
         conversations[target, default: .init()].error = nil
@@ -1872,7 +1877,7 @@ import Observation
                 // History can publish a catalog before the socket is connected. That report
                 // does not invalidate its own read; only a lost operable connection does.
                 if self.hosts.first(where: { $0.id == host.id })?.connection.canOperate == true {
-                    retireHistoryLoads(hostID: host.id)
+                    retireHistoryLoads(hostID: host.id, includeStartupReads: true)
                 }
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }
                 fetchedReviews = fetchedReviews.filter { $0.key.hostID != host.id }
@@ -1939,7 +1944,9 @@ import Observation
             conversations[target, default: .init()].sessionID = sessionID
             reconcileDecisionNotices(authoritativeTarget: replacesTimeline ? target : nil)
         case .resyncRequired(let hostID):
-            retireHistoryLoads(hostID: hostID)
+            // Startup resync can arrive after a cold read begins, even after a connected
+            // report. That read is already fetching authoritative history; keep its owner.
+            retireHistoryLoads(hostID: hostID, includeStartupReads: false)
             clearAlreadyCheckingAppUpdate(hostID: hostID)
             fullReviews = fullReviews.filter { $0.key.hostID != hostID }
             fetchedReviews = fetchedReviews.filter { $0.key.hostID != hostID }
