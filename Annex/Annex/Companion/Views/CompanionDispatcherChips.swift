@@ -45,6 +45,7 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.companionPalette) private var palette
     @Environment(\.dynamicTypeSize) private var textSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     init(desktops: [CompanionDispatcherDesktop], hosts: [CompanionHost], selectedHostID: String?,
          replies: Set<String>, isWorking: Bool, isLive: Bool, select: @escaping (String) -> Void,
@@ -116,6 +117,9 @@ struct CompanionDispatcherSwitcher<Content: View>: View {
                                 .labelStyle(.iconOnly).frame(minWidth: 44, minHeight: 44)
                         }
                     }.padding(.horizontal).padding(.vertical, 4)
+                    // The header's photo-over-name chip hangs below the bar; keep the chips clear of it. A short
+                    // (landscape) bar lays the chip out beside the photo and needs no room.
+                    .padding(.top, verticalSizeClass == .compact ? 0 : CompanionConversationIdentityButton.overflowBelowBar)
                 }
                 .scrollIndicators(.hidden)
                 .accessibilityIdentifier("dispatcher-chips")

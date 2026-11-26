@@ -63,3 +63,22 @@ changed here. iOS 26.0 results do not establish an iOS 27 device cure or reprodu
 the reported white capsules. Physical Light-system/dark-app confirmation remains
 separate. Issue, PR and chat evidence stays text-only. No screenshots are
 published or #620/#629 source changed here.
+
+## Update for #642: glass, with a palette scrim under the label
+
+#642 (user feedback "Why not glass?") asked for the Dispatcher's header pills and composer to use the system
+Liquid Glass like the tab bar. The opaque fallback above is replaced, not dropped: `companionChromeGlass` draws the
+system glass over a see-through scrim of the palette's card colour (`CompanionChromeGlass.scrim`, 55%), behind the
+content and in the palette's own colour scheme. The label therefore still sits on the card colour the palette fits
+to 7:1, only partly mixed with what scrolls behind, and the glass never adopts the light system appearance under a
+dark theme (the #534 recurrence). Content stays outside the glass rendering, so avatars, labels and status colours
+are not restyled. The identity/actions capsules, and the composer, are the only surfaces that use it. They are shared
+by agent chats and the Dispatcher, so both get the same treatment; other card glass keeps its opaque card fill.
+
+The Dispatcher's chip row now starts below the photo-over-name chip, which hangs below the 44pt bar
+(`CompanionConversationIdentityButton.overflowBelowBar`, computed from the name's largest size); a landscape bar
+lays the chip out beside the photo and needs no clearance.
+
+The #633 thresholds are unchanged. The same fresh-simulator run covers CompanionGlassSchemeUITests,
+CompanionChatHeaderVisualUITests, the header edge/reflow/identity tests and the contrast unit tests; a pill that
+cannot meet the threshold as glass stays on the opaque card (the PR states the outcome).

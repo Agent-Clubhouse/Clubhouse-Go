@@ -31,6 +31,30 @@ import UIKit
         XCTAssertTrue(app.navigationBars["Navi"].waitForExistence(timeout: 5))
         XCTAssertTrue(navi.isSelected)
     }
+    /// #642: the header's photo-over-name chip hangs below the bar and must not cover the chip row, at the default
+    /// size and the largest the name is allowed, in light and dark.
+    private func assertPrincipalClearOfChips(_ flags: [String], _ name: String) {
+        let app = open(flags)
+        let navi = app.buttons["dispatcher-desktop-preview-studio"]
+        let echo = app.buttons["dispatcher-desktop-preview-laptop"]
+        XCTAssertTrue(navi.waitForExistence(timeout: 15) && echo.exists)
+        let principal = app.buttons["companion-chat-header"]
+        XCTAssertTrue(principal.waitForExistence(timeout: 5))
+        for chip in [navi, echo] {
+            print("PRINCIPAL_CHIP_GAP \(name) \(chip.label): \(chip.frame.minY - principal.frame.maxY)")
+            // A visible gap, not just no contact: the chip hangs below the bar and the row starts under it.
+            XCTAssertLessThanOrEqual(principal.frame.maxY + 8, chip.frame.minY,
+                                     "\(name): principal \(principal.frame) crowds chip \(chip.label) \(chip.frame)")
+            XCTAssertFalse(principal.frame.intersects(chip.frame), "\(name)")
+        }
+        capture(app, "642 Principal clear of chips - \(name)")
+    }
+    func testPrincipalChipDoesNotOverlapChipRow() {
+        assertPrincipalClearOfChips(["--companion-preview-light"], "light")
+        assertPrincipalClearOfChips(["--companion-preview-dark", "--companion-preview-theme-mocha"], "Mocha")
+        assertPrincipalClearOfChips(["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryExtraExtraLarge"], "XXL")
+        assertPrincipalClearOfChips(["--companion-preview-light", "-UIPreferredContentSizeCategoryName", "UICTContentSizeCategoryAccessibilityXXXL"], "AX XXXL")
+    }
     func testLight() { appearance(["--companion-preview-light"], "light") }
     func testDark() { appearance(["--companion-preview-dark"], "dark") }
     func testLatte() { appearance(["--companion-preview-light", "--companion-preview-theme-latte"], "Catppuccin Latte") }

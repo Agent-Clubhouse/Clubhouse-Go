@@ -1907,9 +1907,17 @@ struct CompanionGrantRequestActions: View {
                     .font(.subheadline).accessibilityIdentifier("app-update-working-agents")
                 Text(CompanionAppUpdateText.platform).font(.caption).foregroundStyle(.secondary)
             }
-            ViewThatFits(in: .horizontal) {
-                HStack(spacing: 8) { decisions(busy: busy) }
-                VStack(spacing: 8) { decisions(busy: busy) }
+            Group {
+                if request.update != nil {
+                    // Three different-length labels never sit side by side: one full-width stack at every text size,
+                    // so the widths and alignment match (#643).
+                    VStack(spacing: 10) { decisions(busy: busy) }
+                } else {
+                    ViewThatFits(in: .horizontal) {
+                        HStack(spacing: 8) { decisions(busy: busy) }
+                        VStack(spacing: 8) { decisions(busy: busy) }
+                    }
+                }
             }
             .buttonBorderShape(.capsule).controlSize(.large)
             .disabled(!store.canAnswer(request))
@@ -1935,17 +1943,24 @@ struct CompanionGrantRequestActions: View {
     @ViewBuilder private func decisions(busy: Bool) -> some View {
         if request.update != nil {
             if request.allowAnswer == .allowOnce {
-                Button("Restart now") { Task { await store.answer(request, with: .allowOnce, updateMode: .now) } }
-                    .buttonStyle(.borderedProminent).companionProminentLabel()
+                Button { Task { await store.answer(request, with: .allowOnce, updateMode: .now) } } label: {
+                    Text("Restart now").frame(maxWidth: .infinity, minHeight: 28)
+                }
+                .buttonStyle(.borderedProminent).companionProminentLabel()
                     .accessibilityIdentifier("app-update-restart-now")
-                Button("Restart when idle") { Task { await store.answer(request, with: .allowOnce, updateMode: .whenIdle) } }
-                    .buttonStyle(.bordered)
+                Button { Task { await store.answer(request, with: .allowOnce, updateMode: .whenIdle) } } label: {
+                    Text("Restart when idle").frame(maxWidth: .infinity, minHeight: 28)
+                }
+                .buttonStyle(.bordered)
                     .accessibilityIdentifier("app-update-restart-when-idle")
             }
             if request.canDecline {
-                Button("Cancel", role: .cancel) { Task { await store.answer(request, with: .decline) } }
-                    .buttonStyle(.bordered)
-                    .accessibilityIdentifier("app-update-decline")
+                // Quietest of the three: same width and target, no fill.
+                Button(role: .cancel) { Task { await store.answer(request, with: .decline) } } label: {
+                    Text("Cancel").frame(maxWidth: .infinity, minHeight: 44).contentShape(.rect)
+                }
+                .buttonStyle(.borderless)
+                .accessibilityIdentifier("app-update-decline")
             }
         } else {
             if request.canDecline {

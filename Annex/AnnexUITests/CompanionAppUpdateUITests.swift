@@ -1,8 +1,10 @@
 import XCTest
 
 @MainActor final class CompanionAppUpdateUITests: ReliableUITestCase {
-    private func openUpdate(state: String = "ready", dispatcherOff: Bool = false, supportsCheck: Bool = true, checkRunning: Bool = false) -> XCUIApplication {
+    private func openUpdate(state: String = "ready", dispatcherOff: Bool = false, supportsCheck: Bool = true, checkRunning: Bool = false,
+                            contentSize: String? = nil) -> XCUIApplication {
         let app = launchApp(["--companion-preview", "--companion-preview-app-update"]
+            + (contentSize.map { ["-UIPreferredContentSizeCategoryName", $0] } ?? [])
             + (dispatcherOff ? ["--companion-preview-app-update-dispatcher-off"] : [])
             + (supportsCheck ? [] : ["--companion-preview-app-update-no-check"])
             + (checkRunning ? ["--companion-preview-app-update-check-running"] : []),
@@ -59,6 +61,28 @@ import XCTest
         let cancel = app.buttons["app-update-cancel"]
         waitAndTap(cancel, untilGone: cancel)
         XCTAssertEqual(app.staticTexts["app-update-request-state"].label, "Update request cancelled.")
+    }
+
+    /// #643: three full-width choices in one stack, in the same order, at the default and the largest text size.
+    func testRestartChoicesShareOneWidthAndStackInOrder() {
+        for size in [nil, "UICTContentSizeCategoryAccessibilityXXXL"] {
+            let app = openUpdate(contentSize: size)
+            waitAndTap(app.buttons["app-update-request"], until: app.staticTexts["app-update-working-agents"])
+            let ids = ["app-update-restart-now", "app-update-restart-when-idle", "app-update-decline"]
+            let buttons = ids.map { app.buttons[$0] }
+            XCTAssertTrue(scrollTo(buttons[2], in: app))
+            XCTAssertTrue(buttons.allSatisfy(\.exists))
+            XCTAssertEqual(buttons.map(\.label), ["Restart now", "Restart when idle", "Cancel"])
+            let frames = buttons.map(\.frame)
+            for frame in frames {
+                XCTAssertEqual(frame.width, frames[0].width, accuracy: 1, "Equal widths: \(frames)")
+                XCTAssertEqual(frame.minX, frames[0].minX, accuracy: 1, "Aligned leading edges: \(frames)")
+                XCTAssertGreaterThanOrEqual(frame.height, 44 - 0.001)
+            }
+            XCTAssertLessThanOrEqual(frames[0].maxY, frames[1].minY)
+            XCTAssertLessThanOrEqual(frames[1].maxY, frames[2].minY)
+            attach(app, "643 update choices - \(size ?? "default")")
+        }
     }
 
     func testRestartNowAndCancelAreExplicitChoices() {
