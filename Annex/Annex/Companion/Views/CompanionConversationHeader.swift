@@ -28,6 +28,16 @@ struct CompanionConversationIdentityButton: View {
         .companionToolbarCard()
     }
 
+    /// How far the stacked photo-over-name chip hangs below the 44pt navigation bar. The bar centres it, so half of
+    /// its excess height shows below; the name is capped at xxLarge, so this is its tallest. A bar's own row of
+    /// controls, such as the Dispatcher's chips, starts this far lower, or the two collide (#642).
+    static let overflowBelowBar: CGFloat = {
+        let traits = UITraitCollection(preferredContentSizeCategory: .extraExtraLarge)
+        let line = UIFont.preferredFont(forTextStyle: .caption1, compatibleWith: traits).lineHeight
+        let stacked = 44 - 2 + line.rounded(.up) + 6
+        return max(0, (stacked - 44) / 2).rounded(.up)
+    }()
+
     /// Like Messages: the photo centred over a small name pill, floating over the transcript. A short (landscape)
     /// bar has no room for that, so the photo shrinks and sits beside the pill.
     var body: some View {
@@ -167,23 +177,37 @@ extension View {
     /// which dimmed avatars and status colours. Here the content is untouched, and the palette keeps its label and
     /// secondary label at 4.5:1 or better against the card.
     func companionCardGlass<S: Shape>(_ shape: S, interactive: Bool = false) -> some View {
-        background { CompanionCardGlass(shape: shape, interactive: interactive) }
+        background { CompanionCardGlass(shape: shape, interactive: interactive, scrim: 1) }
     }
 
-    /// These two toolbar pills use the palette's opaque card. They still appeared white on a dark palette
-    /// after #548 pinned the appearance; the platform cause is unproven. Keep fill and labels outside glass rendering.
-    /// Other card glass, native bar buttons and the controls' actions/targets are unchanged (#534).
+    /// The chat chrome's glass (#642): the system glass over a see-through scrim of the theme's card, so the surface
+    /// reads as glass while the card colour under the label keeps it at the palette's 7:1 label contrast (#534/#633).
+    /// The glass is drawn behind the content, in the palette's own colour scheme, so it never takes the system
+    /// appearance's light glass under a dark theme.
+    func companionChromeGlass<S: Shape>(_ shape: S, interactive: Bool = false) -> some View {
+        background { CompanionCardGlass(shape: shape, interactive: interactive, scrim: CompanionChromeGlass.scrim) }
+    }
+
+    /// The two toolbar pills (#534) draw the chrome glass over the palette's card colour (#642). They appeared white on
+    /// a dark palette after #548 pinned the appearance; the platform cause is unproven. The labels stay outside the
+    /// glass rendering and in the palette's own scheme. Other card glass, native bar buttons and the controls'
+    /// actions/targets are unchanged.
     func companionToolbarCard() -> some View { modifier(CompanionToolbarCard()) }
+}
+
+enum CompanionChromeGlass {
+    /// How much of the theme's card colour sits under chrome glass. Enough that the label's 7:1 against the card
+    /// holds above 4.5:1 over the brightest transcript content the glass can pick up, measured in CompanionGlassSchemeUITests.
+    static let scrim = 0.55
 }
 
 private struct CompanionToolbarCard: ViewModifier {
     @Environment(\.companionPalette) private var palette
     func body(content: Content) -> some View {
         content
+            .companionChromeGlass(Capsule())
             .background {
-                Capsule().fill(Color(palette.card))
-                    .overlay { Capsule().strokeBorder(Color(palette.separator), lineWidth: 0.5) }
-                    .shadow(color: .black.opacity(palette.isDark ? 0.3 : 0.12), radius: 6, y: 1)
+                Capsule().strokeBorder(Color(palette.separator), lineWidth: 0.5)
             }
             .environment(\.colorScheme, palette.isDark ? .dark : .light)
     }
@@ -192,10 +216,12 @@ private struct CompanionToolbarCard: ViewModifier {
 private struct CompanionCardGlass<S: Shape>: View {
     let shape: S
     let interactive: Bool
+    let scrim: Double
     @Environment(\.companionPalette) private var palette
     var body: some View {
-        shape.fill(Color(palette.card))
+        let glass = shape.fill(Color(palette.card).opacity(scrim))
             .glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
+        if scrim < 1 { glass.environment(\.colorScheme, palette.isDark ? .dark : .light) } else { glass }
     }
 }
 

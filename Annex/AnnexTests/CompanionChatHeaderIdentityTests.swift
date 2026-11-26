@@ -35,6 +35,22 @@ import Observation
         await CompanionIconStore.shared.remove(host: hostID)
     }
 
+    /// #642: the Dispatcher's chip row clears the identity by this much; it must cover what the real stacked chip
+    /// hangs below a 44pt bar at the largest size the name is allowed.
+    func testBarOverflowCoversTheStackedIdentityAtItsLargestSize() {
+        let agent = CompanionAgent(id: .init(hostID: "header-overflow", projectID: "fixture", agentID: "navi"),
+                                   name: "Navi", subtitle: "", status: .idle, model: nil, capabilities: [])
+        for size in [DynamicTypeSize.large, .xxLarge, .accessibility5] {
+            let controller = UIHostingController(rootView:
+                CompanionConversationIdentityButton(agent: agent, isExpanded: .constant(false), accessibilityLabel: "Navi")
+                    .environment(\.dynamicTypeSize, size))
+            let height = controller.sizeThatFits(in: CGSize(width: 300, height: 200)).height
+            XCTAssertGreaterThan(height, 44)
+            XCTAssertLessThanOrEqual((height - 44) / 2, CompanionConversationIdentityButton.overflowBelowBar,
+                                     "\(size): identity \(height)pt tall hangs below the bar by more than the chips clear")
+        }
+    }
+
     /// UIKit can offer the title less room before the asynchronous bar-width sample catches up.
     /// Exercise the real identity and the production width modifier, not a copy of the layout arithmetic.
     func testStaleWidePrincipalRequestAcceptsNarrowNativeProposal() {
