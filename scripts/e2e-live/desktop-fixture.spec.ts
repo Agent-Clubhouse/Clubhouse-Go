@@ -194,9 +194,18 @@ async function callMcp(agentId: string, targetName: string, suffix: string, args
   };
   await rpc('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'phone-e2e', version: '1' } });
   const names = (await rpc('tools/list')).tools.map((t: any) => t.name) as string[];
-  const name = names.find(n => targetName
-    ? n.endsWith(`__${suffix}`) && n.toLowerCase().includes(targetName.toLowerCase()) : n === suffix);
-  if (!name) throw new Error(`No ${suffix} for ${targetName}; tools: ${names.join(', ')}`);
+  // A binding's tool key is `<project[0:3]>_<name>_<incarnation>_<generation>` cut to a fixed budget (desktop #3751), so
+  // the display name ("Pho_E") can't identify the target. A target-scoped call takes its stable `clubhouse__*__<suffix>`
+  // tool, and only when the caller has exactly one such binding; two would need guessing, so refuse instead.
+  let name: string | undefined;
+  if (targetName) {
+    const bound = names.filter(n => n.startsWith('clubhouse__') && n.endsWith(`__${suffix}`));
+    if (bound.length > 1) throw new Error(`Ambiguous ${suffix} for ${targetName}: ${bound.length} bound tools (${bound.join(', ')})`);
+    name = bound[0];
+  } else {
+    name = names.find(n => n === suffix);
+  }
+  if (!name) throw new Error(`No ${suffix} for ${targetName || 'the Dispatcher'}; tools: ${names.join(', ')}`);
   const result = await rpc('tools/call', { name, arguments: args });
   expect(result.isError, JSON.stringify(result.content)).not.toBe(true);
   return result;
