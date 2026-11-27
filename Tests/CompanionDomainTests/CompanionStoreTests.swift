@@ -489,11 +489,16 @@ import Testing
         let service = TestCompanionService()
         let store = makeStore(service: service)
         var desktop = host(id: target.hostID)
-        desktop.connection = connection
+        // No read starts while the desktop is reconnecting, offline or failed; a startup read begun while
+        // connecting may still see the desktop report one of those before its resync.
+        let isDead = [CompanionConnection.reconnecting, .offline, .failed("Unavailable")].contains(connection)
+        desktop.connection = isDead ? .connecting : connection
         store.apply(.hosts([desktop, host(id: "host-b")]))
         service.shouldSuspendHistory = true
         let initialRead = Task { await store.load(target) }
         while service.historyGate == nil { await Task.yield() }
+        desktop.connection = connection
+        store.apply(.hosts([desktop, host(id: "host-b")]))
         store.apply(.resyncRequired(hostID: target.hostID))
         #expect(store.conversation(for: target).isLoading && store.conversation(for: target).requiresResync)
         desktop.connection = .connected
