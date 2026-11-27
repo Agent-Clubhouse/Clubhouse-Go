@@ -290,7 +290,7 @@ struct CompanionConversationView: View {
         }
         .sheet(isPresented: $showContextSettings) { CompanionConversationUsageSheet(store: store, target: target) }
         .sheet(isPresented: $showArchive) { CompanionArchiveView(store: store, target: target) }
-        .task(id: target) { await store.load(target, force: conversation.requiresResync) }
+        .task(id: target) { await store.loadOnOpen(target) }
         .task(id: scenePhase == .active && showsActions) {
             // A bounded summary while an open conversation is active. This is scheduling delay, not GPU frame time.
             guard scenePhase == .active, showsActions else { return }
@@ -313,8 +313,11 @@ struct CompanionConversationView: View {
         .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in
             if keyboardVisible { keyboardVisible = false }
         }
+        // The selected conversation's reconnect reload is the store's rule (`CompanionStore.selection`): it starts once
+        // the desktop can serve history, before the catalog refresh finishes. Other mounted pages, such as Review's,
+        // keep waiting for the connection; skipping the selection here keeps one reload per reconnect.
         .onChange(of: connection) { _, current in
-            if current.canOperate && conversation.requiresResync && !conversation.isLoading {
+            if store.selection != target && current.canOperate && conversation.requiresResync && !conversation.isLoading {
                 Task { await store.load(target, force: true) }
             }
         }

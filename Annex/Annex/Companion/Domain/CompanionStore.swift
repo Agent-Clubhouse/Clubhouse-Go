@@ -29,7 +29,8 @@ import Observation
         let eligible = connected.isEmpty ? capable : connected
         return (eligible.first { $0.id == projectLinksSourceID } ?? eligible.first)?.projectLinks
     }
-    var selection: CompanionTarget?
+    /// The agent on screen. A conversation left stale by a resync reloads here, once its desktop can serve history.
+    var selection: CompanionTarget? { didSet { if selection != oldValue { reloadSelectionIfStale() } } }
     var drafts: [CompanionTarget: String] = [:] {
         didSet { draftPersistence?.save(drafts) }
     }
@@ -130,6 +131,8 @@ import Observation
     @ObservationIgnored private var sendRequests: [String: CompanionSendRequest] = [:]
     private struct HistoryLoadOwner: Equatable {
         let id = UUID()
+        /// Began while the host could serve history for this connection (connected, or synchronizing and readable).
+        /// A later resync or connection loss retires it; a startup read that began before then keeps its owner.
         let beganWithOperableConnection: Bool
     }
     @ObservationIgnored private var historyGenerations: [CompanionTarget: HistoryLoadOwner] = [:]
@@ -380,10 +383,37 @@ import Observation
 
     func load(_ target: CompanionTarget, force: Bool = false) async {
         guard force || (!conversation(for: target).isLoaded && !conversation(for: target).isLoading) else { return }
-        let generation = HistoryLoadOwner(beganWithOperableConnection: host(for: target)?.connection.canOperate == true)
+        await finishLoad(target, owner: beginLoad(target))
+    }
+
+    /// A conversation coming on screen. A load already in flight owns it, so opening never issues a second read.
+    func loadOnOpen(_ target: CompanionTarget) async {
+        let current = conversation(for: target)
+        guard !current.isLoading else { return }
+        await load(target, force: current.requiresResync)
+    }
+
+    /// The reconnect rule, in one place: the selected conversation, when a resync left it stale, reloads as soon as
+    /// its desktop can serve history. That is before the catalog refresh finishes, and again on becoming connected
+    /// if that earlier read failed. Commands still wait for `canOperate`, which also needs this reload to finish.
+    private func reloadSelectionIfStale() {
+        guard !isShutDown, let target = selection, host(for: target)?.canReadHistory == true else { return }
+        let current = conversation(for: target)
+        guard current.requiresResync, !current.isLoading else { return }
+        // Marked loading now, before any suspension, so no other trigger can start a second read.
+        let owner = beginLoad(target)
+        Task { await finishLoad(target, owner: owner) }
+    }
+
+    private func beginLoad(_ target: CompanionTarget) -> HistoryLoadOwner {
+        let generation = HistoryLoadOwner(beganWithOperableConnection: host(for: target)?.canReadHistory == true)
         historyGenerations[target] = generation
         conversations[target, default: .init()].isLoading = true
         conversations[target, default: .init()].error = nil
+        return generation
+    }
+
+    private func finishLoad(_ target: CompanionTarget, owner generation: HistoryLoadOwner) async {
         do {
             var history = try await service.history(for: target)
             guard historyGenerations[target] == generation else { return }
@@ -1809,7 +1839,12 @@ import Observation
             default: nil
             }
             let previousRevision = (assistant ?? tool).flatMap { conversations[$0.0]?.itemsRevision }
+            let selectedHostBefore: CompanionHost?? = if case .hosts = event { .some(selection.flatMap(host(for:))) } else { nil }
             applyEvent(event)
+            if case .some(let before) = selectedHostBefore, let after = selection.flatMap(host(for:)),
+               (after.canReadHistory && before?.canReadHistory != true) || (after.connection.canOperate && before?.connection.canOperate != true) {
+                reloadSelectionIfStale()
+            }
             switch event {
             case .hosts, .upsert(_, .approval, _), .upsert(_, .question, _):
                 reconcileDecisionNotices()
@@ -1875,8 +1910,8 @@ import Observation
             reconcileAppUpdateAttempts(in: incoming)
             for host in incoming where !host.connection.canOperate {
                 // History can publish a catalog before the socket is connected. That report
-                // does not invalidate its own read; only a lost operable connection does.
-                if self.hosts.first(where: { $0.id == host.id })?.connection.canOperate == true {
+                // does not invalidate its own read; only losing a connection that could serve history does.
+                if !host.canReadHistory, self.hosts.first(where: { $0.id == host.id })?.canReadHistory == true {
                     retireHistoryLoads(hostID: host.id, includeStartupReads: true)
                 }
                 fullReviews = fullReviews.filter { $0.key.hostID != host.id }

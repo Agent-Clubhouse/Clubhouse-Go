@@ -47,6 +47,24 @@ actor ScriptedAnnexTransport: AnnexTransporting {
     func isReadPaused(_ route: String) -> Bool { paused[route] != nil }
     func resumeRead(_ route: String) { paused.removeValue(forKey: route)?.resume() }
     private(set) var readRoutes: [AnnexReadRouteRecord] = []
+    /// A fixed latency for every read, to model round trips.
+    private var readDelay: Duration = .zero
+    func setReadDelay(_ value: Duration) { readDelay = value }
+    /// The agent each `/chat` read addressed, in order.
+    private(set) var chatReads: [String] = []
+    /// Holds the next read of `route` and answers it, when resumed, with `value` rather than the route's current answer.
+    private var heldValues: [String: AnnexJSON] = [:]
+    func holdNextRead(_ route: String, returning value: AnnexJSON) { pauseNext.insert(route); heldValues[route] = value }
+    // Per-project agents reads: their own lists, latencies and failures, and the most reads in flight at once.
+    private var projectAgents: [String: AnnexJSON] = [:]
+    private var projectAgentsDelay: [String: Duration] = [:]
+    private var projectAgentsError: [String: AnnexTransportError] = [:]
+    private var agentsInFlight = 0
+    private(set) var maxAgentsInFlight = 0
+    private(set) var agentsReadOrder: [String] = []
+    func setAgents(_ value: AnnexJSON, forProject id: String) { projectAgents[id] = value }
+    func setAgentsDelay(_ value: Duration, forProject id: String) { projectAgentsDelay[id] = value }
+    func failAgents(_ error: AnnexTransportError, forProject id: String) { projectAgentsError[id] = error }
 
     // Commands.
     private var outcomes: [Outcome] = []
@@ -141,8 +159,22 @@ actor ScriptedAnnexTransport: AnnexTransporting {
 
     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
         readRoutes.append(.init(route))
+        if case .chat(let agent) = route { chatReads.append(agent) }
+        if readDelay > .zero { try? await Task.sleep(for: readDelay) }
+        if case .agents(let id) = route, projectAgentsDelay[id] != nil || projectAgents[id] != nil || projectAgentsError[id] != nil {
+            agentsReadOrder.append(id)
+            agentsInFlight += 1
+            maxAgentsInFlight = max(maxAgentsInFlight, agentsInFlight)
+            defer { agentsInFlight -= 1 }
+            if let delay = projectAgentsDelay[id] { try? await Task.sleep(for: delay) }
+            if let error = projectAgentsError[id] { throw error }
+            return projectAgents[id] ?? agents
+        }
         let name = Self.key(route)
-        if pauseNext.remove(name) != nil { await withCheckedContinuation { paused[name] = $0 } }
+        if pauseNext.remove(name) != nil {
+            await withCheckedContinuation { paused[name] = $0 }
+            if let held = heldValues.removeValue(forKey: name) { return held }
+        }
         if let result = reads[Self.key(route)] { return try result.get() }
         switch route {
         case .capabilities: return capabilitiesDocument

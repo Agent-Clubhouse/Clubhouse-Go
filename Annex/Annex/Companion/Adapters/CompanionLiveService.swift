@@ -23,6 +23,12 @@ import ClubhouseTransport
     private var eventGenerations: [String: UUID] = [:]
     private var refreshTasks: [String: Task<Void, Never>] = [:]
     private var refreshAgain: Set<String> = []
+    /// Renewed each time a host starts synchronizing. A refresh marks history readable only for the token it began
+    /// with, so an older pass that finishes after a newer resync cannot reopen chat reads for the newer one.
+    private var historyReadTokens: [String: UUID] = [:]
+    /// At most one helper-routing label read per host, for the revision it began with. Labels fill in later;
+    /// neither the connection gate nor the event drain waits for them.
+    private var helperLabelTasks: [String: (revision: String?, token: UUID, task: Task<Void, Never>)] = [:]
     /// Hosts whose next refresh also reconciles every cached chat status: set on each new connection and
     /// resync, since replay resumes from the snapshot and events missed while away never arrive.
     private var needsCatchUp: Set<String> = []
@@ -560,7 +566,7 @@ import ClubhouseTransport
         let revision = hosts[hostID]?.helperRoutingRevision
         let raw = try await transport(for: hostID).read(.helperRouting(projectID: projectID, agentID: agentID))
         try Task.checkCancellation()
-        guard eventGenerations[hostID] == generation else { throw CancellationError() }
+        guard eventGenerations[hostID] == generation, capabilities[hostID]?.supportsHelperRouting == true else { throw CancellationError() }
         let page = try CompanionHelperRouting(json: raw)
         guard hosts[hostID]?.helperRoutingRevision == revision || hosts[hostID]?.helperRoutingRevision == page.revision else { throw CancellationError() }
         rememberHelperRouting(page, hostID: hostID)
@@ -596,13 +602,27 @@ import ClubhouseTransport
         hosts[hostID]?.helperRoutingLabels = page.labels
         emitHosts()
     }
-    private func refreshHelperRoutingLabels(hostID: String) async {
-        guard capabilities[hostID]?.supportsHelperRouting == true else { return }
-        if let cached = helperLabelsCache[hostID], cached.revision == hosts[hostID]?.helperRoutingRevision {
+    /// Applies cached labels at once; otherwise starts one background read. `helperRouting` drops a page from an older
+    /// connection, a withdrawn capability or a revision that has since moved on, so a late reply cannot clobber newer labels.
+    private func refreshHelperRoutingLabels(hostID: String) {
+        guard capabilities[hostID]?.supportsHelperRouting == true else { cancelHelperLabels(hostID: hostID); return }
+        let revision = hosts[hostID]?.helperRoutingRevision
+        if let cached = helperLabelsCache[hostID], cached.revision == revision {
+            cancelHelperLabels(hostID: hostID)
             hosts[hostID]?.helperRoutingLabels = cached.labels
             return
         }
-        _ = try? await helperRouting(hostID: hostID)
+        if let running = helperLabelTasks[hostID], running.revision == revision { return }
+        cancelHelperLabels(hostID: hostID)
+        let token = UUID()
+        let task = Task { [weak self] in
+            _ = try? await self?.helperRouting(hostID: hostID)
+            if self?.helperLabelTasks[hostID]?.token == token { self?.helperLabelTasks[hostID] = nil }
+        }
+        helperLabelTasks[hostID] = (revision, token, task)
+    }
+    private func cancelHelperLabels(hostID: String) {
+        helperLabelTasks.removeValue(forKey: hostID)?.task.cancel()
     }
     func settings(for target: CompanionTarget) async throws -> CompanionAgentSettings {
         guard capabilities[target.hostID]?.supportsAgentSettings == true else { throw CompanionServiceError.unavailable("Update Clubhouse on your desktop to change agent settings from your phone.") }
@@ -917,6 +937,7 @@ import ClubhouseTransport
         historyGenerations = historyGenerations.filter { $0.key.hostID != hostID }
         readOnly = readOnly.filter { $0.hostID != hostID }
         helperLabelsCache.removeValue(forKey: hostID)
+        historyReadTokens.removeValue(forKey: hostID)
         windowsHosts.remove(hostID)
         iconCatalog.removeValue(forKey: hostID)
         Task { await iconStore.remove(host: hostID) }
@@ -992,6 +1013,7 @@ import ClubhouseTransport
         eventDrainTasks.removeValue(forKey: hostID)?.cancel()
         pendingEvents.removeValue(forKey: hostID)
         cancelRefresh(hostID: hostID)
+        cancelHelperLabels(hostID: hostID)
     }
 
     private func cancelRefresh(hostID: String) {
@@ -1221,7 +1243,7 @@ import ClubhouseTransport
                 // Neither needs another full pass; catalog-change events still enqueue follow-ups.
                 if hosts[hostID]?.connection == .connected ||
                     (hosts[hostID]?.connection == .synchronizing && refreshTasks[hostID] != nil) { break }
-                hosts[hostID]?.connection = .synchronizing; emitHosts()
+                beginSynchronizing(hostID: hostID); emitHosts()
                 needsCatchUp.insert(hostID)
                 scheduleRefresh(hostID: hostID)
             case .connecting:
@@ -1253,7 +1275,7 @@ import ClubhouseTransport
         case .resyncRequired:
             clearFullReviews(hostID: hostID)
             // The next snapshot is whole; events missed since may have reopened a request.
-            hosts[hostID]?.connection = .synchronizing
+            beginSynchronizing(hostID: hostID)
             emit(.resyncRequired(hostID: hostID)); emitHosts()
             needsCatchUp.insert(hostID)
             scheduleRefresh(hostID: hostID)
@@ -1291,8 +1313,8 @@ import ClubhouseTransport
                 hosts[hostID]?.finishedQuickAgents = CompanionFinishedRun.desktopLists(payload["finishedQuickAgents"], hostID: hostID)
                 hosts[hostID]?.idleDays = Self.idleDays(from: payload["idleDays"])
                 if let theme = Self.theme(from: payload["theme"], terminal: payload["terminalColors"]) { hosts[hostID]?.theme = theme }
+                refreshHelperRoutingLabels(hostID: hostID)
                 emitHosts()
-                await refreshHelperRoutingLabels(hostID: hostID)
                 if dispatcherChanged { await refreshDispatcherSettings(hostID: hostID) }
             case "project-links:changed":
                 applyProjectLinks(payload, hostID: hostID)
@@ -1300,8 +1322,8 @@ import ClubhouseTransport
             case "helper_routing:changed":
                 if let revision = payload["revision"]?.string {
                     hosts[hostID]?.helperRoutingRevision = revision
+                    refreshHelperRoutingLabels(hostID: hostID)
                     emitHosts()
-                    await refreshHelperRoutingLabels(hostID: hostID)
                 }
             case "theme:changed":
                 // The payload is the color set itself, with terminal colors alongside.
@@ -1355,8 +1377,10 @@ import ClubhouseTransport
 
     private func refresh(hostID: String) async {
         guard let transport = transports[hostID], let generation = eventGenerations[hostID], !isSuspended else { return }
+        let readToken = historyReadTokens[hostID]
         do {
             let rawCaps = try? await transport.read(.capabilities)
+            guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             let newCapabilities = rawCaps == nil ? capabilities[hostID]
                 : (rawCaps?["controlAvailable"]).boolValue == true ? try rawCaps?.decode(AnnexCapabilities.self) : nil
             if newCapabilities?.supportsNetwork == true,
@@ -1364,15 +1388,8 @@ import ClubhouseTransport
                 await onNetwork?(hostID, snapshot)
                 guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             }
-            let rawProjects = try await transport.read(.projects)
-            let projects = rawProjects["projects"] ?? rawProjects
-            var agents: [String: AnnexJSON] = [:]
-            for project in Optional(projects).arrayValue {
-                guard let projectID = project["id"]?.string, !projectID.isEmpty else { continue }
-                let result = try await transport.read(.agents(projectID: projectID))
-                agents[projectID] = result["agents"] ?? result
-            }
-            guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
+            // Capabilities (epoch, commands, features) apply before the catalog reads, so the open conversation can
+            // reload its history now, under this connection's capabilities, instead of after every project's agents.
             if rawCaps != nil {
                 knownCapabilities.insert(hostID)
                 if capabilities[hostID]?.epoch != newCapabilities?.epoch {
@@ -1464,6 +1481,16 @@ import ClubhouseTransport
                 }
                 if let routes = try? rawCaps?["routes"]?.decode(AnnexCapabilities.Routes.self) { onRoutes?(hostID, routes) }
             }
+            // Only this pass's own synchronizing period, and only with a fresh mobile capability document.
+            if rawCaps != nil, newCapabilities != nil, readToken != nil, historyReadTokens[hostID] == readToken,
+               hosts[hostID]?.connection == .synchronizing, hosts[hostID]?.historyReadable == false {
+                hosts[hostID]?.historyReadable = true
+                emitHosts()
+            }
+            let rawProjects = try await transport.read(.projects)
+            let projects = rawProjects["projects"] ?? rawProjects
+            let agents = try await Self.readAgents(Optional(projects).arrayValue, transport: transport)
+            guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             applyCatalog(.object(["projects": projects, "agents": .object(agents), "quickAgents": quickCatalog[hostID] ?? .object([:])]), hostID: hostID)
             if needsCatchUp.contains(hostID) {
                 // A failed catch-up keeps the catalog's statuses and runs again on the next refresh.
@@ -1472,12 +1499,51 @@ import ClubhouseTransport
                 if caughtUp { needsCatchUp.remove(hostID) }
             }
             hosts[hostID]?.connection = .connected
-            await refreshHelperRoutingLabels(hostID: hostID)
+            refreshHelperRoutingLabels(hostID: hostID)
         } catch {
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             hosts[hostID]?.connection = .failed(Self.readableError(error))
         }
         emitHosts()
+    }
+
+    /// Enough concurrent per-project reads to hide round trips without crowding the desktop or the phone's connection pool.
+    nonisolated static let agentsReadConcurrency = 4
+    /// Every project's agents, at most `agentsReadConcurrency` reads at a time. Results merge in project order, so a
+    /// repeated project id resolves exactly as the serial loop did (the later one wins). The first failure throws and
+    /// cancels the rest, as the serial loop's first failure did.
+    nonisolated static func readAgents(_ projects: [AnnexJSON], transport: any AnnexTransporting,
+                                       limit: Int = agentsReadConcurrency) async throws -> [String: AnnexJSON] {
+        let ids = projects.compactMap { project -> String? in
+            guard let id = project["id"]?.string, !id.isEmpty else { return nil }
+            return id
+        }
+        var results = [AnnexJSON?](repeating: nil, count: ids.count)
+        try await withThrowingTaskGroup(of: (Int, AnnexJSON).self) { group in
+            var next = 0
+            func add() {
+                let index = next, id = ids[index]
+                next += 1
+                group.addTask { (index, try await transport.read(.agents(projectID: id))) }
+            }
+            while next < min(max(1, limit), ids.count) { add() }
+            while let (index, result) = try await group.next() {
+                results[index] = result
+                if next < ids.count { add() }
+            }
+        }
+        var agents: [String: AnnexJSON] = [:]
+        for (index, id) in ids.enumerated() {
+            guard let result = results[index] else { continue }
+            agents[id] = result["agents"] ?? result
+        }
+        return agents
+    }
+
+    private func beginSynchronizing(hostID: String) {
+        hosts[hostID]?.connection = .synchronizing
+        hosts[hostID]?.historyReadable = false
+        historyReadTokens[hostID] = UUID()
     }
 
     private func applyDispatcherPresence(_ value: AnnexJSON?, hostID: String) {

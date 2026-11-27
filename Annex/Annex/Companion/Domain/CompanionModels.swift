@@ -138,6 +138,11 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var projectLinksError: String?
     /// Set only after a complete catalog from this desktop. Unknown agents remain loading until then.
     var hasLoadedCatalog = false
+    /// Set while synchronizing, once this connection's capabilities are read and applied: chat history can be read
+    /// before the rest of the catalog arrives. It never permits a command; `connection.canOperate` still gates those.
+    var historyReadable = false
+    /// The open conversation may reload its history: the host is connected, or it is synchronizing and readable.
+    var canReadHistory: Bool { connection.canOperate || (connection == .synchronizing && historyReadable) }
     var snapshotTruncationNotice: String?
     /// Nil when the desktop has not reported a literal rich-content setting. Only true permits reads.
     var richContentAvailable: Bool? = nil
