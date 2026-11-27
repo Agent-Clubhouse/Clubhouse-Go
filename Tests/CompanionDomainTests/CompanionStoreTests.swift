@@ -464,12 +464,16 @@ import Testing
         let service = TestCompanionService()
         let store = makeStore(service: service)
         var desktop = host(id: target.hostID)
-        desktop.connection = connection
+        // No read starts while the desktop is reconnecting, offline or failed; one begun while connecting
+        // may still see the desktop's connection drop to one of those before it returns.
+        let isDead = [CompanionConnection.reconnecting, .offline, .failed("Unavailable")].contains(connection)
+        desktop.connection = isDead ? .connecting : connection
         store.apply(.hosts([desktop, host(id: "host-b")]))
         let items: [CompanionTimelineItem] = [.notice(id: "loaded", text: "Authoritative history")]
         service.historyValue = .init(items: items, lastSequence: 7, sessionID: "current")
         // LiveService.history publishes its updated agent catalog before returning the read.
         desktop.projects[0].agents[0].name = "Updated by history"
+        desktop.connection = connection
         service.reportDuringHistory = { store.apply(.hosts([desktop, self.host(id: "host-b")])) }
         await store.load(target)
         let result = store.conversation(for: target)
