@@ -1,0 +1,21 @@
+21:PROBE snapshot bytes=646218 agents=39
+22:PROBE snapshot decode=1ms
+23:PROBE chat bytes=4668863 events=2612 chunks/msg=1 decode=123ms project+store=8ms items=2612
+24:PROBE chat bytes=7180653 events=27426 chunks/msg=20 decode=701ms project+store=54ms items=2612
+25:PROBE chat bytes=696340 events=390 chunks/msg=1 decode=19ms project+store=59ms items=390
+26:✔ Test chatDecodeAndProjectionCost(target:chunks:) with 3 test cases passed after 1.110 seconds.
+27:PROBE snapshot emit→store hosts updated=67ms
+28:✔ Test snapshotHandlingCost() passed after 1.118 seconds.
+29:✔ Suite DispatcherPayloadCostProbeTests passed after 1.118 seconds.
+30:PROBE cold-start read order: ["capabilities", "projects", "agents", "helperRouting"] connection: Optional(CompanionDomain.CompanionConnection.synchronizing)
+31:✘ Test connectedIsPublishedWhileHelperRoutingIsSlow() recorded an issue at DispatcherRefreshGateProbeTests.swift:28:9: Expectation failed: h.host?.connection == .connected
+37:✘ Test connectedIsPublishedWhileHelperRoutingIsSlow() failed after 1.381 seconds with 1 issue.
+39:PROBE drain items before: 1 after event (helper-routing held): 1
+40:✘ Test chatEventIsProjectedWhileSnapshotAwaitsHelperRouting() recorded an issue at DispatcherRefreshGateProbeTests.swift:89:9: Expectation failed: after > before
+45:✘ Test chatEventIsProjectedWhileSnapshotAwaitsHelperRouting() failed after 1.428 seconds with 1 issue.
+48:PROBE N=1 resync→chat 270ms routes=["capabilities", "projects", "agents", "chatHistory", "chat"]
+49:PROBE N=14 resync→chat 962ms routes=["capabilities", "projects", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "agents", "chatHistory", "chat"]
+50:✘ Test visibleChatReloadDoesNotScaleWithProjectCount() recorded an issue at DispatcherRefreshGateProbeTests.swift:66:9: Expectation failed: agentsBeforeChat == 0
+54:✘ Test visibleChatReloadDoesNotScaleWithProjectCount() recorded an issue at DispatcherRefreshGateProbeTests.swift:67:9: Expectation failed: many.ms - one.ms < 300
+59:✘ Test visibleChatReloadDoesNotScaleWithProjectCount() failed after 2.354 seconds with 2 issues.
+63:✘ Test run with 5 tests in 2 suites failed after 2.354 seconds with 4 issues.

@@ -1,0 +1,200 @@
+diff --git a/Tests/CompanionDomainTests/DispatcherRefreshGateProbeTests.swift b/Tests/CompanionDomainTests/DispatcherRefreshGateProbeTests.swift
+new file mode 100644
+index 0000000..7917732
+--- /dev/null
++++ b/Tests/CompanionDomainTests/DispatcherRefreshGateProbeTests.swift
+@@ -0,0 +1,172 @@
++import Foundation
++import Testing
++@testable import ClubhouseTransport
++@testable import CompanionDomain
++
++/// DIAGNOSTIC PROBE (not a fix). Each test states the DESIRED behaviour: a slow GET /mobile/helper-routing
++/// must not gate the visible chat. On main c207871 both are expected to FAIL, which demonstrates the gate.
++@MainActor @Suite struct DispatcherRefreshGateProbeTests {
++    static func configure(_ transport: ScriptedAnnexTransport) async throws {
++        let caps = try ContractFixtures.body("capabilities.json")
++        let page = try #require(ContractFixtures.json("helper-routing.json")["bare"]?["response"]?["body"])
++        await transport.setFeature("helperRouting", caps["helperRouting"] ?? .null)
++        await transport.setRead("helperRouting", page)
++    }
++
++    /// Cold start: the label cache is empty, so refresh(hostID:) awaits helper-routing before publishing .connected.
++    @Test func connectedIsPublishedWhileHelperRoutingIsSlow() async throws {
++        let h = try await LiveServiceHarness.start(waitForConnection: false) { transport in
++            try? await Self.configure(transport)
++            await transport.pauseNextRead("helperRouting")
++        }
++        defer { h.stop() }
++        try await h.waitUntil { await h.transport.isReadPaused("helperRouting") }
++        // Give the store every chance to see .connected while helper-routing is held.
++        try await Task.sleep(for: .milliseconds(300))
++        let routes = await h.transport.readRoutes.map(\.name)
++        print("PROBE cold-start read order:", routes, "connection:", String(describing: h.host?.connection))
++        #expect(h.host?.connection == .connected, "connection stays non-operable until helper-routing returns")
++        await h.transport.resumeRead("helperRouting")
++        try await h.waitUntil { h.host?.connection == .connected }
++    }
++
++    /// Foreground/reconnect model: after a resync, the visible chat may reload only once the host is operable
++    /// (CompanionConversationView.swift:316-318). That needs refresh(hostID:) to finish, which reads every project's
++    /// agents serially. Returns ms from resync to the first /chat read and the read order.
++    static func resyncToChatRead(projects n: Int, latency: Duration) async throws -> (ms: Double, routes: [String]) {
++        let h = try await LiveServiceHarness.start { transport in
++            await transport.setProjects(.array([.object(["id": .string("project"), "name": .string("Project")])]
++                + (1..<max(1, n)).map { .object(["id": .string("p\($0)"), "name": .string("P\($0)")]) }))
++        }
++        defer { h.stop() }
++        await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot())
++        await h.store.load(h.target, force: true)
++        await h.transport.setReadDelay(latency)
++        let start = ContinuousClock.now
++        let baseline = await h.transport.readRoutes.count
++        await h.transport.emit(.resyncRequired(.reconnected))
++        try await h.waitUntil { h.store.conversation(for: h.target).requiresResync }
++        // The view's rule, verbatim: reload when operable && requiresResync && !isLoading.
++        try await h.waitUntil {
++            let c = h.store.conversation(for: h.target)
++            return h.host?.connection.canOperate == true && c.requiresResync && !c.isLoading
++        }
++        await h.store.load(h.target, force: true)
++        let routes = Array(await h.transport.readRoutes.map(\.name).dropFirst(baseline))
++        let d = start.duration(to: .now).components
++        return (Double(d.seconds) * 1000 + Double(d.attoseconds) / 1e15, routes)
++    }
++
++    @Test func visibleChatReloadDoesNotScaleWithProjectCount() async throws {
++        let one = try await Self.resyncToChatRead(projects: 1, latency: .milliseconds(50))
++        let many = try await Self.resyncToChatRead(projects: 14, latency: .milliseconds(50))
++        print("PROBE N=1 resync→chat \(Int(one.ms))ms routes=\(one.routes)")
++        print("PROBE N=14 resync→chat \(Int(many.ms))ms routes=\(many.routes)")
++        let agentsBeforeChat = many.routes.prefix { $0 != "chat" }.filter { $0 == "agents" }.count
++        #expect(agentsBeforeChat == 0, "visible /chat waited for \(agentsBeforeChat) serial agents reads")
++        #expect(many.ms - one.ms < 300, "resync→chat grew by \(Int(many.ms - one.ms))ms for 13 more projects")
++    }
++
++    /// A snapshot with a new helperRoutingRevision makes the serial event drain await helper-routing; a chat event
++    /// that arrives behind it should still reach the visible conversation.
++    @Test func chatEventIsProjectedWhileSnapshotAwaitsHelperRouting() async throws {
++        let h = try await LiveServiceHarness.start { transport in try? await Self.configure(transport) }
++        defer { h.stop() }
++        await h.transport.setRead("chat", LiveServiceHarness.chatSnapshot())
++        await h.store.load(h.target, force: true)
++        let before = h.store.conversation(for: h.target).items.count
++        await h.transport.pauseNextRead("helperRouting")
++        await h.transport.emit(h.snapshotEvent(["helperRoutingRevision": .string("r9.9")]))
++        try await h.waitUntil { await h.transport.isReadPaused("helperRouting") }
++        await h.transport.emit(.message(.init(type: "chat:event", payload: .object([
++            "agentId": .string("agent"),
++            "event": LiveServiceHarness.chatEvent("s1", sequence: 2, type: "agent_message",
++                                                  data: ["messageId": .string("m2"), "text": .string("Arrived")]),
++        ]))))
++        try await Task.sleep(for: .milliseconds(300))
++        let after = h.store.conversation(for: h.target).items.count
++        print("PROBE drain items before:", before, "after event (helper-routing held):", after)
++        #expect(after > before, "chat:event is queued behind the snapshot's helper-routing await")
++        await h.transport.resumeRead("helperRouting")
++        try await h.waitUntil { h.store.conversation(for: h.target).items.count > before }
++    }
++}
++
++/// DIAGNOSTIC COST PROBE: synthetic payload shapes only (real composition unknown). Debug build on macOS, not device.
++@MainActor @Suite struct DispatcherPayloadCostProbeTests {
++    static func ms(_ d: Duration) -> Double { Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
++
++    /// ~targetBytes of chat events: alternating finished agent messages and completed tool calls.
++    static func chatBody(targetBytes: Int, chunks: Int = 1) -> AnnexJSON {
++        var events: [AnnexJSON] = []
++        var seq: Int64 = 1, bytes = 0, i = 0
++        let text = String(repeating: "lorem ipsum dolor sit amet ", count: 40)  // ~1 KB
++        while bytes < targetBytes {
++            if i % 2 == 0 {
++                for c in 0..<chunks {
++                    events.append(LiveServiceHarness.chatEvent("s1", sequence: seq, type: chunks > 1 ? "agent_message_chunk" : "agent_message",
++                        data: ["messageId": .string("m\(i)"), "text": .string(chunks > 1 ? String(text.prefix(1080 / chunks + 1)) + "\(c)" : text)]))
++                    seq += 1
++                }
++                bytes += 1200
++            } else {
++                events.append(LiveServiceHarness.chatEvent("s1", sequence: seq, type: "tool_call", data: [
++                    "toolCallId": .string("t\(i)"), "title": .string("Read file"), "status": .string("completed"), "kind": .string("read"),
++                    "rawInput": .object(["path": .string("/src/file\(i).swift")]),
++                    "content": .array([.object(["type": .string("content"), "content": .object(["type": .string("text"), "text": .string(text + text)])])]),
++                ]))
++                seq += 1; bytes += 2400
++            }
++            i += 1
++        }
++        return .object(["sessionId": .string("s1"), "state": .string("idle"), "events": .array(events),
++                        "capabilities": .object(["chat": .bool(true)])])
++    }
++
++    @Test(arguments: [(700_000, 1), (4_700_000, 1), (4_700_000, 20)])
++    func chatDecodeAndProjectionCost(target: Int, chunks: Int) async throws {
++        let body = Self.chatBody(targetBytes: target, chunks: chunks)
++        let data = try JSONEncoder().encode(body)
++        let clock = ContinuousClock()
++        var t = clock.now
++        let decoded = try JSONDecoder().decode(AnnexJSON.self, from: data)   // what AnnexTransport.read does (AnnexTransport.swift ~300)
++        let decodeMs = Self.ms(t.duration(to: clock.now))
++        let h = try await LiveServiceHarness.start()
++        defer { h.stop() }
++        await h.transport.setRead("chat", decoded)
++        t = clock.now
++        await h.store.load(h.target, force: true)                             // service.history projection + store merge
++        let loadMs = Self.ms(t.duration(to: clock.now))
++        print("PROBE chat bytes=\(data.count) events=\(body["events"].arrayValue.count) chunks/msg=\(chunks) decode=\(Int(decodeMs))ms project+store=\(Int(loadMs))ms items=\(h.store.conversation(for: h.target).items.count)")
++    }
++
++    /// A connect snapshot with 39 agents over 14 projects, ~684 KB, no icon bytes.
++    @Test func snapshotHandlingCost() async throws {
++        let h = try await LiveServiceHarness.start()
++        defer { h.stop() }
++        let pad = String(repeating: "x", count: 16_500)
++        var agents: [String: AnnexJSON] = [:]
++        var projects: [AnnexJSON] = []
++        for p in 0..<14 {
++            let pid = p == 0 ? "project" : "p\(p)"
++            projects.append(.object(["id": .string(pid), "name": .string("P\(p)")]))
++            agents[pid] = .array((0..<(p < 11 ? 3 : 2)).map { a in
++                .object(["id": .string(p == 0 && a == 0 ? "agent" : "a\(p)-\(a)"), "name": .string("A\(p)-\(a)"), "status": .string("idle"),
++                         "detail": .string(pad)])
++            })
++        }
++        let event = h.snapshotEvent(["projects": .array(projects), "agents": .object(agents),
++                                     "agentIcons": .object([:]), "projectIcons": .object([:])])
++        if case .message(let env) = event, let payload = env.payload {
++            print("PROBE snapshot bytes=\(try JSONEncoder().encode(payload).count) agents=39")
++            let data = try JSONEncoder().encode(payload)
++            let t0 = ContinuousClock.now
++            _ = try JSONDecoder().decode(AnnexJSON.self, from: data)
++            print("PROBE snapshot decode=\(Int(Self.ms(t0.duration(to: .now))))ms")
++        }
++        let t = ContinuousClock.now
++        await h.transport.emit(event)
++        try await h.waitUntil { (h.host?.projects.count ?? 0) >= 14 }
++        print("PROBE snapshot emit→store hosts updated=\(Int(Self.ms(t.duration(to: .now))))ms")
++    }
++}
+diff --git a/Tests/CompanionDomainTests/ScriptedAnnexTransport.swift b/Tests/CompanionDomainTests/ScriptedAnnexTransport.swift
+index 69badc5..99eb0ce 100644
+--- a/Tests/CompanionDomainTests/ScriptedAnnexTransport.swift
++++ b/Tests/CompanionDomainTests/ScriptedAnnexTransport.swift
+@@ -47,6 +47,9 @@ actor ScriptedAnnexTransport: AnnexTransporting {
+     func isReadPaused(_ route: String) -> Bool { paused[route] != nil }
+     func resumeRead(_ route: String) { paused.removeValue(forKey: route)?.resume() }
+     private(set) var readRoutes: [AnnexReadRouteRecord] = []
++    // PROBE ONLY (dispatcher-refresh-diag): a fixed per-read latency to model round trips.
++    private var readDelay: Duration = .zero
++    func setReadDelay(_ value: Duration) { readDelay = value }
+ 
+     // Commands.
+     private var outcomes: [Outcome] = []
+@@ -141,6 +144,7 @@ actor ScriptedAnnexTransport: AnnexTransporting {
+ 
+     func read(_ route: AnnexReadRoute) async throws -> AnnexJSON {
+         readRoutes.append(.init(route))
++        if readDelay > .zero { try? await Task.sleep(for: readDelay) }
+         let name = Self.key(route)
+         if pauseNext.remove(name) != nil { await withCheckedContinuation { paused[name] = $0 } }
+         if let result = reads[Self.key(route)] { return try result.get() }
