@@ -55,8 +55,14 @@ import Testing
         observer.cancel()
         #expect(await observer.value == 0, "No host publication may claim the known Dispatcher disappeared")
         // ConversationView explicitly forces this resync on navigation/connection changes. Retaining
-        // the cache avoids blanking, but does not eliminate that required full history read.
+        // the cache avoids blanking, but does not eliminate that required full history read. While the
+        // relocated connection has failed it is deferred, keeping the cached chat; once connected it reads.
         #expect(h.store.conversation(for: dispatcher).requiresResync)
+        await h.store.load(dispatcher, force: h.store.conversation(for: dispatcher).requiresResync)
+        #expect(await h.transport.readRoutes.filter { $0.name == "chat" }.count == afterReads, "No history read while the connection has failed")
+        #expect(h.store.conversation(for: dispatcher).items == original.items && h.store.conversation(for: dispatcher).requiresResync)
+        await h.transport.emit(.resyncRequired(.reconnected))
+        try await h.waitUntil { h.host?.connection == .connected }
         await h.store.load(dispatcher, force: h.store.conversation(for: dispatcher).requiresResync)
         let uiReads = await h.transport.readRoutes.filter { $0.name == "chat" }.count - afterReads
         #expect(uiReads == 1)
