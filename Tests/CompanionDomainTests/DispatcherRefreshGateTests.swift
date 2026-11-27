@@ -135,19 +135,22 @@ import Testing
         h.store.selection = other
         let chats = await h.transport.chatReads.count
         await h.transport.emit(.resyncRequired(.reconnected))
+        try await h.waitUntil { await h.transport.chatReads.count > chats }
         try await h.waitUntil {
             let c = h.store.conversation(for: other)
             return h.host?.connection == .connected && !c.isLoading && !c.requiresResync
         }
         try await Task.sleep(for: .milliseconds(150))
-        #expect(Array(await h.transport.chatReads.dropFirst(chats)) == ["agent2"])
+        let first = Array(await h.transport.chatReads.dropFirst(chats))
+        #expect(first == ["agent2"], "reads: \(first)")
         #expect(h.store.conversation(for: h.target).requiresResync, "the unselected conversation waits until it is opened")
 
         // Selecting the stale one reloads it, once.
         h.store.selection = h.target
         try await Self.settled(h)
         try await Task.sleep(for: .milliseconds(100))
-        #expect(Array(await h.transport.chatReads.dropFirst(chats)) == ["agent2", "agent"])
+        let second = Array(await h.transport.chatReads.dropFirst(chats))
+        #expect(second == ["agent2", "agent"], "reads: \(second)")
 
         // Nothing selected: a reconnect reads no chat at all.
         h.store.selection = nil
@@ -239,8 +242,16 @@ import Testing
         await h.transport.emit(.resyncRequired(.reconnected))
         try await h.waitUntil { await h.transport.isReadPaused("capabilities") }
         await h.transport.pauseNextRead("projects")
+        // Wait for the service itself to take the second resync, not just the store's view of it.
+        let events = h.service.events()
+        let resynced = Task { @MainActor () -> Bool in
+            for await event in events { if case .resyncRequired = event { return true } }
+            return false
+        }
+        let timeout = Task { try await Task.sleep(for: .seconds(5)); resynced.cancel() }
         await h.transport.emit(.resyncRequired(.reconnected))
-        try await h.waitUntil { h.host?.connection == .synchronizing }
+        #expect(await resynced.value)
+        timeout.cancel()
         await h.transport.resumeRead("capabilities")
         try await h.waitUntil { await h.transport.isReadPaused("projects") }
         try await Task.sleep(for: .milliseconds(150))
