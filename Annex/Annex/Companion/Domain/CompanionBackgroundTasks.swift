@@ -24,9 +24,14 @@ import Foundation
     /// Begins synchronously, so it must be called before the caller yields: once a background transition
     /// returns to the system, the process may be suspended before any queued task runs.
     /// The expiration handler retains the lease, so expiry can end the task even if its owner is gone.
-    static func begin(_ name: String, on tasks: any CompanionBackgroundTasking) -> CompanionBackgroundLease {
+    /// `onExpiry` runs first, and only if the lease is still held, so its owner can cancel the work it covered.
+    static func begin(_ name: String, on tasks: any CompanionBackgroundTasking,
+                      onExpiry: @escaping @MainActor @Sendable () -> Void = {}) -> CompanionBackgroundLease {
         let lease = CompanionBackgroundLease(tasks: tasks)
-        let id = tasks.begin(name: name) { lease.end() }
+        let id = tasks.begin(name: name) {
+            if !lease.isEnded { onExpiry() }
+            lease.end()
+        }
         if lease.isEnded { if let id { tasks.end(id) } }
         else { lease.id = id; if id == nil { lease.isEnded = true } }
         return lease
