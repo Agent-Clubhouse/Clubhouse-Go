@@ -143,21 +143,6 @@ private actor TransitionGate {
         #expect(tasks.begun.isEmpty && tasks.ended.isEmpty && lease.isEnded)
     }
 
-    /// The app's telemetry exporter ends its session inside the task, and the task ends after it.
-    @Test func duringHoldsTheTaskOverTheTelemetrySessionEnd() async {
-        let tasks = FakeBackgroundTasks()
-        let exporter = AnnexOTLPExporter()
-        let session = await exporter.beginSession()
-        var heldDuringWork: Set<Int> = []
-        await CompanionBackgroundLease.during("companion.telemetry", on: tasks) {
-            heldDuringWork = tasks.held
-            if let session { await exporter.endSession(session) }
-        }
-        #expect(session != nil)
-        #expect(heldDuringWork == [1])
-        #expect(tasks.ended == [1] && tasks.held.isEmpty)
-    }
-
     // MARK: Lifecycle with the real service and transport
 
     @MainActor private struct Fixture {
@@ -270,6 +255,8 @@ private actor TransitionGate {
             f.lifecycle.update(phase)
         }
         #expect(f.tasks.begun == [1, 2, 3], "One task per queued suspension, none for foregrounds or repeats")
+        // The first suspension is inside its transition; the other two await the one before them.
+        try await wait { await gate.waiting }
         #expect(f.tasks.held == [1, 2, 3], "Each queued suspension holds its task while it waits")
         await gate.release()
         await f.lifecycle.settle()

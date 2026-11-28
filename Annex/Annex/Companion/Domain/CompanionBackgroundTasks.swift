@@ -39,12 +39,4 @@ import Foundation
         self.id = nil
         tasks.end(id)
     }
-
-    /// Runs `work` inside its own background task and always ends that task afterwards.
-    static func during<T>(_ name: String, on tasks: (any CompanionBackgroundTasking)?,
-                          _ work: @MainActor () async -> T) async -> T {
-        let lease = tasks.map { begin(name, on: $0) }
-        defer { lease?.end() }
-        return await work()
-    }
 }
