@@ -13,7 +13,8 @@ import Testing
 ///
 /// Runs on the real transport, service and store with the host's V2 beta.8 fixture (sha256 pinned in `CompatFixture`).
 /// The fixture's Dispatcher is asleep and read-only, so these tests cover the display contract only.
-@MainActor @Suite(.serialized) struct ChatReadChangedResyncTests {
+/// Time-limited so a regression of the two-read bound fails instead of looping on 409s until CI times out.
+@MainActor @Suite(.serialized, .timeLimit(.minutes(1))) struct ChatReadChangedResyncTests {
     typealias H = CompatHarness
     static let refusal: AnnexJSON = .object(["error": .string("chat_read_changed")])
     static let refusalText = "Desktop request failed (409): chat_read_changed."
@@ -148,6 +149,81 @@ import Testing
         await h.settle(150)
         #expect(await h.chatReads() == 2, "one re-read under the same rule")
         #expect(h.usable && h.texts().contains(h.fixture.expectedReply))
+        await h.stop()
+    }
+
+    /// Shutdown while the read waits: the refusal starts no read. The owner stays current here (shutdown does not retire
+    /// loads), so only the shutdown guard stops the re-read.
+    @Test func aRefusalAfterShutdownIsNotReread() async throws {
+        let (h, _) = try await Self.startOnEarlierRun()
+        let reads0 = await h.chatReads()
+        await h.io.hold(h.fixture.chatPath)
+        let refresh = Task { await h.store.load(h.target, force: true) }
+        try await h.wait("held") { await h.io.isHeld(h.fixture.chatPath) }
+        h.store.shutdown()
+        await h.io.release(h.fixture.chatPath, status: 409, body: Self.refusal)
+        await refresh.value
+        await h.settle(150)
+        #expect(await h.chatReads() - reads0 == 1, "no re-read after shutdown")
+        await h.stop()
+    }
+
+    /// The V2 fixture has no pending approval, so this test adds one by explicit setup: both the earlier and the current
+    /// pages carry the same `permission_request` in `pendingPermissions`, on a live (not read-only) session. It must stay
+    /// pending through the refusal, while the re-read is in flight, and after it.
+    @Test func aPendingApprovalSurvivesTheRefusalAndTheReread() async throws {
+        let h = try await H.start(.v2beta8)
+        func withApproval(_ page: AnnexJSON, session: String) -> AnnexJSON {
+            guard case .object(var body) = page else { return page }
+            body["readOnly"] = .bool(false); body["state"] = .string("waiting_permission")
+            body["pendingPermissions"] = .array([.object([
+                "agentId": .string(h.fixture.selectedAgent), "sessionId": .string(session), "seq": .integer(12), "v": .integer(2),
+                "ts": .integer(1_799_999_952_000), "type": .string("permission_request"),
+                "data": .object(["requestId": .string("perm-fixture"), "toolName": .string("Bash"), "title": .string("Run ls"),
+                                 "options": .array([.object(["optionId": .string("allow"), "label": .string("Allow"), "kind": .string("allow_once")])])]),
+            ])])
+            return .object(body)
+        }
+        func pendingID() -> String? {
+            for case .approval(let a) in h.conversation.items where a.resolution == .pending { return a.id }
+            return nil
+        }
+        await h.io.override(h.fixture.chatPath, status: 200, body: withApproval(h.page(reply: "Earlier run reply.", session: "sess_dispatch"), session: "sess_dispatch"))
+        await h.select()
+        try await h.wait("baseline") { h.usable && h.texts().contains("Earlier run reply.") }
+        let baseline = pendingID()
+        #expect(baseline == "perm-fixture", "setup: the approval is pending before the refusal")
+        await h.io.override(h.fixture.chatPath, status: 200, body: withApproval(h.fixture.chatBody, session: "sess_dispatch"))
+        let reads0 = await h.chatReads()
+        await h.io.hold(h.fixture.chatPath)
+        let refresh = Task { await h.store.load(h.target, force: true) }
+        try await h.wait("held") { await h.io.isHeld(h.fixture.chatPath) }
+        await h.io.hold(h.fixture.chatPath)   // also hold the re-read, to look at the state between
+        await h.io.release(h.fixture.chatPath, status: 409, body: Self.refusal)
+        try await h.wait("re-read held") { await h.io.isHeld(h.fixture.chatPath) }
+        #expect(pendingID() == baseline, "pending kept after the refusal, while the re-read is in flight")
+        #expect(h.conversation.isLoading && h.conversation.error == nil)
+        await h.io.release(h.fixture.chatPath, status: 200, body: withApproval(h.fixture.chatBody, session: "sess_dispatch"))
+        await refresh.value
+        try await h.wait("current") { h.usable && h.texts().contains(h.fixture.expectedReply) }
+        #expect(await h.chatReads() - reads0 == 2)
+        #expect(pendingID() == baseline, "pending kept after the re-read")
+        #expect(await h.io.posts == 0, "nothing approved or sent")
+        await h.stop()
+    }
+
+    /// 401 peer_not_paired on the history read is not this refusal: no re-read, and the failure path as before.
+    @Test func aPeerNotPairedRefusalIsNotReread() async throws {
+        let (h, earlier) = try await Self.startOnEarlierRun()
+        let reads0 = await h.chatReads()
+        await h.io.override(h.fixture.chatPath, status: 401, body: .object(["error": .string("peer_not_paired")]))
+        await h.store.load(h.target, force: true)
+        await h.settle(150)
+        let c = h.conversation
+        #expect(await h.chatReads() - reads0 == 1, "no re-read")
+        #expect(c.error == "Desktop request failed (401): peer_not_paired.", "the failure text as before")
+        #expect(c.requiresResync && !c.isLoading && c.items == earlier)
+        #expect(await h.io.posts == 0)
         await h.stop()
     }
 

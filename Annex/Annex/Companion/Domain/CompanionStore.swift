@@ -478,6 +478,7 @@ import Observation
             // The chat changed under the read, and the desktop built no page from it. While this load still owns the
             // conversation (it is loading, and was neither retired nor replaced) and the desktop can serve history, read
             // once more under a new owner. The last-good items stay, marked stale, with no error. Otherwise, as any failure.
+            // `isLoading` is defence in depth: while the owner guard above holds, nothing has cleared it, so it is redundant.
             if error is CompanionHistoryReadChanged, !rereadAfterChange, !isShutDown,
                conversation(for: target).isLoading, host(for: target)?.canReadHistory == true {
                 conversations[target, default: .init()].requiresResync = true
