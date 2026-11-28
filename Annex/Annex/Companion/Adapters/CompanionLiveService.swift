@@ -211,6 +211,10 @@ import ClubhouseTransport
                 guard historyGenerations[target] == generation else { throw CancellationError() }
                 let pending = buffers.removeValue(forKey: target) ?? []
                 for event in pending { project(event, target: target) }
+                // Kept apart so the store can read once more; its text is the generic one shown today.
+                if case .rejected(409, "chat_read_changed", _)? = error as? AnnexTransportError {
+                    throw CompanionHistoryReadChanged(message: Self.readableError(error))
+                }
                 throw CompanionServiceError.unavailable(Self.readableError(error))
             }
 

@@ -926,6 +926,13 @@ enum CompanionServiceError: Error, LocalizedError, Sendable {
     }
 }
 
+/// The desktop's `409 chat_read_changed`: the chat changed while it was being read, so no page was built and nothing
+/// from that read is applied. `message` is the text any other refused read shows.
+struct CompanionHistoryReadChanged: Error, LocalizedError, Sendable, Equatable {
+    let message: String
+    var errorDescription: String? { message }
+}
+
 /// A `wrong_machine` refusal, with the machine it names and, when this phone is connected to that machine and
 /// knows the agent there, the agent to open instead. Nothing is sent there on its own.
 struct CompanionWrongMachine: Sendable, Equatable {
