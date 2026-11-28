@@ -49,9 +49,14 @@ desktop's Node default (5 s), which affects connection reuse but not the 6-slot 
 - Six slow but live reads (a body byte every 2 s, so they don't hit their own idle timeout): a read queued behind them
   **fails with -1001 at 30.0 s and never reaches the server**. Queue wait counts toward `timeoutIntervalForRequest`.
 - Ping caveat: URLSession reads pongs only while a `receive()` is outstanding, as `PinnedWebSocketTests.swift:148`
-  already notes. Without a receive loop, a second ping never completes. Production always has one
-  (`AnnexTransport.swift:598-605`). "Ping unaffected" means unaffected by HTTP pool occupancy. Pongs still go
-  back through the AnnexTransport actor's receive loop, and that end-to-end path isn't modelled here.
+  already notes. This is observed on macOS loopback; Apple's headers don't document it. Without a receive loop, a
+  second ping never completes. At this base, production's receive loop (`AnnexTransport.swift:598-605`) does NOT
+  keep a receive outstanding all the time. Between frames it awaits the actor hop at `:603`, processes the frame
+  synchronously (`:643-741`), and after a first snapshot awaits the replay send at `:739`. No `receive()` is
+  outstanding during any of these (see `docs/recvloop-pong-audit.md` on mini-go/recvloop-audit). "Ping unaffected"
+  means unaffected by HTTP pool occupancy. The pong handler itself never touches the AnnexTransport actor: it runs
+  on the session delegate queue (`AnnexIO.swift:270-272`). What the actor path controls is when the loop re-arms
+  `receive()`, and so when URLSession reads the pong. That re-arm timing isn't modelled here.
 
 ## Not proven here
 iOS runtime limit, iOS networking stack, cellular or Wi-Fi paths, and the real desktop's behaviour. The app build

@@ -147,7 +147,9 @@ struct URLSessionPoolProbe {
         _ = try await io.perform(try fixture.request("fast", id: "warm"))
         let socket = try await io.openWebSocket(try fixture.webSocketRequest())
         _ = try await socket.receive() // greeting
-        // URLSession only reads pongs while a receive is outstanding; the transport's receive loop always is (AnnexTransport.swift:597).
+        // URLSession only reads pongs while a receive is outstanding (observed, not documented). The transport's loop
+        // re-arms receive only after it processes each frame (AnnexTransport.swift:598-605 at eb993348), so this probe
+        // keeps a dedicated reader instead.
         let reader = Task { while true { _ = try await socket.receive() } }
         var baselinePings: [String] = []
         for _ in 0..<3 { let p = Timed { try await socket.ping() }; await p.settle(within: 4); baselinePings.append(p.describe()) }
