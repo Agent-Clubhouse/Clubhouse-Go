@@ -154,7 +154,7 @@ struct CompanionTelemetryDestinationView: View {
                 settings.setRemoteEnabled(true)
             }
         } message: {
-            Text("Confirm you control this destination and it accepts OTLP/HTTP JSON. Only traces collected after enabling are sent, while the app is active. Nothing from feedback enrollment is reused. Previously captured traces are excluded. Failed batches have bounded retries and may be dropped.")
+            Text("Confirm you control this destination and it accepts OTLP/HTTP JSON. Only traces collected after enabling are sent, while the app is active or finishing up as it moves to the background. Nothing from feedback enrollment is reused. Previously captured traces are excluded. Failed batches have bounded retries and may be dropped.")
         }
     }
 }

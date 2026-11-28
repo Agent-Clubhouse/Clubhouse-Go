@@ -62,10 +62,16 @@ minutes on begin/snapshot. At most 24 attributes and 32 fixed-name events per sp
 32 observed conversations; no per-chunk event allocation. Counts/timings clamp to
 finite bounded values. Opt-out/clear advances a generation fence so late callbacks
 cannot restore erased data. Export JSON is capped at 512 KiB and failure does not
-consume the buffer. No background export or disk spool exists. A separately consented foreground exporter
+consume the buffer. No disk spool exists. A separately consented exporter runs while the app is active
+and makes one bounded, best-effort flush as it moves to the background. It
 retains one batch of at most 64 spans/256 KiB, retries at most three times with bounded
-backoff, and keeps 512 dedup IDs. Disable, clear, mode/destination change or background
-cancels the request and fences late results. Bytes already transmitted cannot be recalled. The SDK exporter independently rejects non-allowlisted data.
+backoff, and keeps 512 dedup IDs. Inactive pauses flushing without ending the session. On entering the
+background, only while export consent is on, the app begins a finite iOS background task at that phase change
+and flushes once more through the same exporter, endpoint, eligibility, allowlist and limits; a request already
+in flight is that flush. The session then ends and anything unsent is dropped. The system may refuse or expire
+the task; expiry cancels the request and fences its late result. Disabling export, turning collection Off,
+clearing, or changing the destination cancels the request at once and fences late results; switching between
+This session and Always keeps the same session. Bytes already transmitted cannot be recalled. The SDK exporter independently rejects non-allowlisted data.
 The diagnostic JSON is a review format, **not OTLP wire data**. These are traces
 and trace-derived numeric measurements, not an OTel metrics/logs pipeline.
 
@@ -82,8 +88,9 @@ rejects are dropped, never retried. Export requests are not recursively instrume
 
 In Settings → Connection diagnostics → Tracing destination, enter a **complete HTTPS
 OTLP/HTTP JSON `/v1/traces` route**, save it, then separately confirm export. Changing
-the destination requires fresh consent. Only future records after the foreground export
-session begins are eligible; pre-consent/background backlog is excluded. Collection must
+the destination requires fresh consent. Only future records after the export session begins
+(on becoming active) are eligible; pre-consent backlog and records from an earlier session are
+excluded, so a quick return to the foreground never resends them. Collection must
 also be on. The destination URL is stored locally in settings, never in telemetry. A random
 logical backend UUID can be included in reviewed feedback so operators can map it to their
 collector without exposing URLs or secrets. No destination has been configured here.

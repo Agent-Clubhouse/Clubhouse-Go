@@ -154,7 +154,8 @@ public actor AnnexOTLPExporter {
         generation = UUID(); inFlight?.cancel(); inFlight = nil
         configuration = nil; eligibleSince = nil; batch = []; seen = []; attempt = 0; nextAttempt = 0; failure = .none
     }
-    /// Foreground pump only. One in-flight request, one batch, bounded retries and
+    /// Called by the app's pump while active, and once more, best effort, inside a finite background task as the
+    /// app enters the background (CompanionTelemetryPump). One in-flight request, one batch, bounded retries and
     /// dedup IDs. Initial enable/destination change excludes pre-consent records.
     public func flush(configuration desired: AnnexOTLPConfiguration?, enabled: Bool, records: [AnnexDiagnosticRecord], session: UUID? = nil) async {
         guard session == nil || session == owner else { return }

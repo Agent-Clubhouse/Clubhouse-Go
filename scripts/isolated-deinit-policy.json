@@ -151,7 +151,7 @@
     "CompanionRuntime": {
       "policy": "main_actor_task",
       "source": "Annex/Annex/Companion/Views/CompanionAppRoot.swift",
-      "reason": "Root release reproduces the isolated-deinit runtime abort (#349). The MainActor task retains FeedbackModel, CompanionTelemetry, CompanionFeedbackPresenter and the WHOLE Store subtree. Its first statement quiesces Presenter observers, offers and pending status work; before any await, Store.shutdown stops listening and clears isolated-deinit providerFlows, and telemetry stops. This protects both a Store retained beyond Runtime teardown and a Presenter retained while transport disconnect waits. Store's other reference holders (TimelineProjection, ReadingBookmark/Viewport, TranscriptExpansion/PartExpansion and ImageBytes) are reviewed ARC-only; remaining state is values and Sendable handles. The task then waits for pending lifecycle transitions and shuts down LiveService to cancel/disconnect transport retry loops and relinquish its registrations even if SwiftUI retains Store. All retained owners are released inside a real Swift task. Remaining Runtime fields are reviewed preferences, Sendable actors and values. The external restore-failure acknowledgment is a value-only Bool with no ownership or teardown. Fields and exact deinit body are gated. DEBUG launch diagnostics add only an optional Sendable value struct of Int32 statuses and a bounded outcome String; no credentials, callbacks, UI owners or teardown. Its throwaway Keychain capability item is deleted synchronously after a successful add.",
+      "reason": "Root release reproduces the isolated-deinit runtime abort (#349). The MainActor task retains FeedbackModel, CompanionTelemetry, CompanionFeedbackPresenter and the WHOLE Store subtree. Its first statement quiesces Presenter observers, offers and pending status work; before any await, Store.shutdown stops listening and clears isolated-deinit providerFlows, and telemetry stops. This protects both a Store retained beyond Runtime teardown and a Presenter retained while transport disconnect waits. Store's other reference holders (TimelineProjection, ReadingBookmark/Viewport, TranscriptExpansion/PartExpansion and ImageBytes) are reviewed ARC-only; remaining state is values and Sendable handles. The task then waits for pending lifecycle transitions and shuts down LiveService to cancel/disconnect transport retry loops and relinquish its registrations even if SwiftUI retains Store. All retained owners are released inside a real Swift task. Remaining Runtime fields are reviewed preferences, Sendable actors and values. The external restore-failure acknowledgment is a value-only Bool with no ownership or teardown. Fields and exact deinit body are gated. DEBUG launch diagnostics add only an optional Sendable value struct of Int32 statuses and a bounded outcome String; no credentials, callbacks, UI owners or teardown. Its throwaway Keychain capability item is deleted synchronously after a successful add. The telemetry pump is the reviewed ARC-only CompanionTelemetryPump, sharing the same exporter actor; its session tasks hold the pump weakly between loop iterations and strongly within one, hold the exporter strongly, and own no UI. Runtime's deinit does not stop it.",
       "deinit": "nonisolated deinit { Task { @ MainActor [ feedback , appTelemetry , feedbackPresenter , store , service , lifecycle ] in feedbackPresenter . stop ( ) store . shutdown ( ) appTelemetry ? . stop ( ) await lifecycle . settle ( ) await service . shutdown ( ) withExtendedLifetime ( ( feedback , appTelemetry , feedbackPresenter , store , lifecycle ) ) { } } }",
       "surface": {
         "bases": [],
@@ -175,7 +175,8 @@
           "started": "Bool",
           "store": "CompanionStore",
           "syncingNetworkRegistrations": "Bool",
-          "telemetryExporter": "AnnexOTLPExporter"
+          "telemetryExporter": "AnnexOTLPExporter",
+          "telemetryPump": "CompanionTelemetryPump"
         },
         "storageMacros": [
           "@ Observable"
@@ -205,16 +206,68 @@
     "CompanionLifecycle": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionLifecycle.swift",
-      "reason": "Bool, optional Sendable task handles and transition closure capturing only reviewed ARC-only LiveService in production. Resume/suspension handles own tasks, never UI. Background cancels resume on MainActor during update, not during empty deinit; task closures capture only transition and prior suspension by value.",
+      "reason": "Bool, optional Sendable task handles and transition closure capturing only reviewed ARC-only LiveService in production. Resume/suspension handles own tasks, never UI. Background cancels resume on MainActor during update, not during empty deinit; task closures capture only transition, prior suspension and that suspension's CompanionBackgroundLease by value. The optional background-task provider is, in production, the field-free CompanionUIKitBackgroundTasks struct (tests inject a fake); it owns no UI object, callback or teardown work, and the empty deinit ends no task.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
+          "backgroundTasks": "( any CompanionBackgroundTasking ) ?",
           "pending": "Task < Void , Never > ?",
           "resume": "Task < Void , Never > ?",
           "suspension": "Task < Void , Never > ?",
           "transition": "@ MainActor ( Bool ) async -> Void",
           "wantsActive": "Bool"
+        },
+        "storageMacros": []
+      }
+    },
+    "CompanionBackgroundLease": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionBackgroundTasks.swift",
+      "reason": "One finite UIKit background task: Int? id, Bool ended flag and the background-task provider, in production the field-free CompanionUIKitBackgroundTasks struct. Ended exactly once on completion or by the expiration handler, both on MainActor; the handler retains the lease so expiry can end the task without its owner. No UI object, callback field or teardown work; the empty deinit ends nothing.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "id": "Int ?",
+          "isEnded": "Bool",
+          "tasks": "any CompanionBackgroundTasking"
+        },
+        "storageMacros": []
+      }
+    },
+    "CompanionTelemetryPump": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionTelemetryPump.swift",
+      "reason": "OTLP pump state: the exporter actor, the optional background-task provider (in production the field-free CompanionUIKitBackgroundTasks struct), two Sendable closures (production defaults are capture-free: AnnexTelemetry.shared.snapshot and Task.sleep; tests inject fakes), Sendable value inputs, and per-session Run values of Task handles, a Bool and an optional reviewed ARC-only CompanionBackgroundLease, plus a current UUID and the latest Task handle. Session tasks capture the pump weakly between loop iterations but hold it strongly within one (`while ..., let self`), across a flush (at most the 15 s resource timeout) and a 30 s nap; they capture the exporter and previous task strongly. Nap tasks capture only the sleep closure; the lease expiry closure captures the pump weakly. No UI object, callback field or teardown work. The empty deinit cancels nothing: a session orphaned by its owner keeps the pump alive for at most about 45 s, makes no further request, exits at the next top-of-loop check and still ends its exporter session; if it is released after breaking out, finish is skipped and a held lease ends at system expiry through the handler that retains it. Not a production path: the single Runtime owns the pump for the process lifetime.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {
+          "CompanionTelemetryPump.Consent": {
+            "destination": "AnnexOTLPConfiguration ?",
+            "enabled": "Bool",
+            "revision": "UUID"
+          },
+          "CompanionTelemetryPump.Inputs": {
+            "consent": "Consent",
+            "phase": "Phase"
+          },
+          "CompanionTelemetryPump.Run": {
+            "finishing": "Bool",
+            "lease": "CompanionBackgroundLease ?",
+            "nap": "Task < Void , Never > ?",
+            "task": "Task < Void , Never >"
+          }
+        },
+        "properties": {
+          "backgroundTasks": "( any CompanionBackgroundTasking ) ?",
+          "current": "UUID ?",
+          "exporter": "AnnexOTLPExporter",
+          "inputs": "Inputs ?",
+          "latest": "Task < Void , Never > ?",
+          "records": "@ Sendable ( ) -> [ AnnexDiagnosticRecord ]",
+          "runs": "[ UUID : Run ]",
+          "sleep": "@ Sendable ( Duration ) async throws -> Void"
         },
         "storageMacros": []
       }
@@ -1045,7 +1098,7 @@
     "Annex/Annex/Companion/Views/CompanionAppRoot.swift": {
       "constructor:CompanionLifecycle": [
         {
-          "expression": "CompanionLifecycle { active in if active { await service . resume ( ) } else { await service . suspend ( ) } }",
+          "expression": "CompanionLifecycle ( backgroundTasks : CompanionUIKitBackgroundTasks ( ) ) { active in if active { await service . resume ( ) } else { await service . suspend ( ) } }",
           "producers": {
             "service": "CompanionLiveService ( )"
           }

@@ -19,7 +19,9 @@ import ClubhouseTransport
         }
     }
 
-    let telemetryExporter = AnnexOTLPExporter()
+    let telemetryExporter: AnnexOTLPExporter
+    /// Owns the exporter's sessions, including the one bounded best-effort flush on entering the background.
+    let telemetryPump: CompanionTelemetryPump
     let feedback: FeedbackModel?
     /// Enrollment-gated Framebriar telemetry; nil in test mode or when feedback isn't configured.
     let appTelemetry: CompanionTelemetry?
@@ -58,6 +60,9 @@ import ClubhouseTransport
     private var syncingNetworkRegistrations = false
 
     init(registry: AnnexTransportRegistry = AnnexTransportRegistry(pairings: KeychainAnnexPairingStore()), persistsDrafts: Bool = true) {
+        let telemetryExporter = AnnexOTLPExporter()
+        self.telemetryExporter = telemetryExporter
+        self.telemetryPump = CompanionTelemetryPump(exporter: telemetryExporter, backgroundTasks: CompanionUIKitBackgroundTasks())
         #if DEBUG
         assert(!UIApplication.shared.supportsMultipleScenes, "CompanionRuntime requires a single app scene")
         let feedback = CompanionSceneTestSupport.makeFeedback?() ?? (persistsDrafts ? CompanionFeedback.makeModel() : nil)
@@ -78,7 +83,7 @@ import ClubhouseTransport
         #endif
         let service = CompanionLiveService()
         self.service = service
-        self.lifecycle = CompanionLifecycle { active in
+        self.lifecycle = CompanionLifecycle(backgroundTasks: CompanionUIKitBackgroundTasks()) { active in
             if active { await service.resume() }
             else { await service.suspend() }
         }
@@ -298,6 +303,11 @@ struct CompanionAppRoot: View {
     @State private var externalLaunchDismissal = false
     private var showsWelcome = true
     @Environment(\.scenePhase) private var scenePhase
+    private var telemetryInputs: CompanionTelemetryPump.Inputs {
+        .init(phase: scenePhase == .active ? .active : scenePhase == .background ? .background : .inactive,
+              consent: .init(destination: diagnostics.destination, enabled: diagnostics.remoteEnabled && diagnostics.mode != .off,
+                             revision: diagnostics.revision))
+    }
 
     init(runtimeLifetime: CompanionStateLifetime<CompanionRuntime>) {
         self.runtimeLifetime = runtimeLifetime
@@ -363,17 +373,8 @@ struct CompanionAppRoot: View {
                 await bootstrapIntegrationIfRequested()
                 #endif
             }
-            .task(id: "\(scenePhase)-\(diagnostics.revision)-\(diagnostics.mode)-\(diagnostics.remoteEnabled)-\(diagnostics.destination?.backendReference.uuidString ?? "none")") {
-                guard let session = await runtime.telemetryExporter.beginSession() else { return }
-                guard scenePhase == .active else { await runtime.telemetryExporter.endSession(session); return }
-                while !Task.isCancelled {
-                    await runtime.telemetryExporter.flush(configuration: diagnostics.destination,
-                        enabled: diagnostics.remoteEnabled && diagnostics.mode != .off,
-                        records: AnnexTelemetry.shared.snapshot().records, session: session)
-                    do { try await Task.sleep(for: .seconds(30)) } catch { break }
-                }
-                await runtime.telemetryExporter.endSession(session)
-            }
+            // Synchronous at the phase change, so the pump's background task begins before the system can suspend.
+            .onChange(of: telemetryInputs, initial: true) { _, inputs in runtime.telemetryPump.update(inputs) }
             .onChange(of: runtime.feedback?.status?.queued) { previous, current in
                 guard let feedback = runtime.feedback else { return }
                 Task {
