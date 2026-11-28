@@ -12,9 +12,10 @@ import ClubhouseTransport
 /// allowlist and limits (one batch, at most 64 spans and 256 KiB, the 10 s request and 15 s resource timeouts, the
 /// existing backoff). A request already in flight is that one flush. Then the session ends as before, and anything
 /// unsent is dropped. It is best effort: the system may refuse or expire the task, and expiry cancels the request,
-/// whose late result the exporter's generation fence ignores. Any consent change (disable, destination, mode, clear)
-/// cancels every session at once. A foreground starts a new session only after a finishing one has ended, and a new
-/// session never sends records captured before it began.
+/// whose late result the exporter's generation fence ignores. Any consent change (export disabled, destination changed,
+/// collection turned Off or back on, diagnostics cleared) cancels every session at once; switching between This
+/// session and Always is not a consent change and keeps the session. A foreground starts a new session only after a
+/// finishing one has ended, and a new session never sends records captured before it began.
 @MainActor final class CompanionTelemetryPump {
     // ARC-only teardown; stored fields and captures are reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
