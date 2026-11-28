@@ -152,6 +152,11 @@ actor CompatIO: AnnexIO {
         for _ in 0..<refreshes { await socket?.push(try snapshotFrame()) }
     }
     /// Withdrawal itself sends no buffered frame on either release; beta.8 sends a snapshot refresh.
+    /// Sensitivity control only: an event the server buffered but this socket never received, then a snapshot at that seq.
+    func refreshSnapshotAheadOfStream() async throws {
+        serverSeq += 1
+        await socket?.push(try snapshotFrame())
+    }
     func permissionWithdrawn(refreshes: Int) async throws {
         for _ in 0..<refreshes { await socket?.push(try snapshotFrame()) }
     }

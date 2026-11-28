@@ -200,6 +200,31 @@ import Testing
         await h.stop()
     }
 
+    /// SENSITIVITY CONTROL, not a host behaviour: neither fixture shows a refresh snapshot ahead of the delivered stream.
+    /// It shows what the harness reports when a snapshot does restart the gate: a resync that retires the held read.
+    @Test func controlSnapshotAheadOfTheStreamRetiresTheHeldRead() async throws {
+        let h = try await H.start(.v2beta8)
+        await h.select()
+        try await h.wait("baseline") { h.usable }
+        let reads0 = await h.chatReads(), passes0 = await h.catalogPasses(), retired0 = h.sampler.endsNeedingResync
+        await h.io.hold(h.fixture.chatPath)
+        let pending = Task { await h.store.load(h.target, force: true) }
+        try await h.wait("held") { await h.io.isHeld(h.fixture.chatPath) }
+        try await h.io.refreshSnapshotAheadOfStream()
+        try? await h.wait("resync", steps: 500) { h.sampler.endsNeedingResync > retired0 }
+        let retired = h.sampler.endsNeedingResync - retired0
+        await h.io.release(h.fixture.chatPath, status: 200, body: h.fixture.chatBody)
+        await pending.value
+        let steps = try? await h.wait("usable") { h.usable }
+        await h.settle(150)
+        h.row("control-snapshot-ahead", [("retired", retired), ("catalogPasses", await h.catalogPasses() - passes0),
+            ("chatReads", await h.chatReads() - reads0), ("steps", steps ?? -1), ("usable", h.usable),
+            ("phases", h.sampler.phases.map { "\($0)" }.joined(separator: ">"))])
+        #expect(retired >= 1, "control: a snapshot ahead of the stream retires the held read")
+        #expect(steps != nil, "control: recovers within bounded steps")
+        await h.stop()
+    }
+
     // MARK: (B) 409 chat_read_changed
 
     /// A held history read; the display run changes; beta.8 answers 409 chat_read_changed, beta.7 answers 200 with the
