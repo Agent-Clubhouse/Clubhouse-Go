@@ -224,6 +224,7 @@ private struct Harness {
     let io: PongSessionIO
     let transport: AnnexTransport
     let socket: PongGatedSocket
+    let telemetry: AnnexTelemetry
     var signal: Signal { io.signal }
 }
 
@@ -237,14 +238,16 @@ private func connectedHarness(holdReplaySend: Bool) async throws -> Harness {
                                     verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: hostID)
+    // Enabled, so receive-loop records are captured. controlAvailable is false, so no telemetry hello is sent.
+    let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
     let transport = AnnexTransport(host: host, credentials: credentials, io: io,
-                                   backoff: AnnexBackoff(initialSeconds: 3600, maximumSeconds: 3600), telemetry: AnnexTelemetry(), clock: clock.clock)
+                                   backoff: AnnexBackoff(initialSeconds: 3600, maximumSeconds: 3600), telemetry: telemetry, clock: clock.clock)
     try await transport.connect()
     await settle(io.signal) { await !io.sockets.isEmpty }
     let socket = try #require(await io.sockets.first)
     await settle(io.signal) { socket.sentTypes.contains { $0.hasSuffix("replay") } && (holdReplaySend ? socket.isSendHeld : socket.isReceiveOutstanding) }
     await clock.waitForSleepers(1) // the ping loop's 20 s interval (AnnexTransport.swift:595)
-    return Harness(clock: clock, io: io, transport: transport, socket: socket)
+    return Harness(clock: clock, io: io, transport: transport, socket: socket, telemetry: telemetry)
 }
 
 /// Advances to the 20 s ping and returns once the fake has sent it and its 10 s deadline is waiting.
@@ -483,6 +486,10 @@ func recvAuditBufferOverflowFailsClosedAndTakesTheReconnectPath(limit: String) a
     }
     #expect(seen.isEmpty, "an overflowing buffer is dropped, never partially delivered")
     #expect(h.socket.closed)
+    let overflow = h.telemetry.snapshot().records.filter { $0.operation == .websocket && $0.failure == .overflow }
+    #expect(overflow.count == 1)
+    #expect(overflow.first?.events.contains(AnnexDiagnosticEvent.overflow.rawValue) == true)
+    #expect(overflow.first?.events.contains(AnnexDiagnosticEvent.receivePhaseSend.rawValue) == true)
     print("RECVAUDIT overflow(\(limit)): frames=\(frames.count) closed=\(h.socket.closed)")
     await h.transport.disconnect()
 }
@@ -500,4 +507,35 @@ func recvAuditBufferOverflowFailsClosedAndTakesTheReconnectPath(limit: String) a
         #expect(await settle(signal, within: 5) { w.socket == nil })
     }
     print("RECVAUDIT cycles: live=\(weak.filter { $0.socket != nil }.count)/\(weak.count)")
+}
+
+// MARK: Observability (ping failure carries content-free receive-loop state)
+
+private let receiveLoopNumbers: Set<String> = Set([AnnexDiagnosticNumber.receiveOutstanding, .receiveOutstandingMs, .sinceLastReceiveMs,
+                                                   .receivePhaseMs, .lastFrameBytes, .bufferedFrames, .bufferedBytes].map(\.rawValue))
+
+@Test(.timeLimit(.minutes(1))) func recvAuditAPingFailureRecordsTheReceiveLoopStateOnce() async throws {
+    let h = try await connectedHarness(holdReplaySend: true)
+    let socket = h.socket
+    #expect(await settle(h.signal, within: 2) { socket.isReceiveOutstanding })
+    await firePing(h)           // t = 20 s; no pong ever arrives
+    h.clock.advance(by: .seconds(10))
+    await settle(h.signal) { !socket.outcomes.isEmpty }
+    #expect(socket.outcomes == [.timedOut])
+    let records = h.telemetry.snapshot().records.filter { $0.operation == .websocket && !Set($0.measurements.keys).isDisjoint(with: receiveLoopNumbers) }
+    #expect(records.count == 1, "one record per ping failure")
+    let record = try #require(records.first)
+    #expect(record.failure == .timeout)
+    // Armed at t=0 after the first snapshot, still outstanding at the 30 s deadline; the processor has been in the
+    // replay send since t=0; the last frame taken was that snapshot.
+    let snapshotBytes = Double(#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#.utf8.count)
+    #expect(record.measurements == ["receiveOutstanding": 1, "receiveOutstandingMs": 30_000, "sinceLastReceiveMs": 30_000,
+                                    "receivePhaseMs": 30_000, "lastFrameBytes": snapshotBytes, "bufferedFrames": 0, "bufferedBytes": 0])
+    #expect(Set(record.events) == [AnnexDiagnosticEvent.receivePhaseSend.rawValue, AnnexDiagnosticEvent.lastFrameSnapshot.rawValue])
+    // Content-free: only closed-vocabulary keys and events, within the span limits (24 attributes, 32 events).
+    #expect(record.measurements.keys.allSatisfy { AnnexDiagnosticNumber(rawValue: $0) != nil })
+    #expect(record.events.allSatisfy { AnnexDiagnosticEvent(rawValue: $0) != nil })
+    #expect(record.measurements.count + record.identifiers.count <= 24 && record.events.count <= 32)
+    print("RECVAUDIT telemetry: \(record.measurements.sorted { $0.key < $1.key }) events=\(record.events) failure=\(record.failure)")
+    await h.transport.disconnect()
 }

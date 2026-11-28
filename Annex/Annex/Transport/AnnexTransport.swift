@@ -580,7 +580,7 @@ public actor AnnexTransport: AnnexTransporting {
 
     private func consume(_ socket: any AnnexWebSocket, generation current: UUID, controlEpoch: String?) async throws {
         let (failureTimeout, timeout) = AsyncThrowingStream<Void, Error>.makeStream()
-        let pipe = AnnexReceivePipe()
+        let pipe = AnnexReceivePipe(now: clock.now)
         defer {
             if current == generation {
                 snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
@@ -592,19 +592,24 @@ public actor AnnexTransport: AnnexTransporting {
         // Structured lifetime: ping, read, process and the explicit-failure signal stop together.
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask { for try await _ in failureTimeout {} }
-            group.addTask { [clock] in
+            group.addTask { [clock, telemetry] in
                 do {
                     while !Task.isCancelled { try await clock.sleep(.seconds(20)); try await socket.ping() }
-                } catch { await socket.close(); throw error }
+                } catch {
+                    // Once per ping failure (the child then ends); not for teardown cancellation.
+                    if !(error is CancellationError), !Task.isCancelled { Self.recordReceiveLoop(pipe.diagnostics(), failure: error, telemetry: telemetry) }
+                    await socket.close(); throw error
+                }
             }
             // Reader: only awaits receive() and buffers, so a receive is re-armed while the actor decodes a frame or
             // awaits the replay send. URLSession reads control frames (pongs) only under an outstanding receive.
-            group.addTask {
+            group.addTask { [telemetry] in
                 do {
-                    while !Task.isCancelled { try pipe.push(try await socket.receive()) }
+                    while !Task.isCancelled { pipe.arming(); try pipe.push(try await socket.receive()) }
                     pipe.finish(throwing: CancellationError(), discard: true)
                 } catch AnnexTransportError.queueOverflow {
                     // Fail closed: drop what is buffered and take the existing reconnect path.
+                    Self.recordReceiveLoop(pipe.diagnostics(), failure: AnnexTransportError.queueOverflow, telemetry: telemetry)
                     pipe.finish(throwing: AnnexTransportError.queueOverflow, discard: true)
                     await socket.close()
                     throw AnnexTransportError.queueOverflow
@@ -619,7 +624,8 @@ public actor AnnexTransport: AnnexTransporting {
                 do {
                     while let data = try await pipe.next() {
                         guard let self else { return }
-                        try await self.receive(data, socket: socket, generation: current, controlEpoch: controlEpoch, snapshotFailure: timeout)
+                        try await self.receive(data, socket: socket, generation: current, controlEpoch: controlEpoch, snapshotFailure: timeout, pipe: pipe)
+                        pipe.enter(.idle)
                     }
                 } catch { await socket.close(); throw error }
             }
@@ -635,6 +641,24 @@ public actor AnnexTransport: AnnexTransporting {
                 throw error
             }
         }
+    }
+
+    /// Content-free receive-loop state (docs/opentelemetry.md "Privacy and limits"): closed events, 1/0, durations,
+    /// counts and byte sizes. No frame content, type strings or identifiers. One span per call.
+    private nonisolated static func recordReceiveLoop(_ state: AnnexReceivePipe.Diagnostics, failure: Error, telemetry: AnnexTelemetry) {
+        let span = telemetry.begin(.websocket)
+        span.fail(failure)
+        if failure as? AnnexTransportError == .queueOverflow { span.event(.overflow) }
+        span.number(.receiveOutstanding, state.receiveOutstandingMs == nil ? 0 : 1)
+        if let ms = state.receiveOutstandingMs { span.number(.receiveOutstandingMs, ms) }
+        if let ms = state.sinceLastReceiveMs { span.number(.sinceLastReceiveMs, ms) }
+        span.event(state.phase.event)
+        if let ms = state.phaseMs { span.number(.receivePhaseMs, ms) }
+        span.event(state.lastFrameKind.event)
+        span.number(.lastFrameBytes, Double(state.lastFrameBytes))
+        span.number(.bufferedFrames, Double(state.bufferedFrames))
+        span.number(.bufferedBytes, Double(state.bufferedBytes))
+        span.end()
     }
 
     /// A snapshot says which machine it's from (`agentAddress` v1). It must be the identity this transport pinned:
@@ -662,7 +686,8 @@ public actor AnnexTransport: AnnexTransporting {
 
     private func receive(_ data: Data, socket: any AnnexWebSocket, generation current: UUID,
                          controlEpoch: String?,
-                         snapshotFailure: AsyncThrowingStream<Void, Error>.Continuation) async throws {
+                         snapshotFailure: AsyncThrowingStream<Void, Error>.Continuation, pipe: AnnexReceivePipe) async throws {
+        pipe.enter(.process)
         guard current == generation else { throw CancellationError() }
         guard data.count <= 16 * 1024 * 1024 else {
             let diagnostic = telemetry.begin(.websocket)
@@ -674,6 +699,9 @@ public actor AnnexTransport: AnnexTransporting {
         guard var envelope = try? JSONDecoder().decode(AnnexEnvelope.self, from: data) else {
             throw AnnexTransportError.malformedResponse
         }
+        pipe.classify(envelope.type == "snapshot" ? .snapshot : envelope.type.hasPrefix("replay") ? .replay
+                      : Self.isTerminalFrame(envelope) ? .terminal
+                      : (envelope.type == "error" || envelope.type == "telemetry:hello:ack") ? .control : .message)
         if envelope.type == "telemetry:hello:ack" {
             acceptTelemetryAck(envelope.payload)
             return
@@ -756,6 +784,7 @@ public actor AnnexTransport: AnnexTransporting {
             var replay: [String: AnnexJSON] = ["type": .string("replay"), "since": .integer(seq)]
             if let capabilities { replay["type"] = .string("mobile:replay"); replay["epoch"] = .string(capabilities.epoch) }
             telemetry.record(.replay, event: .replayRequested)
+            pipe.enter(.send)
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))
         }
     }
@@ -778,13 +807,64 @@ nonisolated final class AnnexReceivePipe: @unchecked Sendable {
     private var waiter: CheckedContinuation<Data?, Error>?
     private var end: Error?
     private var ended = false
+    // Diagnostics only (`diagnostics()`): when receive() was armed or last returned, the processing phase, and
+    // the size and closed kind of the frame most recently taken for processing.
+    enum Phase: Sendable, Equatable {
+        case idle, hop, process, send
+        var event: AnnexDiagnosticEvent {
+            switch self { case .idle: .receivePhaseIdle; case .hop: .receivePhaseHop; case .process: .receivePhaseProcess; case .send: .receivePhaseSend }
+        }
+    }
+    enum FrameKind: Sendable, Equatable {
+        case none, snapshot, replay, terminal, control, message
+        var event: AnnexDiagnosticEvent {
+            switch self {
+            case .none: .lastFrameNone; case .snapshot: .lastFrameSnapshot; case .replay: .lastFrameReplay
+            case .terminal: .lastFrameTerminal; case .control: .lastFrameControl; case .message: .lastFrameMessage
+            }
+        }
+    }
+    struct Diagnostics: Sendable, Equatable {
+        let receiveOutstandingMs: Double?
+        let sinceLastReceiveMs: Double?
+        let phase: Phase
+        let phaseMs: Double?
+        let lastFrameKind: FrameKind
+        let lastFrameBytes: Int
+        let bufferedFrames: Int
+        let bufferedBytes: Int
+    }
+    private let now: @Sendable () -> Date
+    private var armedAt: Date?
+    private var lastReturnAt: Date?
+    private var phase = Phase.idle
+    private var phaseSince: Date?
+    private var lastFrameKind = FrameKind.none
+    private var lastFrameBytes = 0
+
+    init(now: @escaping @Sendable () -> Date) { self.now = now }
+
+    /// The reader is about to await receive().
+    func arming() { let at = now(); lock.withLock { armedAt = at } }
+    func enter(_ next: Phase) { let at = now(); lock.withLock { phase = next; phaseSince = at } }
+    func classify(_ kind: FrameKind) { lock.withLock { lastFrameKind = kind } }
+    func diagnostics() -> Diagnostics {
+        let at = now()
+        func ms(_ since: Date?) -> Double? { since.map { max(0, at.timeIntervalSince($0) * 1000) } }
+        return lock.withLock {
+            Diagnostics(receiveOutstandingMs: ms(armedAt), sinceLastReceiveMs: ms(lastReturnAt), phase: phase, phaseMs: ms(phaseSince),
+                        lastFrameKind: lastFrameKind, lastFrameBytes: lastFrameBytes, bufferedFrames: frames.count - head, bufferedBytes: bytes)
+        }
+    }
 
     var buffered: (frames: Int, bytes: Int) { lock.withLock { (frames.count - head, bytes) } }
 
     func push(_ data: Data) throws {
+        let at = now()
         let waiting: CheckedContinuation<Data?, Error>? = try lock.withLock {
+            armedAt = nil; lastReturnAt = at
             guard !ended else { return nil }
-            if let waiter { self.waiter = nil; return waiter }
+            if let waiter { self.waiter = nil; taken(data, at: at); return waiter }
             let count = frames.count - head
             guard count < Self.frameCapacity, count == 0 || bytes + data.count <= Self.byteCapacity else {
                 throw AnnexTransportError.queueOverflow
@@ -797,13 +877,20 @@ nonisolated final class AnnexReceivePipe: @unchecked Sendable {
 
     /// The next frame in receive order; nil once finished without an error. Throws the reader's failure after the
     /// frames read before it, or `CancellationError` when the processing task is cancelled.
+    /// Caller holds the lock.
+    private func taken(_ data: Data, at: Date) {
+        phase = .hop; phaseSince = at; lastFrameBytes = data.count; lastFrameKind = .none
+    }
+
     func next() async throws -> Data? {
-        try await withTaskCancellationHandler {
+        let at = now()
+        return try await withTaskCancellationHandler {
             try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
                 let ready: Result<Data?, Error>? = lock.withLock {
                     if Task.isCancelled { return .failure(CancellationError()) }
                     if head < frames.count {
                         let data = frames[head]; frames[head] = Data(); head += 1; bytes -= data.count
+                        taken(data, at: at)
                         if head == frames.count { frames.removeAll(keepingCapacity: true); head = 0 }
                         else if head >= 1024 { frames.removeFirst(head); head = 0 }
                         return .success(data)

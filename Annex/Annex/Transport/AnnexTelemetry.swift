@@ -28,6 +28,10 @@ nonisolated public enum AnnexDiagnosticEvent: String, Codable, Sendable {
     case authenticated, rejected, queued, delivered, cancelled, background, overflow, connected, unsupported
     case headerSumExceedsBar, headerLeadingOutsideBar, headerPrincipalOutsideBar, headerTrailingOutsideBar
     case headerWhileWorking, headerKeyboardVisible, headerAfterResize
+    /// Receive-loop state when a ping fails or the frame buffer overflows: the processing phase, and the kind of the
+    /// last frame taken for processing. Closed sets; no frame content.
+    case receivePhaseIdle, receivePhaseHop, receivePhaseProcess, receivePhaseSend
+    case lastFrameNone, lastFrameSnapshot, lastFrameReplay, lastFrameTerminal, lastFrameControl, lastFrameMessage
     #if DEBUG
     case scenePhaseObserved, transitionQueued, transitionWaiting, transitionStarted, transitionCompleted
     case disconnectStarted, disconnectCompleted, socketCancelStarted, socketCancelCompleted, socketTaskCompleted
@@ -45,6 +49,9 @@ nonisolated public enum AnnexDiagnosticNumber: String, Codable, Sendable {
     case snapshotBytes, webSocketMessageLimitBytes, transportFrameLimitBytes
     case headerBarWidth, headerLeadingOrigin, headerTrailingInset, headerLeadingReservation, headerPrincipalWidth
     case headerTrailingReservation, headerOverflow, headerSampleAgeMs, headerStateBarWidth
+    /// Receive-loop state (see the receive-loop events): 1/0, durations in ms, counts and byte sizes only.
+    case receiveOutstanding, receiveOutstandingMs, sinceLastReceiveMs, receivePhaseMs
+    case lastFrameBytes, bufferedFrames, bufferedBytes
     #if DEBUG
     case webSocketCloseCode
     #endif
