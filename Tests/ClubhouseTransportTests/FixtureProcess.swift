@@ -55,6 +55,14 @@ final class FixtureProcess {
         }
     }
 
+    /// `waitForExit` on a Dispatch thread, so an async test suspends instead of blocking a cooperative-pool thread.
+    func exited(within timeout: DispatchTimeInterval) async -> Bool {
+        let termination = termination
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global().async { continuation.resume(returning: termination.wait(timeout: .now() + timeout) == .success) }
+        }
+    }
+
     func waitForExit(timeout: DispatchTimeInterval) -> Bool {
         termination.wait(timeout: .now() + timeout) == .success
     }

@@ -3,10 +3,10 @@ import Darwin
 import Foundation
 import Testing
 
-@Test func fixtureProcessCanStopAfterItAlreadyExited() throws {
+@Test func fixtureProcessCanStopAfterItAlreadyExited() async throws {
     let fixture = try FixtureProcess(executableURL: URL(fileURLWithPath: "/usr/bin/true"), arguments: [])
     defer { fixture.stop() }
-    try #require(fixture.waitForExit(timeout: .seconds(2)))
+    try #require(await fixture.exited(within: .seconds(2)))
     fixture.stop()
     try #require(!fixture.process.isRunning)
     #expect(fixture.process.terminationStatus == 0)

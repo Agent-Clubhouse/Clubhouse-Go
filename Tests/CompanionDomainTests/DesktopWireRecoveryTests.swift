@@ -13,8 +13,9 @@ private actor RecoverySocket: AnnexWebSocket {
     var replay: [AnnexEnvelope] = []
     private var attachAck: AnnexEnvelope?
     private(set) var attachRequests = 0
+    /// The buffer is `bytes` of "x", built with one memset; per-element String(repeating:) held a pool thread for seconds at 66 MB.
     func configureAttach(bytes: Int) {
-        attachAck = .init(type: "pty:attach:ack", payload: .object(["agentId": .string("agent"), "buffer": .string(String(repeating: "x", count: bytes)), "cols": .integer(120), "rows": .integer(40)]))
+        attachAck = .init(type: "pty:attach:ack", payload: .object(["agentId": .string("agent"), "buffer": .string(String(decoding: Data(repeating: UInt8(ascii: "x"), count: bytes), as: UTF8.self)), "cols": .integer(120), "rows": .integer(40)]))
     }
     func setReplay(_ frames: [AnnexEnvelope], gap: Bool = false) { replay = frames; self.gap = gap }
     func receive() async throws -> Data {

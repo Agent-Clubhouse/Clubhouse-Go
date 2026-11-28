@@ -874,7 +874,10 @@ private let snapshotFailure = #"{"type":"error","payload":{"message":"snapshot_f
 private func metadataSnapshot(bytes: Int) -> String {
     let prefix = #"{"type":"snapshot","payload":{"lastSeq":0,"padding":""#
     let suffix = #""}}"#
-    return prefix + String(repeating: "x", count: bytes - prefix.utf8.count - suffix.utf8.count) + suffix
+    // The same bytes as String(repeating: "x", count:), built with one memset: that appends per element, and
+    // at 16 MB held a cooperative-pool thread for seconds on a loaded runner.
+    let padding = String(decoding: Data(repeating: UInt8(ascii: "x"), count: bytes - prefix.utf8.count - suffix.utf8.count), as: UTF8.self)
+    return prefix + padding + suffix
 }
 
 @Test(.timeLimit(.minutes(1)), arguments: [false, true], [false, true])

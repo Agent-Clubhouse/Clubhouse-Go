@@ -30,7 +30,12 @@ private struct Desktop {
         registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: nil, pairingIO: { _, _ in io })
     }
     func pair(_ names: CompanionPairingNames) async throws -> AnnexTransportRegistry.Registration {
-        try await registry.pair(host: host, pin: "123456", alias: names.alias, label: names.desktopLabel, persistence: .sessionOnly)
+        // Without a clientIdentity the registry generates an RSA-2048 key synchronously on the cooperative pool
+        // (AnnexTransportRegistry.pair). Supply one generated off the pool instead; the pairing body is unaffected.
+        let identity: AnnexClientIdentity = try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global().async { continuation.resume(with: Result { try AnnexClientIdentity.ephemeral() }) }
+        }
+        return try await registry.pair(host: host, pin: "123456", alias: names.alias, label: names.desktopLabel, clientIdentity: identity, persistence: .sessionOnly)
     }
 }
 
