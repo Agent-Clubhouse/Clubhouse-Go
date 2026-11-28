@@ -1503,6 +1503,7 @@ import ClubhouseTransport
         } catch {
             guard !Task.isCancelled, eventGenerations[hostID] == generation, !isSuspended else { return }
             hosts[hostID]?.connection = .failed(Self.readableError(error))
+            hosts[hostID]?.catalogRefreshFailed = true
         }
         emitHosts()
     }

@@ -159,6 +159,56 @@ import Testing
         try await h.waitUntil { h.host?.connection == .connected }
     }
 
+    // MARK: A failed catalog refresh on a live connection
+
+    /// A catalog read fails during the refresh, so the host shows `.failed` while its connection is still live.
+    static func failCatalogRefresh(_ h: H) async throws -> CompanionConnection? {
+        await h.transport.failProjects(.rejected(status: 500, code: "projects_failed", message: "The desktop couldn't list projects."))
+        await h.transport.emit(.resyncRequired(.reconnected))
+        try await h.waitUntil { if case .failed = h.host?.connection { true } else { false } }
+        try await h.waitUntil { !h.store.conversation(for: h.target).isLoading }
+        return h.host?.connection
+    }
+
+    @Test func aForcedRefreshAfterOnlyTheCatalogRefreshFailedStillReads() async throws {
+        let h = try await Self.selectedAndLoaded()
+        defer { h.stop() }
+        _ = try await Self.failCatalogRefresh(h)
+        let chats = await h.transport.chatReads.count
+        await h.store.load(h.target, force: true)
+        #expect(await h.transport.chatReads.count - chats == 1, "a live connection's history read was deferred")
+        let c = h.store.conversation(for: h.target)
+        #expect(c.isLoaded && !c.isLoading && !c.requiresResync && c.error == nil)
+        #expect(!h.store.canOperate(h.target), "Commands still wait for a connected desktop")
+    }
+
+    @Test(arguments: [Dead.failed, .notPaired]) func aTransportFailureAfterACatalogRefreshFailureIsStillDeferred(_ dead: Dead) async throws {
+        let h = try await Self.selectedAndLoaded()
+        defer { h.stop() }
+        let refreshFailed = try await Self.failCatalogRefresh(h)
+        await h.transport.emit(dead.event)
+        try await h.waitUntil { h.host?.connection != refreshFailed && dead.matches(h.host?.connection) }
+        let chats = await h.transport.chatReads.count
+        await h.store.load(h.target, force: true)
+        #expect(await h.transport.chatReads.count == chats, "Refresh read history after the connection itself failed")
+        #expect(h.store.conversation(for: h.target).requiresResync && !h.store.conversation(for: h.target).isLoading)
+    }
+
+    @Test func anEndedEventStreamAfterACatalogRefreshFailureIsStillDeferred() async throws {
+        let h = try await Self.selectedAndLoaded()
+        defer { h.stop() }
+        let refreshFailed = try await Self.failCatalogRefresh(h)
+        await h.transport.finishEvents(throwing: AnnexTransportError.disconnected)
+        try await h.waitUntil {
+            guard case .failed = h.host?.connection else { return false }
+            return h.host?.connection != refreshFailed
+        }
+        let chats = await h.transport.chatReads.count
+        await h.store.load(h.target, force: true)
+        #expect(await h.transport.chatReads.count == chats, "Refresh read history after the event stream ended")
+        #expect(h.store.conversation(for: h.target).requiresResync && !h.store.conversation(for: h.target).isLoading)
+    }
+
     // MARK: Selection, cancellation, recovery
 
     @Test func retargetingTheSelectionDuringDeferralReloadsOnlyTheNewSelectionOnce() async throws {
