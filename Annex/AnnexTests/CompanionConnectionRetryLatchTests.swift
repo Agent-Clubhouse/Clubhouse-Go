@@ -150,11 +150,35 @@ import Vision
     private func measureRetry(_ window: UIWindow, toggle: RetryVisibility, appearance: RetryAppearance, style: String,
                               retryFrame: () -> CGRect?, cardFrame: () -> CGRect?) async throws -> (metrics: BannerActionGeometry.Metrics, image: UIImage) {
         toggle.hidden = false
-        // Prepare the actual native hierarchy before the measured pair. Glass can finish drawing
-        // its card shadow on the first drawHierarchy readback even when layout frames are ready.
+        // Prepare the actual native hierarchy before the measured pair. Glass draws its card shadow late: one or
+        // more drawHierarchy readbacks after layout is ready, usually the second or third and once observed at the
+        // fifth, about 2.4 s in. The layer tree, its animations and presentation layers do not change when it does,
+        // and no public API reports when the render server has finished, so there is no readiness signal to wait
+        // for. This is a heuristic: read back every 150 ms until the render is byte-identical across at least
+        // `settleReadbacks` consecutive readbacks spanning at least `settleDuration`, bounded by `settleLimit` with an
+        // explicit failure. A one-shot change that finishes before that is absorbed by design; one after it still
+        // fails the unchanged 0-pixel same-state check below, and nothing is selected or filtered.
         window.layoutIfNeeded()
         window.rootViewController?.view.layoutIfNeeded()
-        capture(window, "Retry \(style) preparation, \(appearance.rawValue)")
+        let settleReadbacks = 4, settleDuration = Duration.seconds(1), settleLimit = Duration.seconds(8)
+        let settleStarted = ContinuousClock.now
+        var prepared = try XCTUnwrap(render(window).cgImage)
+        var stableSince = ContinuousClock.now, stableReadbacks = 1, readbacks = 1
+        while stableReadbacks < settleReadbacks || stableSince.duration(to: .now) < settleDuration {
+            guard settleStarted.duration(to: .now) < settleLimit else { break }
+            try await Task.sleep(for: .milliseconds(150))
+            let next = try XCTUnwrap(render(window).cgImage)
+            readbacks += 1
+            let identical = try XCTUnwrap(BannerActionGeometry.identical(prepared, next), "Same-state renders must have identical dimensions")
+            if identical { stableReadbacks += 1 } else { stableReadbacks = 1; stableSince = .now }
+            let elapsed = settleStarted.duration(to: .now).components
+            print("RETRY_PREPARATION \(appearance.rawValue) \(style) readback=\(readbacks) ms=\(elapsed.seconds * 1000 + elapsed.attoseconds / 1_000_000_000_000_000) identical=\(identical)\(identical ? "" : " changedPixels=\(BannerActionGeometry.differingPixelCount(prepared, next).map(String.init) ?? "size mismatch")")")
+            prepared = next
+        }
+        let settled = stableReadbacks >= settleReadbacks && stableSince.duration(to: .now) >= settleDuration
+        print("RETRY_SETTLE \(appearance.rawValue) \(style) settled=\(settled) readbacks=\(readbacks) stableReadbacks=\(stableReadbacks) total=\(settleStarted.duration(to: .now))")
+        attach(UIImage(cgImage: prepared), "Retry \(style) preparation, \(appearance.rawValue)")
+        XCTAssertTrue(settled, "The \(style) render did not hold for \(settleReadbacks) readbacks over \(settleDuration) within \(settleLimit); no pair may be selected or filtered")
         try await Task.sleep(for: .milliseconds(150))
         let shown = capture(window, "Retry \(style) shown, \(appearance.rawValue)")
         let hit = try XCTUnwrap(retryFrame()), card = try XCTUnwrap(cardFrame())
@@ -300,9 +324,17 @@ import Vision
     }
 
     @discardableResult private func capture(_ window: UIWindow, _ name: String) -> UIImage {
-        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+        attach(render(window), name)
+    }
+
+    /// The same whole-window readback as `capture`, without an attachment.
+    private func render(_ window: UIWindow) -> UIImage {
+        UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
+    }
+
+    @discardableResult private func attach(_ image: UIImage, _ name: String) -> UIImage {
         let attachment = XCTAttachment(image: image)
         attachment.name = name
         attachment.lifetime = .keepAlways
@@ -473,9 +505,10 @@ enum BannerActionGeometry {
               let a = rgba(shown), let b = rgba(hidden) else { return nil }
         let width = shown.width, height = shown.height
         var changed = [Bool](repeating: false, count: width * height)
-        for index in 0..<(width * height) {
-            let offset = index * 4
-            changed[index] = (0..<4).contains { abs(Int(a[offset + $0]) - Int(b[offset + $0])) > threshold }
+        changed.withUnsafeMutableBufferPointer { mask in
+            forEachPixel(a, b) { index, first, second in
+                mask[index] = exceeds(first, second, threshold)
+            }
         }
         let seed = CGRect(x: frame.minX * scale, y: frame.minY * scale, width: frame.width * scale, height: frame.height * scale)
             .integral.intersection(CGRect(x: 0, y: 0, width: width, height: height))
@@ -512,11 +545,45 @@ enum BannerActionGeometry {
     static func differingPixelCount(_ first: CGImage, _ second: CGImage, threshold: Int = 8) -> Int? {
         guard first.width == second.width, first.height == second.height,
               let a = rgba(first), let b = rgba(second) else { return nil }
+        if sameBytes(a, b) { return 0 }
         var count = 0
-        for offset in stride(from: 0, to: a.count, by: 4) {
-            if (0..<4).contains(where: { abs(Int(a[offset + $0]) - Int(b[offset + $0])) > threshold }) { count += 1 }
+        forEachPixel(a, b) { _, first, second in
+            if exceeds(first, second, threshold) { count += 1 }
         }
         return count
+    }
+
+    /// Exactly the same sRGB bytes: stricter than any pixel threshold, and cheap enough to repeat.
+    static func identical(_ first: CGImage, _ second: CGImage) -> Bool? {
+        guard first.width == second.width, first.height == second.height,
+              let a = rgba(first), let b = rgba(second) else { return nil }
+        return sameBytes(a, b)
+    }
+
+    private static func sameBytes(_ a: [UInt8], _ b: [UInt8]) -> Bool {
+        a.count == b.count && a.withUnsafeBytes { x in b.withUnsafeBytes { y in memcmp(x.baseAddress!, y.baseAddress!, x.count) == 0 } }
+    }
+
+    /// Whether any of a pixel's four channels differs by more than `threshold`.
+    private static func exceeds(_ first: UnsafePointer<UInt8>, _ second: UnsafePointer<UInt8>, _ threshold: Int) -> Bool {
+        abs(Int(first[0]) - Int(second[0])) > threshold || abs(Int(first[1]) - Int(second[1])) > threshold
+            || abs(Int(first[2]) - Int(second[2])) > threshold || abs(Int(first[3]) - Int(second[3])) > threshold
+    }
+
+    /// Visits each RGBA pixel of two same-sized buffers through raw pointers. The per-channel closures and
+    /// checked array subscripts this replaces took about 1.4 s per full window in the Debug test build.
+    private static func forEachPixel(_ a: [UInt8], _ b: [UInt8], _ body: (Int, UnsafePointer<UInt8>, UnsafePointer<UInt8>) -> Void) {
+        precondition(a.count == b.count && a.count % 4 == 0)
+        a.withUnsafeBufferPointer { x in
+            b.withUnsafeBufferPointer { y in
+                guard let first = x.baseAddress, let second = y.baseAddress else { return }
+                var index = 0, offset = 0
+                while offset < x.count {
+                    body(index, first + offset, second + offset)
+                    index += 1; offset += 4
+                }
+            }
+        }
     }
 
     /// Top row first, in sRGB, matching UIKit point coordinates.

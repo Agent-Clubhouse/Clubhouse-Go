@@ -59,17 +59,17 @@ private actor RegistryIO: AnnexIO {
 }
 
 /// RSA key generation costs about a second; one throwaway identity serves every test here.
-private let registryIdentity = Result { try AnnexClientIdentity.ephemeral() }
+private let registryIdentity = SharedEphemeralIdentity()
 
-private func savedPairing(_ desktop: Desktop, alias: String = "Saved") throws -> AnnexSavedPairing {
-    try AnnexSavedPairing(host: desktop.host, alias: alias, identity: registryIdentity.get(), credential: AnnexCredential(bearerToken: "fake-saved"))
+private func savedPairing(_ desktop: Desktop, alias: String = "Saved") async throws -> AnnexSavedPairing {
+    try await AnnexSavedPairing(host: desktop.host, alias: alias, identity: registryIdentity.get(), credential: AnnexCredential(bearerToken: "fake-saved"))
 }
 
 @Test func restoreNeedsAStoredCredentialAndReplacesThePreviousTransport() async throws {
     let desktop = try Desktop()
     let credentials = MemoryAnnexCredentialStore()
     let registry = AnnexTransportRegistry(credentials: credentials)
-    let identity = try registryIdentity.get()
+    let identity = try await registryIdentity.get()
     await #expect(throws: AnnexTransportError.credentialMissing) {
         try await registry.restore(host: desktop.host, alias: "Desk", clientIdentity: identity)
     }
@@ -95,7 +95,7 @@ private func savedPairing(_ desktop: Desktop, alias: String = "Saved") throws ->
     let registry = AnnexTransportRegistry(credentials: credentials, pairings: nil, pairingIO: { _, _ in io })
     let pairing = Task { try await registry.pair(host: desktop.host, pin: "123456", alias: "Phone", clientIdentity: registryIdentity.get()) }
     await io.entered.wait()
-    let identity = try registryIdentity.get()
+    let identity = try await registryIdentity.get()
     await #expect(throws: AnnexTransportError.commandInFlight) { try await registry.restore(host: desktop.host, alias: "Desk", clientIdentity: identity) }
     await #expect(throws: AnnexTransportError.commandInFlight) { try await registry.revokeSessionAndRemove(hostID: desktop.host.hostID) }
     await #expect(throws: AnnexTransportError.commandInFlight) { try await registry.remove(hostID: desktop.host.hostID) }
@@ -167,8 +167,8 @@ private func savedPairing(_ desktop: Desktop, alias: String = "Saved") throws ->
 @Test func disconnectAllDisconnectsEveryRegisteredTransport() async throws {
     let first = try Desktop(port: 4321), second = try Desktop(port: 4322)
     let pairings = MemoryAnnexPairingStore()
-    await pairings.save(try savedPairing(first, alias: "One"))
-    await pairings.save(try savedPairing(second, alias: "Two"))
+    await pairings.save(try await savedPairing(first, alias: "One"))
+    await pairings.save(try await savedPairing(second, alias: "Two"))
     let registry = AnnexTransportRegistry(credentials: MemoryAnnexCredentialStore(), pairings: pairings)
     let restored = try await registry.restoreSaved()
     #expect(Set(restored.map(\.alias)) == ["One", "Two"])

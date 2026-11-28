@@ -8,11 +8,7 @@ import Foundation
         "node", try #require(Bundle.module.url(forResource: "tls-server", withExtension: "mjs", subdirectory: "Fixtures")).path
     ])
     defer { process.stop() }
-    var line = Data()
-    while let byte = try process.output.fileHandleForReading.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
-        line.append(byte)
-        guard line.count < 4096 else { throw AnnexTransportError.malformedResponse }
-    }
+    let line = try await process.readLine()
     struct Fixture: Decodable { let port: UInt16; let pin: String }
     let fixture = try JSONDecoder().decode(Fixture.self, from: line)
     let endpoint = try AnnexEndpoint(host: "127.0.0.1", port: fixture.port)
@@ -20,7 +16,7 @@ import Foundation
     let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: hostID, verifiedCertificatePin: AnnexCertificatePin(sha256: fixture.pin))
     let observed = try await AnnexTrustProbe.inspect(endpoint: endpoint)
     #expect(observed == host.certificatePin)
-    let client = try AnnexClientIdentity.ephemeral()
+    let client = try await ephemeralIdentity()
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
     let io = PinnedAnnexIO(host: host, clientIdentity: client, maximumResponseBytes: 1024, telemetry: telemetry)
     var request = URLRequest(url: try endpoint.url(path: ["identity"]))

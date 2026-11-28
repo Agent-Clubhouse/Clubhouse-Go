@@ -152,7 +152,7 @@ private actor GatedPairings: AnnexPairingStore {
 }
 @Test func removedPairingCannotBeResurrectedByInFlightRestore() async throws {
     let host = try adversarialHost()
-    let saved = try AnnexSavedPairing(host: host, alias: "Fake", identity: AnnexClientIdentity.ephemeral(), credential: AnnexCredential(bearerToken: "fake-only"))
+    let saved = try await AnnexSavedPairing(host: host, alias: "Fake", identity: ephemeralIdentity(), credential: AnnexCredential(bearerToken: "fake-only"))
     let pairings = GatedPairings(saved)
     let credentials = MemoryAnnexCredentialStore()
     let registry = AnnexTransportRegistry(credentials: credentials, pairings: pairings)
@@ -176,7 +176,7 @@ private actor PairResponseIO: AnnexIO {
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "localhost", port: 4321),
                                    verifiedHostID: AnnexPairingIdentity.fingerprint(publicKeyBase64: server.publicKeyBase64),
                                    verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
-    let identity = try AnnexClientIdentity.ephemeral()
+    let identity = try await ephemeralIdentity()
     let credential = try AnnexCredential(bearerToken: "fake-only")
     let durable = MemoryAnnexCredentialStore() // fake substitute for a caller-supplied persistent store
     await durable.save(credential, for: host.hostID)

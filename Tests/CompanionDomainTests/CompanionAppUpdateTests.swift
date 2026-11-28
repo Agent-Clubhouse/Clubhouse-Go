@@ -274,7 +274,8 @@ private actor UpdateDesktop: AnnexTransporting {
         let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: 7432), verifiedHostID: Self.id,
                                        verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "ab", count: 32)))
         await service.register(.init(host: host, alias: "Studio Mac", transport: desktop))
-        try await wait { store.hosts.first?.canUpdateApp == true && store.hosts.first?.appUpdate != nil }
+        // Capabilities apply before the catalog refresh finishes; wait for the connection too.
+        try await wait { store.hosts.first?.canUpdateApp == true && store.hosts.first?.appUpdate != nil && store.hosts.first?.connection == .connected }
         return (service, store, desktop)
     }
 
@@ -1117,8 +1118,22 @@ private actor UpdateDesktop: AnnexTransporting {
         try await wait { store.hosts.first?.appUpdate?.request?.state == .cancelled }
         await desktop.setLostReply(true)
         await store.requestAppUpdate(hostID: Self.id)
+        // Follow the service's own reports through synchronizing to connected, then wait for the store to show that
+        // same host: the store's earlier "connected" is the connection from before the reconnect.
+        let events = service.events()
+        let reconnected = Task { @MainActor () -> CompanionHost? in
+            var synchronizing = false
+            for await event in events {
+                guard case .hosts(let hosts) = event, let host = hosts.first(where: { $0.id == Self.id }) else { continue }
+                if host.connection == .synchronizing { synchronizing = true } else if synchronizing, host.connection == .connected { return host }
+            }
+            return nil
+        }
+        let timeout = Task { try await Task.sleep(for: .seconds(5)); reconnected.cancel() }
         await service.reconnect(hostID: Self.id)
-        try await wait { store.hosts.first?.connection == .connected }
+        let host = try #require(await reconnected.value)
+        timeout.cancel()
+        try await wait { store.hosts.first == host }
         #expect(store.appUpdateErrors[Self.id] != nil)
         await desktop.setLostReply(false)
         await store.requestAppUpdate(hostID: Self.id)
