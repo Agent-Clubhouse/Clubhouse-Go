@@ -202,7 +202,7 @@ private actor TransitionGate {
         #expect(f.tasks.held == [1])
         await f.lifecycle.settle()
         let socket = try #require(await f.io.sockets.first)
-        #expect(await socket.closeCount == 1, "A clean close, not a socket cut by suspension")
+        #expect(await socket.closeCount == 1, "The close (1001 in production) was requested inside the task")
         try await wait { f.connection == .offline }
         #expect(f.tasks.held.isEmpty && f.tasks.ended == [1])
         #expect(f.log.entries == ["begin:1", "close:0", "end:1"], "The task ends only after the close")
@@ -224,6 +224,44 @@ private actor TransitionGate {
         await f.stop()
     }
 
+    /// The system expires the task while suspend is still running, and the app foregrounds before that suspend finishes.
+    /// The foreground waits for it, then reconnects; a second full cycle still takes and ends its own task.
+    @Test func expiryMidSuspendThenForegroundReconnectsAndASecondCycleStillWorks() async throws {
+        let gate = TransitionGate()
+        let f = try await Fixture(gate: gate)
+        try await wait { f.connection == .connected }
+        f.lifecycle.update(.background)
+        try await wait { await gate.waiting }
+        f.tasks.expire(1)
+        #expect(f.tasks.ended == [1] && f.tasks.held.isEmpty)
+        f.lifecycle.update(.inactive)
+        f.lifecycle.update(.active)
+        try await Task.sleep(for: .milliseconds(50))
+        #expect(await f.io.sockets.count == 1, "Foreground cannot overtake the pending suspension")
+        await gate.release()
+        await f.lifecycle.settle()
+        try await wait { f.connection == .connected }
+        var sockets = await f.io.sockets
+        #expect(sockets.count == 2)
+        #expect(await sockets[0].closeCount == 1)
+        #expect(await sockets[1].closeCount == 0)
+        #expect(f.tasks.begun == [1] && f.tasks.ended == [1] && f.tasks.held.isEmpty)
+
+        f.lifecycle.update(.background)
+        #expect(f.tasks.held == [2])
+        await f.lifecycle.settle()
+        try await wait { f.connection == .offline }
+        #expect(await sockets[1].closeCount == 1)
+        f.lifecycle.update(.active)
+        await f.lifecycle.settle()
+        try await wait { f.connection == .connected }
+        sockets = await f.io.sockets
+        #expect(sockets.count == 3)
+        #expect(await sockets[2].closeCount == 0)
+        #expect(f.tasks.begun == [1, 2] && f.tasks.ended == [1, 2] && f.tasks.endedExactlyOnce && f.tasks.held.isEmpty)
+        await f.stop()
+    }
+
     @Test func rapidFlipsEndEveryTaskExactlyOnceAndNeverHoldOneInTheForeground() async throws {
         let gate = TransitionGate()
         let f = try await Fixture(gate: gate)
@@ -232,6 +270,7 @@ private actor TransitionGate {
             f.lifecycle.update(phase)
         }
         #expect(f.tasks.begun == [1, 2, 3], "One task per queued suspension, none for foregrounds or repeats")
+        #expect(f.tasks.held == [1, 2, 3], "Each queued suspension holds its task while it waits")
         await gate.release()
         await f.lifecycle.settle()
         #expect(f.tasks.held.isEmpty && f.tasks.endedExactlyOnce && f.tasks.ended.count == 3)

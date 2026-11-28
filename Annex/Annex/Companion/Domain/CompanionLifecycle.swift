@@ -5,9 +5,11 @@ import ClubhouseTransport
 
 /// Inactive is transient (Control Center, permission sheets, foregrounding).
 /// Background pre-empts a pending resume. A new foreground still waits for suspension to finish.
-/// Each suspension runs inside its own finite background task, begun before `update` returns, so the
-/// desktop sockets close cleanly instead of being cut when iOS suspends the process. That task ends when
-/// the suspension finishes or when the system expires it, whichever comes first; nothing stays connected.
+/// Each suspension runs inside its own finite background task, begun before `update` returns, so the suspend
+/// path, including each socket's 1001 close request, is likely to run before iOS suspends the process. That is
+/// best effort: the system may refuse or expire the task, and delivery of the close frame is not guaranteed.
+/// The task ends when the suspension finishes or when the system expires it, whichever comes first; nothing
+/// stays connected.
 @MainActor final class CompanionLifecycle {
     // ARC-only teardown; transition captures are reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
