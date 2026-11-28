@@ -431,7 +431,9 @@ import Observation
         return generation
     }
 
-    private func finishLoad(_ target: CompanionTarget, owner generation: HistoryLoadOwner) async {
+    /// `rereadAfterChange` is set on the one read that follows a `chat_read_changed` refusal, so a second refusal in a
+    /// row is shown rather than read again.
+    private func finishLoad(_ target: CompanionTarget, owner generation: HistoryLoadOwner, rereadAfterChange: Bool = false) async {
         do {
             var history = try await service.history(for: target)
             guard historyGenerations[target] == generation else { return }
@@ -473,6 +475,15 @@ import Observation
             reconcileDecisionNotices(authoritativeTarget: replacesHistory ? target : nil)
         } catch {
             guard historyGenerations[target] == generation else { return }
+            // The chat changed under the read, and the desktop built no page from it. While this load still owns the
+            // conversation (it is loading, and was neither retired nor replaced) and the desktop can serve history, read
+            // once more under a new owner. The last-good items stay, marked stale, with no error. Otherwise, as any failure.
+            if error is CompanionHistoryReadChanged, !rereadAfterChange, !isShutDown,
+               conversation(for: target).isLoading, host(for: target)?.canReadHistory == true {
+                conversations[target, default: .init()].requiresResync = true
+                await finishLoad(target, owner: beginLoad(target), rereadAfterChange: true)
+                return
+            }
             conversations[target, default: .init()].isLoading = false
             conversations[target, default: .init()].error = error.localizedDescription
             conversations[target, default: .init()].requiresResync = true
