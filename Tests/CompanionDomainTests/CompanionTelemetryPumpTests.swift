@@ -181,6 +181,8 @@ private final class PumpNaps: @unchecked Sendable {
         f.set(.active)
         f.naps.wake()
         try await wait { await f.collector.bodies.count == 1 }
+        // Wake only once the next nap has begun; a wake before it starts would be lost.
+        try await wait { f.naps.napping == 1 && f.naps.count == 4 }
         f.naps.wake()
         try await wait { f.naps.napping == 1 && f.naps.count == 5 }
         let bodies = await f.collector.bodies
