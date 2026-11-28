@@ -580,14 +580,16 @@ public actor AnnexTransport: AnnexTransporting {
 
     private func consume(_ socket: any AnnexWebSocket, generation current: UUID, controlEpoch: String?) async throws {
         let (failureTimeout, timeout) = AsyncThrowingStream<Void, Error>.makeStream()
+        let pipe = AnnexReceivePipe()
         defer {
             if current == generation {
                 snapshotFailureDeadline?.cancel(); snapshotFailureDeadline = nil
                 initialReplayDeadline?.cancel(); initialReplayDeadline = nil
             }
             timeout.finish()
+            pipe.finish(throwing: CancellationError(), discard: true)
         }
-        // Structured lifetime: ping, receive and the explicit-failure signal stop together.
+        // Structured lifetime: ping, read, process and the explicit-failure signal stop together.
         try await withThrowingTaskGroup(of: Void.self) { group in
             group.addTask { for try await _ in failureTimeout {} }
             group.addTask { [clock] in
@@ -595,10 +597,27 @@ public actor AnnexTransport: AnnexTransporting {
                     while !Task.isCancelled { try await clock.sleep(.seconds(20)); try await socket.ping() }
                 } catch { await socket.close(); throw error }
             }
+            // Reader: only awaits receive() and buffers, so a receive is re-armed while the actor decodes a frame or
+            // awaits the replay send. URLSession reads control frames (pongs) only under an outstanding receive.
+            group.addTask {
+                do {
+                    while !Task.isCancelled { try pipe.push(try await socket.receive()) }
+                    pipe.finish(throwing: CancellationError(), discard: true)
+                } catch AnnexTransportError.queueOverflow {
+                    // Fail closed: drop what is buffered and take the existing reconnect path.
+                    pipe.finish(throwing: AnnexTransportError.queueOverflow, discard: true)
+                    await socket.close()
+                    throw AnnexTransportError.queueOverflow
+                } catch {
+                    // Frames read before the failure are still processed in order, then the processor rethrows it.
+                    pipe.finish(throwing: error, discard: false)
+                }
+            }
+            // Processor: one frame at a time, in receive order. Each frame, including a replay request it sends,
+            // completes before the next frame is taken.
             group.addTask { [weak self] in
                 do {
-                    while !Task.isCancelled {
-                        let data = try await socket.receive()
+                    while let data = try await pipe.next() {
                         guard let self else { return }
                         try await self.receive(data, socket: socket, generation: current, controlEpoch: controlEpoch, snapshotFailure: timeout)
                     }
@@ -609,6 +628,7 @@ public actor AnnexTransport: AnnexTransporting {
                 while try await group.next() != nil {}
             } catch {
                 group.cancelAll()
+                pipe.finish(throwing: CancellationError(), discard: true)
                 // Unblock a pending receive before the structured group waits for its children.
                 // Keep the original failure, rather than the cancellation produced by closing the socket.
                 await socket.close()
@@ -738,5 +758,77 @@ public actor AnnexTransport: AnnexTransporting {
             telemetry.record(.replay, event: .replayRequested)
             try await socket.send(JSONEncoder().encode(AnnexJSON.object(replay)))
         }
+    }
+}
+
+/// Frames read off one socket and not yet processed, for one `consume` call (never shared across connections).
+/// Single producer (the reader) and single consumer (the processor), FIFO. Bounded by `frameCapacity` frames and
+/// `byteCapacity` bytes; a frame into an empty buffer is always accepted, so a frame up to the 16 MiB transport cap
+/// still reaches `receive(_:)` and its own limit check. Overflow throws `queueOverflow` and the connection fails closed.
+nonisolated final class AnnexReceivePipe: @unchecked Sendable {
+    /// Matches the deepest downstream buffer (the terminal stream, 4096), so a burst the subscribers can hold
+    /// is not refused here first.
+    static let frameCapacity = 4096
+    /// Twice the 16 MiB frame cap.
+    static let byteCapacity = 32 * 1024 * 1024
+    private let lock = NSLock()
+    private var frames: [Data] = []
+    private var head = 0
+    private var bytes = 0
+    private var waiter: CheckedContinuation<Data?, Error>?
+    private var end: Error?
+    private var ended = false
+
+    var buffered: (frames: Int, bytes: Int) { lock.withLock { (frames.count - head, bytes) } }
+
+    func push(_ data: Data) throws {
+        let waiting: CheckedContinuation<Data?, Error>? = try lock.withLock {
+            guard !ended else { return nil }
+            if let waiter { self.waiter = nil; return waiter }
+            let count = frames.count - head
+            guard count < Self.frameCapacity, count == 0 || bytes + data.count <= Self.byteCapacity else {
+                throw AnnexTransportError.queueOverflow
+            }
+            frames.append(data); bytes += data.count
+            return nil
+        }
+        waiting?.resume(returning: data)
+    }
+
+    /// The next frame in receive order; nil once finished without an error. Throws the reader's failure after the
+    /// frames read before it, or `CancellationError` when the processing task is cancelled.
+    func next() async throws -> Data? {
+        try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<Data?, Error>) in
+                let ready: Result<Data?, Error>? = lock.withLock {
+                    if Task.isCancelled { return .failure(CancellationError()) }
+                    if head < frames.count {
+                        let data = frames[head]; frames[head] = Data(); head += 1; bytes -= data.count
+                        if head == frames.count { frames.removeAll(keepingCapacity: true); head = 0 }
+                        else if head >= 1024 { frames.removeFirst(head); head = 0 }
+                        return .success(data)
+                    }
+                    if ended { return end.map { .failure($0) } ?? .success(nil) }
+                    waiter = continuation
+                    return nil
+                }
+                if let ready { continuation.resume(with: ready) }
+            }
+        } onCancel: {
+            let waiting = lock.withLock { defer { waiter = nil }; return waiter }
+            waiting?.resume(throwing: CancellationError())
+        }
+    }
+
+    /// Idempotent: the first end wins. `discard` drops frames not yet processed.
+    func finish(throwing error: Error?, discard: Bool) {
+        let waiting: CheckedContinuation<Data?, Error>? = lock.withLock {
+            if discard { frames.removeAll(); head = 0; bytes = 0 }
+            guard !ended else { return nil }
+            ended = true; end = error
+            defer { waiter = nil }
+            return waiter
+        }
+        if let error { waiting?.resume(throwing: error) } else { waiting?.resume(returning: nil) }
     }
 }

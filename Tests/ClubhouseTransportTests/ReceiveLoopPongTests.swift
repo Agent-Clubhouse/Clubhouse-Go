@@ -5,13 +5,14 @@ import Testing
 // Recv-loop audit (mini-go/recvloop-audit): can the PRODUCTION AnnexTransport receive loop
 // (AnnexTransport.swift:598-605) delay observing a pong past the 10 s ping deadline?
 //
-// The fake socket models the one URLSession property the loopback probe and
-// PinnedWebSocketTests.swift:148 established: control frames (pongs) are read only while a
-// receive() is outstanding, in wire order behind any data frames ahead of them. Its ping()
+// The fake socket models one URLSession property as an ASSUMED model: control frames (pongs) are read
+// only while a receive() is outstanding, in wire order behind any data frames ahead of them. Apple's
+// URLSessionWebSocketTask documentation doesn't state this; it's observed on macOS loopback
+// (PinnedWebSocketTests.swift:148, the urlsession-pool probe), not verified on iOS. Its ping()
 // mirrors URLSessionAnnexWebSocket.ping (AnnexIO.swift:255-280): production AnnexPingCompletion,
 // a 10 s deadline on the injected clock, then close(). Everything above the socket is production code.
 
-private let pongCapabilities = #"{"version":1,"epoch":"epoch1","controlAuth":"mtls-pinned-client","controlAvailable":true,"commands":["chat.send"],"idempotency":{"scope":"peer-and-epoch","maxEntries":2048,"ttlMs":3600000}}"#
+private let pongCapabilities = #"{"version":1,"epoch":"EPOCH","controlAuth":"mtls-pinned-client","controlAvailable":false,"commands":["chat.send"],"idempotency":{"scope":"peer-and-epoch","maxEntries":2048,"ttlMs":3600000}}"#
 
 private final class Signal: @unchecked Sendable {
     private let lock = NSLock()
@@ -38,6 +39,17 @@ private func settle(_ signal: Signal, _ condition: () async -> Bool) async {
     }
 }
 
+/// Like `settle`, but gives up after `seconds` of wall time, so a condition that never holds fails rather than hangs.
+private func settle(_ signal: Signal, within seconds: Double, _ condition: @escaping @Sendable () async -> Bool) async -> Bool {
+    await withTaskGroup(of: Bool.self) { group in
+        group.addTask { await settle(signal) { await condition() || Task.isCancelled }; return await condition() }
+        group.addTask { try? await Task.sleep(for: .seconds(seconds)); signal.fire(); return false }
+        let first = await group.next() ?? false
+        group.cancelAll(); signal.fire()
+        return first
+    }
+}
+
 private enum WireItem { case frame(Data), pong }
 private enum PingOutcome: Equatable { case answered, timedOut, failed }
 
@@ -56,6 +68,9 @@ private final class PongGatedSocket: AnnexWebSocket, @unchecked Sendable {
     private(set) var outcomes: [PingOutcome] = []
     private(set) var pongsOnWireUnread = 0
     private(set) var sentTypes: [String] = []
+    /// A send that started while another send was still held (processing would have overlapped the replay).
+    private(set) var overlappingSends = 0
+    deinit { signal.fire() }
     /// Wall time from the last enqueue to each pong being observed (ms).
     private(set) var pongObservedAfterMs: [Double] = []
     private var lastEnqueue = ContinuousClock.now
@@ -116,12 +131,20 @@ private final class PongGatedSocket: AnnexWebSocket, @unchecked Sendable {
         let type = (try? JSONDecoder().decode(AnnexJSON.self, from: data))?["type"]?.string ?? "?"
         lock.withLock { sentTypes.append(type) }
         signal.fire()
+        lock.withLock { if heldSend != nil { overlappingSends += 1 } }
         guard holdReplaySend, type.hasSuffix("replay") else { return }
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
-            let isClosed = lock.withLock { if closed { return true }; heldSend = c; return false }
-            if isClosed { c.resume(throwing: AnnexTransportError.disconnected) }
+            let isClosed = lock.withLock { if closed || !holdingSends { return true }; heldSend = c; return false }
+            if isClosed { lock.withLock { closed } ? c.resume(throwing: AnnexTransportError.disconnected) : c.resume() }
             signal.fire()
         }
+    }
+    private var holdingSends = true
+    /// Lets the held send (and any later one) complete.
+    func releaseSends() {
+        let held = lock.withLock { holdingSends = false; defer { heldSend = nil }; return heldSend }
+        held?.resume()
+        signal.fire()
     }
     /// Same structure as URLSessionAnnexWebSocket.ping (AnnexIO.swift:255-280).
     func ping() async throws {
@@ -166,24 +189,31 @@ private final class PongGatedSocket: AnnexWebSocket, @unchecked Sendable {
     static func ms(_ d: Duration) -> Double { Double(d.components.seconds) * 1000 + Double(d.components.attoseconds) / 1e15 }
 }
 
+private final class WeakSocket: @unchecked Sendable { weak var socket: PongGatedSocket?; init(_ s: PongGatedSocket) { socket = s } }
+
 private actor PongSessionIO: AnnexIO {
     let identity = AnnexPairingIdentity()
     nonisolated let signal = Signal()
     let clock: AnnexClock
     let holdReplaySend: Bool
-    private(set) var sockets: [PongGatedSocket] = []
+    var epoch = "epoch1"
+    /// Weak, so a test can prove the transport's tasks released every socket.
+    private var opened: [WeakSocket] = []
+    var sockets: [PongGatedSocket] { opened.compactMap(\.socket) }
+    var openCount: Int { opened.count }
     init(clock: AnnexClock, holdReplaySend: Bool) { self.clock = clock; self.holdReplaySend = holdReplaySend }
+    func setEpoch(_ value: String) { epoch = value }
     func perform(_ request: URLRequest) throws -> AnnexHTTPResponse {
         if request.url?.path.hasSuffix("/identity") == true {
             let body: AnnexJSON = try .object(["publicKey": .string(identity.publicKeyBase64), "fingerprint": .string(AnnexPairingIdentity.fingerprint(publicKeyBase64: identity.publicKeyBase64))])
             return try AnnexHTTPResponse(status: 200, data: JSONEncoder().encode(body))
         }
-        return AnnexHTTPResponse(status: 200, data: Data(pongCapabilities.utf8))
+        return AnnexHTTPResponse(status: 200, data: Data(pongCapabilities.replacingOccurrences(of: "EPOCH", with: epoch).utf8))
     }
     func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket {
         let socket = PongGatedSocket(initial: [#"{"type":"snapshot","payload":{"lastSeq":0,"projects":[],"agents":{}}}"#],
-                                     holdReplaySend: holdReplaySend && sockets.isEmpty, signal: signal, clock: clock)
-        sockets.append(socket)
+                                     holdReplaySend: holdReplaySend && opened.isEmpty, signal: signal, clock: clock)
+        opened.append(WeakSocket(socket))
         signal.fire()
         return socket
     }
@@ -256,11 +286,14 @@ private func bigSnapshot(bytes: Int) -> String {
     let h = try await connectedHarness(holdReplaySend: false)
     // A subscriber that never reads: emit() yields into .bufferingOldest(256) and never suspends (AnnexTransport.swift:48-74).
     let stalled = await h.transport.events()
+    let draining = await h.transport.events()
     await firePing(h)
     let frames = (0..<400).map { WireItem.frame(Data(#"{"type":"agent:status","payload":{"i":\#($0)}}"#.utf8)) }
-    h.socket.enqueue(frames + [.pong])
+    h.socket.enqueue(frames + [.pong, .frame(Data(#"{"type":"marker","payload":{}}"#.utf8))])
     await settle(h.signal) { !h.socket.outcomes.isEmpty }
     #expect(h.socket.outcomes == [.answered])
+    // Wait until all 400 frames were processed (a draining subscriber saw the marker after them).
+    for try await event in draining { if case .message(let envelope) = event, envelope.type == "marker" { break } }
     var it = stalled.makeAsyncIterator()
     var delivered = 0
     var overflowed = false
@@ -302,23 +335,20 @@ private func bigSnapshot(bytes: Int) -> String {
 
 // MARK: Candidate 3 - a held await inside frame processing (the only one: send(replay) at :739)
 
-@Test(.timeLimit(.minutes(1))) func recvAuditAHeldReplaySendKeepsReceiveUnarmedAndTheAnsweredPingTimesOut() async throws {
+/// Fails on 55c6fad7 (the ping timed out with the pong unread); passes once the reader re-arms independently.
+@Test(.timeLimit(.minutes(1))) func recvAuditAHeldReplaySendNoLongerHidesAnArrivedPong() async throws {
     let h = try await connectedHarness(holdReplaySend: true)
-    // The loop is parked in receive(_:) at :739; no receive() is outstanding.
+    // The processor is parked in the replay send; the reader still has a receive() outstanding.
     #expect(h.socket.isSendHeld)
-    #expect(!h.socket.isReceiveOutstanding)
-    let receivesBefore = h.socket.receiveCalls
+    let socket = h.socket
+    #expect(await settle(h.signal, within: 2) { socket.isReceiveOutstanding }, "receive() re-armed while the send is held")
     await firePing(h)
     h.socket.enqueue([.pong]) // the pong is on the wire, well inside the deadline
-    #expect(h.socket.pongsOnWireUnread == 1)
-    h.clock.advance(by: .seconds(9))
-    #expect(h.socket.outcomes.isEmpty)
-    h.clock.advance(by: .seconds(1))
     await settle(h.signal) { !h.socket.outcomes.isEmpty }
-    #expect(h.socket.outcomes == [.timedOut])
-    #expect(h.socket.pongsOnWireUnread == 1, "the pong arrived but was never read")
-    #expect(h.socket.receiveCalls == receivesBefore, "receive was never re-armed while the send was held")
-    #expect(h.socket.closed)
+    #expect(h.socket.outcomes == [.answered])
+    #expect(h.socket.pongsOnWireUnread == 0)
+    h.clock.advance(by: .seconds(10))
+    #expect(h.socket.closed == false)
     print("RECVAUDIT heldsend: outcome=\(h.socket.outcomes) pongUnread=\(h.socket.pongsOnWireUnread) receiveCalls=\(h.socket.receiveCalls) closed=\(h.socket.closed)")
     await h.transport.disconnect()
 }
@@ -334,4 +364,140 @@ private func bigSnapshot(bytes: Int) -> String {
         _ = try JSONDecoder().decode(AnnexJSON.self, from: body)
         print(String(format: "RECVAUDIT restdecode: bytes=%d decode=%.1fms", body.count, PongGatedSocket.ms(ContinuousClock.now - start)))
     }
+}
+
+// MARK: Ordering, lifecycle and overflow (mini-go/recvloop-rearm)
+//
+// Contract: frames are processed one at a time in receive order. A frame's processing, including the replay
+// request a snapshot sends (AnnexTransport.swift receive(_:)), completes before the next frame is taken, so the
+// snapshot, cursor and replay are established before any later frame. Only reading runs ahead, into a bounded buffer.
+
+private func event(_ type: String, seq: Int) -> WireItem { .frame(Data(#"{"type":"\#(type)","seq":\#(seq),"payload":{}}"#.utf8)) }
+private func snapshot(_ lastSeq: Int) -> WireItem { .frame(Data(#"{"type":"snapshot","payload":{"lastSeq":\#(lastSeq),"projects":[],"agents":{}}}"#.utf8)) }
+private func label(_ envelope: AnnexEnvelope) -> String {
+    envelope.type == "snapshot" ? "snapshot:\(envelope.snapshotSequence ?? -1)" : "\(envelope.type):\(envelope.seq ?? -1)"
+}
+
+@Test(.timeLimit(.minutes(1))) func recvAuditFramesBufferedBehindAHeldReplayAreProcessedStrictlyInOrderAfterIt() async throws {
+    let h = try await connectedHarness(holdReplaySend: true)
+    let stream = await h.transport.events()
+    // Several snapshots with interleaved events. snapshot:2 and snapshot:4 match the cursor and are delivered;
+    // snapshot:9 is a gap, so it resyncs and sends a second replay request.
+    let wire = [event("agent:status", seq: 1), event("agent:status", seq: 2), snapshot(2), event("agent:status", seq: 3),
+                event("agent:status", seq: 4), snapshot(4), event("agent:status", seq: 5), snapshot(9)]
+    let before = h.socket.receiveCalls
+    h.socket.enqueue(wire)
+    let socket = h.socket
+    // The reader buffers all eight and re-arms; the processor is still parked in the first replay send.
+    #expect(await settle(h.signal, within: 2) { socket.receiveCalls == before + wire.count && socket.isReceiveOutstanding })
+    #expect(h.socket.sentTypes.filter { $0.hasSuffix("replay") }.count == 1)
+    h.socket.releaseSends()
+    var seen: [String] = []
+    var it = stream.makeAsyncIterator()
+    while let next = try await it.next() {
+        if case .message(let envelope) = next { seen.append(label(envelope)) }
+        if seen.last == "snapshot:9" { break }
+    }
+    #expect(seen == ["agent:status:1", "agent:status:2", "snapshot:2", "agent:status:3", "agent:status:4", "snapshot:4", "agent:status:5", "snapshot:9"])
+    await settle(h.signal) { socket.sentTypes.filter { $0.hasSuffix("replay") }.count == 2 }
+    #expect(h.socket.overlappingSends == 0, "no later frame was processed (and sent) while the first replay was held")
+    print("RECVAUDIT order: seen=\(seen) replays=\(h.socket.sentTypes) overlapping=\(h.socket.overlappingSends)")
+    await h.transport.disconnect()
+}
+
+/// Opens one connection whose first replay send is held, buffers `frames` behind it, and returns weak handles.
+private func stalledConnection(_ frames: [WireItem]) async throws -> (Harness, WeakSocket) {
+    let h = try await connectedHarness(holdReplaySend: true)
+    let socket = h.socket
+    let before = socket.receiveCalls
+    socket.enqueue(frames)
+    #expect(await settle(h.signal, within: 2) { socket.receiveCalls == before + frames.count && socket.isReceiveOutstanding })
+    return (h, WeakSocket(socket))
+}
+
+@Test(.timeLimit(.minutes(1))) func recvAuditCloseDuringAHeldReplayDropsTheBufferedFramesAndReleasesEveryTask() async throws {
+    var weak: WeakSocket?
+    var stream: AsyncThrowingStream<AnnexTransportEvent, Error>?
+    var transport: AnnexTransport?
+    var signal: Signal?
+    do {
+        let (h, w) = try await stalledConnection([event("agent:status", seq: 1), event("agent:status", seq: 2)])
+        weak = w; transport = h.transport; signal = h.signal
+        stream = await h.transport.events()
+        await h.transport.disconnect()
+    }
+    var seen: [String] = []
+    var it = stream!.makeAsyncIterator()
+    while let next = try await it.next() {
+        if case .message(let envelope) = next { seen.append(label(envelope)) }
+        if next == .connection(.disconnected) { break }
+    }
+    #expect(seen.isEmpty, "frames buffered for the closed connection are never processed")
+    // Every task that captured the socket (reader, processor, ping, fake deadline) has ended.
+    let released = weak!
+    #expect(await settle(signal!, within: 5) { released.socket == nil })
+    #expect(await transport!.supportsShellReattach() == nil)
+}
+
+@Test(.timeLimit(.minutes(1))) func recvAuditResyncDuringAHeldReplayNeverProcessesTheOldGeneration() async throws {
+    var weak: WeakSocket?
+    let io: PongSessionIO
+    let transport: AnnexTransport
+    let stream: AsyncThrowingStream<AnnexTransportEvent, Error>
+    do {
+        let (h, w) = try await stalledConnection([event("agent:status", seq: 1), event("agent:status", seq: 2)])
+        weak = w; io = h.io; transport = h.transport
+        stream = await h.transport.events()
+        // A capabilities refresh with a new epoch stops this connection and starts the next (AnnexTransport.swift:278-285).
+        await io.setEpoch("epoch2")
+        _ = try await transport.read(.capabilities)
+    }
+    var seen: [String] = []
+    var it = stream.makeAsyncIterator()
+    while let next = try await it.next() {
+        if case .message(let envelope) = next { seen.append(label(envelope)) }
+        if seen.last == "snapshot:0" { break }
+    }
+    // Only the new connection's snapshot: the old generation's buffered frames were dropped, not processed.
+    #expect(seen == ["snapshot:0"])
+    #expect(await io.openCount == 2)
+    let released = weak!
+    #expect(await settle(io.signal, within: 5) { released.socket == nil }, "the old connection's tasks all ended")
+    await transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1)), arguments: ["frames", "bytes"])
+func recvAuditBufferOverflowFailsClosedAndTakesTheReconnectPath(limit: String) async throws {
+    let h = try await connectedHarness(holdReplaySend: true)
+    let stream = await h.transport.events()
+    let big = Data(#"{"type":"agent:status","payload":{"pad":"\#(String(repeating: "x", count: 1024 * 1024))"}}"#.utf8)
+    let frames: [WireItem] = limit == "frames"
+        ? (0..<(AnnexReceivePipe.frameCapacity + 1)).map { event("agent:status", seq: $0 + 1) }
+        : Array(repeating: .frame(big), count: AnnexReceivePipe.byteCapacity / big.count + 1)
+    h.socket.enqueue(frames)
+    var seen: [String] = []
+    var it = stream.makeAsyncIterator()
+    while let next = try await it.next() {
+        if case .message(let envelope) = next { seen.append(label(envelope)) }
+        if case .connection(.reconnecting) = next { break }
+    }
+    #expect(seen.isEmpty, "an overflowing buffer is dropped, never partially delivered")
+    #expect(h.socket.closed)
+    print("RECVAUDIT overflow(\(limit)): frames=\(frames.count) closed=\(h.socket.closed)")
+    await h.transport.disconnect()
+}
+
+@Test(.timeLimit(.minutes(1))) func recvAuditRepeatedConnectCloseCyclesReleaseEverySocketAndTask() async throws {
+    var weak: [WeakSocket] = []
+    var signals: [Signal] = []
+    for cycle in 0..<20 {
+        let h = try await connectedHarness(holdReplaySend: cycle % 2 == 1)
+        if cycle % 2 == 1 { h.socket.enqueue([event("agent:status", seq: 1)]) }
+        weak.append(WeakSocket(h.socket)); signals.append(h.signal)
+        await h.transport.disconnect()
+    }
+    for (w, signal) in zip(weak, signals) {
+        #expect(await settle(signal, within: 5) { w.socket == nil })
+    }
+    print("RECVAUDIT cycles: live=\(weak.filter { $0.socket != nil }.count)/\(weak.count)")
 }
