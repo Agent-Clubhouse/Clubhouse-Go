@@ -2,6 +2,7 @@
 import Darwin
 import Foundation
 import Testing
+import ClubhouseTransport
 
 final class FixtureProcess {
     let process = Process()
@@ -23,6 +24,34 @@ final class FixtureProcess {
         } catch {
             closeOutput()
             throw error
+        }
+    }
+
+    /// The fixture's next output line, without its newline. Malformed past `limit` bytes.
+    func readLine(limit: Int = 4096) async throws -> Data {
+        try await offCooperativePool { handle in
+            var line = Data()
+            while let byte = try handle.read(upToCount: 1), !byte.isEmpty, byte != Data([10]) {
+                line.append(byte)
+                guard line.count < limit else { throw AnnexTransportError.malformedResponse }
+            }
+            return line
+        }
+    }
+
+    /// `FileHandle.read(upToCount:)` on the fixture's output, off the cooperative pool.
+    func read(upToCount count: Int) async throws -> Data? {
+        try await offCooperativePool { try $0.read(upToCount: count) }
+    }
+
+    /// Runs a blocking pipe read on a Dispatch thread, never on a Swift concurrency thread. A fixture can take
+    /// seconds to start (node, then an openssl key), and swift test runs every test in parallel on a cooperative
+    /// pool only as wide as the runner's cores. Reads that blocked those threads stalled every other test,
+    /// including ones that measure their own deadlines on the live clock.
+    private func offCooperativePool<T: Sendable>(_ read: @escaping @Sendable (FileHandle) throws -> T) async throws -> T {
+        let handle = output.fileHandleForReading
+        return try await withCheckedThrowingContinuation { continuation in
+            DispatchQueue.global().async { continuation.resume(with: Result { try read(handle) }) }
         }
     }
 
