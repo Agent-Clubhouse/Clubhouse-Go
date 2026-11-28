@@ -150,11 +150,26 @@ import Vision
     private func measureRetry(_ window: UIWindow, toggle: RetryVisibility, appearance: RetryAppearance, style: String,
                               retryFrame: () -> CGRect?, cardFrame: () -> CGRect?) async throws -> (metrics: BannerActionGeometry.Metrics, image: UIImage) {
         toggle.hidden = false
-        // Prepare the actual native hierarchy before the measured pair. Glass can finish drawing
-        // its card shadow on the first drawHierarchy readback even when layout frames are ready.
+        // Prepare the actual native hierarchy before the measured pair. Glass finishes drawing its card shadow
+        // only after one or more drawHierarchy readbacks, even when layout frames are ready: observed at the second
+        // readback at the default size and the third at accessibility sizes. The layer tree, animations and presentation
+        // layers stay identical throughout, so there is no model signal to wait for. Instead, show the same-state
+        // render holds over the interval the stability check below compares (shown to restored: two 150ms steps)
+        // before measuring. That check is unchanged and still requires 0, so a later change still fails.
         window.layoutIfNeeded()
         window.rootViewController?.view.layoutIfNeeded()
-        capture(window, "Retry \(style) preparation, \(appearance.rawValue)")
+        var prepared = render(window)
+        var unchangedSteps = 0
+        for readback in 2...12 where unchangedSteps < 2 {
+            try await Task.sleep(for: .milliseconds(150))
+            let next = render(window)
+            let changed = BannerActionGeometry.differingPixelCount(try XCTUnwrap(prepared.cgImage), try XCTUnwrap(next.cgImage))
+            print("RETRY_PREPARATION \(appearance.rawValue) \(style) readback=\(readback) changedSincePrevious=\(changed.map(String.init) ?? "size mismatch")")
+            unchangedSteps = changed == 0 ? unchangedSteps + 1 : 0
+            prepared = next
+        }
+        attach(prepared, "Retry \(style) preparation, \(appearance.rawValue)")
+        XCTAssertEqual(unchangedSteps, 2, "The \(style) render must hold for the compared interval before it is measured; no pair may be selected or filtered")
         try await Task.sleep(for: .milliseconds(150))
         let shown = capture(window, "Retry \(style) shown, \(appearance.rawValue)")
         let hit = try XCTUnwrap(retryFrame()), card = try XCTUnwrap(cardFrame())
@@ -300,9 +315,17 @@ import Vision
     }
 
     @discardableResult private func capture(_ window: UIWindow, _ name: String) -> UIImage {
-        let image = UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
+        attach(render(window), name)
+    }
+
+    /// The same whole-window readback as `capture`, without an attachment.
+    private func render(_ window: UIWindow) -> UIImage {
+        UIGraphicsImageRenderer(bounds: window.bounds).image { _ in
             window.drawHierarchy(in: window.bounds, afterScreenUpdates: true)
         }
+    }
+
+    @discardableResult private func attach(_ image: UIImage, _ name: String) -> UIImage {
         let attachment = XCTAttachment(image: image)
         attachment.name = name
         attachment.lifetime = .keepAlways
