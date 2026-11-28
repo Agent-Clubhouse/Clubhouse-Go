@@ -141,6 +141,55 @@ private final class PumpNaps: @unchecked Sendable {
         #expect(await f.exporter.health().delivered == 1)
     }
 
+    /// A request in flight when the app backgrounds is the one background flush: it completes under the task, and no
+    /// second request follows it, even though a newer record became eligible meanwhile.
+    @Test func aRequestInFlightAtBackgroundIsTheOnlyFlush() async throws {
+        let f = try Fixture()
+        try await activeAndIdle(f)
+        let first = f.capture()
+        await f.collector.holdNext()
+        f.naps.wake()
+        try await wait { await f.collector.waiting == 1 }
+        let later = f.capture()
+        f.set(.inactive); f.set(.background)
+        #expect(f.tasks.held == [1])
+        await f.collector.release()
+        try await wait { f.tasks.held.isEmpty }
+        try await Task.sleep(for: .milliseconds(100))
+        let bodies = await f.collector.bodies
+        #expect(bodies.count == 1, "No second request under the background task")
+        #expect(bodies.first?.contains(first) == true)
+        #expect(bodies.first?.contains(later) == false)
+        #expect(f.log.entries == ["send", "begin:1", "end:1"])
+        #expect(f.tasks.ended == [1] && f.tasks.endedExactlyOnce)
+        #expect(await f.exporter.health().delivered == 1)
+    }
+
+    /// Inactive pauses: a nap ending while inactive sends nothing and takes no background time. Back to active, the
+    /// same session sends what it captured meanwhile, once.
+    @Test func inactivePausesFlushingAndActiveResumesTheSameSessionOnce() async throws {
+        let f = try Fixture()
+        try await activeAndIdle(f)
+        f.set(.inactive)
+        let record = f.capture()
+        f.naps.wake()
+        try await wait { f.naps.napping == 1 && f.naps.count == 2 }
+        f.naps.wake()
+        try await wait { f.naps.napping == 1 && f.naps.count == 3 }
+        #expect(await f.collector.bodies.isEmpty, "Nothing is sent while inactive")
+        #expect(f.tasks.begun.isEmpty, "Inactive takes no background time")
+        f.set(.active)
+        f.naps.wake()
+        try await wait { await f.collector.bodies.count == 1 }
+        f.naps.wake()
+        try await wait { f.naps.napping == 1 && f.naps.count == 5 }
+        let bodies = await f.collector.bodies
+        #expect(bodies.count == 1, "Exactly one send, no duplicate")
+        // A new session would have excluded this record, captured before it began: this is the same session.
+        #expect(bodies.first?.contains(record) == true)
+        #expect(f.tasks.begun.isEmpty)
+    }
+
     @Test func expiryCancelsTheRequestEndsTheTaskOnceAndCountsNothing() async throws {
         let f = try Fixture()
         try await activeAndIdle(f)

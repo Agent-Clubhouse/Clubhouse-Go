@@ -69,8 +69,9 @@ backoff, and keeps 512 dedup IDs. Inactive pauses flushing without ending the se
 background, only while export consent is on, the app begins a finite iOS background task at that phase change
 and flushes once more through the same exporter, endpoint, eligibility, allowlist and limits; a request already
 in flight is that flush. The session then ends and anything unsent is dropped. The system may refuse or expire
-the task; expiry cancels the request and fences its late result. Disable, clear, or mode/destination change
-cancels the request at once and fences late results. Bytes already transmitted cannot be recalled. The SDK exporter independently rejects non-allowlisted data.
+the task; expiry cancels the request and fences its late result. Disabling export, turning collection Off,
+clearing, or changing the destination cancels the request at once and fences late results; switching between
+This session and Always keeps the same session. Bytes already transmitted cannot be recalled. The SDK exporter independently rejects non-allowlisted data.
 The diagnostic JSON is a review format, **not OTLP wire data**. These are traces
 and trace-derived numeric measurements, not an OTel metrics/logs pipeline.
 
