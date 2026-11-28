@@ -117,6 +117,26 @@ actor CompatIO: AnnexIO {
 
     func setDead(_ value: Bool) { dead = value }
     func override(_ path: String, status: Int, body: AnnexJSON) { overrides[path] = (status, body) }
+    func clearOverride(_ path: String) { overrides.removeValue(forKey: path) }
+    var currentSeq: Int64 { serverSeq }
+    /// Reserves the next global sequence without sending, for a snapshot that counts an event not yet delivered.
+    func reserveSeq() -> Int64 { serverSeq += 1; return serverSeq }
+    /// One `chat:event` for the selected agent. `seq` is a reserved sequence, or the next one.
+    func sendEvent(_ event: AnnexJSON, seq reserved: Int64? = nil) async throws {
+        let seq: Int64
+        if let reserved { seq = reserved } else { serverSeq += 1; seq = serverSeq }
+        let frame: AnnexJSON = .object(["type": .string("chat:event"), "seq": .integer(seq),
+                                        "payload": .object(["agentId": event["agentId"] ?? .null, "event": event])])
+        await socket?.push(try JSONEncoder().encode(frame))
+    }
+    /// A refresh snapshot at an explicit `lastSeq`, with an optional payload edit.
+    func pushSnapshot(lastSeq: Int64, edit: @Sendable (inout [String: AnnexJSON]) -> Void = { _ in }) async throws {
+        var payload = fixture.snapshotPayload
+        if case .object(var machine)? = payload["machine"] { machine["fingerprint"] = .string(hostID); payload["machine"] = .object(machine) }
+        edit(&payload)
+        payload["lastSeq"] = .integer(lastSeq)
+        await socket?.push(try JSONEncoder().encode(AnnexJSON.object(["type": .string("snapshot"), "payload": .object(payload)])))
+    }
     func hold(_ path: String) { holdNext.insert(path) }
     func isHeld(_ path: String) -> Bool { held[path] != nil }
     func release(_ path: String, status: Int, body: AnnexJSON) { held.removeValue(forKey: path)?.resume(returning: (status, body)) }
@@ -249,6 +269,8 @@ actor CompatIO: AnnexIO {
     private(set) var phases: [CompanionRecoveryStatus.Phase] = []
     /// Set by a test once the previous page is no longer current; any sample that presents it as current counts.
     var stalePage: [CompanionTimelineItem]?
+    /// Set by a test: true when the conversation shows something no longer current. Counted while presented as current.
+    var staleCheck: (() -> Bool)?
     private(set) var staleShownAsCurrent = 0
     init(store: CompanionStore, target: CompanionTarget) { self.store = store; self.target = target }
     func start() {
@@ -266,6 +288,7 @@ actor CompatIO: AnnexIO {
                                             requiresResync: c.requiresResync, error: c.error).phase
         if phases.last != phase { phases.append(phase) }
         if let stalePage, c.items == stalePage, phase == .hidden { staleShownAsCurrent += 1 }
+        if let staleCheck, staleCheck(), phase == .hidden { staleShownAsCurrent += 1 }
     }
     func stop() { task?.cancel(); sample() }
 }

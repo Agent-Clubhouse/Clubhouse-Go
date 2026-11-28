@@ -67,3 +67,41 @@ body's `sessionId` matching the `chatFrames`' `event.sessionId`; and contiguous 
 URLSession (its per-host connection pool, request and resource timeouts, TLS), SwiftUI scheduling, device CPU, real
 network, and live sessions. The selected Dispatcher in the fixtures is sleeping and read-only, so passing proves the
 display contract only, not the live action contract.
+
+## Selected-target permission lifecycle (CompatSelectedLifecycleTests)
+
+The test composes these frames for the selected agent (`durable_dispatcher`, session `sess_dispatch`):
+
+| Step | Frame | Source of the shape |
+|---|---|---|
+| create | `chat:event` `permission_request` (chat `seq` 13, `requestId` `perm_sel_1`, `options` allow_once/reject_once) | repo contract `chat-events.json` |
+| withdraw | `chat:event` `permission_resolved {decision: "cancelled", by: "agent"}` (seq 14) | beta.8 chat drivers (`src/main/chat/claude/driver.ts:1157`, `acp/driver.ts:578`) |
+| desktop allow / deny | `permission_resolved {decision: "allow"\|"deny", by: "user", optionId}` | `chat-events.json` frame 16, `chat-pages.json` |
+| beta.8 refresh | a `snapshot` after create and after withdraw | host `permission-refresh.cjs` |
+| `/chat` page | the fixture page plus those events, `pendingPermissions` while pending, `readOnly: false` | composed by the test |
+
+The case labels: `inSync` with beta.8 refreshes is "matches-producer". Every other ordering is "synthetic".
+
+Not modelled: phone-side approve and deny. They are `chat.permission` commands; the harness refuses commands and the
+fixture session is read-only.
+
+### Requests for the host producer (coordinated through the orchestrator)
+
+1. **Are both permission paths emitted for the selected Dispatcher?** For a chat-driver permission on the selected
+   Dispatcher, does beta.8 emit the `chat:event` `permission_request`/`permission_resolved` AND the queue path
+   (`permission:request` plus the two `broadcastSnapshotRefresh`)? Or only one of them? Please give the exact frame order
+   with global `seq` for one create/withdraw.
+2. **The Dispatcher's snapshot entry while a permission is pending.** What does `snapshot.payload.dispatcher` contain
+   during the pending window (`agent.status`, `agent.detailedStatus`, `requestsUnderWay`)? The client re-reads Dispatcher
+   settings inside its event drain whenever that object changes (see `drainSettings`).
+3. **Snapshot-level `pendingPermissions`.** What does an entry in a refresh snapshot's `pendingPermissions` look like?
+   The fixtures carry `[]`. The client doesn't read it for the open chat, but the shape would keep the fixture honest.
+4. **The `lastSeq` of a beta.8 refresh snapshot.** Is it `eventReplay.getLastSeq()` when the build finishes, and can a
+   chat-driver event be buffered after that value but sent before the snapshot frame? That is the AHEAD case.
+
+## Limits of the earlier churn matrix (labelled control)
+
+`CompatHarnessReplayTests`' churn rows are a LIMITED CONTROL. Their refresh snapshots carry `lastSeq` equal to the
+delivered stream (`snapshotFrame()`), the payload is static, and the permissions target `durable_chat`, not the
+selection. Their result, "no retirement or extra catalog pass", holds only for in-sync snapshots.
+`CompatSelectedLifecycleTests` covers the selected agent with snapshots behind, equal to and ahead of the stream.
