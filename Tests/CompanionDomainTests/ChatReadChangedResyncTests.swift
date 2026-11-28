@@ -65,7 +65,7 @@ import Testing
         #expect(c.error == Self.refusalText, "the error as shown before this change")
         #expect(c.requiresResync && !c.isLoading && c.items == earlier, "last-good items kept, marked stale")
         #expect(h.sampler.staleShownAsCurrent == 0)
-        // A later manual Refresh is a new load, with its own single re-read.
+        // A later manual Refresh is a new load; here it simply succeeds.
         await h.io.clearOverride(h.fixture.chatPath)
         await h.store.load(h.target, force: true)
         #expect(h.usable && h.texts().contains(h.fixture.expectedReply))
@@ -94,6 +94,28 @@ import Testing
         await h.settle(150)
         #expect(h.usable && h.texts().contains(h.fixture.expectedReply))
         #expect(await h.chatReads() - reads == 1, "exactly one recovery read")
+        await h.stop()
+    }
+
+    /// The owner stays current, but the desktop can't serve history by `canReadHistory`. Its connection is live and only
+    /// the catalog refresh failed (#647), so the read is still issued. The refusal shows as any failure, with no re-read;
+    /// that host's next resync or reconnect reloads it.
+    @Test func aRefusalWhileOnlyTheCatalogRefreshFailedIsShownWithoutReread() async throws {
+        let (h, earlier) = try await Self.startOnEarlierRun()
+        await h.io.override("/api/v1/projects", status: 500, body: .object(["error": .string("catalog_failed")]))
+        await h.io.socket?.close()
+        for _ in 0..<6 where h.host?.catalogRefreshFailed != true { await h.advance(1); try? await h.wait("catalog failed", steps: 200) { h.host?.catalogRefreshFailed == true } }
+        #expect(h.host?.catalogRefreshFailed == true && h.host?.canReadHistory == false)
+        let reads0 = await h.chatReads()
+        await h.io.hold(h.fixture.chatPath)
+        let refresh = Task { await h.store.load(h.target, force: true) }
+        try await h.wait("held") { await h.io.isHeld(h.fixture.chatPath) }
+        await h.io.release(h.fixture.chatPath, status: 409, body: Self.refusal)
+        await refresh.value
+        await h.settle(150)
+        let c = h.conversation
+        #expect(await h.chatReads() - reads0 == 1, "no re-read while the desktop can't serve history")
+        #expect(c.error == Self.refusalText && c.requiresResync && !c.isLoading && c.items == earlier)
         await h.stop()
     }
 
