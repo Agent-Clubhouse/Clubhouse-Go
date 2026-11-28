@@ -205,16 +205,32 @@
     "CompanionLifecycle": {
       "policy": "arc_only",
       "source": "Annex/Annex/Companion/Domain/CompanionLifecycle.swift",
-      "reason": "Bool, optional Sendable task handles and transition closure capturing only reviewed ARC-only LiveService in production. Resume/suspension handles own tasks, never UI. Background cancels resume on MainActor during update, not during empty deinit; task closures capture only transition and prior suspension by value.",
+      "reason": "Bool, optional Sendable task handles and transition closure capturing only reviewed ARC-only LiveService in production. Resume/suspension handles own tasks, never UI. Background cancels resume on MainActor during update, not during empty deinit; task closures capture only transition, prior suspension and that suspension's CompanionBackgroundLease by value. The optional background-task provider is, in production, the field-free CompanionUIKitBackgroundTasks struct (tests inject a fake); it owns no UI object, callback or teardown work, and the empty deinit ends no task.",
       "surface": {
         "bases": [],
         "nestedValueProperties": {},
         "properties": {
+          "backgroundTasks": "( any CompanionBackgroundTasking ) ?",
           "pending": "Task < Void , Never > ?",
           "resume": "Task < Void , Never > ?",
           "suspension": "Task < Void , Never > ?",
           "transition": "@ MainActor ( Bool ) async -> Void",
           "wantsActive": "Bool"
+        },
+        "storageMacros": []
+      }
+    },
+    "CompanionBackgroundLease": {
+      "policy": "arc_only",
+      "source": "Annex/Annex/Companion/Domain/CompanionBackgroundTasks.swift",
+      "reason": "One finite UIKit background task: Int? id, Bool ended flag and the background-task provider, in production the field-free CompanionUIKitBackgroundTasks struct. Ended exactly once on completion or by the expiration handler, both on MainActor; the handler retains the lease so expiry can end the task without its owner. No UI object, callback field or teardown work; the empty deinit ends nothing.",
+      "surface": {
+        "bases": [],
+        "nestedValueProperties": {},
+        "properties": {
+          "id": "Int ?",
+          "isEnded": "Bool",
+          "tasks": "any CompanionBackgroundTasking"
         },
         "storageMacros": []
       }
@@ -1045,7 +1061,7 @@
     "Annex/Annex/Companion/Views/CompanionAppRoot.swift": {
       "constructor:CompanionLifecycle": [
         {
-          "expression": "CompanionLifecycle { active in if active { await service . resume ( ) } else { await service . suspend ( ) } }",
+          "expression": "CompanionLifecycle ( backgroundTasks : CompanionUIKitBackgroundTasks ( ) ) { active in if active { await service . resume ( ) } else { await service . suspend ( ) } }",
           "producers": {
             "service": "CompanionLiveService ( )"
           }

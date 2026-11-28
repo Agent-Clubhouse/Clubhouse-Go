@@ -78,7 +78,7 @@ import ClubhouseTransport
         #endif
         let service = CompanionLiveService()
         self.service = service
-        self.lifecycle = CompanionLifecycle { active in
+        self.lifecycle = CompanionLifecycle(backgroundTasks: CompanionUIKitBackgroundTasks()) { active in
             if active { await service.resume() }
             else { await service.suspend() }
         }
@@ -365,7 +365,12 @@ struct CompanionAppRoot: View {
             }
             .task(id: "\(scenePhase)-\(diagnostics.revision)-\(diagnostics.mode)-\(diagnostics.remoteEnabled)-\(diagnostics.destination?.backendReference.uuidString ?? "none")") {
                 guard let session = await runtime.telemetryExporter.beginSession() else { return }
-                guard scenePhase == .active else { await runtime.telemetryExporter.endSession(session); return }
+                guard scenePhase == .active else {
+                    await CompanionBackgroundLease.during("companion.telemetry", on: scenePhase == .background ? CompanionUIKitBackgroundTasks() : nil) {
+                        await runtime.telemetryExporter.endSession(session)
+                    }
+                    return
+                }
                 while !Task.isCancelled {
                     await runtime.telemetryExporter.flush(configuration: diagnostics.destination,
                         enabled: diagnostics.remoteEnabled && diagnostics.mode != .off,
@@ -386,8 +391,13 @@ struct CompanionAppRoot: View {
             .task(id: scenePhase == .background) {
                 guard let feedback = runtime.feedback else { return }
                 // Synchronous lifecycle checkpointing belongs to CompanionTelemetry, before SDK flush.
-                await feedback.setActive(scenePhase != .background)
-                guard scenePhase != .background else { return }
+                guard scenePhase != .background else {
+                    await CompanionBackgroundLease.during("companion.feedback", on: CompanionUIKitBackgroundTasks()) {
+                        await feedback.setActive(false)
+                    }
+                    return
+                }
+                await feedback.setActive(true)
                 #if DEBUG
                 CompanionSceneTestSupport.feedbackPumpChanged?(true)
                 defer { CompanionSceneTestSupport.feedbackPumpChanged?(false) }

@@ -5,6 +5,9 @@ import ClubhouseTransport
 
 /// Inactive is transient (Control Center, permission sheets, foregrounding).
 /// Background pre-empts a pending resume. A new foreground still waits for suspension to finish.
+/// Each suspension runs inside its own finite background task, begun before `update` returns, so the
+/// desktop sockets close cleanly instead of being cut when iOS suspends the process. That task ends when
+/// the suspension finishes or when the system expires it, whichever comes first; nothing stays connected.
 @MainActor final class CompanionLifecycle {
     // ARC-only teardown; transition captures are reviewed in docs/isolated-deinit.md.
     nonisolated deinit {}
@@ -14,8 +17,10 @@ import ClubhouseTransport
     private var resume: Task<Void, Never>?
     private var suspension: Task<Void, Never>?
     private let transition: @MainActor (Bool) async -> Void
+    private let backgroundTasks: (any CompanionBackgroundTasking)?
 
-    init(transition: @escaping @MainActor (Bool) async -> Void) {
+    init(backgroundTasks: (any CompanionBackgroundTasking)? = nil, transition: @escaping @MainActor (Bool) async -> Void) {
+        self.backgroundTasks = backgroundTasks
         self.transition = transition
     }
 
@@ -33,7 +38,10 @@ import ClubhouseTransport
         if !active { resume?.cancel(); resume = nil }
         let previous = suspension
         let transition = transition
+        // Synchronously, before this phase change returns to the system. Only suspensions hold one.
+        let lease = active ? nil : backgroundTasks.map { CompanionBackgroundLease.begin("companion.suspend", on: $0) }
         pending = Task {
+            defer { lease?.end() }
             #if DEBUG
             AnnexTelemetry.shared.record(operation, event: .transitionWaiting)
             #endif
