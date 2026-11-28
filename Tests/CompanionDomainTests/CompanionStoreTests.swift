@@ -464,12 +464,16 @@ import Testing
         let service = TestCompanionService()
         let store = makeStore(service: service)
         var desktop = host(id: target.hostID)
-        desktop.connection = connection
+        // No read starts while the desktop is reconnecting, offline or failed; one begun while connecting
+        // may still see the desktop's connection drop to one of those before it returns.
+        let isDead = [CompanionConnection.reconnecting, .offline, .failed("Unavailable")].contains(connection)
+        desktop.connection = isDead ? .connecting : connection
         store.apply(.hosts([desktop, host(id: "host-b")]))
         let items: [CompanionTimelineItem] = [.notice(id: "loaded", text: "Authoritative history")]
         service.historyValue = .init(items: items, lastSequence: 7, sessionID: "current")
         // LiveService.history publishes its updated agent catalog before returning the read.
         desktop.projects[0].agents[0].name = "Updated by history"
+        desktop.connection = connection
         service.reportDuringHistory = { store.apply(.hosts([desktop, self.host(id: "host-b")])) }
         await store.load(target)
         let result = store.conversation(for: target)
@@ -480,16 +484,41 @@ import Testing
         #expect(!store.canOperate(target), "Successful history does not grant authority to an unavailable desktop")
     }
 
-    @Test(arguments: [CompanionConnection.connecting, .synchronizing, .reconnecting, .offline, .failed("Unavailable")])
-    func startupResyncKeepsHistoryThatBeganBeforeConnectionWasOperable(connection: CompanionConnection) async {
+    /// While the desktop is reconnecting, offline or failed, no history read is admitted: opening, loading or a forced
+    /// Refresh leaves the conversation not loaded and needing a resync, with no error.
+    @Test(arguments: [CompanionConnection.reconnecting, .offline, .failed("Unavailable")])
+    func noHistoryReadIsAdmittedWhileTheDesktopIsDead(connection: CompanionConnection) async {
         let service = TestCompanionService()
         let store = makeStore(service: service)
         var desktop = host(id: target.hostID)
         desktop.connection = connection
         store.apply(.hosts([desktop, host(id: "host-b")]))
+        await store.load(target)
+        await store.load(target, force: true)
+        await store.loadOnOpen(target)
+        let result = store.conversation(for: target)
+        #expect(service.historyCalls == 0)
+        #expect(!result.isLoading && !result.isLoaded && result.requiresResync && result.error == nil && result.items.isEmpty)
+    }
+
+    @Test(arguments: [CompanionConnection.connecting, .synchronizing, .reconnecting, .offline, .failed("Unavailable")])
+    func startupResyncKeepsHistoryThatBeganBeforeConnectionWasOperable(connection: CompanionConnection) async {
+        let service = TestCompanionService()
+        let store = makeStore(service: service)
+        var desktop = host(id: target.hostID)
+        // No read starts while the desktop is reconnecting, offline or failed; a startup read begun while
+        // connecting may still see the desktop report one of those before its resync.
+        let isDead = [CompanionConnection.reconnecting, .offline, .failed("Unavailable")].contains(connection)
+        desktop.connection = isDead ? .connecting : connection
+        store.apply(.hosts([desktop, host(id: "host-b")]))
         service.shouldSuspendHistory = true
         let initialRead = Task { await store.load(target) }
-        while service.historyGate == nil { await Task.yield() }
+        // Bounded, so a change in which reads are admitted fails here instead of hanging the run.
+        var spins = 0
+        while service.historyGate == nil, spins < 100_000 { spins += 1; await Task.yield() }
+        guard service.historyGate != nil else { Issue.record("The startup history read was never admitted"); return }
+        desktop.connection = connection
+        store.apply(.hosts([desktop, host(id: "host-b")]))
         store.apply(.resyncRequired(hostID: target.hostID))
         #expect(store.conversation(for: target).isLoading && store.conversation(for: target).requiresResync)
         desktop.connection = .connected

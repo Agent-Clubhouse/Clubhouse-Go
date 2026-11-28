@@ -383,7 +383,25 @@ import Observation
 
     func load(_ target: CompanionTarget, force: Bool = false) async {
         guard force || (!conversation(for: target).isLoaded && !conversation(for: target).isLoading) else { return }
+        guard !historyReadIsDeferred(target) else { return }
         await finishLoad(target, owner: beginLoad(target))
+    }
+
+    /// No history read while the desktop is reconnecting, offline or failed: with no live connection it could only wait
+    /// out the request timeout. Items, `isLoaded` and any error stay as they are. The conversation is left needing a resync,
+    /// so it never looks current, and the reconnect reloads it: the selection as soon as its desktop can serve history,
+    /// another open conversation once connected. A read already in flight keeps its ownership.
+    /// Connecting and synchronizing still read, as before, and so does a desktop whose connection is live but whose
+    /// catalog refresh failed (`catalogRefreshFailed`).
+    private func historyReadIsDeferred(_ target: CompanionTarget) -> Bool {
+        guard let host = host(for: target) else { return false }
+        switch host.connection {
+        case .reconnecting, .offline: break
+        case .failed where !host.catalogRefreshFailed: break
+        default: return false
+        }
+        if !conversation(for: target).isLoading { conversations[target, default: .init()].requiresResync = true }
+        return true
     }
 
     /// A conversation coming on screen. A load already in flight owns it, so opening never issues a second read.
