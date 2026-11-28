@@ -131,7 +131,10 @@ struct CompanionHost: Identifiable, Sendable, Equatable {
     var id: String
     var name: String
     var endpoint: String
-    var connection: CompanionConnection
+    var connection: CompanionConnection { didSet { catalogRefreshFailed = false } }
+    /// The `.failed` connection is only a failed catalog refresh: the desktop's connection is still live and can serve
+    /// chat history. Any later connection change clears it, so it never outlives the failure that set it.
+    var catalogRefreshFailed = false
     var projects: [CompanionProject]
     var canLinkProjects = false
     var projectLinks: AnnexProjectLinks?
