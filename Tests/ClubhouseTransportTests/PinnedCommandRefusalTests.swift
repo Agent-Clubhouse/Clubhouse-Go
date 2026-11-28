@@ -37,7 +37,7 @@ private final class PacedCommandBody: InputStream, @unchecked Sendable {
     let info = try JSONDecoder().decode(Info.self, from: line)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "127.0.0.1", port: info.port),
         verifiedHostID: "01:23:45:67:89:ab:cd:ef:01:23:45:67:89:ab:cd:ef", verifiedCertificatePin: AnnexCertificatePin(sha256: info.pin))
-    let client = try AnnexClientIdentity.ephemeral()
+    let client = try await ephemeralIdentity()
     let io = PinnedAnnexIO(host: host, clientIdentity: client, telemetry: AnnexTelemetry())
     func command(_ text: String) -> AnnexCommand { .init(commandID: "oversize", epoch: "client-epoch", kind: .send(agentID: "a", sessionID: "s", text: text)) }
     let body = try command(String(repeating: "a", count: 1_048_577 - command("").encoded().count)).encoded()

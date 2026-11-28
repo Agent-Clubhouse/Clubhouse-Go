@@ -16,7 +16,7 @@ import Foundation
     let host = try TrustedAnnexHost(endpoint: endpoint, verifiedHostID: hostID, verifiedCertificatePin: AnnexCertificatePin(sha256: fixture.pin))
     let observed = try await AnnexTrustProbe.inspect(endpoint: endpoint)
     #expect(observed == host.certificatePin)
-    let client = try AnnexClientIdentity.ephemeral()
+    let client = try await ephemeralIdentity()
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
     let io = PinnedAnnexIO(host: host, clientIdentity: client, maximumResponseBytes: 1024, telemetry: telemetry)
     var request = URLRequest(url: try endpoint.url(path: ["identity"]))

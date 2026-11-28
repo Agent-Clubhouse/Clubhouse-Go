@@ -36,13 +36,13 @@ private struct WSFixture {
     }
 }
 /// RSA key generation costs about a second; one throwaway client identity serves every test here.
-private let socketIdentity = Result { try AnnexClientIdentity.ephemeral() }
+private let socketIdentity = SharedEphemeralIdentity()
 private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self) }
 
 @Test(.timeLimit(.minutes(1))) func urlSessionOversizeErrorAndPeerCloseCodeOnLoopback() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let delegate = AnnexPinnedSessionDelegate(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let delegate = AnnexPinnedSessionDelegate(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     defer { session.invalidateAndCancel() }
     for kind in ["text", "binary"] {
@@ -92,7 +92,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 @Test(.timeLimit(.minutes(1))) func revokedPeerClose4401PreservesTheExplicitRemovalReason() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     _ = try await socket.receive()
     try await socket.send(Data("close:4401".utf8))
@@ -105,7 +105,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 @Test(.timeLimit(.minutes(1))) func serverOverrunClose1013UsesRecoverableURLSessionFailure() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     _ = try await socket.receive()
     try await socket.send(Data("close:1013".utf8))
@@ -125,7 +125,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 @Test(.timeLimit(.minutes(1))) func pinnedWebSocketCarriesTextBinaryAndPings() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let client = try socketIdentity.get()
+    let client = try await socketIdentity.get()
     // Exercise fast-ping accounting without changing the live IO clock or ping deadline.
     let telemetry = AnnexTelemetry(clock: { 0 }); telemetry.setEnabled(true)
     let io = PinnedAnnexIO(host: fixture.host, clientIdentity: client, telemetry: telemetry)
@@ -159,7 +159,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     defer { fixture.stop() }
     for kind in ["text", "binary"] {
         let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
-        let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), maximumResponseBytes: 1024, telemetry: telemetry)
+        let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), maximumResponseBytes: 1024, telemetry: telemetry)
         let socket = try await io.openWebSocket(fixture.webSocketRequest())
         _ = try await socket.receive()
         try await socket.send(Data("size:\(kind):1023".utf8))
@@ -177,7 +177,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 @Test(.timeLimit(.minutes(1))) func cancelledPingResolvesWithoutAPongAndClosesTheSocket() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     _ = try await socket.receive() // greeting
     try await socket.send(Data("mute".utf8))
@@ -196,7 +196,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     defer { fixture.stop() }
     let clock = AnnexManualClock()
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: telemetry, clock: clock.clock)
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: telemetry, clock: clock.clock)
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     _ = try await socket.receive() // greeting
     try await socket.send(Data("mute".utf8))
@@ -215,7 +215,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
 @Test(.timeLimit(.minutes(1))) func closedSocketStopsReceivingAndBadRequestsNeverOpen() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     _ = try await socket.receive()
     await socket.close()
@@ -233,7 +233,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: telemetry)
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: telemetry)
     let socket = try await io.openWebSocket(fixture.webSocketRequest())
     _ = try await socket.receive()
     let receive = Task { try await socket.receive() }
@@ -262,7 +262,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     await #expect(throws: (any Error).self) { _ = try await refused.receive() }
     let wrongHost = try TrustedAnnexHost(endpoint: fixture.host.endpoint, verifiedHostID: fixture.host.hostID,
                                          verifiedCertificatePin: AnnexCertificatePin(sha256: String(repeating: "00", count: 32)))
-    let wrongPin = PinnedAnnexIO(host: wrongHost, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let wrongPin = PinnedAnnexIO(host: wrongHost, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let untrusted = try await wrongPin.openWebSocket(fixture.webSocketRequest())
     await #expect(throws: (any Error).self) { _ = try await untrusted.receive() }
 }
@@ -271,7 +271,7 @@ private func text(_ data: Data) -> String { String(decoding: data, as: UTF8.self
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
     let telemetry = AnnexTelemetry(); telemetry.setEnabled(true)
-    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: telemetry)
+    let io = PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: telemetry)
     var request = URLRequest(url: try fixture.host.endpoint.url(path: ["trace"]))
     request.setValue("Bearer fake-only", forHTTPHeaderField: "Authorization")
     let response = try await io.perform(request)
@@ -336,7 +336,7 @@ private actor HeldReceiptIO: AnnexIO {
 func aHeldHTTPCommandReceiptTimesOutToOutcomeUnknownOnRealURLSession() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let io = HeldReceiptIO(pinned: PinnedAnnexIO(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry()), host: fixture.host)
+    let io = HeldReceiptIO(pinned: PinnedAnnexIO(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry()), host: fixture.host)
     let credentials = MemoryAnnexCredentialStore()
     await credentials.save(try AnnexCredential(bearerToken: "fake-only"), for: fixture.host.hostID)
     let transport = AnnexTransport(host: fixture.host, credentials: credentials, io: io, telemetry: AnnexTelemetry())
@@ -358,7 +358,7 @@ func aHeldHTTPCommandReceiptTimesOutToOutcomeUnknownOnRealURLSession() async thr
 @Test(.timeLimit(.minutes(2))) func actualLargeTerminalAndToolSizesHitTheProductionURLSessionLimit() async throws {
     let fixture = try await WSFixture.start()
     defer { fixture.stop() }
-    let delegate = AnnexPinnedSessionDelegate(host: fixture.host, clientIdentity: try socketIdentity.get(), telemetry: AnnexTelemetry())
+    let delegate = AnnexPinnedSessionDelegate(host: fixture.host, clientIdentity: try await socketIdentity.get(), telemetry: AnnexTelemetry())
     let session = URLSession(configuration: .ephemeral, delegate: delegate, delegateQueue: nil)
     defer { session.invalidateAndCancel() }
     for size in [1_247_805, 20 * 1024 * 1024, 26 * 1024 * 1024, 40 * 1024 * 1024, 66 * 1024 * 1024] {

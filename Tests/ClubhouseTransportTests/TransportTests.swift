@@ -84,8 +84,8 @@ private func testHost(_ host: String = "127.0.0.1") throws -> TrustedAnnexHost {
     #expect(await store.credential(for: "first") == nil)
 }
 
-@Test func ephemeralClientIdentityHasBoundCertificateAndNoPersistence() throws {
-    let identity = try AnnexClientIdentity.ephemeral()
+@Test func ephemeralClientIdentityHasBoundCertificateAndNoPersistence() async throws {
+    let identity = try await ephemeralIdentity()
     let cert = try #require(SecCertificateCreateWithData(nil, identity.certificateDER as CFData))
     var commonName: CFString?
     #expect(SecCertificateCopyCommonName(cert, &commonName) == errSecSuccess)
@@ -169,7 +169,7 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
 }
 
 @Test func pairingValidatesHostPublicKeyBeforeSaving() async throws {
-    let client = try AnnexClientIdentity.ephemeral()
+    let client = try await ephemeralIdentity()
     let server = AnnexPairingIdentity()
     let fingerprint = try AnnexPairingIdentity.fingerprint(publicKeyBase64: server.publicKeyBase64)
     let host = try TrustedAnnexHost(endpoint: AnnexEndpoint(host: "localhost", port: 4321), verifiedHostID: fingerprint,
@@ -202,7 +202,7 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
 }
 
 @Test func savedPairingRoundTripPreservesBothIdentitiesAndCredential() async throws {
-    let identity = try AnnexClientIdentity.ephemeral()
+    let identity = try await ephemeralIdentity()
     let record = try AnnexSavedPairing(host: testHost(), alias: "Fake desktop", identity: identity, credential: AnnexCredential(bearerToken: "test-only"))
     let restored = try AnnexSavedPairing.decode(record.encoded())
     #expect(restored.host == record.host)
@@ -221,9 +221,9 @@ private func configured(io: StubIO, capacity: Int = 256) async throws -> AnnexTr
     #expect(await registry.all().isEmpty)
 }
 
-@Test func mismatchedStoredCertificateAndPrivateKeyFailClosed() throws {
-    let first = try AnnexClientIdentity.ephemeral()
-    let second = try AnnexClientIdentity.ephemeral()
+@Test func mismatchedStoredCertificateAndPrivateKeyFailClosed() async throws {
+    let first = try await ephemeralIdentity()
+    let second = try await ephemeralIdentity()
     let one = try first.archive()
     let two = try second.archive()
     #expect(throws: AnnexTransportError.self) {

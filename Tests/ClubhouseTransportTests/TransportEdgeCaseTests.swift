@@ -71,7 +71,7 @@ private actor OneResponseIO: AnnexIO {
     func openWebSocket(_ request: URLRequest) throws -> any AnnexWebSocket { throw AnnexTransportError.disconnected }
 }
 /// RSA key generation costs about a second; one throwaway identity serves every pairing test here.
-private let edgeIdentity = Result { try AnnexClientIdentity.ephemeral() }
+private let edgeIdentity = SharedEphemeralIdentity()
 
 @Test func pairingRejectsProtocolModeAndCertificateMismatches() async throws {
     let server = AnnexPairingIdentity()
@@ -86,21 +86,21 @@ private let edgeIdentity = Result { try AnnexClientIdentity.ephemeral() }
     }
     for data in [try body(version: 2), try body(mode: "persistent"), try body(certificate: String(repeating: "cd", count: 32))] {
         let store = MemoryAnnexCredentialStore()
-        let client = try AnnexPairingClient(host: host, clientIdentity: edgeIdentity.get(), credentials: store, io: OneResponseIO(AnnexHTTPResponse(status: 200, data: data)))
+        let client = try await AnnexPairingClient(host: host, clientIdentity: edgeIdentity.get(), credentials: store, io: OneResponseIO(AnnexHTTPResponse(status: 200, data: data)))
         await #expect(throws: AnnexTransportError.identityMismatch) { try await client.pair(pin: "123456", alias: "Phone") }
         #expect(await store.credential(for: host.hostID) == nil)
     }
-    let malformed = try AnnexPairingClient(host: host, clientIdentity: edgeIdentity.get(), credentials: MemoryAnnexCredentialStore(),
+    let malformed = try await AnnexPairingClient(host: host, clientIdentity: edgeIdentity.get(), credentials: MemoryAnnexCredentialStore(),
                                            io: OneResponseIO(AnnexHTTPResponse(status: 200, data: Data("{}".utf8))))
     await #expect(throws: AnnexTransportError.malformedResponse) { try await malformed.pair(pin: "123456", alias: "Phone") }
     await #expect(throws: AnnexTransportError.malformedResponse) { try await malformed.pair(pin: "", alias: "Phone") }
-    let wrongPIN = try AnnexPairingClient(host: host, clientIdentity: edgeIdentity.get(), credentials: MemoryAnnexCredentialStore(),
+    let wrongPIN = try await AnnexPairingClient(host: host, clientIdentity: edgeIdentity.get(), credentials: MemoryAnnexCredentialStore(),
                                           io: OneResponseIO(AnnexHTTPResponse(status: 401, data: Data())))
     await #expect(throws: AnnexTransportError.unauthorized) { try await wrongPIN.pair(pin: "000000", alias: "Phone") }
 }
 
-@Test func clientIdentityNeverPrintsKeyMaterial() throws {
-    let identity = try edgeIdentity.get()
+@Test func clientIdentityNeverPrintsKeyMaterial() async throws {
+    let identity = try await edgeIdentity.get()
     #expect(String(describing: identity) == "AnnexClientIdentity(<redacted>)")
     #expect(String(reflecting: identity) == "AnnexClientIdentity(<redacted>)")
 }

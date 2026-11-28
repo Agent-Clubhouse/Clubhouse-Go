@@ -60,7 +60,7 @@ private actor ProbeLog {
 
 @Test func relocatingASavedPairingKeepsItsTrustAndPersistsTheNewAddress() async throws {
     let host = try remembered()
-    let identity = try AnnexClientIdentity.ephemeral()
+    let identity = try await ephemeralIdentity()
     let credential = try AnnexCredential(bearerToken: "fake-only")
     let pairings = MemoryAnnexPairingStore()
     await pairings.save(AnnexSavedPairing(host: host, alias: "Mac", identity: identity, credential: credential))
@@ -131,9 +131,9 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
     #expect(clock.now - start < .seconds(20), "All probes failed, so it must not wait for the 30 s timeout")
 }
 
-@Test func pairingsSavedBeforeRoutesStillLoad() throws {
+@Test func pairingsSavedBeforeRoutesStillLoad() async throws {
     let record = AnnexSavedPairing(host: try remembered(), alias: "Mac", routes: [try tailnet()],
-                                   identity: try AnnexClientIdentity.ephemeral(), credential: try AnnexCredential(bearerToken: "fake-only"))
+                                   identity: try await ephemeralIdentity(), credential: try AnnexCredential(bearerToken: "fake-only"))
     #expect(try AnnexSavedPairing.decode(record.encoded()).routes.map(\.host) == ["100.81.200.13"])
     var archive = try #require(try JSONSerialization.jsonObject(with: record.encoded()) as? [String: Any])
     archive.removeValue(forKey: "routes")
@@ -144,7 +144,7 @@ private func tailnet() throws -> AnnexEndpoint { try .advertised(host: "100.81.2
 
 @Test func registryRemembersLearnsAndKeepsRoutesAcrossMoves() async throws {
     let host = try remembered("192.168.1.26")
-    let identity = try AnnexClientIdentity.ephemeral()
+    let identity = try await ephemeralIdentity()
     let credential = try AnnexCredential(bearerToken: "fake-only")
     let pairings = MemoryAnnexPairingStore()
     // Paired over nearby: only the home address is known at first.
